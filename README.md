@@ -44,6 +44,13 @@ Place the kanban in the folder in which you are listing the tasks that you want 
 
 Alternatively, if you would prefer for every task within your entire Obsidian to appear in the kanban, choose 'Every folder' in the Folder scope kanban settings. This is found in the settings menu in the top right of the kanban.
 
+**Ignore paths (regex)**
+You can exclude files/folders from the kanban by providing a regular expression in Settings → Ignore paths (regex). Any file path that matches the regex will be ignored. Examples:
+
+- `^Templates/` — ignore anything under the `Templates` folder at the vault root
+- `/Archive/` — ignore any path segment named `Archive`
+- `^(Templates/|Daily Notes/)` — ignore multiple folders
+
 
 ### Adding a task to your kanban
 

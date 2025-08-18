@@ -52,6 +52,29 @@ export class SettingsModal extends Modal {
 			});
 
 		new Setting(this.contentEl)
+			.setName("Ignore paths (regex)")
+			.setDesc(
+				"Exclude files whose path matches this regular expression. Example: (^Templates/|/Archive/)"
+			)
+			.addText((text) => {
+				text.setPlaceholder("e.g. (^Templates/|/Archive/)");
+				text.setValue(this.settings.ignorePathsRegex ?? "");
+				text.onChange((value) => {
+					try {
+						// Validate regex
+						// eslint-disable-next-line no-new
+						new RegExp(value);
+						text.inputEl.style.borderColor = "";
+						text.inputEl.title = "Valid regular expression";
+						this.settings.ignorePathsRegex = value;
+					} catch (e) {
+						text.inputEl.style.borderColor = "var(--text-error)";
+						text.inputEl.title = "Invalid regular expression";
+					}
+				});
+			});
+
+		new Setting(this.contentEl)
 			.setName("Show filepath")
 			.setDesc("Show the filepath on each task in Kanban?")
 			.addToggle((toggle) => {
