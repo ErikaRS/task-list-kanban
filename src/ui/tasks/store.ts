@@ -45,7 +45,23 @@ export function createTasksStore(
 
 	function shouldHandle(file: TFile): boolean {
 		const filenameFilter = getFilenameFilter()?.replace(/^\//, "");
-		return !filenameFilter || file.path.startsWith(filenameFilter);
+		if (filenameFilter && !file.path.startsWith(filenameFilter)) {
+			return false;
+		}
+
+		const settings = get(settingsStore);
+		const ignoreRegexString = settings.ignorePathsRegex ?? "";
+		if (ignoreRegexString.trim().length === 0) {
+			return true;
+		}
+
+		try {
+			const ignoreRegex = new RegExp(ignoreRegexString);
+			return !ignoreRegex.test(file.path);
+		} catch (_e) {
+			// If regex is invalid, ignore the setting
+			return true;
+		}
 	}
 
 	function initialise() {

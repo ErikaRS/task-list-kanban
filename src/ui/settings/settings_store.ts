@@ -18,6 +18,7 @@ const settingsObject = z.object({
 	scope: z.nativeEnum(ScopeOption).default(ScopeOption.Folder),
 	showFilepath: z.boolean().default(true).optional(),
 	consolidateTags: z.boolean().default(false).optional(),
+	ignorePathsRegex: z.string().default("").optional(),
 	uncategorizedVisibility: z
 		.nativeEnum(VisibilityOption)
 		.default(VisibilityOption.Auto)
@@ -36,6 +37,7 @@ export const defaultSettings: SettingValues = {
 	scope: ScopeOption.Folder,
 	showFilepath: true,
 	consolidateTags: false,
+	ignorePathsRegex: "",
 	uncategorizedVisibility: VisibilityOption.Auto,
 	doneVisibility: VisibilityOption.AlwaysShow,
 	doneStatusMarkers: DEFAULT_DONE_STATUS_MARKERS,
