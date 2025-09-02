@@ -11,6 +11,7 @@ import {
 } from "../task";
 import { type ColumnTag, type ColumnTagTable } from "src/ui/columns/columns";
 import { kebab } from "src/parsing/kebab/kebab";
+import { processWikilinksForHTML, isInternalLink, cleanLinkText } from "../../components/wikilink-processor";
 
 describe("Task", () => {
 	const columnTags: ColumnTagTable = {
@@ -723,6 +724,181 @@ describe("Task archiving", () => {
 			expect(task?.done).toBe(true);
 			expect(task?.column).toBe("archived");
 			expect(task?.serialise()).toBe("- [x] Unknown status task #archived");
+		});
+	});
+});
+
+describe("Link Processing", () => {
+	describe("wikilink to HTML conversion", () => {
+		it("converts simple wikilinks to HTML anchor tags", () => {
+			const input = "Check out [[My Note]] for details";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('<a href="My%20Note" data-wikilink="My Note" class="internal-link">My Note</a>');
+		});
+
+		it("converts wikilinks with display text", () => {
+			const input = "See [[Note Name|Custom Display]] here";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('<a href="Note%20Name" data-wikilink="Note Name" class="internal-link">Custom Display</a>');
+		});
+
+		it("handles multiple wikilinks in the same content", () => {
+			const input = "Links: [[First Note]] and [[Second Note|Second]]";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('<a href="First%20Note" data-wikilink="First Note" class="internal-link">First Note</a>');
+			expect(result).toContain('<a href="Second%20Note" data-wikilink="Second Note" class="internal-link">Second</a>');
+		});
+
+		it("properly encodes special characters in href", () => {
+			const input = "Reference [[My Note & Other]] please";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('<a href="My%20Note%20%26%20Other" data-wikilink="My Note & Other" class="internal-link">My Note & Other</a>');
+		});
+
+		it("preserves original link text in data-wikilink attribute", () => {
+			const input = "Check [[Note-with_special.chars]] out";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('data-wikilink="Note-with_special.chars"');
+		});
+
+		it("leaves regular markdown links unchanged", () => {
+			const input = "Regular link [Google](https://google.com) here";
+			const result = processWikilinksForHTML(input);
+			expect(result).toBe("Regular link [Google](https://google.com) here");
+		});
+
+		it("handles mixed wikilinks and markdown links", () => {
+			const input = "Wikilink [[Note]] and regular [Link](http://example.com)";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('<a href="Note" data-wikilink="Note" class="internal-link">Note</a>');
+			expect(result).toContain('[Link](http://example.com)');
+		});
+
+		it("handles edge case with pipe character in display text", () => {
+			const input = "Complex [[Note Name|Display|With|Pipes]] text";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('<a href="Note%20Name" data-wikilink="Note Name" class="internal-link">Display|With|Pipes</a>');
+		});
+
+		it("handles empty wikilinks gracefully", () => {
+			const input = "Empty [[]] wikilink";
+			const result = processWikilinksForHTML(input);
+			expect(result).toContain('data-wikilink=""');
+		});
+
+		it("preserves content without wikilinks", () => {
+			const input = "Just regular text with [brackets] but no wikilinks";
+			const result = processWikilinksForHTML(input);
+			expect(result).toBe("Just regular text with [brackets] but no wikilinks");
+		});
+	});
+
+	describe("link content in tasks", () => {
+		const columnTags: ColumnTagTable = {
+			[kebab<ColumnTag>("column")]: "column",
+		};
+
+		it("parses task with wikilink correctly", () => {
+			let task: Task | undefined;
+			const taskString = "- [ ] Review [[My Document]] #todo";
+			if (isTrackedTaskString(taskString)) {
+				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			}
+
+			expect(task).toBeTruthy();
+			expect(task?.content).toBe("Review [[My Document]] #todo");
+			expect(task?.tags.has("todo")).toBeTruthy();
+		});
+
+		it("parses task with markdown link correctly", () => {
+			let task: Task | undefined;
+			const taskString = "- [ ] Check [Google](https://google.com) #todo";
+			if (isTrackedTaskString(taskString)) {
+				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			}
+
+			expect(task).toBeTruthy();
+			expect(task?.content).toBe("Check [Google](https://google.com) #todo");
+			expect(task?.tags.has("todo")).toBeTruthy();
+		});
+
+		it("parses task with internal markdown link correctly", () => {
+			let task: Task | undefined;
+			const taskString = "- [ ] Review [My Note](My%20Note.md) #todo";
+			if (isTrackedTaskString(taskString)) {
+				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			}
+
+			expect(task).toBeTruthy();
+			expect(task?.content).toBe("Review [My Note](My%20Note.md) #todo");
+			expect(task?.tags.has("todo")).toBeTruthy();
+		});
+
+		it("serializes task with links correctly", () => {
+			let task: Task | undefined;
+			const taskString = "- [ ] Review [[My Document]] and [External](https://example.com) #todo";
+			if (isTrackedTaskString(taskString)) {
+				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			}
+
+			const output = task?.serialise();
+			expect(output).toBe(taskString);
+		});
+
+		it("handles task with multiple types of links", () => {
+			let task: Task | undefined;
+			const taskString = "- [ ] Check [[Internal Note|Display]] and [External](http://example.com) #todo";
+			if (isTrackedTaskString(taskString)) {
+				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			}
+
+			expect(task).toBeTruthy();
+			expect(task?.content).toBe("Check [[Internal Note|Display]] and [External](http://example.com) #todo");
+			expect(task?.tags.has("todo")).toBeTruthy();
+		});
+
+		it("wikilink processing works with markdown conversion", () => {
+			// This test shows the full flow: task content -> HTML processing -> final HTML
+			const taskContent = "Review [[My Document|Doc]] and check [External](https://example.com)";
+			const processedContent = processWikilinksForHTML(taskContent);
+			
+			// Should convert wikilink but leave markdown link alone for Showdown to process
+			expect(processedContent).toContain('<a href="My%20Document" data-wikilink="My Document" class="internal-link">Doc</a>');
+			expect(processedContent).toContain('[External](https://example.com)');
+		});
+	});
+
+	describe("link type detection and processing", () => {
+
+		it("correctly identifies internal links", () => {
+			expect(isInternalLink("My Note")).toBe(true);
+			expect(isInternalLink("My Note.md")).toBe(true);
+			expect(isInternalLink("./My Note")).toBe(true);
+			expect(isInternalLink("folder/My Note")).toBe(true);
+			expect(isInternalLink("My%20Note%20With%20Spaces")).toBe(true);
+		});
+
+		it("correctly identifies external links", () => {
+			expect(isInternalLink("https://google.com")).toBe(false);
+			expect(isInternalLink("http://example.com")).toBe(false);
+			expect(isInternalLink("mailto:user@example.com")).toBe(false);
+			expect(isInternalLink("ftp://files.example.com")).toBe(false);
+			expect(isInternalLink("tel:+1234567890")).toBe(false);
+		});
+
+		it("correctly cleans link text for internal links", () => {
+			expect(cleanLinkText("My Note.md")).toBe("My Note");
+			expect(cleanLinkText("./My Note")).toBe("My Note");
+			expect(cleanLinkText("My%20Note%20With%20Spaces")).toBe("My Note With Spaces");
+			expect(cleanLinkText("folder/subfolder/Note.md")).toBe("folder/subfolder/Note");
+			expect(cleanLinkText("Note")).toBe("Note");
+		});
+
+		it("handles edge cases in link cleaning", () => {
+			expect(cleanLinkText("")).toBe("");
+			expect(cleanLinkText(".md")).toBe("");
+			expect(cleanLinkText("./")).toBe("");
+			expect(cleanLinkText("%20")).toBe(" ");
 		});
 	});
 });

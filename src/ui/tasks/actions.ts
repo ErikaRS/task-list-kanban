@@ -4,6 +4,7 @@ import {
 	TFile,
 	type Vault,
 	type Workspace,
+	type App,
 } from "obsidian";
 import type { Task } from "./task";
 import type { Metadata } from "./tasks";
@@ -17,6 +18,7 @@ export type TaskActions = {
 	archiveTasks: (ids: string[]) => Promise<void>;
 	deleteTask: (ids: string) => Promise<void>;
 	addNew: (column: ColumnTag, e: MouseEvent) => Promise<void>;
+	app: App;
 };
 
 export function createTaskActions({
@@ -24,11 +26,13 @@ export function createTaskActions({
 	metadataByTaskId,
 	vault,
 	workspace,
+	app,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
 	vault: Vault;
 	workspace: Workspace;
+	app: App;
 }): TaskActions {
 	async function updateRowWithTask(
 		id: string,
@@ -162,6 +166,8 @@ export function createTaskActions({
 
 			createMenu(folder, undefined);
 		},
+
+		app,
 	};
 }
 

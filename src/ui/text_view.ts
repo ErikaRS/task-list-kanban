@@ -65,6 +65,7 @@ export class KanbanView extends TextFileView {
 		const { tasksStore, taskActions, initialise } = createTasksStore(
 			this.app.vault,
 			this.app.workspace,
+			this.app,
 			this.registerEvent.bind(this),
 			this.columnTagTableStore,
 			() => this.filenameFilter,
