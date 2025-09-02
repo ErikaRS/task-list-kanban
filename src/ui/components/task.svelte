@@ -6,6 +6,7 @@
 	import TaskMenu from "./task_menu.svelte";
 	import { Converter } from "showdown";
 	import type { Readable } from "svelte/store";
+	import { processWikilinksForHTML, isInternalLink, cleanLinkText } from "./wikilink-processor";
 
 	export let task: Task;
 	export let taskActions: TaskActions;
@@ -77,8 +78,87 @@
 		}, 100);
 	}
 
+	function handleLinkClick(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (target?.tagName.toLowerCase() === "a") {
+			e.preventDefault();
+			e.stopPropagation();
+			
+			// Check if it's a wikilink first
+			const wikilinkTarget = target.getAttribute("data-wikilink");
+			if (wikilinkTarget) {
+				// Handle Obsidian wikilink
+				if (taskActions.app?.workspace) {
+					taskActions.app.workspace.openLinkText(wikilinkTarget, "", 'tab');
+				}
+				return;
+			}
+			
+			const href = target.getAttribute("href");
+			if (!href) return;
+			
+			// Check if it's an internal markdown link (doesn't start with http/https/mailto/etc)
+			if (isInternalLink(href)) {
+				// Handle internal Obsidian link
+				if (taskActions.app?.workspace) {
+					// Clean up the link text - remove .md extension and decode URI
+					const linkText = cleanLinkText(href);
+					
+					// Try to open as internal link with 'tab' option for new tab
+					taskActions.app.workspace.openLinkText(linkText, "", 'tab');
+				}
+			} else {
+				// Handle external link - open in browser
+				window.open(href, "_blank");
+			}
+		}
+	}
+
+	function handleLinkHover(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		if (target?.tagName.toLowerCase() === "a") {
+			// Check if it's a wikilink first
+			const wikilinkTarget = target.getAttribute("data-wikilink");
+			if (wikilinkTarget) {
+				// Handle Obsidian wikilink hover
+				if (taskActions.app?.workspace?.trigger) {
+					taskActions.app.workspace.trigger("hover-link", {
+						event: e,
+						source: "task-kanban",
+						hoverParent: target.closest(".content-preview"),
+						targetEl: target,
+						linktext: wikilinkTarget,
+						sourcePath: ""
+					});
+				}
+				return;
+			}
+			
+			const href = target.getAttribute("href");
+			if (!href) return;
+			
+			// Only handle internal markdown links for hover preview
+			if (isInternalLink(href)) {
+				if (taskActions.app?.workspace?.trigger) {
+					// Clean up the link text - remove .md extension and decode URI
+					const linkText = cleanLinkText(href);
+					
+					// Trigger hover preview for internal links
+					taskActions.app.workspace.trigger("hover-link", {
+						event: e,
+						source: "task-kanban",
+						hoverParent: target.closest(".content-preview"),
+						targetEl: target,
+						linktext: linkText,
+						sourcePath: ""
+					});
+				}
+			}
+		}
+	}
+
 	$: mdContent = mdConverted.makeHtml(
-		task.content + (task.blockLink ? ` ^${task.blockLink}` : ""),
+		processWikilinksForHTML(task.content) + (task.blockLink ? ` ^${task.blockLink}` : ""),
 	);
 
 	$: {
@@ -121,6 +201,8 @@
 					class="content-preview"
 					on:mouseup={handleFocus}
 					on:keypress={handleOpenKeypress}
+					on:click={handleLinkClick}
+					on:mouseover={handleLinkHover}
 					tabindex="0"
 				>
 					{@html mdContent}

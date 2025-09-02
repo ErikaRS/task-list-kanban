@@ -1,4 +1,4 @@
-import { TFile, Vault, type EventRef, Workspace } from "obsidian";
+import { TFile, Vault, type EventRef, Workspace, type App } from "obsidian";
 import { updateMapsFromFile, type Metadata } from "./tasks";
 import { Task, DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS } from "./task";
 import { get, writable, type Readable, type Writable } from "svelte/store";
@@ -9,6 +9,7 @@ import type { SettingValues } from "../settings/settings_store";
 export function createTasksStore(
 	vault: Vault,
 	workspace: Workspace,
+	app: App,
 	registerEvent: (eventRef: EventRef) => void,
 	columnTagTableStore: Readable<ColumnTagTable>,
 	getFilenameFilter: () => string | null,
@@ -155,6 +156,7 @@ export function createTasksStore(
 		metadataByTaskId,
 		vault,
 		workspace,
+		app,
 	});
 
 	return { tasksStore, taskActions, initialise };
