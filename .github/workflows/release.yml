@@ -23,7 +23,6 @@ jobs:
 
       - name: Install deps & build
         run: |
-          set -euo pipefail
           npm ci
           npm run build
           # Normalize common output locations to repo root
@@ -32,46 +31,27 @@ jobs:
 
       - name: Verify required files
         run: |
-          set -euo pipefail
           test -f manifest.json || (echo "manifest.json missing" && exit 1)
           test -f main.js || (echo "main.js missing (build did not produce it)" && exit 1)
 
       - name: Package release assets
         id: package
         run: |
-          set -euo pipefail
-          rm -rf release
           mkdir -p release
           cp manifest.json release/
           cp main.js release/
-
-          asset_list=$'release/manifest.json\nrelease/main.js'
-          styles_present=0
-          if [ -f styles.css ]; then
-            cp styles.css release/
-            asset_list="$asset_list"$'\nrelease/styles.css'
-            styles_present=1
-          fi
-
+          if [ -f styles.css ]; then cp styles.css release/; fi
           cd release
-          if [ "$styles_present" -eq 1 ]; then
-            zip -r "${GITHUB_REPOSITORY#*/}.zip" manifest.json main.js styles.css
-          else
-            zip -r "${GITHUB_REPOSITORY#*/}.zip" manifest.json main.js
-          fi
-          cd ..
-
-          asset_list="$asset_list"$'\nrelease/'"${GITHUB_REPOSITORY#*/}.zip"
-          {
-            echo 'asset_list<<EOF'
-            echo "$asset_list"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+          # zip must contain files at top-level (no extra folder)
+          zip -r "../${GITHUB_REPOSITORY#*/}.zip" .
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.package.outputs.asset_list }}
-          fail_on_unmatched_files: true
+          files: |
+            release/manifest.json
+            release/main.js
+            release/styles.css
+            ${{ github.event.repository.name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
