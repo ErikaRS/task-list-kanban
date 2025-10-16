@@ -40,7 +40,7 @@ jobs:
           cp main.js release/
           if [ -f styles.css ]; then cp styles.css release/; fi
           cd release
-          zip -r "../${GITHUB_REPOSITORY#*/}.zip" .
+          zip -r "${GITHUB_REPOSITORY#*/}.zip" .
 
       - name: Collect release files
         id: release_files
