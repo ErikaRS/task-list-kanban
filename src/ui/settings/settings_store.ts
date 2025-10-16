@@ -14,15 +14,16 @@ export enum ScopeOption {
 }
 
 const settingsObject = z.object({
-	columns: z.array(z.string()),
-	scope: z.nativeEnum(ScopeOption).default(ScopeOption.Folder),
-	showFilepath: z.boolean().default(true).optional(),
-	consolidateTags: z.boolean().default(false).optional(),
-	uncategorizedVisibility: z
-		.nativeEnum(VisibilityOption)
-		.default(VisibilityOption.Auto)
-		.optional(),
-	doneVisibility: z
+        columns: z.array(z.string()),
+        scope: z.nativeEnum(ScopeOption).default(ScopeOption.Folder),
+        showFilepath: z.boolean().default(true).optional(),
+        consolidateTags: z.boolean().default(false).optional(),
+        excludeFolders: z.array(z.string()).default([]).optional(),
+        uncategorizedVisibility: z
+                .nativeEnum(VisibilityOption)
+                .default(VisibilityOption.Auto)
+                .optional(),
+        doneVisibility: z
 		.nativeEnum(VisibilityOption)
 		.default(VisibilityOption.AlwaysShow)
 		.optional(),
@@ -33,14 +34,15 @@ const settingsObject = z.object({
 export type SettingValues = z.infer<typeof settingsObject>;
 
 export const defaultSettings: SettingValues = {
-	columns: ["Later", "Soonish", "Next week", "This week", "Today", "Pending"],
-	scope: ScopeOption.Folder,
-	showFilepath: true,
-	consolidateTags: false,
-	uncategorizedVisibility: VisibilityOption.Auto,
-	doneVisibility: VisibilityOption.AlwaysShow,
-	doneStatusMarkers: DEFAULT_DONE_STATUS_MARKERS,
-	ignoredStatusMarkers: DEFAULT_IGNORED_STATUS_MARKERS,
+        columns: ["Later", "Soonish", "Next week", "This week", "Today", "Pending"],
+        scope: ScopeOption.Folder,
+        showFilepath: true,
+        consolidateTags: false,
+        excludeFolders: [],
+        uncategorizedVisibility: VisibilityOption.Auto,
+        doneVisibility: VisibilityOption.AlwaysShow,
+        doneStatusMarkers: DEFAULT_DONE_STATUS_MARKERS,
+        ignoredStatusMarkers: DEFAULT_IGNORED_STATUS_MARKERS,
 };
 
 export const createSettingsStore = () =>
