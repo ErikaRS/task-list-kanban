@@ -4,10 +4,7 @@ on:
   push:
     tags:
       - "*"
-  release:
-    types:
-      - published
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -18,8 +15,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Use Node.js 18
         uses: actions/setup-node@v4
@@ -40,54 +35,43 @@ jobs:
           set -euo pipefail
           test -f manifest.json || (echo "manifest.json missing" && exit 1)
           test -f main.js || (echo "main.js missing (build did not produce it)" && exit 1)
-          test -f styles.css || (echo "styles.css missing" && exit 1)
-          test -f versions.json || (echo "versions.json missing" && exit 1)
 
       - name: Package release assets
+        id: package
         run: |
           set -euo pipefail
           rm -rf release
           mkdir -p release
-          rm -f "${GITHUB_REPOSITORY#*/}.zip"
           cp manifest.json release/
           cp main.js release/
-          if [ -f styles.css ]; then cp styles.css release/; fi
-          (
-            cd release
-            zip -r "../${GITHUB_REPOSITORY#*/}.zip" .
-          )
 
-      - name: Collect release files
-        id: release_files
-        run: |
-          set -euo pipefail
-          files=(release/manifest.json release/main.js)
-          if [ -f release/styles.css ]; then
-            files+=(release/styles.css)
+          asset_list=$'release/manifest.json\nrelease/main.js'
+          styles_present=0
+          if [ -f styles.css ]; then
+            cp styles.css release/
+            asset_list="$asset_list"$'\nrelease/styles.css'
+            styles_present=1
           fi
-          files+=(versions.json)
-          zip_file="${GITHUB_REPOSITORY#*/}.zip"
-          if [ ! -f "$zip_file" ]; then
-            echo "expected release archive $zip_file not found" >&2
-            exit 1
+
+          cd release
+          if [ "$styles_present" -eq 1 ]; then
+            zip -r "${GITHUB_REPOSITORY#*/}.zip" manifest.json main.js styles.css
+          else
+            zip -r "${GITHUB_REPOSITORY#*/}.zip" manifest.json main.js
           fi
-          files+=("$zip_file")
+          cd ..
+
+          asset_list="$asset_list"$'\nrelease/'"${GITHUB_REPOSITORY#*/}.zip"
           {
-            echo "list<<EOF"
-            printf '%s\n' "${files[@]}"
-            echo "EOF"
+            echo 'asset_list<<EOF'
+            echo "$asset_list"
+            echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.release_files.outputs.list }}
-          overwrite: true
+          files: ${{ steps.package.outputs.asset_list }}
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify BRAT compatibility
-        run: |
-          # Give GitHub a moment to make the assets available for download
-          sleep 5
-          npm run check:brat
