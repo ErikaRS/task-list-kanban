@@ -1,32 +1,82 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal, Setting, normalizePath, TFolder } from "obsidian";
 import type { SettingValues } from "./settings_store";
 import {
-	VisibilityOption,
-	ScopeOption,
-	defaultSettings,
+        VisibilityOption,
+        ScopeOption,
+        defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
-import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
+import {
+        DEFAULT_DONE_STATUS_MARKERS,
+        DEFAULT_IGNORED_STATUS_MARKERS,
+        validateDoneStatusMarkers,
+        validateIgnoredStatusMarkers,
+} from "../tasks/task";
+import { FolderSuggest } from "./folder_suggest";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
 
 export class SettingsModal extends Modal {
-	constructor(
-		app: App,
-		private settings: SettingValues,
-		private readonly onSubmit: (newSettings: SettingValues) => void
-	) {
-		super(app);
-	}
+        constructor(
+                app: App,
+                private settings: SettingValues,
+                private readonly onSubmit: (newSettings: SettingValues) => void
+        ) {
+                super(app);
+        }
 
-	onOpen() {
-		this.contentEl.createEl("h1", { text: "Settings" });
+        private safeNormalize(path: string): string {
+                try {
+                        return normalizePath(path);
+                } catch {
+                        return path;
+                }
+        }
 
-		new Setting(this.contentEl)
-			.setName("Columns")
-			.setDesc('The column names separated by a comma ","')
-			.setClass("column")
+        private pruneMissingExcludedFolders() {
+                const current = this.settings.excludeFolders ?? [];
+                const foldersInVault = new Set(
+                        this.app.vault
+                                .getAllLoadedFiles()
+                                .filter((file): file is TFolder => file instanceof TFolder)
+                                .map((folder) => this.safeNormalize(folder.path))
+                );
+
+                const filtered: string[] = [];
+                for (const path of current) {
+                        const normalized = this.safeNormalize(path);
+                        if (foldersInVault.has(normalized) && !filtered.includes(normalized)) {
+                                filtered.push(normalized);
+                        }
+                }
+
+                const changed =
+                        filtered.length !== current.length ||
+                        filtered.some((value, index) => value !== current[index]);
+
+                if (changed) {
+                        this.settings.excludeFolders = filtered;
+                        this.emitImmediateSettingsUpdate();
+                } else {
+                        this.settings.excludeFolders = filtered;
+                }
+        }
+
+        private emitImmediateSettingsUpdate() {
+                const clone = JSON.parse(JSON.stringify(this.settings)) as SettingValues;
+                this.onSubmit(clone);
+        }
+
+        onOpen() {
+                this.contentEl.createEl("h1", { text: "Settings" });
+
+                this.pruneMissingExcludedFolders();
+
+                new Setting(this.contentEl)
+                        .setName("Columns")
+                        .setDesc('The column names separated by a comma ","')
+                        .setClass("column")
 			.addText((text) => {
 				text.setValue(this.settings.columns.join(", "));
 				text.onChange((value) => {
@@ -47,15 +97,81 @@ export class SettingsModal extends Modal {
 					const validatedValue = ScopeOptionSchema.safeParse(value);
 					this.settings.scope = validatedValue.success
 						? validatedValue.data
-						: defaultSettings.scope;
-				});
-			});
+                                                : defaultSettings.scope;
+                                });
+                        });
 
-		new Setting(this.contentEl)
-			.setName("Show filepath")
-			.setDesc("Show the filepath on each task in Kanban?")
-			.addToggle((toggle) => {
-				toggle.setValue(this.settings.showFilepath ?? true);
+                const excludedFoldersSetting = new Setting(this.contentEl)
+                        .setName("Excluded folders")
+                        .setDesc(
+                                "When set to Entire Vault (or a parent folder), files in these folders will be ignored."
+                        );
+
+                const excludedFoldersContainer = excludedFoldersSetting.controlEl.createDiv({
+                        cls: "tasklist-kanban-excluded-folders",
+                });
+
+                const renderExcludedFolders = () => {
+                        const folders = this.settings.excludeFolders ?? [];
+                        excludedFoldersContainer.empty();
+
+                        if (folders.length === 0) {
+                                excludedFoldersContainer.createDiv({
+                                        text: "No excluded folders",
+                                        cls: "setting-item-description",
+                                });
+                                return;
+                        }
+
+                        for (const path of folders) {
+                                const chip = excludedFoldersContainer.createDiv({
+                                        cls: "tasklist-kanban-excluded-chip",
+                                });
+                                chip.createSpan({ text: path });
+                                const removeButton = chip.createEl("button", {
+                                        text: "×",
+                                        cls: "tasklist-kanban-excluded-chip-remove",
+                                        attr: { "aria-label": `Remove ${path} from excluded folders` },
+                                });
+                                removeButton.addEventListener("click", () => {
+                                        const currentFolders = this.settings.excludeFolders ?? [];
+                                        if (!currentFolders.includes(path)) {
+                                                return;
+                                        }
+                                        this.settings.excludeFolders = currentFolders.filter(
+                                                (folderPath) => folderPath !== path
+                                        );
+                                        renderExcludedFolders();
+                                        this.emitImmediateSettingsUpdate();
+                                });
+                        }
+                };
+
+                excludedFoldersSetting.addButton((btn) => {
+                        btn.setButtonText("Add folder");
+                        btn.onClick(() => {
+                                const modal = new FolderSuggest(this.app, (folder) => {
+                                        const path = this.safeNormalize(folder.path);
+                                        const currentFolders = this.settings.excludeFolders ?? [];
+                                        if (currentFolders.includes(path)) {
+                                                return;
+                                        }
+
+                                        this.settings.excludeFolders = [...currentFolders, path];
+                                        renderExcludedFolders();
+                                        this.emitImmediateSettingsUpdate();
+                                });
+                                modal.open();
+                        });
+                });
+
+                renderExcludedFolders();
+
+                new Setting(this.contentEl)
+                        .setName("Show filepath")
+                        .setDesc("Show the filepath on each task in Kanban?")
+                        .addToggle((toggle) => {
+                                toggle.setValue(this.settings.showFilepath ?? true);
 				toggle.onChange((value) => {
 					this.settings.showFilepath = value;
 				});
