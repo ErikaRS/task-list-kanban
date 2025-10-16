@@ -40,20 +40,36 @@ jobs:
           cp main.js release/
           if [ -f styles.css ]; then cp styles.css release/; fi
           cd release
-          zip -r "../${GITHUB_REPOSITORY#*/}.zip" .
+          zip -r "${GITHUB_REPOSITORY#*/}.zip" .
 
       - name: Collect release files
         id: release_files
         run: |
           set -euo pipefail
-          files=$'release/manifest.json\nrelease/main.js'
-          if [ -f release/styles.css ]; then
-            files+=$'\nrelease/styles.css'
+          required=(release/manifest.json release/main.js)
+          missing=0
+          for file in "${required[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "expected release asset $file not found" >&2
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
           fi
-          files+=$'\n'"${GITHUB_REPOSITORY#*/}.zip"
+          zip_path="release/${GITHUB_REPOSITORY#*/}.zip"
+          if [ ! -f "$zip_path" ]; then
+            echo "expected release archive $zip_path not found" >&2
+            exit 1
+          fi
+          mapfile -t files < <(find release -maxdepth 1 -type f -print | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no release assets found" >&2
+            exit 1
+          fi
           {
             echo "list<<EOF"
-            printf '%s\n' "$files"
+            printf '%s\n' "${files[@]}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
