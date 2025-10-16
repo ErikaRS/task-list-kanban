@@ -22,6 +22,7 @@ jobs:
 
       - name: Install deps & build
         run: |
+          set -euo pipefail
           npm ci
           npm run build
           # Normalize common output locations to repo root
@@ -30,17 +31,25 @@ jobs:
 
       - name: Verify required files
         run: |
+          set -euo pipefail
           test -f manifest.json || (echo "manifest.json missing" && exit 1)
           test -f main.js || (echo "main.js missing (build did not produce it)" && exit 1)
+          test -f styles.css || (echo "styles.css missing" && exit 1)
+          test -f versions.json || (echo "versions.json missing" && exit 1)
 
       - name: Package release assets
         run: |
+          set -euo pipefail
+          rm -rf release
           mkdir -p release
+          rm -f "${GITHUB_REPOSITORY#*/}.zip"
           cp manifest.json release/
           cp main.js release/
           if [ -f styles.css ]; then cp styles.css release/; fi
-          cd release
-          zip -r "${GITHUB_REPOSITORY#*/}.zip" .
+          (
+            cd release
+            zip -r "../${GITHUB_REPOSITORY#*/}.zip" .
+          )
 
       - name: Collect release files
         id: release_files
@@ -50,6 +59,7 @@ jobs:
           if [ -f release/styles.css ]; then
             files+=(release/styles.css)
           fi
+          files+=(versions.json)
           zip_file="${GITHUB_REPOSITORY#*/}.zip"
           if [ ! -f "$zip_file" ]; then
             echo "expected release archive $zip_file not found" >&2
