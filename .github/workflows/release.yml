@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - "*"
+  release:
+    types:
+      - published
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Use Node.js 18
         uses: actions/setup-node@v4
@@ -76,6 +82,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.release_files.outputs.list }}
+          overwrite: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
