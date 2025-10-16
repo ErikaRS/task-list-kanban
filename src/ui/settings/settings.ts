@@ -13,6 +13,7 @@ import {
         validateIgnoredStatusMarkers,
 } from "../tasks/task";
 import { FolderSuggest } from "./folder_suggest";
+import { normalizeExcludedFolders } from "../../utils/folders";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -26,6 +27,16 @@ export class SettingsModal extends Modal {
                 super(app);
         }
 
+        private updateExcludedFolders(
+                transform: (folders: string[]) => readonly string[]
+        ): string[] {
+                const current = [...(this.settings.excludeFolders ?? [])];
+                const transformed = transform(current);
+                const normalized = normalizeExcludedFolders(transformed);
+                this.settings.excludeFolders = normalized;
+                return normalized;
+        }
+
         private safeNormalize(path: string): string {
                 try {
                         return normalizePath(path);
@@ -35,7 +46,7 @@ export class SettingsModal extends Modal {
         }
 
         private pruneMissingExcludedFolders() {
-                const current = this.settings.excludeFolders ?? [];
+                const current = normalizeExcludedFolders(this.settings.excludeFolders ?? []);
                 const foldersInVault = new Set(
                         this.app.vault
                                 .getAllLoadedFiles()
@@ -112,7 +123,10 @@ export class SettingsModal extends Modal {
                 });
 
                 const renderExcludedFolders = () => {
-                        const folders = this.settings.excludeFolders ?? [];
+                        const folders = normalizeExcludedFolders(
+                                this.settings.excludeFolders ?? []
+                        );
+                        this.settings.excludeFolders = folders;
                         excludedFoldersContainer.empty();
 
                         if (folders.length === 0) {
@@ -134,13 +148,12 @@ export class SettingsModal extends Modal {
                                         attr: { "aria-label": `Remove ${path} from excluded folders` },
                                 });
                                 removeButton.addEventListener("click", () => {
-                                        const currentFolders = this.settings.excludeFolders ?? [];
-                                        if (!currentFolders.includes(path)) {
+                                        const updated = this.updateExcludedFolders((folders) =>
+                                                folders.filter((folderPath) => folderPath !== path)
+                                        );
+                                        if (updated.includes(path)) {
                                                 return;
                                         }
-                                        this.settings.excludeFolders = currentFolders.filter(
-                                                (folderPath) => folderPath !== path
-                                        );
                                         renderExcludedFolders();
                                         this.emitImmediateSettingsUpdate();
                                 });
@@ -152,12 +165,13 @@ export class SettingsModal extends Modal {
                         btn.onClick(() => {
                                 const modal = new FolderSuggest(this.app, (folder) => {
                                         const path = this.safeNormalize(folder.path);
-                                        const currentFolders = this.settings.excludeFolders ?? [];
-                                        if (currentFolders.includes(path)) {
+                                        const updated = this.updateExcludedFolders((folders) => [
+                                                ...folders,
+                                                path,
+                                        ]);
+                                        if (!updated.includes(path)) {
                                                 return;
                                         }
-
-                                        this.settings.excludeFolders = [...currentFolders, path];
                                         renderExcludedFolders();
                                         this.emitImmediateSettingsUpdate();
                                 });
