@@ -35,6 +35,7 @@ jobs:
           test -f main.js || (echo "main.js missing (build did not produce it)" && exit 1)
 
       - name: Package release assets
+        id: package
         run: |
           mkdir -p release
           cp manifest.json release/
