@@ -1,13 +1,15 @@
 {
 	"name": "task-list-kanban",
-	"version": "1.2.12",
+	"version": "1.2.15",
 	"description": "Kanban plugin to create task lists",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"preversion": "node ./scripts/sync-manifest-version.js",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"test": "vitest run"
+		"test": "vitest run",
+		"check:brat": "node ./scripts/check-brat.js"
 	},
 	"keywords": [],
 	"author": "",

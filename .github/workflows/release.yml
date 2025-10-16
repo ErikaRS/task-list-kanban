@@ -9,31 +9,46 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
         with:
-          node-version: "18.x"
+          node-version: 18
 
-      - name: Build plugin
+      - name: Install deps & build
         run: |
-          npm install
+          npm ci
           npm run build
+          # Normalize common output locations to repo root
+          if [ -f build/main.js ]; then mv -f build/main.js ./main.js; fi
+          if [ -f dist/main.js ]; then mv -f dist/main.js ./main.js; fi
 
-      - name: Create release
+      - name: Verify required files
+        run: |
+          test -f manifest.json || (echo "manifest.json missing" && exit 1)
+          test -f main.js || (echo "main.js missing (build did not produce it)" && exit 1)
+
+      - name: Package release assets
+        run: |
+          mkdir -p release
+          cp manifest.json release/
+          cp main.js release/
+          if [ -f styles.css ]; then cp styles.css release/; fi
+          cd release
+          zip -r "../${GITHUB_REPOSITORY#*/}.zip" .
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/manifest.json
+            release/main.js
+            release/styles.css
+            ${{ github.event.repository.name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="${GITHUB_REF#refs/tags/}"
-
-          gh release create "$tag" \
-            --title="$tag" \
-            main.js \
-            manifest.json \
-            styles.css \
-            versions.json
