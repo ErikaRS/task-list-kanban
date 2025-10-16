@@ -9,7 +9,12 @@ vi.mock("obsidian", () => ({
                         .replace(/\/+$/, ""),
 }));
 
-import { isPathExcluded, isPathInsideFolder, shouldIncludeFilePath } from "../src/utils/folders";
+import {
+        isPathExcluded,
+        isPathInsideFolder,
+        normalizeExcludedFolders,
+        shouldIncludeFilePath,
+} from "../src/utils/folders";
 
 describe("isPathInsideFolder", () => {
         it("identifies files directly within the folder", () => {
@@ -39,6 +44,12 @@ describe("isPathExcluded", () => {
         it("does not exclude files outside listed folders", () => {
                 expect(isPathExcluded("notes/tasks.md", excluded)).toBe(false);
         });
+
+        it("trims and normalises folder paths", () => {
+                expect(
+                        isPathExcluded("notes/archive/task.md", [" notes/archive/ ", "logs"])
+                ).toBe(true);
+        });
 });
 
 describe("shouldIncludeFilePath", () => {
@@ -67,5 +78,33 @@ describe("shouldIncludeFilePath", () => {
                                 excludeFolders: ["notes/archive"],
                         })
                 ).toBe(true);
+        });
+
+        it("excludes files when excluded folders contain duplicates", () => {
+                expect(
+                        shouldIncludeFilePath("notes/archive/task.md", {
+                                filenameFilter: null,
+                                excludeFolders: ["notes/archive", "notes/archive", " logs "],
+                        })
+                ).toBe(false);
+        });
+});
+
+describe("normalizeExcludedFolders", () => {
+        it("deduplicates and strips empty values", () => {
+                expect(
+                        normalizeExcludedFolders([
+                                "notes/archive/",
+                                "notes/archive",
+                                " ",
+                                "logs",
+                                "logs",
+                                "",
+                        ])
+                ).toEqual(["notes/archive", "logs"]);
+        });
+
+        it("handles undefined gracefully", () => {
+                expect(normalizeExcludedFolders(undefined)).toEqual([]);
         });
 });
