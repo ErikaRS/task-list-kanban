@@ -117,22 +117,14 @@ For detailed Obsidian plugin development guidance, see the [official plugin deve
 
 ### Deployment
 
-When ready to make a new deployment:
+Releases are automated so each tag publishes a BRAT-ready bundle.
 
-1. Update the version number (using semver) in:
-   - `package.json`
-   - `manifest.json`
-   - `versions.json`
-2. Commit this change
-3. Create and push a new tag:
-   ```bash
-   git tag -a 1.2.10 -m "1.2.10"
-   git push origin 1.2.10
-   ```
-4. Push everything to GitHub
-5. Wait for the GitHub Action to create a new Release
-6. Go to the [releases page](https://github.com/ErikaRS/task-list-kanban/releases)
-7. Edit the draft release to add release notes and publish
+1. Bump the version in `package.json` (for example `1.2.14`).
+2. Run `npm run release:tag`.
+   - This syncs `manifest.json` to the new version, commits the change if necessary, tags the release, and pushes it to GitHub.
+3. Wait for the **Release Obsidian plugin** workflow to finish.
+4. Confirm the release shows the individual `manifest.json`, `main.js`, `styles.css` (if present), and the ZIP archive asset.
+5. Optional: run `npm run check:brat` to verify the published manifest is downloadable.
 
 ## Architecture
 

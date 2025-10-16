@@ -5,6 +5,7 @@ import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { ColumnTagTable } from "../columns/columns";
 import { createTaskActions, type TaskActions } from "./actions";
 import type { SettingValues } from "../settings/settings_store";
+import { shouldIncludeFilePath } from "../../utils/folders";
 
 export function createTasksStore(
 	vault: Vault,
@@ -43,10 +44,17 @@ export function createTasksStore(
 		}
 	}
 
-	function shouldHandle(file: TFile): boolean {
-		const filenameFilter = getFilenameFilter()?.replace(/^\//, "");
-		return !filenameFilter || file.path.startsWith(filenameFilter);
-	}
+        function shouldHandle(file: TFile): boolean {
+                const rawFilenameFilter = getFilenameFilter();
+                const filenameFilter = rawFilenameFilter
+                        ? rawFilenameFilter.replace(/^\//, "")
+                        : rawFilenameFilter;
+                const settings = get(settingsStore);
+                return shouldIncludeFilePath(file.path, {
+                        filenameFilter,
+                        excludeFolders: settings.excludeFolders ?? [],
+                });
+        }
 
 	function initialise() {
 		tasksByTaskId.clear();

@@ -17,5 +17,42 @@ If your plugin does not need CSS, delete this file.
 }
 
 .setting-item.column .setting-item-control > input {
-	width: 100%;
+        width: 100%;
+}
+
+.tasklist-kanban-excluded-folders {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--size-2-2);
+        align-items: center;
+        margin-right: var(--size-4-2);
+}
+
+.tasklist-kanban-excluded-folders .setting-item-description {
+        margin: 0;
+}
+
+.tasklist-kanban-excluded-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--size-2-1);
+        padding: var(--size-2-1) var(--size-2-3);
+        border-radius: 9999px;
+        border: 1px solid var(--background-modifier-border);
+        background-color: var(--background-secondary);
+        font-size: var(--font-ui-small);
+}
+
+.tasklist-kanban-excluded-chip-remove {
+        border: none;
+        background: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0 var(--size-2-1);
+        font-size: 1.1em;
+        line-height: 1;
+}
+
+.tasklist-kanban-excluded-chip-remove:hover {
+        color: var(--text-normal);
 }
