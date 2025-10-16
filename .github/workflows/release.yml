@@ -46,27 +46,16 @@ jobs:
         id: release_files
         run: |
           set -euo pipefail
-          required=(release/manifest.json release/main.js)
-          missing=0
-          for file in "${required[@]}"; do
-            if [ ! -f "$file" ]; then
-              echo "expected release asset $file not found" >&2
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
+          files=(release/manifest.json release/main.js)
+          if [ -f release/styles.css ]; then
+            files+=(release/styles.css)
+          fi
+          zip_file="${GITHUB_REPOSITORY#*/}.zip"
+          if [ ! -f "$zip_file" ]; then
+            echo "expected release archive $zip_file not found" >&2
             exit 1
           fi
-          zip_path="release/${GITHUB_REPOSITORY#*/}.zip"
-          if [ ! -f "$zip_path" ]; then
-            echo "expected release archive $zip_path not found" >&2
-            exit 1
-          fi
-          mapfile -t files < <(find release -maxdepth 1 -type f -print | sort)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "no release assets found" >&2
-            exit 1
-          fi
+          files+=("$zip_file")
           {
             echo "list<<EOF"
             printf '%s\n' "${files[@]}"
