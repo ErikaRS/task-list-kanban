@@ -53,6 +53,8 @@ Access settings via the settings icon in the top right corner of your kanban.
 - "In Progress" matches tags like `#InProgress`, `#in-progress`, and `#In-Progress`.
 - Nested tags like `#Parent/Child` are preserved and will map to a column named "Parent/Child".
 
+**Column Width**: Adjust the width of all columns (200-600px) in the settings menu.
+
 ### Folder Scope
 
 **This folder** (default): The kanban shows tasks from files in the same folder as the kanban file.
