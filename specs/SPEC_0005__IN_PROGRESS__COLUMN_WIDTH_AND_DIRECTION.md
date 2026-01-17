@@ -137,24 +137,36 @@ $: orderedColumns = (() => {
 - JavaScript reversal is simple, predictable, and has no side effects
 - All columns (uncategorized, regular, done) are included in the reversal
 
-**Vertical Flows (TTB/BTT)**: Use CSS for vertical stacking.
+**Vertical Flows (TTB/BTT)**: Use CSS for vertical stacking, JavaScript reversal for BTT.
+
+```typescript
+// main.svelte - Extend orderedColumns to handle all reversed flows
+$: orderedColumns = (() => {
+  const allColumns: string[] = [];
+  if (showUncategorizedColumn) allColumns.push("uncategorised");
+  allColumns.push(...columns);
+  if (showDoneColumn) allColumns.push("done");
+  const shouldReverse = flowDirection === FlowDirection.RightToLeft
+    || flowDirection === FlowDirection.BottomToTop;
+  return shouldReverse ? allColumns.reverse() : allColumns;
+})();
+```
 
 ```scss
-// main.svelte
+// main.svelte - CSS for vertical layout (same for both TTB and BTT)
 .columns {
-  &.flow-ttb > div {
+  &.flow-ttb > div,
+  &.flow-btt > div {
     flex-direction: column;
     overflow-y: scroll;
     overflow-x: hidden;
   }
-
-  &.flow-btt > div {
-    flex-direction: column-reverse;
-    overflow-y: scroll;
-    overflow-x: hidden;
-  }
 }
+```
 
+**Rationale**: `flex-direction: column-reverse` has the same scrollbar issues as `row-reverse` - the scroll origin stays at the top while content flows upward. Using JavaScript reversal + normal `column` direction avoids this.
+
+```scss
 // column.svelte
 .column {
   width: var(--column-width);  // Always horizontal width
@@ -409,18 +421,22 @@ kanban-plugin: {"columnWidth": 300, "flowDirection": "ltr", ...}
 ### Phase 4: Vertical Flow Directions (TTB/BTT)
 **Goal**: Top-to-bottom and bottom-to-top column flows work correctly
 
-1. ☐ Implement CSS for .flow-ttb (flex-direction: column, overflow-y)
-2. ☐ Implement CSS for .flow-btt (flex-direction: column-reverse, overflow-y)
-3. ☐ Verify `align-self: flex-start` on columns enables auto-height
-4. ☐ Test: Switch to TTB, verify columns stack vertically
-5. ☐ Test: Switch to BTT, verify columns stack in reverse
-6. ☐ Test: Adjust column width setting, verify it controls horizontal width in vertical modes
-7. ☐ Test: Verify column heights auto-size based on content
-8. ☐ Test: Drag-and-drop between vertically stacked columns
-9. ☐ Test: Scrolling behavior in vertical layouts
-10. ☐ Test: Empty columns have 50px min-height drop zone
-11. ☐ Test: Task cards render correctly (same width as horizontal flows)
-12. ☐ Test: Very wide (600px) and very narrow (200px) cards in vertical flow
+**Implementation approach** (learned from Phase 3):
+- TTB: CSS `flex-direction: column` (normal direction)
+- BTT: JavaScript array reversal + CSS `flex-direction: column` (same pattern as RTL)
+- Avoids `column-reverse` which has same scrollbar issues as `row-reverse`
+
+1. ☐ Extend orderedColumns to reverse for BTT (in addition to RTL)
+2. ☐ Add CSS for vertical flows (.flow-ttb, .flow-btt): flex-direction: column, overflow-y: scroll
+3. ☐ Add flow direction class binding back to columns container
+4. ☐ Verify `align-self: flex-start` on columns enables auto-height
+5. ☐ Test: Switch to TTB, verify columns stack vertically
+6. ☐ Test: Switch to BTT, verify columns stack in reverse order
+7. ☐ Test: Vertical scrolling works correctly in both TTB and BTT
+8. ☐ Test: Column width setting controls horizontal width in vertical modes
+9. ☐ Test: Column heights auto-size based on content
+10. ☐ Test: Drag-and-drop between vertically stacked columns
+11. ☐ Test: Empty columns have visible drop zone
 
 **Deliverable**: All four flow directions fully functional
 
