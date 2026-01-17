@@ -3,6 +3,7 @@ import type { SettingValues } from "./settings_store";
 import {
 	VisibilityOption,
 	ScopeOption,
+	FlowDirection,
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
@@ -10,6 +11,7 @@ import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDo
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
+const FlowDirectionSchema = z.nativeEnum(FlowDirection);
 
 export class SettingsModal extends Modal {
 	constructor(
@@ -46,6 +48,26 @@ export class SettingsModal extends Modal {
 					.setDynamicTooltip()
 					.onChange((value) => {
 						this.settings.columnWidth = value;
+					});
+			});
+
+		new Setting(this.contentEl)
+			.setName("Flow direction")
+			.setDesc("Direction columns flow across the board")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption(FlowDirection.LeftToRight, "Left to right")
+					.addOption(FlowDirection.RightToLeft, "Right to left")
+					.addOption(FlowDirection.TopToBottom, "Top to bottom")
+					.addOption(FlowDirection.BottomToTop, "Bottom to top")
+					.setValue(
+						this.settings.flowDirection ?? FlowDirection.LeftToRight
+					)
+					.onChange((value) => {
+						const validatedValue = FlowDirectionSchema.safeParse(value);
+						this.settings.flowDirection = validatedValue.success
+							? validatedValue.data
+							: defaultSettings.flowDirection;
 					});
 			});
 

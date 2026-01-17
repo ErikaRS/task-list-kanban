@@ -1,6 +1,7 @@
 # Column Width and Direction Configuration
 
 Status: IN_PROGRESS
+Issue: https://github.com/ErikaRS/task-list-kanban/issues/80
 
 ## Summary
 
@@ -354,35 +355,46 @@ kanban-plugin: {"columnWidth": 300, "flowDirection": "ltr", ...}
 - Immediate user value
 - Width always controls horizontal dimension (card width)
 
-### Phase 2: Flow Direction UI and Settings
+### Phase 2: Flow Direction UI and Settings ✅ COMPLETE
 **Goal**: Settings UI for flow direction, stored but not yet applied to layout
 
-1. ☐ Add FlowDirection type definition to settings_store.ts
-2. ☐ Add `flowDirection` to SettingValues interface
-3. ☐ Add default value ('ltr') to default settings
-4. ☐ Add parsing and serialization for flowDirection
-5. ☐ Create radio button group in settings UI for direction selection
-6. ☐ Add visual labels: "Left to right", "Right to left", "Top to bottom", "Bottom to top"
-7. ☐ Test: Select each direction, verify setting saves
-8. ☐ Test: Reload kanban, verify direction preference persists
+1. ✅ Add FlowDirection type definition to settings_store.ts
+2. ✅ Add `flowDirection` to SettingValues interface
+3. ✅ Add default value ('ltr') to default settings
+4. ✅ Add parsing and serialization for flowDirection
+5. ✅ Create dropdown in settings UI for direction selection
+6. ✅ Add visual labels: "Left to right", "Right to left", "Top to bottom", "Bottom to top"
+7. ✅ Test: Select each direction, verify setting saves
+8. ✅ Test: Reload kanban, verify direction preference persists
 
-**Deliverable**: Flow direction can be configured and saved (visual effect in next phase)
+**Deliverable**: ✅ Flow direction can be configured and saved (visual effect in next phase)
 
-### Phase 3: Horizontal Flow Directions (LTR/RTL)
+**Completion Summary**:
+- Implementation: settings_store.ts:16-21,84,103, settings.ts:54-72
+- Tests: 8 automated tests added (all 4 direction values, invalid fallback, serialization, roundtrip)
+- Used dropdown UI (consistent with other enum settings like scope/visibility)
+
+### Phase 3: Horizontal Flow Directions (LTR/RTL) ✅ COMPLETE
 **Goal**: Left-to-right and right-to-left column flows work correctly
 
-1. ☐ Add flow direction classes to columns container in main.svelte
-2. ☐ Implement CSS for .flow-ltr (current behavior, explicit)
-3. ☐ Implement CSS for .flow-rtl (flex-direction: row-reverse)
-4. ☐ Add reactive class binding based on flowDirection setting
-5. ☐ Test: Switch between LTR and RTL, verify column order reverses
-6. ☐ Test: Drag-and-drop between columns in RTL mode
-7. ☐ Test: "Add new" task in RTL columns
-8. ☐ Test: Bulk actions and selection in RTL mode
-9. ☐ Test: Sidebar remains on left in RTL mode
-10. ☐ Test: Horizontal scrolling works correctly in both directions
+1. ✅ Add flow direction classes to columns container in main.svelte
+2. ✅ Implement CSS for .flow-ltr (current behavior, explicit)
+3. ✅ Implement CSS for .flow-rtl (flex-direction: row-reverse)
+4. ✅ Add reactive class binding based on flowDirection setting
+5. ✅ Test: Switch between LTR and RTL, verify column order reverses
+6. ✅ Test: Drag-and-drop between columns in RTL mode
+7. ✅ Test: "Add new" task in RTL columns
+8. ✅ Test: Bulk actions and selection in RTL mode
+9. ✅ Test: Sidebar remains on left in RTL mode
+10. ✅ Test: Horizontal scrolling works correctly in both directions
 
-**Deliverable**: LTR and RTL column flows fully functional
+**Deliverable**: ✅ LTR and RTL column flows fully functional
+
+**Completion Summary**:
+- Implementation: main.svelte:15 (import), :410 (destructure), :638 (class binding), :1023-1029 (CSS)
+- Uses dynamic class `flow-{flowDirection}` for clean Svelte binding
+- CSS uses `flex-direction: row-reverse` for RTL (standard flexbox, no drag-drop impact)
+- Sidebar position unaffected (separate from columns container)
 
 ### Phase 4: Vertical Flow Directions (TTB/BTT)
 **Goal**: Top-to-bottom and bottom-to-top column flows work correctly

@@ -3,6 +3,7 @@ import {
 	parseSettingsString,
 	toSettingsString,
 	defaultSettings,
+	FlowDirection,
 	type SavedFilter,
 } from "../settings_store";
 
@@ -218,5 +219,92 @@ describe("Column width configuration", () => {
 		const parsed = parseSettingsString(serialized);
 
 		expect(parsed.columnWidth).toBe(350);
+	});
+});
+
+describe("Flow direction configuration", () => {
+	it("defaults to 'ltr' when flowDirection is missing", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo", "In Progress", "Done"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.flowDirection).toBe(FlowDirection.LeftToRight);
+	});
+
+	it("parses 'ltr' flow direction", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			flowDirection: "ltr",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.flowDirection).toBe(FlowDirection.LeftToRight);
+	});
+
+	it("parses 'rtl' flow direction", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			flowDirection: "rtl",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.flowDirection).toBe(FlowDirection.RightToLeft);
+	});
+
+	it("parses 'ttb' flow direction", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			flowDirection: "ttb",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.flowDirection).toBe(FlowDirection.TopToBottom);
+	});
+
+	it("parses 'btt' flow direction", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			flowDirection: "btt",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.flowDirection).toBe(FlowDirection.BottomToTop);
+	});
+
+	it("rejects invalid flow direction values", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			flowDirection: "invalid",
+		});
+
+		// Zod validation should fail and fallback to defaults
+		expect(() => parseSettingsString(settingsJson)).not.toThrow();
+		const parsed = parseSettingsString(settingsJson);
+		expect(parsed.flowDirection).toBe(FlowDirection.LeftToRight);
+	});
+
+	it("serializes flowDirection correctly", () => {
+		const settings = {
+			...defaultSettings,
+			flowDirection: FlowDirection.RightToLeft,
+		};
+
+		const serialized = toSettingsString(settings);
+		const parsed = JSON.parse(serialized);
+
+		expect(parsed.flowDirection).toBe("rtl");
+	});
+
+	it("roundtrips flowDirection through serialization", () => {
+		const original = {
+			...defaultSettings,
+			flowDirection: FlowDirection.TopToBottom,
+		};
+
+		const serialized = toSettingsString(original);
+		const parsed = parseSettingsString(serialized);
+
+		expect(parsed.flowDirection).toBe(FlowDirection.TopToBottom);
 	});
 });

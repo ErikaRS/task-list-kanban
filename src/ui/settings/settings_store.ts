@@ -13,6 +13,13 @@ export enum ScopeOption {
 	Everywhere = "everywhere",
 }
 
+export enum FlowDirection {
+	LeftToRight = "ltr",
+	RightToLeft = "rtl",
+	TopToBottom = "ttb",
+	BottomToTop = "btt",
+}
+
 export interface ContentValue {
 	text: string;
 }
@@ -74,6 +81,7 @@ const settingsObject = z.object({
 	filtersSidebarExpanded: z.boolean().default(true).optional(),
 	filtersSidebarWidth: z.number().default(280).optional(),
 	columnWidth: z.number().min(200).max(600).default(300).optional(),
+	flowDirection: z.nativeEnum(FlowDirection).default(FlowDirection.LeftToRight).optional(),
 });
 
 export type SettingValues = z.infer<typeof settingsObject>;
@@ -92,6 +100,7 @@ export const defaultSettings: SettingValues = {
 	lastTagFilter: [],
 	lastFileFilter: [],
 	columnWidth: 300,
+	flowDirection: FlowDirection.LeftToRight,
 };
 
 export const createSettingsStore = () =>
