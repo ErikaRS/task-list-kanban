@@ -12,7 +12,7 @@
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SettingValues, VisibilityOption } from "./settings/settings_store";
+	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
 	import { onMount } from "svelte";
 	import type { App } from "obsidian";
 	import { clearTaskSelections } from "./selection/task_selection_store";
@@ -406,7 +406,8 @@
 		doneVisibility = VisibilityOption.AlwaysShow,
 		filtersSidebarExpanded = true,
 		filtersSidebarWidth = 280,
-		columnWidth = 300
+		columnWidth = 300,
+		flowDirection = FlowDirection.LeftToRight
 	} = $settingsStore);
 
 	$: showUncategorizedColumn =
@@ -416,7 +417,16 @@
 	$: showDoneColumn =
 		doneVisibility === VisibilityOption.AlwaysShow ||
 		(doneVisibility === VisibilityOption.Auto && tasksByColumn["done"]?.length > 0);
-	
+
+	// Build ordered list of all visible columns, reversed for RTL
+	$: orderedColumns = (() => {
+		const allColumns: string[] = [];
+		if (showUncategorizedColumn) allColumns.push("uncategorised");
+		allColumns.push(...columns);
+		if (showDoneColumn) allColumns.push("done");
+		return flowDirection === FlowDirection.RightToLeft ? allColumns.reverse() : allColumns;
+	})();
+
 	function toggleSidebar() {
 		$settingsStore.filtersSidebarExpanded = !filtersSidebarExpanded;
 		requestSave();
@@ -635,46 +645,21 @@
 			</div>
 			
 			<div class="columns" style="--column-width: {columnWidth}px;">
-		<div>
-			{#if showUncategorizedColumn}
-			<Column
-				{app}
-				column={"uncategorised"}
-				hideOnEmpty={false}
-				tasks={tasksByColumn["uncategorised"]}
-				{taskActions}
-				{columnTagTableStore}
-				{columnColourTableStore}
-				{showFilepath}
-				{consolidateTags}
-			/>
-			{/if}
-			{#each columns as column}
-				<Column
-					{app}
-					{column}
-					tasks={tasksByColumn[column] ?? []}
-					{taskActions}
-					{columnTagTableStore}
-					{columnColourTableStore}
-					{showFilepath}
-					{consolidateTags}
-				/>
-			{/each}
-			{#if showDoneColumn}
-			<Column
-				{app}
-				column="done"
-				hideOnEmpty={false}
-				tasks={tasksByColumn["done"] ?? []}
-				{taskActions}
-				{columnTagTableStore}
-				{columnColourTableStore}
-				{showFilepath}
-				{consolidateTags}
-			/>
-			{/if}
-		</div>
+				<div>
+					{#each orderedColumns as column}
+						<Column
+							{app}
+							{column}
+							hideOnEmpty={column !== "uncategorised" && column !== "done"}
+							tasks={tasksByColumn[column] ?? []}
+							{taskActions}
+							{columnTagTableStore}
+							{columnColourTableStore}
+							{showFilepath}
+							{consolidateTags}
+						/>
+					{/each}
+				</div>
 			</div>
 		</div>
 	</div>

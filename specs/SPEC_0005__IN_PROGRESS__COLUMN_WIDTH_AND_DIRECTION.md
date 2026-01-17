@@ -1,7 +1,9 @@
 # Column Width and Direction Configuration
 
 Status: IN_PROGRESS
-Issue: https://github.com/ErikaRS/task-list-kanban/issues/80
+Issues: 
+- https://github.com/ErikaRS/task-list-kanban/issues/80
+- https://github.com/ErikaRS/task-list-kanban/issues/72
 
 ## Summary
 
@@ -112,25 +114,34 @@ export interface SettingValues {
 - Each column/row's height is determined by its tallest card + header controls
 - This matches how physical kanban boards work when oriented vertically
 
-#### 3. CSS Architecture (Corrected)
+#### 3. Implementation Architecture
 
-Use CSS custom properties and dynamic classes:
+**Horizontal Flows (LTR/RTL)**: Use JavaScript array reversal, not CSS.
+
+```typescript
+// main.svelte - Build ordered column list, reversed for RTL
+$: orderedColumns = (() => {
+  const allColumns: string[] = [];
+  if (showUncategorizedColumn) allColumns.push("uncategorised");
+  allColumns.push(...columns);
+  if (showDoneColumn) allColumns.push("done");
+  return flowDirection === FlowDirection.RightToLeft
+    ? allColumns.reverse()
+    : allColumns;
+})();
+```
+
+**Rationale for JavaScript approach**:
+- CSS `flex-direction: row-reverse` and `direction: rtl` cause scrollbar issues
+- CSS `transform: scaleX(-1)` works but is hacky and affects pointer events
+- JavaScript reversal is simple, predictable, and has no side effects
+- All columns (uncategorized, regular, done) are included in the reversal
+
+**Vertical Flows (TTB/BTT)**: Use CSS for vertical stacking.
 
 ```scss
 // main.svelte
 .columns {
-  &.flow-ltr > div {
-    flex-direction: row;
-    overflow-x: scroll;
-    overflow-y: hidden;
-  }
-
-  &.flow-rtl > div {
-    flex-direction: row-reverse;
-    overflow-x: scroll;
-    overflow-y: hidden;
-  }
-
   &.flow-ttb > div {
     flex-direction: column;
     overflow-y: scroll;
@@ -377,24 +388,23 @@ kanban-plugin: {"columnWidth": 300, "flowDirection": "ltr", ...}
 ### Phase 3: Horizontal Flow Directions (LTR/RTL) ✅ COMPLETE
 **Goal**: Left-to-right and right-to-left column flows work correctly
 
-1. ✅ Add flow direction classes to columns container in main.svelte
-2. ✅ Implement CSS for .flow-ltr (current behavior, explicit)
-3. ✅ Implement CSS for .flow-rtl (flex-direction: row-reverse)
-4. ✅ Add reactive class binding based on flowDirection setting
-5. ✅ Test: Switch between LTR and RTL, verify column order reverses
-6. ✅ Test: Drag-and-drop between columns in RTL mode
-7. ✅ Test: "Add new" task in RTL columns
-8. ✅ Test: Bulk actions and selection in RTL mode
-9. ✅ Test: Sidebar remains on left in RTL mode
-10. ✅ Test: Horizontal scrolling works correctly in both directions
+1. ✅ Build ordered column list including uncategorized and done columns
+2. ✅ Reverse column order for RTL using JavaScript array reversal
+3. ✅ Update template to use single `{#each orderedColumns}` loop
+4. ✅ Test: Switch between LTR and RTL, verify column order reverses
+5. ✅ Test: Drag-and-drop between columns in RTL mode
+6. ✅ Test: "Add new" task in RTL columns
+7. ✅ Test: Bulk actions and selection in RTL mode
+8. ✅ Test: Sidebar remains on left in RTL mode
+9. ✅ Test: Horizontal scrolling works correctly in both directions
 
 **Deliverable**: ✅ LTR and RTL column flows fully functional
 
 **Completion Summary**:
-- Implementation: main.svelte:15 (import), :410 (destructure), :638 (class binding), :1023-1029 (CSS)
-- Uses dynamic class `flow-{flowDirection}` for clean Svelte binding
-- CSS uses `flex-direction: row-reverse` for RTL (standard flexbox, no drag-drop impact)
-- Sidebar position unaffected (separate from columns container)
+- Implementation: main.svelte:421-428 (orderedColumns computed), :649-661 (single column loop)
+- Uses JavaScript array reversal instead of CSS (avoids scrollbar issues with row-reverse/rtl)
+- All columns included: uncategorized, regular columns, and done
+- Simplified template with single `{#each}` loop
 
 ### Phase 4: Vertical Flow Directions (TTB/BTT)
 **Goal**: Top-to-bottom and bottom-to-top column flows work correctly
