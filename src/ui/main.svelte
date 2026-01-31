@@ -418,14 +418,21 @@
 		doneVisibility === VisibilityOption.AlwaysShow ||
 		(doneVisibility === VisibilityOption.Auto && tasksByColumn["done"]?.length > 0);
 
-	// Build ordered list of all visible columns, reversed for RTL
+	// Build ordered list of all visible columns, reversed for RTL and BTT
 	$: orderedColumns = (() => {
 		const allColumns: string[] = [];
 		if (showUncategorizedColumn) allColumns.push("uncategorised");
 		allColumns.push(...columns);
 		if (showDoneColumn) allColumns.push("done");
-		return flowDirection === FlowDirection.RightToLeft ? allColumns.reverse() : allColumns;
+		const shouldReverse =
+			flowDirection === FlowDirection.RightToLeft ||
+			flowDirection === FlowDirection.BottomToTop;
+		return shouldReverse ? allColumns.reverse() : allColumns;
 	})();
+
+	$: isVerticalFlow =
+		flowDirection === FlowDirection.TopToBottom ||
+		flowDirection === FlowDirection.BottomToTop;
 
 	function toggleSidebar() {
 		$settingsStore.filtersSidebarExpanded = !filtersSidebarExpanded;
@@ -644,7 +651,7 @@
 				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 			</div>
 			
-			<div class="columns" style="--column-width: {columnWidth}px;">
+			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
 				<div>
 					{#each orderedColumns as column}
 						<Column
@@ -657,6 +664,7 @@
 							{columnColourTableStore}
 							{showFilepath}
 							{consolidateTags}
+							{isVerticalFlow}
 						/>
 					{/each}
 				</div>
@@ -1002,6 +1010,15 @@
 			> div {
 				display: flex;
 				gap: var(--size-4-3);
+			}
+
+			&.vertical-flow {
+				overflow-x: hidden;
+				overflow-y: scroll;
+
+				> div {
+					flex-direction: column;
+				}
 			}
 		}
 	}

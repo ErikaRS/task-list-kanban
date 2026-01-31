@@ -25,6 +25,7 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
+	export let isVerticalFlow: boolean = false;
 
 	function getColumnTitle(
 		column: ColumnTag | DefaultColumns,
@@ -45,7 +46,7 @@
 	$: isInSelectionMode = $selectionModeStore.get(column) || false;
 	$: selectedCount = getSelectedTaskCount(tasks.map(t => t.id), $taskSelectionStore);
 
-	$: sortedTasks = tasks.sort((a, b) => {
+	$: sortedTasks = [...tasks].sort((a, b) => {
 		if (a.path === b.path) {
 			return a.rowIndex - b.rowIndex;
 		} else {
@@ -77,7 +78,7 @@
 			return;
 		}
 
-		const target = e.target as HTMLButtonElement | undefined;
+		const target = e.currentTarget as HTMLElement | null;
 		if (!target) {
 			return;
 		}
@@ -148,7 +149,7 @@
 	let isDraggedOver = false;
 
 	$: draggingData = $isDraggingStore;
-	$: canDrop = draggingData && draggingData.fromColumn !== column;
+	$: canDrop = !!draggingData && draggingData.fromColumn !== column;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -203,110 +204,115 @@
 {#if !hideOnEmpty || tasks.length}
 	<div
 		role="group"
+		aria-labelledby="column-title-{column}"
 		class="column"
 		class:drop-active={!!draggingData}
 		class:drop-hover={isDraggedOver}
+		class:vertical-flow={isVerticalFlow}
 		style:--column-color={columnColor}
 		style={columnColor ? `background-color: ${columnColor};` : ''}
 		on:dragover={handleDragOver}
 		on:dragleave={handleDragLeave}
 		on:drop={handleDrop}
 	>
-		<div class="header">
-			<h2>{columnTitle}</h2>
-			{#if column === "done"}
-				<IconButton icon="lucide-more-vertical" on:click={showMenu} />
-			{/if}
-		</div>
-		<div class="mode-toggle-container">
-			<div 
-				class="segmented-control"
-				class:has-color={!!columnColor}
-				style:--toggle-bg-color={columnColor ? `color-mix(in srgb, ${columnColor} 25%, white)` : undefined}
-				style:--toggle-active-color={columnColor || undefined}
-				role="toolbar"
-				aria-label="Task interaction mode"
-			>
-				<button
-					class="segment"
-					class:active={!isInSelectionMode}
-					on:click={() => toggleSelectionMode(column)}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							if (isInSelectionMode) {
-								toggleSelectionMode(column);
-							}
-						}
-					}}
-					aria-label="Mark as done mode"
-					aria-pressed={!isInSelectionMode}
-					tabindex="0"
-				>
-					Done
-				</button>
-				<button
-					class="segment"
-					class:active={isInSelectionMode}
-					on:click={() => toggleSelectionMode(column)}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							if (!isInSelectionMode) {
-								toggleSelectionMode(column);
-							}
-						}
-					}}
-					aria-label="Selection mode"
-					aria-pressed={isInSelectionMode}
-					tabindex="0"
-				>
-					Select
-				</button>
-			</div>
-			<div class="selection-count" aria-live="polite">
-				{#if isInSelectionMode && selectedCount > 0}
-					{selectedCount} selected
-				{:else}
-					&nbsp;
+		<div class="column-header" class:row-header={isVerticalFlow}>
+			<div class="header">
+				<h2 id="column-title-{column}">{columnTitle}</h2>
+				{#if column === "done"}
+					<IconButton icon="lucide-more-vertical" on:click={showMenu} />
 				{/if}
 			</div>
-			<div class="bulk-actions-button" class:visible={isInSelectionMode && selectedCount > 0}>
-				<IconButton 
-					icon="lucide-more-vertical" 
-					on:click={showBulkActionsMenu} 
-					aria-label="Bulk actions"
-				/>
+			<div class="mode-toggle-container">
+				<div 
+					class="segmented-control"
+					class:has-color={!!columnColor}
+					style:--toggle-bg-color={columnColor ? `color-mix(in srgb, ${columnColor} 25%, white)` : undefined}
+					style:--toggle-active-color={columnColor || undefined}
+					role="toolbar"
+					aria-label="Task interaction mode"
+				>
+					<button
+						class="segment"
+						class:active={!isInSelectionMode}
+						on:click={() => { if (isInSelectionMode) toggleSelectionMode(column); }}
+						on:keydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								if (isInSelectionMode) {
+									toggleSelectionMode(column);
+								}
+							}
+						}}
+						aria-label="Mark as done mode"
+						aria-pressed={!isInSelectionMode}
+						tabindex="0"
+					>
+						Done
+					</button>
+					<button
+						class="segment"
+						class:active={isInSelectionMode}
+						on:click={() => { if (!isInSelectionMode) toggleSelectionMode(column); }}
+						on:keydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								if (!isInSelectionMode) {
+									toggleSelectionMode(column);
+								}
+							}
+						}}
+						aria-label="Selection mode"
+						aria-pressed={isInSelectionMode}
+						tabindex="0"
+					>
+						Select
+					</button>
+				</div>
+				<div class="selection-count" aria-live="polite">
+					{#if isInSelectionMode && selectedCount > 0}
+						<span>{selectedCount} selected</span>
+					{/if}
+				</div>
+				<div class="bulk-actions-button" class:visible={isInSelectionMode && selectedCount > 0}>
+					<IconButton 
+						icon="lucide-more-vertical" 
+						on:click={showBulkActionsMenu} 
+						aria-label="Bulk actions"
+					/>
+				</div>
 			</div>
 		</div>
-		<div class="divide" />
+		{#if !isVerticalFlow}
+			<div class="divide" />
+		{/if}
 		<div class="tasks-wrapper">
 			<div class="tasks">
 				{#each sortedTasks as task}
-				<TaskComponent
-				{app}
-				{task}
-				{taskActions}
-				{columnTagTableStore}
-				{showFilepath}
-				{consolidateTags}
-				displayColumn={column}
-				{isInSelectionMode}
-				/>
-			{/each}
-				{#if isColumnTag(column, columnTagTableStore)}
-					<button
-						on:click={async (e) => {
-							if (isColumnTag(column, columnTagTableStore)) {
-								await taskActions.addNew(column, e);
-							}
-						}}
-					>
-						<span bind:this={buttonEl} />
-						Add new
-					</button>
-				{/if}
+					<TaskComponent
+						{app}
+						{task}
+						{taskActions}
+						{columnTagTableStore}
+						{showFilepath}
+						{consolidateTags}
+						displayColumn={column}
+						{isInSelectionMode}
+					/>
+				{/each}
 			</div>
+			{#if isColumnTag(column, columnTagTableStore)}
+				<button
+					class="add-new-btn"
+					on:click={async (e) => {
+						if (isColumnTag(column, columnTagTableStore)) {
+							await taskActions.addNew(column, e);
+						}
+					}}
+				>
+					<span bind:this={buttonEl} />
+					Add new
+				</button>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -322,6 +328,56 @@
 		border-radius: var(--radius-m);
 		border: var(--border-width) solid var(--background-modifier-border);
 		background-color: var(--background-secondary);
+
+		&.vertical-flow {
+			width: 100%;
+
+			.tasks-wrapper {
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				gap: var(--size-4-2);
+
+				.tasks {
+					flex-direction: row;
+					flex-wrap: wrap;
+					align-items: flex-start;
+
+					:global(.task) {
+						width: min(var(--column-width, 300px), 100%);
+						flex-shrink: 0;
+					}
+				}
+			}
+		}
+
+		.column-header {
+			&.row-header {
+				display: flex;
+				align-items: center;
+				gap: var(--size-4-2);
+				margin-bottom: var(--size-4-2);
+
+				.header {
+					margin-right: 0;
+				}
+
+				.mode-toggle-container {
+					margin-top: 0;
+					margin-bottom: 0;
+					gap: var(--size-4-1);
+
+					.selection-count:empty {
+						display: none;
+					}
+
+					.selection-count {
+						min-width: 0;
+						flex: 0;
+					}
+				}
+			}
+		}
 
 		&.drop-active {
 			.tasks-wrapper {
@@ -429,7 +485,6 @@
 		}
 
 		.tasks-wrapper {
-			height: 100%;
 			min-height: 50px;
 			border: var(--border-width) dashed transparent;
 			border-radius: var(--radius-m);
@@ -438,15 +493,17 @@
 				display: flex;
 				flex-direction: column;
 				gap: var(--size-4-2);
+			}
 
-				button {
-					display: flex;
-					align-items: center;
-					cursor: pointer;
+			.add-new-btn {
+				display: flex;
+				align-items: center;
+				align-self: flex-start;
+				cursor: pointer;
+				margin-top: var(--size-4-2);
 
-					span {
-						height: 18px;
-					}
+				span {
+					height: 18px;
 				}
 			}
 		}

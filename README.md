@@ -55,6 +55,12 @@ Access settings via the settings icon in the top right corner of your kanban.
 
 **Column Width**: Adjust the width of all columns (200-600px) in the settings menu.
 
+**Flow Direction**: Choose how columns are arranged:
+- **Left to right** (default) - Columns flow horizontally, scrolling right
+- **Right to left** - Columns flow horizontally in reverse order
+- **Top to bottom** - Columns stack vertically, with cards flowing horizontally within each column
+- **Bottom to top** - Columns stack vertically in reverse order
+
 ### Folder Scope
 
 **This folder** (default): The kanban shows tasks from files in the same folder as the kanban file.
