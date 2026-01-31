@@ -18,6 +18,7 @@ This spec defines the ability to collapse individual columns on the kanban board
 
 **Original request:** [#74](https://github.com/ErikaRS/task-list-kanban/issues/74) - Ability to collapse columns
 **Also mentioned in:** [#16](https://github.com/ErikaRS/task-list-kanban/issues/16) - General feature suggestions
+**Related request:** [#87](https://github.com/ErikaRS/task-list-kanban/issues/87) - Display total task count on kanban board
 
 Users with many columns or limited screen space need to temporarily hide columns they're not actively using, while still being able to see that the column exists and quickly access it when needed.
 
@@ -32,15 +33,17 @@ Users with many columns or limited screen space need to temporarily hide columns
 1. Users shall be able to collapse individual columns to reduce visual clutter
 2. Users shall be able to collapse individual columns to reduce screen space usage
 3. Collapsed state shall persist across sessions (stored in kanban file frontmatter)
-4. Collapsed columns shall display the column name and task count
-5. Collapsed columns shall be easily expandable with a single click/tap
-6. In horizontal flows (ltr/rtl), collapsed columns shall minimize width
-7. In vertical flows (ttb/btt), collapsed columns shall minimize height
-8. Collapse/expand shall be animated smoothly for clear visual feedback
-9. Drag-and-drop to collapsed columns shall work (auto-expand on hover)
-10. The collapse toggle control shall be discoverable but unobtrusive
-11. Collapsed columns shall remain visible in the column sequence
-12. Users shall be able to collapse any column, including Done column
+4. All columns shall display the task count in the header (both expanded and collapsed states)
+5. The board shall display a total task count across all columns
+6. Collapsed columns shall display the column name and task count
+7. Collapsed columns shall be easily expandable with a single click/tap
+8. In horizontal flows (ltr/rtl), collapsed columns shall minimize width
+9. In vertical flows (ttb/btt), collapsed columns shall minimize height
+10. Collapse/expand shall be animated smoothly for clear visual feedback
+11. Drag-and-drop to collapsed columns shall work (auto-expand on hover)
+12. The collapse toggle control shall be discoverable but unobtrusive
+13. Collapsed columns shall remain visible in the column sequence
+14. Users shall be able to collapse any column, including Done column
 
 ## High-Level Design
 
@@ -51,7 +54,7 @@ Users with many columns or limited screen space need to temporarily hide columns
 **Expanded State (Current):**
 ```
 ┌──────────────────────┐
-│ Today            [▶] │ ← Column header with collapse button
+│ Today          2 [▶] │ ← Column header with task count + collapse button
 │ [ Done | Select ]    │
 │                      │
 │ ┌──────────────────┐ │
@@ -100,7 +103,7 @@ Width: 48px (fixed, narrow)
 **Expanded State:**
 ```
 ┌────────────────────────────────┐
-│ Today                      [▼] │ ← Collapse button points down
+│ Today               2 tasks [▼]│ ← Header with task count + collapse button
 │ [ Done | Select ]              │
 │                                │
 │ ┌────────────────────────────┐ │
@@ -157,6 +160,59 @@ Height: ~40px (header only, minimal)
 **Recommendation: Use both**
 - Header button for quick access (primary interaction)
 - Menu option for completeness and keyboard users
+
+### Task Count Display (All States)
+
+Task counts are displayed at both the **board level** and in **column headers**, providing at-a-glance status information. This addresses [#87](https://github.com/ErikaRS/task-list-kanban/issues/87).
+
+#### Board-Level Total Count
+
+A total task count is displayed at the board level, showing the sum of all tasks across all columns.
+
+**Placement options:**
+1. **Board header/toolbar** (if one exists) - most visible location
+2. **Above the columns** - floating indicator aligned to the board edge
+3. **Status bar area** - unobtrusive but always accessible
+
+**Recommended placement:** Above the columns, right-aligned, as a subtle status indicator.
+
+**Visual design:**
+```
+                                          Total: 24 tasks
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Backlog   8 │ │ Today     5 │ │ In Prog   6 │ │ Done      5 │
+│ ...         │ │ ...         │ │ ...         │ │ ...         │
+```
+
+**Format:** "Total: X tasks" or "X total tasks"
+
+**Behavior:**
+- Updates in real-time as tasks are added, removed, or moved
+- When filters are active, shows filtered count: "12 of 24 tasks" or "12 tasks (filtered)"
+- Clicking the total count could optionally clear filters (future enhancement)
+
+#### Per-Column Task Counts
+
+Task counts are displayed in column headers in **both** expanded and collapsed states.
+
+**Format by state and flow:**
+
+| State | Flow | Format | Example |
+|-------|------|--------|---------|
+| Expanded | Horizontal (ltr/rtl) | Just number, compact | `2` |
+| Expanded | Vertical (ttb/btt) | Full text | `2 tasks` |
+| Collapsed | Horizontal (ltr/rtl) | Just number | `2` |
+| Collapsed | Vertical (ttb/btt) | Full text | `2 tasks` |
+
+**Expanded column header layout:**
+- Column name (left-aligned)
+- Task count (right of name, before collapse button)
+- Collapse button (far right)
+
+**Count updates:**
+- Task count updates in real-time as tasks are added, removed, or moved
+- Applies to both expanded and collapsed columns
+- Filter changes update counts to reflect filtered results
 
 ### Collapsed State Information
 
@@ -544,24 +600,45 @@ kanban-plugin: {
 
 **Deliverable:** Collapsed state can be stored and retrieved from frontmatter
 
-### Phase 2: Collapse Button UI
+### Phase 2: Task Count Display and Collapse Button UI
 
-**Goal:** Add collapse/expand button to column headers
+**Goal:** Add task count display (board-level and per-column) and collapse/expand button to column headers
 
-1. ☐ Add collapse button component to column header (top-right, next to menu)
-2. ☐ Use lucide icons for directional chevrons based on flow direction:
+**Board-Level Task Count:**
+1. ☐ Add board total count component above the columns (right-aligned)
+2. ☐ Calculate total from all tasks across all columns
+3. ☐ Format as "Total: X tasks"
+4. ☐ When filters active, show "X of Y tasks" or "X tasks (filtered)"
+5. ☐ Style with muted color, smaller font, unobtrusive placement
+6. ☐ Ensure count updates reactively when tasks change
+7. ☐ Test: Total count displays correctly in all flow directions
+8. ☐ Test: Count updates when tasks added/removed/moved
+9. ☐ Test: Filtered count shows correctly when filters applied
+
+**Per-Column Task Count:**
+10. ☐ Add task count component to column header (between name and collapse button)
+11. ☐ Calculate count from tasks array for each column
+12. ☐ Format count: just number for horizontal flows, "X tasks" for vertical flows
+13. ☐ Style count with muted color (--text-muted) and smaller font
+14. ☐ Ensure count updates reactively when tasks change
+15. ☐ Test: Task count displays correctly in all flow directions
+16. ☐ Test: Count updates when tasks added/removed/moved
+
+**Collapse Button:**
+17. ☐ Add collapse button component to column header (top-right, next to menu)
+18. ☐ Use lucide icons for directional chevrons based on flow direction:
    - `lucide-chevron-right` for LTR collapse
    - `lucide-chevron-left` for RTL collapse
    - `lucide-chevron-down` for TTB collapse
    - `lucide-chevron-up` for BTT collapse
-3. ☐ Add click handler to toggle collapsed state for the column
-4. ☐ Update collapsedColumns array in settings when button clicked
-5. ☐ Add hover and focus states to button
-6. ☐ Add "Collapse column" option to column menu (three-dot menu)
-7. ☐ Test: Click button, verify setting updates in store
-8. ☐ Test: Button appearance in all four flow directions
+19. ☐ Add click handler to toggle collapsed state for the column
+20. ☐ Update collapsedColumns array in settings when button clicked
+21. ☐ Add hover and focus states to button
+22. ☐ Add "Collapse column" option to column menu (three-dot menu)
+23. ☐ Test: Click button, verify setting updates in store
+24. ☐ Test: Button appearance in all four flow directions
 
-**Deliverable:** Collapse button visible and updates settings (no visual collapse yet)
+**Deliverable:** Board total and per-column task counts visible; collapse button visible and updates settings (no visual collapse yet)
 
 ### Phase 3: Collapsed State - Horizontal Flows (LTR/RTL)
 
@@ -671,7 +748,8 @@ kanban-plugin: {
    - Simple: "5" (just the number)
    - Detailed: "3/5" (incomplete/total)
    - Very detailed: "3 incomplete, 2 complete"
-   - **Recommendation:** Simple count for collapsed state (less clutter)
+   - **Decision:** Simple count for both expanded and collapsed states (less clutter)
+   - **Note:** Task counts now display in both states per [#87](https://github.com/ErikaRS/task-list-kanban/issues/87)
 
 2. **Auto-expand on Drag?**
    - Should dragging a task over a collapsed column auto-expand it after delay?
@@ -777,6 +855,7 @@ kanban-plugin: {
 
 - Original feature request: [#74](https://github.com/ErikaRS/task-list-kanban/issues/74)
 - Related issue: [#16](https://github.com/ErikaRS/task-list-kanban/issues/16)
+- Task count display request: [#87](https://github.com/ErikaRS/task-list-kanban/issues/87)
 - Dependency: SPEC_0005 (Column Width and Flow Direction)
 - Column implementation: `src/ui/components/column.svelte`
 - Columns layout: `src/ui/main.svelte`
