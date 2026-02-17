@@ -398,7 +398,7 @@
 			}
 		}
 
-		&.vertical-collapsed {
+		&.vertical-flow.vertical-collapsed {
 			.divide,
 			.tasks-wrapper,
 			.mode-toggle-container {
