@@ -238,15 +238,15 @@
 	>
 		<div class="column-header" class:row-header={isVerticalFlow}>
 			<div class="header">
+				<button
+					class="collapse-btn"
+					on:click={onToggleCollapse}
+					aria-expanded={!isCollapsed}
+					aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
+				>{collapseIcon}</button>
 				<h2 id="column-title-{column}">{columnTitle}</h2>
-				<div class="header-right">
-					<span class="task-count">{taskCountLabel}</span>
-					<button
-						class="collapse-btn"
-						on:click={onToggleCollapse}
-						aria-expanded={!isCollapsed}
-						aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
-					>{collapseIcon}</button>
+				<span class="task-count">{taskCountLabel}</span>
+				<div class="header-menu">
 					<IconButton icon="lucide-more-vertical" on:click={showMenu} />
 				</div>
 			</div>
@@ -423,54 +423,51 @@
 
 		.header {
 			display: flex;
-			justify-content: space-between;
 			align-items: center;
 			min-height: 24px;
 			flex-shrink: 0;
+			gap: var(--size-2-2);
 
 			h2 {
 				font-size: var(--font-ui-larger);
 				font-weight: var(--font-bold);
 				margin: 0;
-				flex: 1;
-				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
 
-			.header-right {
-				display: flex;
-				align-items: center;
-				gap: var(--size-2-2);
-				flex-shrink: 0;
+			.task-count {
+				font-size: var(--font-ui-smaller);
+				color: var(--text-muted);
+				white-space: nowrap;
+			}
 
-				.task-count {
-					font-size: var(--font-ui-smaller);
-					color: var(--text-muted);
-					white-space: nowrap;
+			.header-menu {
+				margin-left: auto;
+				flex-shrink: 0;
+			}
+
+			.collapse-btn {
+				background: transparent;
+				border: none;
+				cursor: pointer;
+				color: var(--text-muted);
+				padding: 2px 4px;
+				border-radius: var(--radius-s);
+				font-size: var(--font-ui-smaller);
+				line-height: 1;
+				flex-shrink: 0;
+				transition: color 0.15s ease, background 0.15s ease;
+
+				&:hover {
+					color: var(--text-normal);
+					background: var(--background-modifier-hover);
 				}
 
-				.collapse-btn {
-					background: transparent;
-					border: none;
-					cursor: pointer;
-					color: var(--text-muted);
-					padding: 2px 4px;
-					border-radius: var(--radius-s);
-					font-size: var(--font-ui-smaller);
-					line-height: 1;
-					transition: color 0.15s ease, background 0.15s ease;
-
-					&:hover {
-						color: var(--text-normal);
-						background: var(--background-modifier-hover);
-					}
-
-					&:focus-visible {
-						outline: 2px solid var(--background-modifier-border-focus);
-						outline-offset: 2px;
-					}
+				&:focus-visible {
+					outline: 2px solid var(--background-modifier-border-focus);
+					outline-offset: 2px;
 				}
 			}
 		}

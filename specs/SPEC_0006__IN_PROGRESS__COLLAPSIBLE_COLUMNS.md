@@ -28,7 +28,7 @@ This spec defines collapsible columns and task count display for the kanban boar
 **Expanded:**
 ```
 ┌──────────────────────┐
-│ Today    2 tasks [▶] │  ← header with count + collapse button
+│ [▶] Today  2 tasks   │  ← collapse button left, count after name, menu (···) right
 │ [ Done | Select ]    │
 │ ┌──────────────────┐ │
 │ │ ☐ Task card      │ │
@@ -57,7 +57,7 @@ Width: 48px fixed
 **Expanded:**
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Today                                     2 tasks [▼]   │
+│ [▼] Today  2 tasks                                  ··· │
 │ [ Done | Select ]                                       │
 │ ┌────────────┐  ┌────────────┐                          │
 │ │ Task card  │  │ Task card  │  ← cards wrap horizontal │

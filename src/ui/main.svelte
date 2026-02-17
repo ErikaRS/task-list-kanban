@@ -805,7 +805,7 @@
 			gap: var(--size-4-3);
 
 			.board-task-count {
-				font-size: var(--font-ui-small);
+				font-size: var(--font-ui-medium);
 				color: var(--text-muted);
 			}
 		}
