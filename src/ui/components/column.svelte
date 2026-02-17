@@ -256,9 +256,9 @@
 					aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
 				>{collapseIcon}</button>
 				<h2 id="column-title-{column}">{columnTitle}</h2>
-				<span class="task-count">{displayTaskCount}</span>
+				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 				<div class="header-menu">
-					<IconButton icon="lucide-more-vertical" on:click={showMenu} />
+					<IconButton icon="lucide-more-vertical" on:click={showMenu} aria-label="Column options for {columnTitle}" />
 				</div>
 			</div>
 			<div class="mode-toggle-container">
@@ -342,6 +342,7 @@
 			{#if isColumnTag(column, columnTagTableStore)}
 				<button
 					class="add-new-btn"
+					aria-label="Add new task to {columnTitle}"
 					on:click={async (e) => {
 						if (isColumnTag(column, columnTagTableStore)) {
 							await taskActions.addNew(column, e);

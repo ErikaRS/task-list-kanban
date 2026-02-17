@@ -1,6 +1,6 @@
 # Collapsible Columns & Task Counts
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 ## Summary
 
@@ -168,16 +168,17 @@ kanban-plugin: {
 - Add drop zone highlighting to collapsed columns
 - Enable task drop without auto-expanding
 
-### Phase 6: Edge Cases
-- Selection mode clearing on collapse
-- Flow direction change adaptation
-- Filter count updates
+### Phase 6: Edge Cases ✓
+- Selection mode clearing on collapse: `toggleColumnCollapse` calls `exitSelectionMode` + `clearTaskSelections` when collapsing
+- Flow direction change adaptation: handled automatically by `isHorizontalCollapsed`/`isVerticalCollapsed` reactive CSS class logic
+- Filter count updates: handled automatically by reactive Svelte derived stores
 
-### Phase 7: Accessibility & Polish
-- ARIA attributes
-- Keyboard navigation
-- Screen reader announcements
-- Run build and tests
+### Phase 7: Accessibility & Polish ✓
+- `aria-label` added to `···` column menu button: "Column options for {columnTitle}"
+- `aria-live="polite"` + `aria-label={taskCountLabel}` added to per-column task count span
+- `aria-label="Add new task to {columnTitle}"` added to "Add new" button (disambiguates across columns for screen readers)
+- All other ARIA attributes, keyboard navigation, and focus-visible states were already in place from earlier phases
+- Build and tests pass
 
 ## Key Decisions
 

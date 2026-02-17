@@ -17,6 +17,7 @@
 	import { onMount } from "svelte";
 	import type { App } from "obsidian";
 	import { clearTaskSelections } from "./selection/task_selection_store";
+	import { exitSelectionMode } from "./selection/selection_mode_store";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -30,10 +31,10 @@
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
 
 	function toggleColumnCollapse(col: ColumnTag | DefaultColumns) {
+		const isCurrentlyCollapsed = $collapsedColumnsStore.has(col as string);
 		settingsStore.update(s => {
 			const collapsed = s.collapsedColumns ?? [];
 			const tag = col as string;
-			const isCurrentlyCollapsed = collapsed.includes(tag);
 			return {
 				...s,
 				collapsedColumns: isCurrentlyCollapsed
@@ -41,6 +42,11 @@
 					: [...collapsed, tag],
 			};
 		});
+		if (!isCurrentlyCollapsed) {
+			// Collapsing: exit selection mode and clear task selections for this column
+			exitSelectionMode(col);
+			clearTaskSelections();
+		}
 		requestSave();
 	}
 
