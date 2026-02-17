@@ -186,23 +186,38 @@
 
 	function handleDrop(e: DragEvent) {
 		e.preventDefault();
+		isDraggedOver = false;
 		if (!canDrop) {
 			return;
 		}
 
-		// Get the id of the target and add the moved element to the target's DOM
 		const droppedId = e.dataTransfer?.getData("text/plain");
-		if (droppedId) {
+		if (!droppedId) return;
+
+		// If the dragged task is selected, move all selected tasks together
+		const currentSelection = $taskSelectionStore;
+		const droppedIsSelected = currentSelection.get(droppedId) || false;
+		const taskIdsToMove = droppedIsSelected
+			? [...currentSelection.entries()]
+				.filter(([, selected]) => selected)
+				.map(([id]) => id)
+			: [droppedId];
+
+		for (const taskId of taskIdsToMove) {
 			switch (column) {
 				case "uncategorised":
 					break;
 				case "done":
-					taskActions.markDone(droppedId);
+					taskActions.markDone(taskId);
 					break;
 				default:
-					taskActions.changeColumn(droppedId, column);
+					taskActions.changeColumn(taskId, column);
 					break;
 			}
+		}
+
+		if (droppedIsSelected) {
+			clearTaskSelections();
 		}
 	}
 
@@ -359,6 +374,10 @@
 			width: 48px;
 			cursor: pointer;
 
+			&.drop-hover {
+				border-color: var(--color-base-70);
+			}
+
 			.divide,
 			.tasks-wrapper,
 			.mode-toggle-container {
@@ -399,6 +418,10 @@
 		}
 
 		&.vertical-flow.vertical-collapsed {
+			&.drop-hover {
+				border-color: var(--color-base-70);
+			}
+
 			.divide,
 			.tasks-wrapper,
 			.mode-toggle-container {

@@ -164,7 +164,7 @@ kanban-plugin: {
 - Keep configured width (no rotation needed)
 - Horizontal layout: name + count (bare number) visible; mode toggle, divider, tasks, and ··· menu hidden
 
-### Phase 5: Drag-and-Drop
+### Phase 5: Drag-and-Drop ✓
 - Add drop zone highlighting to collapsed columns
 - Enable task drop without auto-expanding
 

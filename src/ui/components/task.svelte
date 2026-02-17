@@ -42,13 +42,16 @@
 		}
 	}
 
-	let isDragging = false;
 	let isEditing = false;
 
 	function handleDragStart(e: DragEvent) {
 		handleContentBlur();
-		isDragging = true;
-		isDraggingStore.set({ fromColumn: displayColumn });
+		const currentSelection = $taskSelectionStore;
+		const thisIsSelected = currentSelection.get(task.id) || false;
+		const draggedTaskIds = thisIsSelected
+			? new Set([...currentSelection.entries()].filter(([, v]) => v).map(([k]) => k))
+			: new Set([task.id]);
+		isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds });
 		if (e.dataTransfer) {
 			e.dataTransfer.setData("text/plain", task.id);
 			e.dataTransfer.dropEffect = "move";
@@ -56,7 +59,6 @@
 	}
 
 	function handleDragEnd() {
-		isDragging = false;
 		isDraggingStore.set(null);
 	}
 
@@ -204,6 +206,7 @@
 
 	$: shouldconsolidateTags = consolidateTags && task.tags.size > 0;
 	$: isSelected = isTaskSelected(task.id, $taskSelectionStore);
+	$: isDragging = $isDraggingStore?.draggedTaskIds?.has(task.id) || false;
 </script>
 
 <div
