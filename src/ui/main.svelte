@@ -4,6 +4,7 @@
 		type ColumnTagTable,
 		type ColumnColourTable,
 		type DefaultColumns,
+		createCollapsedColumnsStore,
 	} from "./columns/columns";
 	import type { Task } from "./tasks/task";
 	import Column from "./components/column.svelte";
@@ -25,6 +26,23 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let settingsStore: Writable<SettingValues>;
 	export let requestSave: () => void;
+
+	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
+
+	function toggleColumnCollapse(col: ColumnTag | DefaultColumns) {
+		settingsStore.update(s => {
+			const collapsed = s.collapsedColumns ?? [];
+			const tag = col as string;
+			const isCurrentlyCollapsed = collapsed.includes(tag);
+			return {
+				...s,
+				collapsedColumns: isCurrentlyCollapsed
+					? collapsed.filter(c => c !== tag)
+					: [...collapsed, tag],
+			};
+		});
+		requestSave();
+	}
 
 	$: tags = $tasksStore.reduce((acc, curr) => {
 		for (const tag of curr.tags) {
@@ -399,6 +417,10 @@
 
 	$: tasksByColumn = groupByColumnTag(filteredByFile);
 
+	$: totalTaskCount = $tasksStore.filter(t => t.column !== "archived").length;
+	$: filteredTaskCount = filteredByFile.filter(t => t.column !== "archived").length;
+	$: isFiltered = filterText.trim() !== "" || selectedTags.length > 0 || fileFilter.trim() !== "";
+
 	$: ({
 		showFilepath = true,
 		consolidateTags = false,
@@ -648,6 +670,13 @@
 
 		<div class="board-content">
 			<div class="settings">
+				<span class="board-task-count" aria-live="polite">
+					{#if isFiltered}
+						{filteredTaskCount} of {totalTaskCount} tasks
+					{:else}
+						Total: {totalTaskCount} tasks
+					{/if}
+				</span>
 				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 			</div>
 			
@@ -665,6 +694,9 @@
 							{showFilepath}
 							{consolidateTags}
 							{isVerticalFlow}
+							{flowDirection}
+							isCollapsed={$collapsedColumnsStore.has(column)}
+							onToggleCollapse={() => toggleColumnCollapse(column)}
 						/>
 					{/each}
 				</div>
@@ -768,7 +800,14 @@
 		.settings {
 			display: flex;
 			justify-content: flex-end;
+			align-items: center;
 			padding: var(--size-4-2) var(--size-4-4) var(--size-4-2) 0;
+			gap: var(--size-4-3);
+
+			.board-task-count {
+				font-size: var(--font-ui-small);
+				color: var(--text-muted);
+			}
 		}
 
 		.controls {

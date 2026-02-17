@@ -147,7 +147,7 @@ kanban-plugin: {
 - Handle frontmatter serialization/parsing
 - Create derived state for per-column collapsed status
 
-### Phase 2: Task Counts & Collapse Button UI
+### Phase 2: Task Counts & Collapse Button UI ✓
 - Add board total count component (above columns, right-aligned)
 - Add task count to column headers
 - Add collapse button to column headers (directional chevron)

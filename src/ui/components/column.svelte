@@ -15,6 +15,7 @@
 	import type { Readable } from "svelte/store";
 	import { selectionModeStore, toggleSelectionMode } from "../selection/selection_mode_store";
 	import { taskSelectionStore, getSelectedTaskCount, clearTaskSelections } from "../selection/task_selection_store";
+	import { FlowDirection } from "../settings/settings_store";
 
 	export let app: App;
 	export let column: ColumnTag | DefaultColumns;
@@ -26,6 +27,9 @@
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let isVerticalFlow: boolean = false;
+	export let flowDirection: FlowDirection = FlowDirection.LeftToRight;
+	export let isCollapsed: boolean = false;
+	export let onToggleCollapse: () => void;
 
 	function getColumnTitle(
 		column: ColumnTag | DefaultColumns,
@@ -45,6 +49,16 @@
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
 	$: isInSelectionMode = $selectionModeStore.get(column) || false;
 	$: selectedCount = getSelectedTaskCount(tasks.map(t => t.id), $taskSelectionStore);
+	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
+	$: collapseIcon = (() => {
+		switch (flowDirection) {
+			case FlowDirection.LeftToRight: return isCollapsed ? "◀" : "▶";
+			case FlowDirection.RightToLeft: return isCollapsed ? "▶" : "◀";
+			case FlowDirection.TopToBottom: return isCollapsed ? "▲" : "▼";
+			case FlowDirection.BottomToTop: return isCollapsed ? "▼" : "▲";
+			default: return isCollapsed ? "◀" : "▶";
+		}
+	})();
 
 	$: sortedTasks = [...tasks].sort((a, b) => {
 		if (a.path === b.path) {
@@ -57,10 +71,17 @@
 	function showMenu(e: MouseEvent) {
 		const menu = new Menu();
 
+		if (column === "done") {
+			menu.addItem((i) => {
+				i.setTitle(`Archive all`).onClick(() =>
+					taskActions.archiveTasks(tasks.map(({ id }) => id)),
+				);
+			});
+			menu.addSeparator();
+		}
+
 		menu.addItem((i) => {
-			i.setTitle(`Archive all`).onClick(() =>
-				taskActions.archiveTasks(tasks.map(({ id }) => id)),
-			);
+			i.setTitle(isCollapsed ? "Expand column" : "Collapse column").onClick(onToggleCollapse);
 		});
 
 		menu.showAtMouseEvent(e);
@@ -218,9 +239,16 @@
 		<div class="column-header" class:row-header={isVerticalFlow}>
 			<div class="header">
 				<h2 id="column-title-{column}">{columnTitle}</h2>
-				{#if column === "done"}
+				<div class="header-right">
+					<span class="task-count">{taskCountLabel}</span>
+					<button
+						class="collapse-btn"
+						on:click={onToggleCollapse}
+						aria-expanded={!isCollapsed}
+						aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
+					>{collapseIcon}</button>
 					<IconButton icon="lucide-more-vertical" on:click={showMenu} />
-				{/if}
+				</div>
 			</div>
 			<div class="mode-toggle-container">
 				<div 
@@ -397,13 +425,53 @@
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			height: 24px;
+			min-height: 24px;
 			flex-shrink: 0;
 
 			h2 {
 				font-size: var(--font-ui-larger);
 				font-weight: var(--font-bold);
 				margin: 0;
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.header-right {
+				display: flex;
+				align-items: center;
+				gap: var(--size-2-2);
+				flex-shrink: 0;
+
+				.task-count {
+					font-size: var(--font-ui-smaller);
+					color: var(--text-muted);
+					white-space: nowrap;
+				}
+
+				.collapse-btn {
+					background: transparent;
+					border: none;
+					cursor: pointer;
+					color: var(--text-muted);
+					padding: 2px 4px;
+					border-radius: var(--radius-s);
+					font-size: var(--font-ui-smaller);
+					line-height: 1;
+					transition: color 0.15s ease, background 0.15s ease;
+
+					&:hover {
+						color: var(--text-normal);
+						background: var(--background-modifier-hover);
+					}
+
+					&:focus-visible {
+						outline: 2px solid var(--background-modifier-border-focus);
+						outline-offset: 2px;
+					}
+				}
 			}
 		}
 
