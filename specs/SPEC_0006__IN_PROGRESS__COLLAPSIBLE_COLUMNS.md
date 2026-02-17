@@ -142,16 +142,17 @@ kanban-plugin: {
 
 ## Implementation Plan
 
-### Phase 1: Data Model
-- Add `collapsedColumns: string[]` to settings store
-- Handle frontmatter serialization/parsing
-- Create derived state for per-column collapsed status
+### Phase 1: Data Model ✓
+- Add `collapsedColumns: string[]` to settings store (`settings_store.ts` Zod schema + `defaultSettings`)
+- Handle frontmatter serialization/parsing (via Zod `.default([])`, roundtrips correctly)
+- Create `createCollapsedColumnsStore` in `columns.ts` returning `Readable<Set<string>>` (uses `Set<string>` not `Set<ColumnTag>` to support `DefaultColumns` without Svelte template cast issues)
 
 ### Phase 2: Task Counts & Collapse Button UI ✓
-- Add board total count component (above columns, right-aligned)
-- Add task count to column headers
-- Add collapse button to column headers (directional chevron)
-- Add "Collapse column" to column context menu
+- Board total count above columns, right-aligned: "Total: X tasks" / "X of Y tasks" when any filter active
+- Per-column task count displayed right of column name ("1 task" / "N tasks")
+- Collapse button left of column name with directional arrow per flow (▶/◀/▼/▲); `aria-expanded` set
+- "Collapse/Expand column" added to all column context menus (not just Done)
+- `toggleColumnCollapse` in `main.svelte` wires button and menu item to `settingsStore.update()` + `requestSave()`; collapse state persists to frontmatter immediately
 
 ### Phase 3: Collapsed State - Horizontal Flows
 - Implement 48px collapsed width with CSS transitions
@@ -185,6 +186,8 @@ kanban-plugin: {
 | Drag-drop behavior | Drop without auto-expand | Simpler, less disruptive; auto-expand can be added later if requested |
 | Collapsed state storage | Per-kanban (frontmatter) | Different boards have different workflows |
 | Task count format | Simple total only | "3/5" adds clutter without clear benefit |
+| `collapsedColumnsStore` type | `Set<string>` not `Set<ColumnTag>` | `DefaultColumns` ("done", "uncategorised") must also be collapsible; `Set<ColumnTag>` required unsafe `as` casts in Svelte templates |
+| Header element order | `[▶] Title  N tasks  ···` | Collapse button on left for quick access; count next to title for clear association; menu on far right |
 
 ## Future Enhancements (Out of Scope)
 
@@ -197,5 +200,8 @@ kanban-plugin: {
 
 - SPEC_0005 (Column Width and Flow Direction) - dependency
 - `src/ui/components/column.svelte` - column implementation
-- `src/ui/main.svelte` - columns layout
-- `src/ui/settings/settings_store.ts` - settings store
+- `src/ui/main.svelte` - columns layout, `toggleColumnCollapse`, board total count
+- `src/ui/settings/settings_store.ts` - settings store (`collapsedColumns` field)
+- `src/ui/columns/columns.ts` - `createCollapsedColumnsStore` derived store
+- `src/ui/columns/tests/columns.tests.ts` - collapsed columns store tests
+- `src/ui/settings/tests/settings_store.tests.ts` - `collapsedColumns` persistence tests
