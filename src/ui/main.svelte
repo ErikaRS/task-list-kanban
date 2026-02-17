@@ -694,7 +694,6 @@
 							{showFilepath}
 							{consolidateTags}
 							{isVerticalFlow}
-							{flowDirection}
 							isCollapsed={$collapsedColumnsStore.has(column)}
 							onToggleCollapse={() => toggleColumnCollapse(column)}
 						/>

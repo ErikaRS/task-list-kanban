@@ -77,12 +77,12 @@ Height: ~40px fixed
 
 ### Collapse Button Icons
 
-| Flow | Collapse | Expand |
-|------|----------|--------|
-| LTR  | `▶`      | `◀`    |
-| RTL  | `◀`      | `▶`    |
-| TTB  | `▼`      | `▲`    |
-| BTT  | `▲`      | `▼`    |
+Standard right/down collapse indicator (consistent across all flow directions):
+
+| State    | Icon | Meaning                    |
+|----------|------|----------------------------|
+| Expanded | `▼`  | Click to collapse (hide)   |
+| Collapsed| `▶`  | Click to expand (show)     |
 
 ## Task Counts
 
@@ -154,7 +154,7 @@ kanban-plugin: {
 - "Collapse/Expand column" added to all column context menus (not just Done)
 - `toggleColumnCollapse` in `main.svelte` wires button and menu item to `settingsStore.update()` + `requestSave()`; collapse state persists to frontmatter immediately
 
-### Phase 3: Collapsed State - Horizontal Flows
+### Phase 3: Collapsed State - Horizontal Flows ✓
 - Implement 48px collapsed width with CSS transitions
 - Vertical text rotation for column name
 - Hide task cards, mode toggle, add button when collapsed
@@ -188,6 +188,7 @@ kanban-plugin: {
 | Task count format | Simple total only | "3/5" adds clutter without clear benefit |
 | `collapsedColumnsStore` type | `Set<string>` not `Set<ColumnTag>` | `DefaultColumns` ("done", "uncategorised") must also be collapsible; `Set<ColumnTag>` required unsafe `as` casts in Svelte templates |
 | Header element order | `[▶] Title  N tasks  ···` | Collapse button on left for quick access; count next to title for clear association; menu on far right |
+| Collapse icon convention | `▶` collapsed / `▼` expanded (all flows) | Standard file-explorer triangle pattern; directional arrows (◀/▶/▲) were non-intuitive |
 
 ## Future Enhancements (Out of Scope)
 

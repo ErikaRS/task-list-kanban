@@ -15,7 +15,6 @@
 	import type { Readable } from "svelte/store";
 	import { selectionModeStore, toggleSelectionMode } from "../selection/selection_mode_store";
 	import { taskSelectionStore, getSelectedTaskCount, clearTaskSelections } from "../selection/task_selection_store";
-	import { FlowDirection } from "../settings/settings_store";
 
 	export let app: App;
 	export let column: ColumnTag | DefaultColumns;
@@ -27,7 +26,6 @@
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let isVerticalFlow: boolean = false;
-	export let flowDirection: FlowDirection = FlowDirection.LeftToRight;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
 
@@ -50,15 +48,9 @@
 	$: isInSelectionMode = $selectionModeStore.get(column) || false;
 	$: selectedCount = getSelectedTaskCount(tasks.map(t => t.id), $taskSelectionStore);
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
-	$: collapseIcon = (() => {
-		switch (flowDirection) {
-			case FlowDirection.LeftToRight: return isCollapsed ? "◀" : "▶";
-			case FlowDirection.RightToLeft: return isCollapsed ? "▶" : "◀";
-			case FlowDirection.TopToBottom: return isCollapsed ? "▲" : "▼";
-			case FlowDirection.BottomToTop: return isCollapsed ? "▼" : "▲";
-			default: return isCollapsed ? "◀" : "▶";
-		}
-	})();
+	$: collapseIcon = isCollapsed ? "▶" : "▼";
+	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
+	$: displayTaskCount = isHorizontalCollapsed ? `${tasks.length}` : taskCountLabel;
 
 	$: sortedTasks = [...tasks].sort((a, b) => {
 		if (a.path === b.path) {
@@ -226,10 +218,12 @@
 	<div
 		role="group"
 		aria-labelledby="column-title-{column}"
+		aria-label={isHorizontalCollapsed ? `${columnTitle} column, collapsed, ${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}` : undefined}
 		class="column"
 		class:drop-active={!!draggingData}
 		class:drop-hover={isDraggedOver}
 		class:vertical-flow={isVerticalFlow}
+		class:collapsed={isHorizontalCollapsed}
 		style:--column-color={columnColor}
 		style={columnColor ? `background-color: ${columnColor};` : ''}
 		on:dragover={handleDragOver}
@@ -245,7 +239,7 @@
 					aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
 				>{collapseIcon}</button>
 				<h2 id="column-title-{column}">{columnTitle}</h2>
-				<span class="task-count">{taskCountLabel}</span>
+				<span class="task-count">{displayTaskCount}</span>
 				<div class="header-menu">
 					<IconButton icon="lucide-more-vertical" on:click={showMenu} />
 				</div>
@@ -356,6 +350,51 @@
 		border-radius: var(--radius-m);
 		border: var(--border-width) solid var(--background-modifier-border);
 		background-color: var(--background-secondary);
+		transition: width 250ms ease;
+		overflow: hidden;
+
+		&.collapsed {
+			width: 48px;
+			cursor: pointer;
+
+			.divide,
+			.tasks-wrapper,
+			.mode-toggle-container {
+				display: none;
+			}
+
+			.column-header {
+				.header {
+					flex-direction: column;
+					align-items: center;
+					min-height: unset;
+					gap: var(--size-4-2);
+
+					h2 {
+						writing-mode: vertical-rl;
+						text-orientation: mixed;
+						white-space: nowrap;
+						overflow: visible;
+						text-overflow: unset;
+						order: 2;
+						flex: 0 0 auto;
+					}
+
+					.task-count {
+						order: 3;
+						writing-mode: horizontal-tb;
+					}
+
+					.header-menu {
+						display: none;
+					}
+
+					.collapse-btn {
+						order: 1;
+					}
+				}
+			}
+		}
 
 		&.vertical-flow {
 			width: 100%;
@@ -453,7 +492,12 @@
 				border: none;
 				cursor: pointer;
 				color: var(--text-muted);
-				padding: 2px 4px;
+				padding: 0;
+				width: 28px;
+				height: 28px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
 				border-radius: var(--radius-s);
 				font-size: var(--font-ui-smaller);
 				line-height: 1;
