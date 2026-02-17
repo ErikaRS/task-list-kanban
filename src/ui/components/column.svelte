@@ -13,8 +13,6 @@
 	import IconButton from "./icon_button.svelte";
 	import { isDraggingStore } from "../dnd/store";
 	import type { Readable } from "svelte/store";
-	import { selectionModeStore, toggleSelectionMode } from "../selection/selection_mode_store";
-	import { taskSelectionStore, getSelectedTaskCount, clearTaskSelections } from "../selection/task_selection_store";
 
 	export let app: App;
 	export let column: ColumnTag | DefaultColumns;
@@ -45,8 +43,6 @@
 
 	$: columnTitle = getColumnTitle(column, $columnTagTableStore);
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
-	$: isInSelectionMode = $selectionModeStore.get(column) || false;
-	$: selectedCount = getSelectedTaskCount(tasks.map(t => t.id), $taskSelectionStore);
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
@@ -64,100 +60,13 @@
 	function showMenu(e: MouseEvent) {
 		const menu = new Menu();
 
-		if (column === "done") {
-			menu.addItem((i) => {
-				i.setTitle(`Archive all`).onClick(() =>
-					taskActions.archiveTasks(tasks.map(({ id }) => id)),
-				);
-			});
-			menu.addSeparator();
-		}
-
 		menu.addItem((i) => {
-			i.setTitle(isCollapsed ? "Expand column" : "Collapse column").onClick(onToggleCollapse);
+			i.setTitle(`Archive all`).onClick(() =>
+				taskActions.archiveTasks(tasks.map(({ id }) => id)),
+			);
 		});
 
 		menu.showAtMouseEvent(e);
-	}
-
-	function showBulkActionsMenu(e: MouseEvent) {
-		const menu = new Menu();
-
-		// Get selected task IDs from the current column
-		const selectedTaskIds = tasks
-			.filter(task => $taskSelectionStore.get(task.id))
-			.map(task => task.id);
-
-		if (selectedTaskIds.length === 0) {
-			return;
-		}
-
-		const target = e.currentTarget as HTMLElement | null;
-		if (!target) {
-			return;
-		}
-
-		const boundingRect = target.getBoundingClientRect();
-		const y = boundingRect.top + boundingRect.height / 2;
-		const x = boundingRect.left + boundingRect.width / 2;
-
-		// Add "Move to [Column]" options
-		for (const [tag, label] of Object.entries($columnTagTableStore)) {
-			menu.addItem((i) => {
-				i.setTitle(`Move to ${label}`).onClick(() => {
-					// Move all selected tasks to this column
-					selectedTaskIds.forEach(taskId => {
-						taskActions.changeColumn(taskId, tag as ColumnTag);
-					});
-					// Clear selections after action (selection mode persists)
-					clearTaskSelections();
-				});
-				// Disable if this is the current column
-				if (isColumnTag(column, columnTagTableStore) && column === tag) {
-					i.setDisabled(true);
-				}
-			});
-		}
-
-		// Add "Move to Done" option
-		menu.addItem((i) => {
-			i.setTitle(`Move to Done`).onClick(() => {
-				// Mark all selected tasks as done
-				selectedTaskIds.forEach(taskId => {
-					taskActions.markDone(taskId);
-				});
-				// Clear selections after action (selection mode persists)
-				clearTaskSelections();
-			});
-			// Disable if already in Done column
-			if (column === "done") {
-				i.setDisabled(true);
-			}
-		});
-
-		menu.addSeparator();
-
-		// Add "Archive task" option
-		menu.addItem((i) => {
-			i.setTitle(`Archive task`).onClick(() => {
-				taskActions.archiveTasks(selectedTaskIds);
-				// Clear selections after action (selection mode persists)
-				clearTaskSelections();
-			});
-		});
-
-		// Add "Delete task" option
-		menu.addItem((i) => {
-			i.setTitle(`Delete task`).onClick(() => {
-				selectedTaskIds.forEach(taskId => {
-					taskActions.deleteTask(taskId);
-				});
-				// Clear selections after action (selection mode persists)
-				clearTaskSelections();
-			});
-		});
-
-		menu.showAtPosition({ x, y });
 	}
 
 	let isDraggedOver = false;
@@ -194,30 +103,15 @@
 		const droppedId = e.dataTransfer?.getData("text/plain");
 		if (!droppedId) return;
 
-		// If the dragged task is selected, move all selected tasks together
-		const currentSelection = $taskSelectionStore;
-		const droppedIsSelected = currentSelection.get(droppedId) || false;
-		const taskIdsToMove = droppedIsSelected
-			? [...currentSelection.entries()]
-				.filter(([, selected]) => selected)
-				.map(([id]) => id)
-			: [droppedId];
-
-		for (const taskId of taskIdsToMove) {
-			switch (column) {
-				case "uncategorised":
-					break;
-				case "done":
-					taskActions.markDone(taskId);
-					break;
-				default:
-					taskActions.changeColumn(taskId, column);
-					break;
-			}
-		}
-
-		if (droppedIsSelected) {
-			clearTaskSelections();
+		switch (column) {
+			case "uncategorised":
+				break;
+			case "done":
+				taskActions.markDone(droppedId);
+				break;
+			default:
+				taskActions.changeColumn(droppedId, column);
+				break;
 		}
 	}
 
@@ -257,68 +151,11 @@
 				>{collapseIcon}</button>
 				<h2 id="column-title-{column}">{columnTitle}</h2>
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
-				<div class="header-menu">
-					<IconButton icon="lucide-more-vertical" on:click={showMenu} aria-label="Column options for {columnTitle}" />
-				</div>
-			</div>
-			<div class="mode-toggle-container">
-				<div 
-					class="segmented-control"
-					class:has-color={!!columnColor}
-					style:--toggle-bg-color={columnColor ? `color-mix(in srgb, ${columnColor} 25%, white)` : undefined}
-					style:--toggle-active-color={columnColor || undefined}
-					role="toolbar"
-					aria-label="Task interaction mode"
-				>
-					<button
-						class="segment"
-						class:active={!isInSelectionMode}
-						on:click={() => { if (isInSelectionMode) toggleSelectionMode(column); }}
-						on:keydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								if (isInSelectionMode) {
-									toggleSelectionMode(column);
-								}
-							}
-						}}
-						aria-label="Mark as done mode"
-						aria-pressed={!isInSelectionMode}
-						tabindex="0"
-					>
-						Done
-					</button>
-					<button
-						class="segment"
-						class:active={isInSelectionMode}
-						on:click={() => { if (!isInSelectionMode) toggleSelectionMode(column); }}
-						on:keydown={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								if (!isInSelectionMode) {
-									toggleSelectionMode(column);
-								}
-							}
-						}}
-						aria-label="Selection mode"
-						aria-pressed={isInSelectionMode}
-						tabindex="0"
-					>
-						Select
-					</button>
-				</div>
-				<div class="selection-count" aria-live="polite">
-					{#if isInSelectionMode && selectedCount > 0}
-						<span>{selectedCount} selected</span>
-					{/if}
-				</div>
-				<div class="bulk-actions-button" class:visible={isInSelectionMode && selectedCount > 0}>
-					<IconButton 
-						icon="lucide-more-vertical" 
-						on:click={showBulkActionsMenu} 
-						aria-label="Bulk actions"
-					/>
-				</div>
+				{#if column === "done"}
+					<div class="header-menu">
+						<IconButton icon="lucide-more-vertical" on:click={showMenu} aria-label="Column options for {columnTitle}" />
+					</div>
+				{/if}
 			</div>
 		</div>
 		{#if !isVerticalFlow}
@@ -335,7 +172,6 @@
 						{showFilepath}
 						{consolidateTags}
 						displayColumn={column}
-						{isInSelectionMode}
 					/>
 				{/each}
 			</div>
@@ -380,8 +216,7 @@
 			}
 
 			.divide,
-			.tasks-wrapper,
-			.mode-toggle-container {
+			.tasks-wrapper {
 				display: none;
 			}
 
@@ -424,8 +259,7 @@
 			}
 
 			.divide,
-			.tasks-wrapper,
-			.mode-toggle-container {
+			.tasks-wrapper {
 				display: none;
 			}
 
@@ -469,21 +303,6 @@
 
 				.header {
 					margin-right: 0;
-				}
-
-				.mode-toggle-container {
-					margin-top: 0;
-					margin-bottom: 0;
-					gap: var(--size-4-1);
-
-					.selection-count:empty {
-						display: none;
-					}
-
-					.selection-count {
-						min-width: 0;
-						flex: 0;
-					}
 				}
 			}
 		}
@@ -554,76 +373,6 @@
 				&:focus-visible {
 					outline: 2px solid var(--background-modifier-border-focus);
 					outline-offset: 2px;
-				}
-			}
-		}
-
-		.mode-toggle-container {
-			display: flex;
-			align-items: center;
-			margin-top: var(--size-4-3);
-			margin-bottom: var(--size-4-2);
-			gap: var(--size-4-2);
-
-			.segmented-control {
-				display: inline-flex;
-				background: var(--background-primary);
-				border: none;
-				border-radius: var(--radius-s);
-				padding: 2px;
-				gap: 0;
-
-				&.has-color {
-					background: var(--toggle-bg-color);
-				}
-
-				.segment {
-					padding: 2px var(--size-4-2);
-					border: none;
-					background: transparent;
-					border-radius: calc(var(--radius-s) - 2px);
-					cursor: pointer;
-					font-size: var(--font-ui-smaller);
-					color: var(--text-muted);
-					transition: all 0.2s ease;
-					box-shadow: none;
-					position: relative;
-					z-index: 1;
-					white-space: nowrap;
-
-					&.active {
-						background: var(--background-secondary);
-						border: none;
-						color: var(--text-normal);
-					}
-
-					&:focus-visible {
-						outline: 2px solid var(--background-modifier-border-focus);
-						outline-offset: 2px;
-					}
-				}
-
-				&.has-color .segment.active {
-					background: var(--toggle-active-color);
-					border: none;
-					color: var(--text-normal);
-				}
-			}
-
-			.selection-count {
-				font-size: var(--font-ui-smaller);
-				color: var(--text-muted);
-				flex: 1;
-			}
-
-			.bulk-actions-button {
-				opacity: 0;
-				pointer-events: none;
-				transition: opacity 0.2s ease;
-
-				&.visible {
-					opacity: 1;
-					pointer-events: auto;
 				}
 			}
 		}

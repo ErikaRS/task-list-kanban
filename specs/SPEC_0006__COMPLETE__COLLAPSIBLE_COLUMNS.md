@@ -6,7 +6,13 @@ Status: COMPLETE
 
 This spec defines collapsible columns and task count display for the kanban board. Builds on SPEC_0005's flow direction system.
 
-**Related issues:** [#74](https://github.com/ErikaRS/task-list-kanban/issues/74) (collapse columns), [#87](https://github.com/ErikaRS/task-list-kanban/issues/87) (task counts), [#16](https://github.com/ErikaRS/task-list-kanban/issues/16) (general suggestions)
+**Related issues:** 
+- [#74](https://github.com/ErikaRS/task-list-kanban/issues/74) (collapse columns), 
+- [#87](https://github.com/ErikaRS/task-list-kanban/issues/87) (task counts), 
+- [#16](https://github.com/ErikaRS/task-list-kanban/issues/16) (general suggestions), 
+- [#90](https://github.com/ErikaRS/task-list-kanban/issues/90) (drag selected tasks together)
+- [#88](https://github.com/ErikaRS/task-list-kanban/issues/88) (empty columns
+  not showing)
 
 ## User Requirements
 
@@ -190,6 +196,98 @@ kanban-plugin: {
 | `collapsedColumnsStore` type | `Set<string>` not `Set<ColumnTag>` | `DefaultColumns` ("done", "uncategorised") must also be collapsible; `Set<ColumnTag>` required unsafe `as` casts in Svelte templates |
 | Header element order | `[▶] Title  N tasks  ···` | Collapse button on left for quick access; count next to title for clear association; menu on far right |
 | Collapse icon convention | `▶` collapsed / `▼` expanded (all flows) | Standard file-explorer triangle pattern; directional arrows (◀/▶/▲) were non-intuitive |
+
+## Manual Test Cases
+
+### TC-01: Basic Collapse/Expand — Horizontal Flow
+
+Setup: board with LTR or RTL flow, at least one column with tasks.
+
+- [x] Collapse button (`▼`) appears left of column name; task count appears right of name
+- [x] Clicking `▼` collapses column to 48px wide; button changes to `▶`; column name rotates vertically; task cards hidden
+- [x] Clicking `▶` expands column; button returns to `▼`; task cards reappear; animation ~250ms
+
+### TC-02: Basic Collapse/Expand — Vertical Flow
+
+Setup: board with TTB or BTT flow.
+
+- [x] Clicking `▼` collapses column to ~40px height; column name, bare task count, and `▶` button remain visible
+- [x] Mode toggle, task cards, "Add new" button, divider, and `···` menu are hidden when collapsed
+- [x] Clicking `▶` expands column; all hidden elements reappear
+
+### TC-03: Task Count Display
+
+- [X] Column with 0 tasks (expanded) shows `0 tasks`
+- [X] Column with 1 task (expanded) shows `1 task` (singular)
+- [X] Column with 3 tasks (expanded) shows `3 tasks` (plural)
+- [X] Collapsed column shows bare number only (e.g., `3`)
+- [X] Task count updates immediately when a task is added or removed
+
+### TC-04: Board Total Count
+
+- [X] "Total: X tasks" appears above columns, right-aligned
+- [X] Count updates in real-time when tasks are added or removed
+- [X] With a filter active: shows "X of Y tasks" format
+- [X] Removing the filter returns display to "Total: X tasks"
+
+### TC-05: Persistence Across Sessions
+
+- [X] Collapsing a column writes its tag to `collapsedColumns` in frontmatter
+- [X] Closing and reopening the note: column is still collapsed
+- [X] Expanding the column removes its tag from `collapsedColumns` in frontmatter
+- [X] Closing and reopening the note: column remains expanded
+
+### TC-07: Drag-and-Drop to Collapsed Column
+
+- [X] Dragging a task over a collapsed column highlights the drop zone
+- [X] Dropping a task onto a collapsed column moves the task there; column stays collapsed
+- [X] Task count on the collapsed column updates immediately after drop
+- [X] Expanding the column reveals the dropped task
+
+### TC-08: Drag-and-Drop Selected Tasks (fixes #90)
+
+Setup: select multiple tasks across one or more columns.
+
+- [ ] Dragging any selected task moves all selected tasks to the target column
+- [ ] Dragging selected tasks onto a collapsed column: all tasks move; column stays collapsed
+- [ ] Task counts on source and target columns update correctly after the move
+
+### TC-09: Selection Mode Clears on Collapse
+
+- [ ] Enter selection mode in a column and select one or more tasks
+- [ ] Collapsing that column exits selection mode and clears all selections
+- [ ] Expanding the column shows it in normal mode with no selections
+
+### TC-10: Flow Direction Change Preserves Collapse State
+
+- [X] Collapse a column in LTR flow (48px wide vertical bar)
+- [X] Change board flow to TTB: column remains collapsed as a horizontal strip (~40px tall)
+- [X] Change back to LTR: column still collapsed as a 48px wide vertical bar
+
+### TC-11: All Columns Collapsed
+
+- [ ] Collapse every column on the board: all remain visible as narrow bars/strips
+- [ ] Expanding one column expands only that column; others stay collapsed
+
+### TC-12: Long Column Names
+
+- [ ] A very long column name is truncated with ellipsis in collapsed (horizontal) state
+- [ ] Hovering over the collapsed column name shows the full name in a tooltip
+
+### TC-13: Done Column Can Be Collapsed
+
+- [ ] Done column has the same `▼` collapse button as other columns
+- [ ] Done column collapses and expands identically to other columns
+
+### TC-14: Accessibility
+
+- [ ] Collapse button has `aria-expanded="true"` when expanded, `"false"` when collapsed
+- [ ] Collapsed column has `aria-label` reading e.g. "Today column, collapsed, 5 tasks"
+- [ ] Tab to collapse button → Enter or Space toggles collapse state
+- [ ] Collapse button has a visible focus ring when focused via keyboard
+- [ ] `···` menu button has `aria-label` reading "Column options for {column name}"
+- [ ] Task count span has `aria-live="polite"` and a descriptive `aria-label`
+- [ ] "Add new" button has `aria-label` reading "Add new task to {column name}"
 
 ## Future Enhancements (Out of Scope)
 

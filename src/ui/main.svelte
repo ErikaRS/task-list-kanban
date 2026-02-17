@@ -16,8 +16,6 @@
 	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
 	import { onMount } from "svelte";
 	import type { App } from "obsidian";
-	import { clearTaskSelections } from "./selection/task_selection_store";
-	import { exitSelectionMode } from "./selection/selection_mode_store";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -42,11 +40,6 @@
 					: [...collapsed, tag],
 			};
 		});
-		if (!isCurrentlyCollapsed) {
-			// Collapsing: exit selection mode and clear task selections for this column
-			exitSelectionMode(col);
-			clearTaskSelections();
-		}
 		requestSave();
 	}
 
@@ -90,14 +83,6 @@
 	let activeContentFilterId: string | undefined = undefined;
 	let activeTagFilterId: string | undefined = undefined;
 	let activeFileFilterId: string | undefined = undefined;
-
-	// Clear selections when any filter changes
-	$: {
-		void filterText;
-		void selectedTags;
-		void fileFilter;
-		clearTaskSelections();
-	}
 
 	let deleteModalOpen = false;
 	let filterToDelete: { id: string; text: string; type: 'content' | 'tag' | 'file' } | null = null;
@@ -440,10 +425,12 @@
 
 	$: showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
+		$collapsedColumnsStore.has("uncategorised") ||
 		(uncategorizedVisibility === VisibilityOption.Auto && tasksByColumn["uncategorised"]?.length > 0);
 
 	$: showDoneColumn =
 		doneVisibility === VisibilityOption.AlwaysShow ||
+		$collapsedColumnsStore.has("done") ||
 		(doneVisibility === VisibilityOption.Auto && tasksByColumn["done"]?.length > 0);
 
 	// Build ordered list of all visible columns, reversed for RTL and BTT
@@ -688,11 +675,11 @@
 			
 			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
 				<div>
-					{#each orderedColumns as column}
+					{#each orderedColumns as column (column)}
 						<Column
 							{app}
 							{column}
-							hideOnEmpty={column !== "uncategorised" && column !== "done"}
+							hideOnEmpty={false}
 							tasks={tasksByColumn[column] ?? []}
 							{taskActions}
 							{columnTagTableStore}

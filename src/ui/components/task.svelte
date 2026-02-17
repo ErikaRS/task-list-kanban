@@ -8,7 +8,6 @@
 	import { Component, MarkdownRenderer, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
 	import { onDestroy } from "svelte";
-	import { taskSelectionStore, toggleTaskSelection, isTaskSelected } from "../selection/task_selection_store";
 
 	export let app: App;
 	export let task: Task;
@@ -17,7 +16,6 @@
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let displayColumn: ColumnTag | DefaultColumns;
-	export let isInSelectionMode: boolean = false;
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -43,15 +41,12 @@
 	}
 
 	let isEditing = false;
+	let isDragging = false;
 
 	function handleDragStart(e: DragEvent) {
 		handleContentBlur();
-		const currentSelection = $taskSelectionStore;
-		const thisIsSelected = currentSelection.get(task.id) || false;
-		const draggedTaskIds = thisIsSelected
-			? new Set([...currentSelection.entries()].filter(([, v]) => v).map(([k]) => k))
-			: new Set([task.id]);
-		isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds });
+		isDragging = true;
+		isDraggingStore.set({ fromColumn: displayColumn });
 		if (e.dataTransfer) {
 			e.dataTransfer.setData("text/plain", task.id);
 			e.dataTransfer.dropEffect = "move";
@@ -59,6 +54,7 @@
 	}
 
 	function handleDragEnd() {
+		isDragging = false;
 		isDraggingStore.set(null);
 	}
 
@@ -205,8 +201,6 @@
 	}
 
 	$: shouldconsolidateTags = consolidateTags && task.tags.size > 0;
-	$: isSelected = isTaskSelected(task.id, $taskSelectionStore);
-	$: isDragging = $isDraggingStore?.draggedTaskIds?.has(task.id) || false;
 </script>
 
 <div
@@ -220,55 +214,29 @@
 	<!-- Task row -->
 	<div class="task-row">
 		<div class="task-row-left">
-			{#if isInSelectionMode}
-				<!-- Selection checkbox (square) -->
-				<button
-					class="icon-button bulk-select"
-					class:is-selected={isSelected}
-					aria-label="Select for bulk actions"
-					aria-pressed={isSelected}
-					title="Select for bulk actions"
-					on:click={() => toggleTaskSelection(task.id)}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							toggleTaskSelection(task.id);
-						}
-					}}
-					tabindex="0"
-				>
-					<span class="default-icon">
-						<Icon name={isSelected ? "lucide-check-square" : "lucide-square"} size={18} opacity={isSelected ? 1 : 0.5} />
-					</span>
-					<span class="hover-icon">
-						<Icon name="lucide-check-square" size={18} opacity={1} />
-					</span>
-				</button>
-			{:else}
-				<!-- Mark done checkbox (circle) -->
-				<button
-					class="icon-button mark-done"
-					class:is-done={task.done}
-					aria-label={task.done ? "Mark as incomplete" : "Move to Done"}
-					aria-pressed={task.done}
-					title={task.done ? "Mark as incomplete" : "Move to Done"}
-					on:click={() => taskActions.toggleDone(task.id)}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							taskActions.toggleDone(task.id);
-						}
-					}}
-					tabindex="0"
-				>
-					<span class="default-icon">
-						<Icon name={task.done ? "lucide-circle-check" : "lucide-circle"} size={18} opacity={0.5} />
-					</span>
-					<span class="hover-icon">
-						<Icon name="lucide-circle-check" size={18} opacity={1} />
-					</span>
-				</button>
-			{/if}
+			<!-- Mark done button (circle) -->
+			<button
+				class="icon-button mark-done"
+				class:is-done={task.done}
+				aria-label={task.done ? "Mark as incomplete" : "Move to Done"}
+				aria-pressed={task.done}
+				title={task.done ? "Mark as incomplete" : "Move to Done"}
+				on:click={() => taskActions.toggleDone(task.id)}
+				on:keydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						taskActions.toggleDone(task.id);
+					}
+				}}
+				tabindex="0"
+			>
+				<span class="default-icon">
+					<Icon name={task.done ? "lucide-circle-check" : "lucide-circle"} size={18} opacity={0.5} />
+				</span>
+				<span class="hover-icon">
+					<Icon name="lucide-circle-check" size={18} opacity={1} />
+				</span>
+			</button>
 		</div>
 		<div class="task-row-content">
 			{#if isEditing}
@@ -451,42 +419,6 @@
 				}
 			}
 
-			&.bulk-select {
-				.default-icon,
-				.hover-icon {
-					position: absolute;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					transition: opacity 0.2s ease;
-				}
-
-				.hover-icon {
-					opacity: 0;
-				}
-
-				&:hover {
-					.hover-icon {
-						opacity: 1;
-						
-						:global(svg) {
-							color: var(--interactive-accent);
-						}
-					}
-
-					.default-icon {
-						opacity: 0;
-					}
-				}
-
-				// If selected, show checkmark with default icon color
-				&.is-selected {
-					.default-icon :global(svg) {
-						opacity: 1;
-						color: var(--icon-color);
-					}
-				}
-			}
 		}
 
 		.task-footer {
