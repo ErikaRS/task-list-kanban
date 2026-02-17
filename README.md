@@ -109,7 +109,17 @@ Examples:
 
 ### Advanced Task Management
 
-**Bulk operations**: Toggle any column to "Select" mode to select multiple tasks for bulk operations. Use the bulk actions menu to move, archive, or delete selected tasks at once. Switch back to "Done" mode to return to the quick complete functionality. The rightmost "Done" column has additional settings to quickly archive or delete all tasks in that column.
+**Bulk operations**: Each column header has a **Done / Select** toggle:
+
+- **Done mode** (default) — clicking the circle icon on a task card marks it complete and moves it to the Done column.
+- **Select mode** — clicking the square icon on a task card selects it (highlighted with an accent border). Select as many tasks as you like across the column.
+
+Once tasks are selected, a count ("N selected") appears under the column title and a **⋯** menu button appears. The menu lets you:
+- **Move selected to Done** — mark all selected tasks complete at once.
+- **Move selected to [Column]** — move all selected tasks to any other column.
+- **Archive selected** — archive all selected tasks in one action.
+
+You can also **drag** any selected task to a different column and all selected tasks in that column will move together. The Done column has an additional option to archive all tasks at once.
 
 **Archive tasks**: Use the task settings menu (or bulk actions) to archive completed tasks. This marks them as done and removes them from the active kanban while preserving them in the original file.
 
