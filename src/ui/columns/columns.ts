@@ -76,3 +76,11 @@ export function isColumnTag(
 ): input is ColumnTag {
 	return input in get(columnTagTableStore);
 }
+
+export const createCollapsedColumnsStore = (
+	settingsStore: Writable<SettingValues>
+): Readable<Set<ColumnTag>> => {
+	return derived([settingsStore], ([settings]) => {
+		return new Set<ColumnTag>((settings.collapsedColumns ?? []) as ColumnTag[]);
+	});
+};

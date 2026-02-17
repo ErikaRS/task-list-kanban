@@ -82,6 +82,7 @@ const settingsObject = z.object({
 	filtersSidebarWidth: z.number().default(280).optional(),
 	columnWidth: z.number().min(200).max(600).default(300).optional(),
 	flowDirection: z.nativeEnum(FlowDirection).default(FlowDirection.LeftToRight).optional(),
+	collapsedColumns: z.array(z.string()).default([]).optional(),
 });
 
 export type SettingValues = z.infer<typeof settingsObject>;
@@ -101,6 +102,7 @@ export const defaultSettings: SettingValues = {
 	lastFileFilter: [],
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
+	collapsedColumns: [],
 };
 
 export const createSettingsStore = () =>

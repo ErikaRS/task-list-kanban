@@ -308,3 +308,58 @@ describe("Flow direction configuration", () => {
 		expect(parsed.flowDirection).toBe(FlowDirection.TopToBottom);
 	});
 });
+
+describe("Collapsed columns configuration", () => {
+	it("defaults to empty array when collapsedColumns is missing", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo", "In Progress", "Done"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.collapsedColumns).toEqual([]);
+	});
+
+	it("parses collapsedColumns array", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			collapsedColumns: ["backlog", "waiting"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.collapsedColumns).toEqual(["backlog", "waiting"]);
+	});
+
+	it("parses empty collapsedColumns array", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			collapsedColumns: [],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.collapsedColumns).toEqual([]);
+	});
+
+	it("serializes collapsedColumns correctly", () => {
+		const settings = {
+			...defaultSettings,
+			collapsedColumns: ["today", "in-progress"],
+		};
+
+		const serialized = toSettingsString(settings);
+		const parsed = JSON.parse(serialized);
+
+		expect(parsed.collapsedColumns).toEqual(["today", "in-progress"]);
+	});
+
+	it("roundtrips collapsedColumns through serialization", () => {
+		const original = {
+			...defaultSettings,
+			collapsedColumns: ["backlog", "later"],
+		};
+
+		const serialized = toSettingsString(original);
+		const parsed = parseSettingsString(serialized);
+
+		expect(parsed.collapsedColumns).toEqual(["backlog", "later"]);
+	});
+});
