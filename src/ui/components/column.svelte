@@ -50,7 +50,8 @@
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
-	$: displayTaskCount = isHorizontalCollapsed ? `${tasks.length}` : taskCountLabel;
+	$: isVerticalCollapsed = isCollapsed && isVerticalFlow;
+	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
 
 	$: sortedTasks = [...tasks].sort((a, b) => {
 		if (a.path === b.path) {
@@ -218,12 +219,13 @@
 	<div
 		role="group"
 		aria-labelledby="column-title-{column}"
-		aria-label={isHorizontalCollapsed ? `${columnTitle} column, collapsed, ${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}` : undefined}
+		aria-label={isCollapsed ? `${columnTitle} column, collapsed, ${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}` : undefined}
 		class="column"
 		class:drop-active={!!draggingData}
 		class:drop-hover={isDraggedOver}
 		class:vertical-flow={isVerticalFlow}
 		class:collapsed={isHorizontalCollapsed}
+		class:vertical-collapsed={isVerticalCollapsed}
 		style:--column-color={columnColor}
 		style={columnColor ? `background-color: ${columnColor};` : ''}
 		on:dragover={handleDragOver}
@@ -392,6 +394,22 @@
 					.collapse-btn {
 						order: 1;
 					}
+				}
+			}
+		}
+
+		&.vertical-collapsed {
+			.divide,
+			.tasks-wrapper,
+			.mode-toggle-container {
+				display: none;
+			}
+
+			.column-header.row-header {
+				margin-bottom: 0;
+
+				.header-menu {
+					display: none;
 				}
 			}
 		}

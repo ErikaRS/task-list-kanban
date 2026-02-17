@@ -159,10 +159,10 @@ kanban-plugin: {
 - Vertical text rotation for column name
 - Hide task cards, mode toggle, add button when collapsed
 
-### Phase 4: Collapsed State - Vertical Flows
-- Implement 40px collapsed height with CSS transitions
+### Phase 4: Collapsed State - Vertical Flows ✓
+- Implement collapsed height with CSS transitions (height animation deferred to Phase 7 — CSS cannot transition `height: auto`)
 - Keep configured width (no rotation needed)
-- Horizontal layout: name + count + expand button
+- Horizontal layout: name + count (bare number) visible; mode toggle, divider, tasks, and ··· menu hidden
 
 ### Phase 5: Drag-and-Drop
 - Add drop zone highlighting to collapsed columns
