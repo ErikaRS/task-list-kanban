@@ -12,6 +12,18 @@
 	import TaskComponent from "./task.svelte";
 	import IconButton from "./icon_button.svelte";
 	import { isDraggingStore } from "../dnd/store";
+	import {
+		selectionModeStore,
+		isInSelectionMode,
+		toggleSelectionMode,
+	} from "../selection/selection_mode_store";
+	import {
+		taskSelectionStore,
+		toggleTaskSelection,
+		isTaskSelected,
+		getSelectedTaskCount,
+		clearColumnSelections,
+	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
 
 	export let app: App;
@@ -57,14 +69,65 @@
 		}
 	});
 
+	// Selection state
+	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
+	$: columnTaskIds = sortedTasks.map((t) => t.id);
+	$: selectedCount = getSelectedTaskCount(columnTaskIds, $taskSelectionStore);
+	$: selectedIds = columnTaskIds.filter((id) =>
+		isTaskSelected(id, $taskSelectionStore),
+	);
+
 	function showMenu(e: MouseEvent) {
 		const menu = new Menu();
 
-		menu.addItem((i) => {
-			i.setTitle(`Archive all`).onClick(() =>
-				taskActions.archiveTasks(tasks.map(({ id }) => id)),
-			);
-		});
+		if (isSelectMode && selectedCount > 0) {
+			// Bulk actions for selected tasks
+			if (column !== "done") {
+				menu.addItem((i) => {
+					i.setTitle(`Move ${selectedCount} selected to Done`).onClick(
+						async () => {
+							for (const id of selectedIds) {
+								await taskActions.markDone(id);
+							}
+							clearColumnSelections(columnTaskIds);
+						},
+					);
+				});
+			}
+
+			// Move to column options
+			for (const [tag, label] of Object.entries($columnTagTableStore)) {
+				const tagAsColumn = tag as ColumnTag;
+				if (tagAsColumn === column) continue;
+				menu.addItem((i) => {
+					i.setTitle(`Move ${selectedCount} selected to ${label}`).onClick(
+						async () => {
+							for (const id of selectedIds) {
+								await taskActions.changeColumn(id, tagAsColumn);
+							}
+							clearColumnSelections(columnTaskIds);
+						},
+					);
+				});
+			}
+
+			menu.addSeparator();
+
+			menu.addItem((i) => {
+				i.setTitle(`Archive ${selectedCount} selected`).onClick(async () => {
+					await taskActions.archiveTasks(selectedIds);
+					clearColumnSelections(columnTaskIds);
+				});
+			});
+		}
+
+		if (column === "done") {
+			menu.addItem((i) => {
+				i.setTitle(`Archive all`).onClick(() =>
+					taskActions.archiveTasks(tasks.map(({ id }) => id)),
+				);
+			});
+		}
 
 		menu.showAtMouseEvent(e);
 	}
@@ -93,26 +156,40 @@
 		isDraggedOver = false;
 	}
 
-	function handleDrop(e: DragEvent) {
+	async function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		isDraggedOver = false;
-		if (!canDrop) {
+		if (!canDrop || !draggingData) {
 			return;
 		}
 
-		const droppedId = e.dataTransfer?.getData("text/plain");
-		if (!droppedId) return;
+		// Prefer the IDs from the drag store (supports multi-drag);
+		// fall back to the single ID from dataTransfer for robustness.
+		const droppedIds =
+			draggingData.draggedTaskIds.length > 0
+				? draggingData.draggedTaskIds
+				: (() => {
+						const id = e.dataTransfer?.getData("text/plain");
+						return id ? [id] : [];
+					})();
 
-		switch (column) {
-			case "uncategorised":
-				break;
-			case "done":
-				taskActions.markDone(droppedId);
-				break;
-			default:
-				taskActions.changeColumn(droppedId, column);
-				break;
+		if (droppedIds.length === 0) return;
+
+		for (const id of droppedIds) {
+			switch (column) {
+				case "uncategorised":
+					break;
+				case "done":
+					await taskActions.markDone(id);
+					break;
+				default:
+					await taskActions.changeColumn(id, column);
+					break;
+			}
 		}
+
+		// Clear selections for the source column after a successful drop
+		clearColumnSelections(droppedIds);
 	}
 
 	let buttonEl: HTMLSpanElement | undefined;
@@ -122,6 +199,9 @@
 			setIcon(buttonEl, "lucide-plus");
 		}
 	}
+
+	// Whether to show the context menu button
+	$: showContextMenu = column === "done" || (isSelectMode && selectedCount > 0);
 </script>
 
 {#if !hideOnEmpty || tasks.length}
@@ -151,12 +231,46 @@
 				>{collapseIcon}</button>
 				<h2 id="column-title-{column}">{columnTitle}</h2>
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
-				{#if column === "done"}
-					<div class="header-menu">
-						<IconButton icon="lucide-more-vertical" on:click={showMenu} aria-label="Column options for {columnTitle}" />
+				<div class="header-menu">
+					<!-- Done / Select segmented toggle -->
+					<div
+						class="mode-toggle"
+						role="toolbar"
+						aria-label="Column interaction mode"
+					>
+						<button
+							class="mode-btn"
+							class:active={!isSelectMode}
+							aria-pressed={!isSelectMode}
+							aria-label="Done mode: click tasks to mark complete"
+							on:click={() => {
+								if (isSelectMode) toggleSelectionMode(column);
+							}}
+						>Done</button>
+						<button
+							class="mode-btn"
+							class:active={isSelectMode}
+							aria-pressed={isSelectMode}
+							aria-label="Select mode: click tasks to select for bulk actions"
+							on:click={() => {
+								if (!isSelectMode) toggleSelectionMode(column);
+							}}
+						>Select</button>
 					</div>
-				{/if}
+					{#if showContextMenu}
+						<IconButton
+							icon="lucide-more-vertical"
+							on:click={showMenu}
+							aria-label="Column options for {columnTitle}"
+						/>
+					{/if}
+				</div>
 			</div>
+			{#if isSelectMode && selectedCount > 0}
+				<div class="selection-info" aria-live="polite">
+					{selectedCount} selected
+				</div>
+			{/if}
 		</div>
 		{#if !isVerticalFlow}
 			<div class="divide" />
@@ -172,6 +286,10 @@
 						{showFilepath}
 						{consolidateTags}
 						displayColumn={column}
+						isSelectionMode={isSelectMode}
+						isSelected={isTaskSelected(task.id, $taskSelectionStore)}
+						onToggleSelection={() => toggleTaskSelection(task.id)}
+						selectedTaskIds={selectedIds}
 					/>
 				{/each}
 			</div>
@@ -346,6 +464,9 @@
 			.header-menu {
 				margin-left: auto;
 				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				gap: var(--size-2-1);
 			}
 
 			.collapse-btn {
@@ -375,6 +496,52 @@
 					outline-offset: 2px;
 				}
 			}
+		}
+
+		.mode-toggle {
+			display: flex;
+			align-items: center;
+			background: color-mix(in srgb, var(--column-color, var(--background-modifier-border)) 20%, var(--background-secondary));
+			border-radius: var(--radius-s);
+			padding: 2px;
+			gap: 0;
+
+			.mode-btn {
+				font-size: var(--font-ui-smaller);
+				padding: 2px 7px;
+				border: none;
+				background: transparent;
+				color: var(--text-muted);
+				border-radius: calc(var(--radius-s) - 2px);
+				cursor: pointer;
+				transition: background 0.15s ease, color 0.15s ease;
+				white-space: nowrap;
+				box-shadow: none;
+				line-height: 1.4;
+
+				&:hover {
+					background: transparent;
+					color: var(--text-normal);
+					box-shadow: none;
+				}
+
+				&.active {
+					background: color-mix(in srgb, var(--column-color, var(--background-modifier-border)) 60%, var(--background-secondary));
+					color: var(--text-normal);
+					font-weight: var(--font-medium);
+				}
+
+				&:focus-visible {
+					outline: 2px solid var(--background-modifier-border-focus);
+					outline-offset: 1px;
+				}
+			}
+		}
+
+		.selection-info {
+			font-size: var(--font-ui-smaller);
+			color: var(--text-muted);
+			margin-top: var(--size-2-1);
 		}
 
 		.divide {

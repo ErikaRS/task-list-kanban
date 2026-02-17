@@ -44,3 +44,15 @@ export function getSelectedTaskCount(
 ): number {
 	return taskIds.filter((id) => selectionMap.get(id) || false).length;
 }
+
+/**
+ * Clear selections only for tasks in a specific column
+ */
+export function clearColumnSelections(columnTaskIds: string[]) {
+	taskSelectionStore.update((map) => {
+		for (const id of columnTaskIds) {
+			map.delete(id);
+		}
+		return new Map(map);
+	});
+}

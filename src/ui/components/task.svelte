@@ -16,6 +16,10 @@
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let displayColumn: ColumnTag | DefaultColumns;
+	export let isSelectionMode: boolean = false;
+	export let isSelected: boolean = false;
+	export let onToggleSelection: () => void = () => {};
+	export let selectedTaskIds: string[] = [];
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -46,10 +50,40 @@
 	function handleDragStart(e: DragEvent) {
 		handleContentBlur();
 		isDragging = true;
-		isDraggingStore.set({ fromColumn: displayColumn });
+
+		// In selection mode with this task selected, drag all selected tasks
+		const taskIds =
+			isSelectionMode && isSelected && selectedTaskIds.length > 0
+				? selectedTaskIds
+				: [task.id];
+
+		isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds: taskIds });
+
 		if (e.dataTransfer) {
 			e.dataTransfer.setData("text/plain", task.id);
 			e.dataTransfer.dropEffect = "move";
+		}
+
+		// Create a custom drag image for multi-task drag
+		if (taskIds.length > 1 && e.dataTransfer) {
+			const ghost = document.createElement("div");
+			ghost.textContent = `Moving ${taskIds.length} tasks`;
+			ghost.style.cssText = [
+				"position:fixed",
+				"top:-9999px",
+				"left:-9999px",
+				"padding:6px 12px",
+				"background:var(--background-secondary-alt)",
+				"border:1px solid var(--background-modifier-border)",
+				"border-radius:var(--radius-m)",
+				"font-size:var(--font-ui-small)",
+				"color:var(--text-normal)",
+				"box-shadow:var(--shadow-s)",
+				"white-space:nowrap",
+			].join(";");
+			document.body.appendChild(ghost);
+			e.dataTransfer.setDragImage(ghost, 0, 0);
+			setTimeout(() => document.body.removeChild(ghost), 0);
 		}
 	}
 
@@ -115,10 +149,10 @@
 		if (!previewContainerEl) return;
 
 		const internalLinks = previewContainerEl.querySelectorAll("a.internal-link");
-		
+
 		internalLinks.forEach((link) => {
 			const anchorEl = link as HTMLAnchorElement;
-			
+
 			// Click handler
 			anchorEl.addEventListener("click", (e) => {
 				e.preventDefault();
@@ -206,6 +240,7 @@
 <div
 	class="task"
 	class:is-dragging={isDragging}
+	class:is-selected={isSelectionMode && isSelected}
 	role="group"
 	draggable={!isEditing}
 	on:dragstart={handleDragStart}
@@ -214,29 +249,54 @@
 	<!-- Task row -->
 	<div class="task-row">
 		<div class="task-row-left">
-			<!-- Mark done button (circle) -->
-			<button
-				class="icon-button mark-done"
-				class:is-done={task.done}
-				aria-label={task.done ? "Mark as incomplete" : "Move to Done"}
-				aria-pressed={task.done}
-				title={task.done ? "Mark as incomplete" : "Move to Done"}
-				on:click={() => taskActions.toggleDone(task.id)}
-				on:keydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') {
-						e.preventDefault();
-						taskActions.toggleDone(task.id);
-					}
-				}}
-				tabindex="0"
-			>
-				<span class="default-icon">
-					<Icon name={task.done ? "lucide-circle-check" : "lucide-circle"} size={18} opacity={0.5} />
-				</span>
-				<span class="hover-icon">
-					<Icon name="lucide-circle-check" size={18} opacity={1} />
-				</span>
-			</button>
+			{#if isSelectionMode}
+				<!-- Selection checkbox (square icons) -->
+				<button
+					class="icon-button select-task"
+					class:is-selected={isSelected}
+					aria-label={isSelected ? "Deselect task" : "Select task for bulk actions"}
+					aria-pressed={isSelected}
+					title={isSelected ? "Deselect task" : "Select task for bulk actions"}
+					on:click={onToggleSelection}
+					on:keydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							onToggleSelection();
+						}
+					}}
+					tabindex="0"
+				>
+					<Icon
+						name={isSelected ? "lucide-check-square" : "lucide-square"}
+						size={18}
+						opacity={isSelected ? 1 : 0.5}
+					/>
+				</button>
+			{:else}
+				<!-- Mark done button (circle) -->
+				<button
+					class="icon-button mark-done"
+					class:is-done={task.done}
+					aria-label={task.done ? "Mark as incomplete" : "Move to Done"}
+					aria-pressed={task.done}
+					title={task.done ? "Mark as incomplete" : "Move to Done"}
+					on:click={() => taskActions.toggleDone(task.id)}
+					on:keydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							taskActions.toggleDone(task.id);
+						}
+					}}
+					tabindex="0"
+				>
+					<span class="default-icon">
+						<Icon name={task.done ? "lucide-circle-check" : "lucide-circle"} size={18} opacity={0.5} />
+					</span>
+					<span class="hover-icon">
+						<Icon name="lucide-circle-check" size={18} opacity={1} />
+					</span>
+				</button>
+			{/if}
 		</div>
 		<div class="task-row-content">
 			{#if isEditing}
@@ -307,6 +367,11 @@
 
 		&.is-dragging {
 			opacity: 0.15;
+		}
+
+		&.is-selected {
+			border-color: var(--interactive-accent);
+			background-color: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary-alt));
 		}
 
 		// Task row
@@ -419,6 +484,16 @@
 				}
 			}
 
+			&.select-task {
+				&:hover :global(svg) {
+					opacity: 0.8 !important;
+					color: var(--interactive-accent);
+				}
+
+				&.is-selected :global(svg) {
+					color: var(--interactive-accent);
+				}
+			}
 		}
 
 		.task-footer {
