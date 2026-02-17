@@ -127,6 +127,8 @@ You can also **drag** any selected task to a different column and all selected t
 
 ### Visibility Controls
 
+**Collapsing columns**: Click the **▼** button in any column header to collapse it. A collapsed column shrinks to a narrow strip showing only the column name and task count, freeing up space for the columns you're actively working in. Click **▶** to expand it again. Collapse state is saved automatically, so columns stay collapsed across sessions.
+
 **Uncategorised column**: Choose when to show tasks without column assignments:
 - Hide when empty (default)
 - Always show
