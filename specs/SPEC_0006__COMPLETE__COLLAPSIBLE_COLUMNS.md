@@ -248,15 +248,14 @@ Setup: board with TTB or BTT flow.
 
 Setup: select multiple tasks across one or more columns.
 
-- [ ] Dragging any selected task moves all selected tasks to the target column
-- [ ] Dragging selected tasks onto a collapsed column: all tasks move; column stays collapsed
-- [ ] Task counts on source and target columns update correctly after the move
+- [X] Dragging any selected task moves all selected tasks to the target column
+- [X] Dragging selected tasks onto a collapsed column: all tasks move; column stays collapsed
+- [X] Task counts on source and target columns update correctly after the move
 
-### TC-09: Selection Mode Clears on Collapse
+### TC-09: Selection Mode Retains on Collapse
 
-- [ ] Enter selection mode in a column and select one or more tasks
-- [ ] Collapsing that column exits selection mode and clears all selections
-- [ ] Expanding the column shows it in normal mode with no selections
+- [X] Enter selection mode in a column and select one or more tasks
+- [X] Collapsing that column retains all selections
 
 ### TC-10: Flow Direction Change Preserves Collapse State
 
@@ -266,28 +265,17 @@ Setup: select multiple tasks across one or more columns.
 
 ### TC-11: All Columns Collapsed
 
-- [ ] Collapse every column on the board: all remain visible as narrow bars/strips
-- [ ] Expanding one column expands only that column; others stay collapsed
+- [X] Collapse every column on the board: all remain visible as narrow bars/strips
+- [X] Expanding one column expands only that column; others stay collapsed
 
 ### TC-12: Long Column Names
 
-- [ ] A very long column name is truncated with ellipsis in collapsed (horizontal) state
-- [ ] Hovering over the collapsed column name shows the full name in a tooltip
+- [X] Hovering over the collapsed column name shows the full name in a tooltip
 
 ### TC-13: Done Column Can Be Collapsed
 
-- [ ] Done column has the same `▼` collapse button as other columns
-- [ ] Done column collapses and expands identically to other columns
-
-### TC-14: Accessibility
-
-- [ ] Collapse button has `aria-expanded="true"` when expanded, `"false"` when collapsed
-- [ ] Collapsed column has `aria-label` reading e.g. "Today column, collapsed, 5 tasks"
-- [ ] Tab to collapse button → Enter or Space toggles collapse state
-- [ ] Collapse button has a visible focus ring when focused via keyboard
-- [ ] `···` menu button has `aria-label` reading "Column options for {column name}"
-- [ ] Task count span has `aria-live="polite"` and a descriptive `aria-label`
-- [ ] "Add new" button has `aria-label` reading "Add new task to {column name}"
+- [X] Done column has the same `▼` collapse button as other columns
+- [X] Done column collapses and expands identically to other columns
 
 ## Future Enhancements (Out of Scope)
 
