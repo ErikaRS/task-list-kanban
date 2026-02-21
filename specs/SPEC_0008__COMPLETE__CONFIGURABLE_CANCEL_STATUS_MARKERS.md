@@ -1,6 +1,6 @@
 # Configurable Cancelled Status Markers
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 ## Feature Request Summary
 
@@ -174,65 +174,65 @@ If a marker is shared across settings, cancellation config does not override exi
 
 ### TC-01: Setting Configuration and Persistence
 
-- [ ] Open settings and verify `Cancelled status markers` shows default `-`.
-- [ ] Change value to `cC`.
-- [ ] Save and reopen kanban file.
-- [ ] Confirm value persists (frontmatter `kanban_plugin` roundtrip).
+- [x] Open settings and verify `Cancelled status markers` shows default `-`.
+- [x] Change value to `cC`.
+- [x] Save and reopen kanban file.
+- [x] Confirm value persists (frontmatter `kanban_plugin` roundtrip).
 
 ### TC-02: Validation Rules Match Done Markers
 
-- [ ] Attempt empty value -> invalid feedback shown, value not accepted.
-- [ ] Attempt whitespace-containing value (`c C`) -> invalid feedback shown.
-- [ ] Attempt duplicate markers (`cc`) -> invalid feedback shown.
-- [ ] Enter valid Unicode markers (e.g., `✓❌`) -> accepted.
+- [x] Attempt empty value -> invalid feedback shown, value not accepted.
+- [x] Attempt whitespace-containing value (`c C`) -> invalid feedback shown.
+- [x] Attempt duplicate markers (`cc`) -> invalid feedback shown.
+- [x] Enter valid Unicode markers (e.g., `✓❌`) -> accepted.
 
 ### TC-03: Cancel Write Uses First Configured Marker
 
-- [ ] Set `cancelledStatusMarkers` to `cx`.
-- [ ] Cancel an incomplete task.
-- [ ] Confirm markdown becomes `[c]` (first marker used).
+- [x] Set `cancelledStatusMarkers` to `cx`.
+- [x] Cancel an incomplete task.
+- [x] Confirm markdown becomes `[c]` (first marker used).
 
 ### TC-04: Unicode First-Marker Write
 
-- [ ] Set `cancelledStatusMarkers` to `✅❌`.
-- [ ] Cancel an incomplete task.
-- [ ] Confirm markdown uses first Unicode marker `[✅]`.
+- [x] Set `cancelledStatusMarkers` to `✅❌`.
+- [x] Cancel an incomplete task.
+- [x] Confirm markdown uses first Unicode marker `[✅]`.
 
 ### TC-05: Custom Cancelled Matching for Restore Label
 
-- [ ] Set `cancelledStatusMarkers` to `CA`.
-- [ ] Manually set task to `[A]`.
-- [ ] Verify task menu shows `Restore task`.
-- [ ] Run restore and confirm task becomes `[ ]`.
+- [x] Set `cancelledStatusMarkers` to `CA`.
+- [x] Manually set task to `[A]`.
+- [x] Verify task menu shows `Restore task`.
+- [x] Run restore and confirm task becomes `[ ]`.
 
 ### TC-06: Bulk Behavior Preserved from SPEC_0007
 
-- [ ] In selection mode, select mixed non-cancelled tasks.
-- [ ] Verify label `Cancel N selected`.
-- [ ] Run action; all selected tasks written with configured cancelled marker.
-- [ ] Select only cancelled tasks; verify `Restore N selected`, run action, all become `[ ]`.
+- [x] In selection mode, select mixed non-cancelled tasks.
+- [x] Verify label `Cancel N selected`.
+- [x] Run action; all selected tasks written with configured cancelled marker.
+- [x] Select only cancelled tasks; verify `Restore N selected`, run action, all become `[ ]`.
 
 ### TC-07: Overlap with Done Markers
 
-- [ ] Configure `cancelledStatusMarkers` to include marker also present in `doneStatusMarkers`.
-- [ ] Cancel a task.
-- [ ] Verify board handling follows existing done logic (unchanged), while cancel action still only writes configured marker.
+- [x] Configure `cancelledStatusMarkers` to include marker also present in `doneStatusMarkers`.
+- [x] Cancel a task.
+- [x] Verify board handling follows existing done logic (unchanged), while cancel action still only writes configured marker.
 
 ### TC-08: Overlap with Ignored Markers
 
-- [ ] Configure `cancelledStatusMarkers` to include marker also present in `ignoredStatusMarkers`.
-- [ ] Cancel a task.
-- [ ] Verify board handling follows existing ignored logic (unchanged), while cancel action still only writes configured marker.
+- [x] Configure `cancelledStatusMarkers` to include marker also present in `ignoredStatusMarkers`.
+- [x] Cancel a task.
+- [x] Verify board handling follows existing ignored logic (unchanged), while cancel action still only writes configured marker.
 
 ### TC-09: Done Column Menu Unchanged
 
-- [ ] Confirm Done column still exposes `Archive all` only.
-- [ ] Confirm no new `Cancel all` or `Restore all` options appear.
+- [x] Confirm Done column still exposes `Archive all` only.
+- [x] Confirm no new `Cancel all` or `Restore all` options appear.
 
 ### TC-10: Marker Change Without Migration
 
-- [ ] Set `cancelledStatusMarkers` to `-` and create at least one `[-]` cancelled task.
-- [ ] Change `cancelledStatusMarkers` to `c` (without `-`).
-- [ ] Verify existing `[-]` tasks are no longer treated as cancelled for cancel/restore matching.
-- [ ] Change `cancelledStatusMarkers` to `c-`.
-- [ ] Verify both `[c]` and `[-]` tasks are treated as cancelled for matching during transition.
+- [x] Set `cancelledStatusMarkers` to `-` and create at least one `[-]` cancelled task.
+- [x] Change `cancelledStatusMarkers` to `c` (without `-`).
+- [x] Verify existing `[-]` tasks are no longer treated as cancelled for cancel/restore matching.
+- [x] Change `cancelledStatusMarkers` to `c-`.
+- [x] Verify both `[c]` and `[-]` tasks are treated as cancelled for matching during transition.

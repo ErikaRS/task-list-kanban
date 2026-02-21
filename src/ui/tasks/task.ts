@@ -64,6 +64,19 @@ export type IgnoredStatusMarkers = Brand<string, "IgnoredStatusMarkers">;
 export const DEFAULT_IGNORED_STATUS_MARKERS: IgnoredStatusMarkers = "" as IgnoredStatusMarkers;
 
 /**
+ * A string containing characters that mark tasks as cancelled.
+ * Each character represents a checkbox status that indicates a cancelled task.
+ */
+export type CancelledStatusMarkers = Brand<string, "CancelledStatusMarkers">;
+
+/**
+ * Default character that marks a task as cancelled in checkbox notation.
+ * 
+ * - '-': Standard cancellation marker (e.g., `- [-] Cancelled task`)
+ */
+export const DEFAULT_CANCELLED_STATUS_MARKERS: CancelledStatusMarkers = "-" as CancelledStatusMarkers;
+
+/**
  * Common validation logic for status marker strings.
  * 
  * Valid markers must:
@@ -183,6 +196,33 @@ export function createIgnoredStatusMarkers(markers: string): IgnoredStatusMarker
 }
 
 /**
+ * Validates that a cancelled status markers string contains only valid characters.
+ * 
+ * Valid markers must:
+ * - Be single Unicode code points
+ * - Not contain whitespace, newlines, or control characters
+ * - Not be empty
+ */
+export function validateCancelledStatusMarkers(markers: string): string[] {
+	if (!markers || markers.length === 0) {
+		return ["Cancelled status markers cannot be empty"];
+	}
+
+	return validateStatusMarkers(markers);
+}
+
+/**
+ * Creates a validated CancelledStatusMarkers type from a string.
+ */
+export function createCancelledStatusMarkers(markers: string): CancelledStatusMarkers {
+	const errors = validateCancelledStatusMarkers(markers);
+	if (errors.length > 0) {
+		throw new Error(`Invalid cancelled status markers: ${errors.join(', ')}`);
+	}
+	return markers as CancelledStatusMarkers;
+}
+
+/**
  * Common helper to check if a checkbox status matches any of the provided markers.
  * Properly handles multi-codepoint Unicode characters using Array.from.
  */
@@ -223,6 +263,13 @@ function isIgnoredStatus(statusContent: string | undefined, ignoredStatusMarkers
 	return isStatusMatch(statusContent, ignoredStatusMarkers);
 }
 
+/**
+ * Checks if a checkbox status is marked as cancelled based on configured markers.
+ */
+function isCancelledStatus(statusContent: string | undefined, cancelledStatusMarkers: string): boolean {
+	return isStatusMatch(statusContent, cancelledStatusMarkers);
+}
+
 export class Task {
 	constructor(
 		rawContent: TaskString,
@@ -231,6 +278,7 @@ export class Task {
 		private readonly columnTagTable: ColumnTagTable,
 		private readonly consolidateTags: boolean,
 		private readonly doneStatusMarkers: string = DEFAULT_DONE_STATUS_MARKERS,
+		private readonly cancelledStatusMarkers: string = DEFAULT_CANCELLED_STATUS_MARKERS,
 		private readonly ignoredStatusMarkers: string = DEFAULT_IGNORED_STATUS_MARKERS
 	) {
 		const [, blockLink] = rawContent.match(blockLinkRegexp) ?? [];
@@ -304,7 +352,7 @@ export class Task {
 	}
 
 	get isCancelled(): boolean {
-		return this._displayStatus === "-";
+		return isCancelledStatus(this._displayStatus, this.cancelledStatusMarkers);
 	}
 
 	undone() {
@@ -377,7 +425,7 @@ export class Task {
 	}
 
 	cancel() {
-		this._displayStatus = "-";
+		this._displayStatus = Array.from(this.cancelledStatusMarkers)[0] ?? "-";
 	}
 
 	restore() {

@@ -20,6 +20,7 @@ export async function updateMapsFromFile({
 	columnTagTableStore,
 	consolidateTags,
 	doneStatusMarkers,
+	cancelledStatusMarkers,
 	ignoredStatusMarkers,
 }: {
 	fileHandle: TFile;
@@ -30,6 +31,7 @@ export async function updateMapsFromFile({
 	columnTagTableStore: Readable<ColumnTagTable>;
 	consolidateTags: boolean;
 	doneStatusMarkers: string;
+	cancelledStatusMarkers: string;
 	ignoredStatusMarkers: string;
 }) {
 	try {
@@ -55,6 +57,7 @@ export async function updateMapsFromFile({
 					columnTagTable,
 					consolidateTags,
 					doneStatusMarkers,
+					cancelledStatusMarkers,
 					ignoredStatusMarkers
 				);
 
