@@ -113,6 +113,27 @@
 
 			menu.addSeparator();
 
+			const selectedTasks = selectedIds.map(id => sortedTasks.find(t => t.id === id)).filter(Boolean) as Task[];
+			const allCancelled = selectedTasks.length > 0 && selectedTasks.every(t => t.isCancelled);
+
+			if (allCancelled) {
+				menu.addItem((i) => {
+					i.setTitle(`Restore ${selectedCount} selected`).onClick(async () => {
+						await taskActions.restoreTasks(selectedIds);
+						clearColumnSelections(columnTaskIds);
+					});
+				});
+			} else {
+				menu.addItem((i) => {
+					i.setTitle(`Cancel ${selectedCount} selected`).onClick(async () => {
+						await taskActions.cancelTasks(selectedIds);
+						clearColumnSelections(columnTaskIds);
+					});
+				});
+			}
+
+			menu.addSeparator();
+
 			menu.addItem((i) => {
 				i.setTitle(`Archive ${selectedCount} selected`).onClick(async () => {
 					await taskActions.archiveTasks(selectedIds);

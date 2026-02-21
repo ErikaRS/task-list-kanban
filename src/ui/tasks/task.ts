@@ -78,29 +78,29 @@ function validateStatusMarkers(markers: string): string[] {
 	const errors: string[] = [];
 	const chars = Array.from(markers);
 	const seen = new Set<string>();
-	
+
 	for (let i = 0; i < chars.length; i++) {
 		const char = chars[i];
 		if (!char) continue;
-		
+
 		// Check for duplicates
 		if (seen.has(char)) {
 			errors.push(`Duplicate marker '${char}' at position ${i + 1}`);
 			continue;
 		}
 		seen.add(char);
-		
+
 		// Check for whitespace
 		if (/\s/.test(char)) {
 			errors.push(`Marker at position ${i + 1} is whitespace`);
 		}
-		
+
 		// Check for control characters
 		if (char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127) {
 			errors.push(`Marker at position ${i + 1} is a control character`);
 		}
 	}
-	
+
 	return errors;
 }
 
@@ -126,7 +126,7 @@ export function validateDoneStatusMarkers(markers: string): string[] {
 	if (!markers || markers.length === 0) {
 		return ["Done status markers cannot be empty"];
 	}
-	
+
 	return validateStatusMarkers(markers);
 }
 
@@ -162,7 +162,7 @@ export function validateIgnoredStatusMarkers(markers: string): string[] {
 	if (!markers || markers.length === 0) {
 		return [];
 	}
-	
+
 	// For non-empty strings, use common validation logic
 	return validateStatusMarkers(markers);
 }
@@ -188,11 +188,11 @@ export function createIgnoredStatusMarkers(markers: string): IgnoredStatusMarker
  */
 function isStatusMatch(statusContent: string | undefined, markers: string): boolean {
 	if (!statusContent || !markers) return false;
-	
+
 	// Convert to arrays of Unicode code points to handle multi-codepoint chars
 	const contentChars = Array.from(statusContent);
 	const markersChars = Array.from(markers);
-	
+
 	// Valid checkbox content must be exactly one code point
 	// Note: This will work correctly for most emoji and Unicode characters
 	// though it may not handle complex grapheme clusters perfectly
@@ -202,7 +202,7 @@ function isStatusMatch(statusContent: string | undefined, markers: string): bool
 
 	const singleChar = contentChars[0];
 	if (!singleChar) return false;
-	
+
 	// Check if the checkbox content matches any of the provided markers
 	return markersChars.includes(singleChar);
 }
@@ -303,6 +303,10 @@ export class Task {
 		this._displayStatus = Array.from(this.doneStatusMarkers)[0] ?? "x";
 	}
 
+	get isCancelled(): boolean {
+		return this._displayStatus === "-";
+	}
+
 	undone() {
 		this._done = false;
 		this._displayStatus = " ";
@@ -346,18 +350,17 @@ export class Task {
 			this.content.trim(),
 			this.consolidateTags && this.tags.size > 0
 				? ` ${Array.from(this.tags)
-						.map((tag) => `#${tag}`)
-						.join(" ")}`
+					.map((tag) => `#${tag}`)
+					.join(" ")}`
 				: "",
 			this.column
-				? ` #${
-						this.column === "archived"
-							? this.column
-							: (() => {
-									const mapped = this.columnTagTable[this.column];
-									return mapped && isValidTag(mapped) ? mapped : this.column;
-							  })()
-				  }`
+				? ` #${this.column === "archived"
+					? this.column
+					: (() => {
+						const mapped = this.columnTagTable[this.column];
+						return mapped && isValidTag(mapped) ? mapped : this.column;
+					})()
+				}`
 				: "",
 			this.blockLink ? ` ^${this.blockLink}` : "",
 		]
@@ -373,6 +376,14 @@ export class Task {
 		this._column = "archived";
 	}
 
+	cancel() {
+		this._displayStatus = "-";
+	}
+
+	restore() {
+		this._displayStatus = " ";
+	}
+
 	delete() {
 		this._deleted = true;
 	}
@@ -384,11 +395,11 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 	if (input.includes("#archived")) {
 		return false;
 	}
-	
+
 	if (!taskStringRegex.test(input)) {
 		return false;
 	}
-	
+
 	// Extract the checkbox status and check if it's ignored
 	const match = input.match(taskStringRegex);
 	if (match) {
@@ -397,7 +408,7 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 			return false;
 		}
 	}
-	
+
 	return true;
 }
 

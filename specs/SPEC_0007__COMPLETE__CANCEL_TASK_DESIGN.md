@@ -1,6 +1,6 @@
 # Cancel Task Design
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 ## Feature Request Summary
 
@@ -157,13 +157,12 @@ This feature adds a cancel/restore action in the same interaction surfaces where
 
 **Goal:** Ensure cancellation behavior coheres with status marker settings and existing features.
 
-1. Update cancelled-default interpretation to include `-` in `ignoredStatusMarkers` default while preserving user overrides.
-2. Add/extend tests for:
+1. Add/extend tests for:
    - Cancel writes `[-]`
    - Restore writes `[ ]`
    - Dynamic labels for single and bulk actions
    - Interactions with `doneStatusMarkers` / `ignoredStatusMarkers`
-3. Run quality gates (`npm run build`, `npm test`).
+2. Run quality gates (`npm run build`, `npm test`).
 
 **Deliverable:** Cancel/restore behavior is verified and compatible with marker customization.
 
@@ -173,35 +172,34 @@ This feature adds a cancel/restore action in the same interaction surfaces where
 
 ### TC-01: Single Cancel/Restore
 
-- [ ] From task menu, choose `Cancel task` on incomplete task -> line becomes `[-]`.
-- [ ] Reopen menu -> action now shows `Restore task`.
-- [ ] Choose `Restore task` -> line becomes `[ ]`.
+- [x] From task menu, choose `Cancel task` on incomplete task -> line becomes `[-]`.
+- [x] Reopen menu -> action now shows `Restore task`.
+- [x] Choose `Restore task` -> line becomes `[ ]`.
 
 ### TC-02: Bulk Cancel
 
-- [ ] Enter Select mode and select 2+ non-cancelled tasks.
-- [ ] Bulk menu shows `Cancel N selected`.
-- [ ] Invoke action -> all selected lines become `[-]`; selections clear.
+- [x] Enter Select mode and select 2+ non-cancelled tasks.
+- [x] Bulk menu shows `Cancel N selected`.
+- [x] Invoke action -> all selected lines become `[-]`; selections clear.
 
 ### TC-03: Bulk Restore
 
-- [ ] Select only cancelled tasks.
-- [ ] Bulk menu shows `Restore N selected`.
-- [ ] Invoke action -> all selected lines become `[ ]`; selections clear.
+- [x] Select only cancelled tasks.
+- [x] Bulk menu shows `Restore N selected`.
+- [x] Invoke action -> all selected lines become `[ ]`; selections clear.
 
 ### TC-04: Mixed Selection Label Rule
 
-- [ ] Select a mix of cancelled and non-cancelled tasks.
-- [ ] Bulk menu shows `Cancel N selected`.
+- [x] Select a mix of cancelled and non-cancelled tasks.
+- [x] Bulk menu shows `Cancel N selected`.
 
 ### TC-05: Marker Settings Interactions
 
-- [ ] Set `ignoredStatusMarkers` to include `-`; cancel a task -> task is hidden by existing logic.
-- [ ] Set `doneStatusMarkers` to include `-`; cancel a task -> task appears in Done by existing logic.
-- [ ] Remove `-` from both settings; cancel a task -> task behavior follows existing non-done, non-ignored parsing.
+- [x] Set `ignoredStatusMarkers` to include `-`; cancel a task -> task is hidden by existing logic.
+- [x] Set `doneStatusMarkers` to include `-`; cancel a task -> task appears in Done by existing logic.
+- [x] Remove `-` from both settings; cancel a task -> task behavior follows existing non-done, non-ignored parsing.
 
 ### TC-06: Done Column Archive-All Unchanged
 
-- [ ] Done column menu still contains `Archive all`.
-- [ ] No `Cancel all` / `Restore all` option appears.
-
+- [x] Done column menu still contains `Archive all`.
+- [x] No `Cancel all` / `Restore all` option appears.

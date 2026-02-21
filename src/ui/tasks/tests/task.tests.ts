@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { 
-	isTrackedTaskString, 
-	Task, 
-	DEFAULT_DONE_STATUS_MARKERS, 
+import {
+	isTrackedTaskString,
+	Task,
+	DEFAULT_DONE_STATUS_MARKERS,
 	DEFAULT_IGNORED_STATUS_MARKERS,
-	validateDoneStatusMarkers, 
+	validateDoneStatusMarkers,
 	createDoneStatusMarkers,
 	validateIgnoredStatusMarkers,
 	createIgnoredStatusMarkers
@@ -798,30 +798,62 @@ describe("Task marking as done", () => {
 			expect(task?.column).toBe(undefined);
 			expect(task?.serialise()).toBe("- [✅] Incomplete task");
 		});
+	});
 
-		it("clears column when marking as done", () => {
-			let task: Task | undefined;
-			const taskString = "- [ ] Task in column #column";
-			if (isTrackedTaskString(taskString)) {
-				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
-				task.done = true;
-			}
+	it("clears column when marking as done", () => {
+		let task: Task | undefined;
+		const taskString = "- [ ] Task in column #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			task.done = true;
+		}
 
-			expect(task?.column).toBe(undefined);
-			expect(task?.serialise()).not.toContain("#column");
-		});
+		expect(task?.column).toBe(undefined);
+		expect(task?.serialise()).not.toContain("#column");
+	});
 
-		it("preserves task content when marking as done", () => {
-			let task: Task | undefined;
-			const taskString = "- [ ] Important task with #tags #column";
-			if (isTrackedTaskString(taskString)) {
-				task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
-				task.done = true;
-			}
+	it("preserves task content when marking as done", () => {
+		let task: Task | undefined;
+		const taskString = "- [ ] Important task with #tags #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			task.done = true;
+		}
 
-			expect(task?.content).toBe("Important task with #tags");
-			expect(task?.serialise()).toBe("- [x] Important task with #tags");
-		});
+		expect(task?.content).toBe("Important task with #tags");
+		expect(task?.serialise()).toBe("- [x] Important task with #tags");
+	});
+});
+
+describe("Task cancelling", () => {
+	const columnTags: ColumnTagTable = {
+		[kebab<ColumnTag>("column")]: "column",
+	};
+
+	it("cancelling a task updates the status to '-'", () => {
+		let task: Task | undefined;
+		const taskString = "- [ ] Incomplete task #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			task.cancel();
+		}
+
+		expect(task).toBeTruthy();
+		expect(task?.isCancelled).toBe(true);
+		expect(task?.serialise()).toBe("- [-] Incomplete task #column");
+	});
+
+	it("restoring a task updates the status to ' '", () => {
+		let task: Task | undefined;
+		const taskString = "- [-] Cancelled task #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
+			task.restore();
+		}
+
+		expect(task).toBeTruthy();
+		expect(task?.isCancelled).toBe(false);
+		expect(task?.serialise()).toBe("- [ ] Cancelled task #column");
 	});
 });
 
@@ -832,7 +864,7 @@ describe("Columns with spaces and special characters", () => {
 		[kebab<ColumnTag>("Done!")]: "Done!",
 		[kebab<ColumnTag>("My-Tag")]: "My-Tag", // This one is a valid tag
 	};
-    // kebab("In Progress") -> "in-progress"
+	// kebab("In Progress") -> "in-progress"
 	// kebab("Waiting for review") -> "waiting-for-review"
 	// kebab("Done!") -> "done" (special chars removed)
 	// kebab("My-Tag") -> "my-tag"
@@ -849,7 +881,7 @@ describe("Columns with spaces and special characters", () => {
 
 		const output = task?.serialise();
 		// Should fall back to kebab-case because "In Progress" has spaces
-		expect(output).toBe("- [ ] Something #in-progress"); 
+		expect(output).toBe("- [ ] Something #in-progress");
 	});
 
 	it("serialises a task in 'Waiting for review' column using kebab-case tag", () => {
@@ -864,7 +896,7 @@ describe("Columns with spaces and special characters", () => {
 
 		const output = task?.serialise();
 		// Should fall back to kebab-case because "Waiting for review" has spaces
-		expect(output).toBe("- [ ] Something #waiting-for-review"); 
+		expect(output).toBe("- [ ] Something #waiting-for-review");
 	});
 
 	it("serialises a task in 'Done!' column using kebab-case tag", () => {
@@ -872,7 +904,7 @@ describe("Columns with spaces and special characters", () => {
 		// kebab("Done!") -> "done". But wait, "done" is usually reserved? 
 		// In Task.ts constructor: if (kebabTag in columnTagTable || tag === "done")
 		// If "done" is in columnTagTable, it's treated as a column.
-		
+
 		const taskString = "- [ ] Something #done";
 		if (isTrackedTaskString(taskString)) {
 			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
@@ -882,10 +914,10 @@ describe("Columns with spaces and special characters", () => {
 		// "done" maps to "Done!" which has '!' which might be invalid in tags?
 		// Obsidian tags: alphabetical letters, numbers, underscore (_), hyphen (-), forward slash (/)
 		// '!' is not allowed.
-		
+
 		const output = task?.serialise();
 		// Should fall back to "done"
-		expect(output).toBe("- [ ] Something #done"); 
+		expect(output).toBe("- [ ] Something #done");
 	});
 
 	it("serialises a task in 'My-Tag' column using the original casing because it is valid", () => {
@@ -900,7 +932,7 @@ describe("Columns with spaces and special characters", () => {
 
 		const output = task?.serialise();
 		// Should use "My-Tag" because it is a valid tag
-		expect(output).toBe("- [ ] Something #My-Tag"); 
+		expect(output).toBe("- [ ] Something #My-Tag");
 	});
 
 	it("serialises a task after moving to 'In Progress' column", () => {
@@ -908,7 +940,7 @@ describe("Columns with spaces and special characters", () => {
 		const taskString = "- [ ] Something";
 		if (isTrackedTaskString(taskString)) {
 			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "");
-            task.column = kebab<ColumnTag>("In Progress"); // "in-progress"
+			task.column = kebab<ColumnTag>("In Progress"); // "in-progress"
 		}
 
 		const output = task?.serialise();

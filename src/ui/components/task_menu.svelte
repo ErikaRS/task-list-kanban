@@ -53,6 +53,18 @@
 		menu.addSeparator();
 
 		menu.addItem((i) => {
+			if (task.isCancelled) {
+				i.setTitle(`Restore task`).onClick(() =>
+					taskActions.restoreTasks([task.id]),
+				);
+			} else {
+				i.setTitle(`Cancel task`).onClick(() =>
+					taskActions.cancelTasks([task.id]),
+				);
+			}
+		});
+
+		menu.addItem((i) => {
 			i.setTitle(`Archive task`).onClick(() =>
 				taskActions.archiveTasks([task.id]),
 			);
