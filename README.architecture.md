@@ -28,7 +28,7 @@ This plugin follows a modular architecture with clear separation between parsing
 **Task Management** (`src/ui/tasks/`)
 - `task.ts`: Core Task model with parsing and serialization
 - `store.ts`: Reactive task store with file system integration
-- `actions.ts`: Task manipulation operations (move, archive, delete)
+- `actions.ts`: Task manipulation operations (move, done, cancel/restore, archive, delete)
 
 **Parsing Layer** (`src/parsing/`)
 - `kebab/`: String normalization utilities for consistent naming
