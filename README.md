@@ -2,7 +2,7 @@
 
 The Task List Kanban is a free and open source Obsidian plugin that automatically imports all your 'tasks' within Obsidian files into a kanban view. This plugin was created to reduce duplication of effort when managing and prioritising tasks. Simply note down tasks using the 'task' format in any Obsidian file, and they will automatically appear in your Task List Kanban.
 
-By adding tags to your tasks using '#', you can allocate tasks to specific columns in your kanban, as well as add additional tags for filtering. From the kanban view, you can easily move tasks between columns, archive tasks, apply or change filters, and even jump straight to the file where the task sits. Any change made to a task from the kanban view will also update the task in its file, and vice versa.
+By adding tags to your tasks using '#', you can allocate tasks to specific columns in your kanban, as well as add additional tags for filtering. From the kanban view, you can easily move tasks between columns, cancel or restore tasks, archive tasks, apply or change filters, and even jump straight to the file where the task sits. Any change made to a task from the kanban view will also update the task in its file, and vice versa.
 
 ![Task List Kanban Screenshot](https://github.com/ErikaRS/task-list-kanban/assets/80379257/ddde01aa-3098-4cfc-8860-6af34f0ece57)
 
@@ -32,6 +32,8 @@ The `#[column-name]` text won't be visible in the kanban view, keeping your task
 **Moving tasks**: Drag and drop between columns, or use the task's settings menu to select a column.
 
 **Completing tasks**: Click the circle icon on each task card to quickly mark it as done and move it to the Done column. Click again on a completed task to uncheck it.
+
+**Cancelling tasks**: Use the task menu to set a task to cancelled (`[-]`) with **Cancel task**. For cancelled tasks, the same menu item becomes **Restore task**, which sets the task back to incomplete (`[ ]`).
 
 **Navigate to file**: Click the arrow icon or file path at the bottom of any task card to jump directly to that task in its source file.
 
@@ -84,9 +86,11 @@ Examples:
 
 Examples:
 - Leave empty (default) - All task-like strings are processed
-- `-` - Tasks like `[−] Cancelled task` are ignored
+- `-` - Tasks like `[-] Cancelled task` are ignored
 - `-~` - Tasks with `[-]` or `[~]` are ignored
 - `❌` - Tasks like `[❌] Not relevant` are ignored
+
+**Cancel/Restore + marker settings**: Cancel and restore actions only change checkbox markers (`[-]` and `[ ]`). What happens next on the board is still controlled by your status marker settings. For example, if `-` is in ignored markers, cancelled tasks are hidden; if `-` is in done markers, cancelled tasks are treated as done.
 
 ### Tagging and Filtering
 
@@ -117,6 +121,7 @@ Examples:
 Once tasks are selected, a count ("N selected") appears under the column title and a **⋯** menu button appears. The menu lets you:
 - **Move selected to Done** — mark all selected tasks complete at once.
 - **Move selected to [Column]** — move all selected tasks to any other column.
+- **Cancel selected / Restore selected** — cancel selected tasks (`[-]`) or restore them (`[ ]`) when all selected tasks are already cancelled.
 - **Archive selected** — archive all selected tasks in one action.
 
 You can also **drag** any selected task to a different column and all selected tasks in that column will move together. The Done column has an additional option to archive all tasks at once.

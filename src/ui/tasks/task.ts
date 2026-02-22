@@ -64,6 +64,19 @@ export type IgnoredStatusMarkers = Brand<string, "IgnoredStatusMarkers">;
 export const DEFAULT_IGNORED_STATUS_MARKERS: IgnoredStatusMarkers = "" as IgnoredStatusMarkers;
 
 /**
+ * A string containing characters that mark tasks as cancelled.
+ * Each character represents a checkbox status that indicates a cancelled task.
+ */
+export type CancelledStatusMarkers = Brand<string, "CancelledStatusMarkers">;
+
+/**
+ * Default character that marks a task as cancelled in checkbox notation.
+ * 
+ * - '-': Standard cancellation marker (e.g., `- [-] Cancelled task`)
+ */
+export const DEFAULT_CANCELLED_STATUS_MARKERS: CancelledStatusMarkers = "-" as CancelledStatusMarkers;
+
+/**
  * Common validation logic for status marker strings.
  * 
  * Valid markers must:
@@ -78,29 +91,29 @@ function validateStatusMarkers(markers: string): string[] {
 	const errors: string[] = [];
 	const chars = Array.from(markers);
 	const seen = new Set<string>();
-	
+
 	for (let i = 0; i < chars.length; i++) {
 		const char = chars[i];
 		if (!char) continue;
-		
+
 		// Check for duplicates
 		if (seen.has(char)) {
 			errors.push(`Duplicate marker '${char}' at position ${i + 1}`);
 			continue;
 		}
 		seen.add(char);
-		
+
 		// Check for whitespace
 		if (/\s/.test(char)) {
 			errors.push(`Marker at position ${i + 1} is whitespace`);
 		}
-		
+
 		// Check for control characters
 		if (char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127) {
 			errors.push(`Marker at position ${i + 1} is a control character`);
 		}
 	}
-	
+
 	return errors;
 }
 
@@ -126,7 +139,7 @@ export function validateDoneStatusMarkers(markers: string): string[] {
 	if (!markers || markers.length === 0) {
 		return ["Done status markers cannot be empty"];
 	}
-	
+
 	return validateStatusMarkers(markers);
 }
 
@@ -162,7 +175,7 @@ export function validateIgnoredStatusMarkers(markers: string): string[] {
 	if (!markers || markers.length === 0) {
 		return [];
 	}
-	
+
 	// For non-empty strings, use common validation logic
 	return validateStatusMarkers(markers);
 }
@@ -183,16 +196,43 @@ export function createIgnoredStatusMarkers(markers: string): IgnoredStatusMarker
 }
 
 /**
+ * Validates that a cancelled status markers string contains only valid characters.
+ * 
+ * Valid markers must:
+ * - Be single Unicode code points
+ * - Not contain whitespace, newlines, or control characters
+ * - Not be empty
+ */
+export function validateCancelledStatusMarkers(markers: string): string[] {
+	if (!markers || markers.length === 0) {
+		return ["Cancelled status markers cannot be empty"];
+	}
+
+	return validateStatusMarkers(markers);
+}
+
+/**
+ * Creates a validated CancelledStatusMarkers type from a string.
+ */
+export function createCancelledStatusMarkers(markers: string): CancelledStatusMarkers {
+	const errors = validateCancelledStatusMarkers(markers);
+	if (errors.length > 0) {
+		throw new Error(`Invalid cancelled status markers: ${errors.join(', ')}`);
+	}
+	return markers as CancelledStatusMarkers;
+}
+
+/**
  * Common helper to check if a checkbox status matches any of the provided markers.
  * Properly handles multi-codepoint Unicode characters using Array.from.
  */
 function isStatusMatch(statusContent: string | undefined, markers: string): boolean {
 	if (!statusContent || !markers) return false;
-	
+
 	// Convert to arrays of Unicode code points to handle multi-codepoint chars
 	const contentChars = Array.from(statusContent);
 	const markersChars = Array.from(markers);
-	
+
 	// Valid checkbox content must be exactly one code point
 	// Note: This will work correctly for most emoji and Unicode characters
 	// though it may not handle complex grapheme clusters perfectly
@@ -202,7 +242,7 @@ function isStatusMatch(statusContent: string | undefined, markers: string): bool
 
 	const singleChar = contentChars[0];
 	if (!singleChar) return false;
-	
+
 	// Check if the checkbox content matches any of the provided markers
 	return markersChars.includes(singleChar);
 }
@@ -223,6 +263,13 @@ function isIgnoredStatus(statusContent: string | undefined, ignoredStatusMarkers
 	return isStatusMatch(statusContent, ignoredStatusMarkers);
 }
 
+/**
+ * Checks if a checkbox status is marked as cancelled based on configured markers.
+ */
+function isCancelledStatus(statusContent: string | undefined, cancelledStatusMarkers: string): boolean {
+	return isStatusMatch(statusContent, cancelledStatusMarkers);
+}
+
 export class Task {
 	constructor(
 		rawContent: TaskString,
@@ -231,6 +278,7 @@ export class Task {
 		private readonly columnTagTable: ColumnTagTable,
 		private readonly consolidateTags: boolean,
 		private readonly doneStatusMarkers: string = DEFAULT_DONE_STATUS_MARKERS,
+		private readonly cancelledStatusMarkers: string = DEFAULT_CANCELLED_STATUS_MARKERS,
 		private readonly ignoredStatusMarkers: string = DEFAULT_IGNORED_STATUS_MARKERS
 	) {
 		const [, blockLink] = rawContent.match(blockLinkRegexp) ?? [];
@@ -303,6 +351,10 @@ export class Task {
 		this._displayStatus = Array.from(this.doneStatusMarkers)[0] ?? "x";
 	}
 
+	get isCancelled(): boolean {
+		return isCancelledStatus(this._displayStatus, this.cancelledStatusMarkers);
+	}
+
 	undone() {
 		this._done = false;
 		this._displayStatus = " ";
@@ -346,18 +398,17 @@ export class Task {
 			this.content.trim(),
 			this.consolidateTags && this.tags.size > 0
 				? ` ${Array.from(this.tags)
-						.map((tag) => `#${tag}`)
-						.join(" ")}`
+					.map((tag) => `#${tag}`)
+					.join(" ")}`
 				: "",
 			this.column
-				? ` #${
-						this.column === "archived"
-							? this.column
-							: (() => {
-									const mapped = this.columnTagTable[this.column];
-									return mapped && isValidTag(mapped) ? mapped : this.column;
-							  })()
-				  }`
+				? ` #${this.column === "archived"
+					? this.column
+					: (() => {
+						const mapped = this.columnTagTable[this.column];
+						return mapped && isValidTag(mapped) ? mapped : this.column;
+					})()
+				}`
 				: "",
 			this.blockLink ? ` ^${this.blockLink}` : "",
 		]
@@ -373,6 +424,14 @@ export class Task {
 		this._column = "archived";
 	}
 
+	cancel() {
+		this._displayStatus = Array.from(this.cancelledStatusMarkers)[0] ?? "-";
+	}
+
+	restore() {
+		this._displayStatus = " ";
+	}
+
 	delete() {
 		this._deleted = true;
 	}
@@ -384,11 +443,11 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 	if (input.includes("#archived")) {
 		return false;
 	}
-	
+
 	if (!taskStringRegex.test(input)) {
 		return false;
 	}
-	
+
 	// Extract the checkbox status and check if it's ignored
 	const match = input.match(taskStringRegex);
 	if (match) {
@@ -397,7 +456,7 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 			return false;
 		}
 	}
-	
+
 	return true;
 }
 

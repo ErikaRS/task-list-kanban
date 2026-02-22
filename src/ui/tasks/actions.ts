@@ -16,6 +16,8 @@ export type TaskActions = {
 	updateContent: (id: string, content: string) => Promise<void>;
 	viewFile: (id: string) => Promise<void>;
 	archiveTasks: (ids: string[]) => Promise<void>;
+	cancelTasks: (ids: string[]) => Promise<void>;
+	restoreTasks: (ids: string[]) => Promise<void>;
 	deleteTask: (ids: string) => Promise<void>;
 	addNew: (column: ColumnTag, e: MouseEvent) => Promise<void>;
 };
@@ -79,6 +81,18 @@ export function createTaskActions({
 		async archiveTasks(ids) {
 			for (const id of ids) {
 				await updateRowWithTask(id, (task) => task.archive());
+			}
+		},
+
+		async cancelTasks(ids) {
+			for (const id of ids) {
+				await updateRowWithTask(id, (task) => task.cancel());
+			}
+		},
+
+		async restoreTasks(ids) {
+			for (const id of ids) {
+				await updateRowWithTask(id, (task) => task.restore());
 			}
 		},
 

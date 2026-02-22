@@ -7,7 +7,7 @@ import {
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
-import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
+import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -106,7 +106,7 @@ export class SettingsModal extends Modal {
 					.addOption(VisibilityOption.NeverShow, "Never show")
 					.setValue(
 						this.settings.uncategorizedVisibility ??
-							VisibilityOption.Auto
+						VisibilityOption.Auto
 					)
 					.onChange((value) => {
 						const validatedValue =
@@ -167,6 +167,27 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid done status markers";
 						this.settings.doneStatusMarkers = value;
+					}
+				});
+			});
+
+		new Setting(this.contentEl)
+			.setName("Cancelled status markers")
+			.setDesc(
+				"Characters that mark a task as cancelled (e.g., '-' for [-]). Each character should be a single Unicode character without spaces."
+			)
+			.addText((text) => {
+				text.setValue(this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS);
+				text.onChange((value) => {
+					// Validate the input and provide immediate feedback
+					const errors = validateCancelledStatusMarkers(value);
+					if (errors.length > 0) {
+						text.inputEl.style.borderColor = "var(--text-error)";
+						text.inputEl.title = `Invalid: ${errors.join(', ')}`;
+					} else {
+						text.inputEl.style.borderColor = "";
+						text.inputEl.title = "Valid cancelled status markers";
+						this.settings.cancelledStatusMarkers = value;
 					}
 				});
 			});
