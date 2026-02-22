@@ -81,17 +81,20 @@ cutting a release, make sure to "land the plane". This means:
 4. **Create and push tag**:
    ```bash
    git tag -a X.Y.Z -m "X.Y.Z"
+   git push origin main
    git push origin X.Y.Z
    ```
 
 5. **GitHub Action automatically runs**:
    - Builds the plugin
    - Creates a draft release with main.js, manifest.json, and styles.css
+   - This draft is the only release draft you should use for publishing
 
 6. **Publish release**:
    - Go to [releases page](https://github.com/ErikaRS/task-list-kanban/releases)
-   - Edit the draft release
-   - Add release notes (see Release Note Structure below)
+   - Wait until the `github-actions` draft for tag `X.Y.Z` appears with built assets attached
+   - **Do not run `gh release create` and do not create a draft manually in the UI** (that creates duplicate drafts with wrong assets)
+   - Generate release notes separately (locally/in chat), then paste them into the `github-actions` draft body
    - Publish
 
 ## PR and Release Note Structure
