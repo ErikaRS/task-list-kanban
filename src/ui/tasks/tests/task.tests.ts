@@ -924,6 +924,61 @@ describe("Task marking as done", () => {
 	});
 });
 
+describe("Task display status", () => {
+	const columnTags: ColumnTagTable = {
+		[kebab<ColumnTag>("column")]: "column",
+	};
+
+	it("exposes default unchecked status as a space", () => {
+		let task: Task | undefined;
+		const taskString = "- [ ] Incomplete task #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+		}
+
+		expect(task).toBeTruthy();
+		expect(task?.displayStatus).toBe(" ");
+	});
+
+	it("preserves parsed custom status marker", () => {
+		let task: Task | undefined;
+		const taskString = "- [/] In progress task #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+		}
+
+		expect(task).toBeTruthy();
+		expect(task?.displayStatus).toBe("/");
+	});
+
+	it("updates to first done marker when marked done", () => {
+		let task: Task | undefined;
+		const taskString = "- [ ] Incomplete task #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "✓✅", "-", "");
+			task.done = true;
+		}
+
+		expect(task).toBeTruthy();
+		expect(task?.displayStatus).toBe("✓");
+	});
+
+	it("updates to cancel marker and then resets on restore", () => {
+		let task: Task | undefined;
+		const taskString = "- [ ] Incomplete task #column";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "CA", "");
+			task.cancel();
+		}
+
+		expect(task).toBeTruthy();
+		expect(task?.displayStatus).toBe("C");
+
+		task?.restore();
+		expect(task?.displayStatus).toBe(" ");
+	});
+});
+
 describe("Task cancelling", () => {
 	const columnTags: ColumnTagTable = {
 		[kebab<ColumnTag>("column")]: "column",

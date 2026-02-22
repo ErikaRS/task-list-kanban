@@ -361,6 +361,9 @@ export class Task {
 	}
 
 	private _displayStatus: string;
+	get displayStatus(): string {
+		return this._displayStatus;
+	}
 
 	private _deleted: boolean = false;
 

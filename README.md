@@ -75,6 +75,8 @@ Change this setting in the kanban's settings menu.
 
 ### Task Status Customization
 
+Task status visuals are inherited from your active Obsidian theme/plugin CSS for markdown checkboxes.
+
 **Done Status Markers**: Customize which characters mark tasks as completed. By default, tasks marked with 'x' or 'X' are considered done, but you can configure any combination of single character markers (including Unicode/emoji).
 
 Examples:

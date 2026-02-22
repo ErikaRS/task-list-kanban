@@ -40,7 +40,7 @@
 
 	function handleOpenKeypress(e: KeyboardEvent) {
 		if (e.key === "Enter" || e.key === " ") {
-			handleFocus();
+			handleFocus(e);
 		}
 	}
 
@@ -96,13 +96,50 @@
 	let previewContainerEl: HTMLDivElement | undefined;
 	let markdownComponent: Component | undefined;
 
-	function handleFocus(e?: MouseEvent) {
-		// Check if the click was on a link by traversing the event path
+	const interactiveTagNames = new Set([
+		"a",
+		"button",
+		"input",
+		"select",
+		"textarea",
+		"label",
+		"summary",
+		"details",
+	]);
+
+	function eventHasInteractiveTarget(e?: Event): boolean {
 		const path = e?.composedPath() || [];
+		const currentTarget = e?.currentTarget;
 		for (const element of path) {
-			if (element instanceof HTMLElement && element.tagName.toLowerCase() === "a") {
-				return;
+			if (!(element instanceof HTMLElement)) {
+				continue;
 			}
+
+			// Allow activation from the preview container itself.
+			if (currentTarget instanceof HTMLElement && element === currentTarget) {
+				continue;
+			}
+
+			if (interactiveTagNames.has(element.tagName.toLowerCase())) {
+				return true;
+			}
+
+			if (element.isContentEditable) {
+				return true;
+			}
+
+			const role = element.getAttribute("role");
+			if (role === "button" || role === "checkbox" || role === "link") {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	function handleFocus(e?: Event) {
+		if (eventHasInteractiveTarget(e)) {
+			return;
 		}
 
 		isEditing = true;
@@ -112,8 +149,15 @@
 		}, 100);
 	}
 
+	function renderTaskMarkdown() {
+		const contentWithBlockLink = (task.content + (task.blockLink ? ` ^${task.blockLink}` : ""))
+			.replaceAll("<br />", "\n");
+		const indentedContinuationLines = contentWithBlockLink.replaceAll("\n", "\n  ");
+		return `- [${task.displayStatus}] ${indentedContinuationLines}`;
+	}
+
 	// Render markdown content using Obsidian's MarkdownRenderer
-	async function renderMarkdown() {
+	async function renderMarkdown(selectionMode: boolean) {
 		if (!previewContainerEl) return;
 
 		// Unload previous component before re-rendering
@@ -127,10 +171,8 @@
 		// Create new component for this task
 		markdownComponent = new Component();
 
-		// Render the markdown with task.path as sourcePath for proper link resolution
-		// Convert <br /> tags back to newlines for proper markdown parsing
-		const contentToRender = (task.content + (task.blockLink ? ` ^${task.blockLink}` : ""))
-			.replaceAll("<br />", "\n");
+		// Render with full task markdown to preserve Obsidian status DOM/styling.
+		const contentToRender = renderTaskMarkdown();
 		await MarkdownRenderer.render(
 			app,
 			contentToRender,
@@ -141,7 +183,7 @@
 
 		// Set up event handlers after rendering
 		setupLinkHandlers();
-		postProcessRenderedContent();
+		postProcessRenderedContent(selectionMode);
 	}
 
 	// Set up click and hover handlers for internal links
@@ -185,8 +227,18 @@
 	}
 
 	// Post-process rendered content for safety and compatibility
-	function postProcessRenderedContent() {
+	function postProcessRenderedContent(selectionMode: boolean) {
 		if (!previewContainerEl) return;
+
+		function stopPropagation(e: Event) {
+			e.stopPropagation();
+		}
+
+		function handlePrimaryCheckboxClick(e: Event) {
+			e.preventDefault();
+			e.stopPropagation();
+			void taskActions.toggleDone(task.id);
+		}
 
 		// External links: open in new tab with security attributes
 		previewContainerEl.querySelectorAll('a:not(.internal-link)').forEach((a) => {
@@ -194,14 +246,46 @@
 			anchor.target = '_blank';
 			anchor.rel = 'noopener noreferrer';
 			// Prevent link activation from triggering edit mode
-			anchor.addEventListener('click', (e) => e.stopPropagation());
-			anchor.addEventListener('keypress', (e) => e.stopPropagation());
+			anchor.addEventListener('click', stopPropagation);
+			anchor.addEventListener('keypress', stopPropagation);
 		});
 
-		// Disable checkboxes to prevent unintended file edits
-		previewContainerEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-			const el = cb as HTMLInputElement;
-			el.disabled = true;
+		const checkboxes = Array.from(
+			previewContainerEl.querySelectorAll('input[type="checkbox"]')
+		) as HTMLInputElement[];
+		const [primaryCheckbox, ...nestedCheckboxes] = checkboxes;
+
+		if (primaryCheckbox) {
+			primaryCheckbox.classList.add("task-primary-checkbox");
+			primaryCheckbox.addEventListener('mousedown', stopPropagation);
+			primaryCheckbox.addEventListener('mouseup', stopPropagation);
+			primaryCheckbox.addEventListener('keypress', stopPropagation);
+
+			if (selectionMode) {
+				primaryCheckbox.disabled = true;
+				primaryCheckbox.tabIndex = -1;
+				primaryCheckbox.style.visibility = "hidden";
+				primaryCheckbox.setAttribute("aria-hidden", "true");
+				primaryCheckbox.addEventListener('click', stopPropagation);
+			} else {
+				primaryCheckbox.disabled = false;
+				primaryCheckbox.style.removeProperty("visibility");
+				primaryCheckbox.removeAttribute("aria-hidden");
+				primaryCheckbox.setAttribute(
+					"aria-label",
+					task.done ? "Mark as incomplete" : "Mark as complete"
+				);
+				primaryCheckbox.addEventListener('click', handlePrimaryCheckboxClick);
+			}
+		}
+
+		// Nested markdown checkboxes are always non-interactive.
+		nestedCheckboxes.forEach((checkbox) => {
+			checkbox.classList.add("task-nested-checkbox");
+			checkbox.disabled = true;
+			checkbox.tabIndex = -1;
+			checkbox.addEventListener('click', stopPropagation);
+			checkbox.addEventListener('keypress', stopPropagation);
 		});
 
 		// Remove heavy/interactive embeds that don't work well in small cards
@@ -212,7 +296,7 @@
 
 	// Re-render when task content changes
 	$: if (task && !isEditing && previewContainerEl) {
-		renderMarkdown();
+		void renderMarkdown(isSelectionMode);
 	}
 
 	// Cleanup on destroy
@@ -237,26 +321,28 @@
 	$: shouldconsolidateTags = consolidateTags && task.tags.size > 0;
 </script>
 
-<div
-	class="task"
-	class:is-dragging={isDragging}
-	class:is-selected={isSelectionMode && isSelected}
-	role="group"
-	draggable={!isEditing}
-	on:dragstart={handleDragStart}
-	on:dragend={handleDragEnd}
+	<div
+		class="task"
+		class:is-dragging={isDragging}
+		class:is-selected={isSelectionMode && isSelected}
+		class:is-selection-mode={isSelectionMode}
+		role="group"
+		draggable={!isEditing}
+		on:dragstart={handleDragStart}
+		on:dragend={handleDragEnd}
 >
 	<!-- Task row -->
 	<div class="task-row">
 		<div class="task-row-left">
 			{#if isSelectionMode}
 				<!-- Selection checkbox (square icons) -->
-				<button
-					class="icon-button select-task"
-					class:is-selected={isSelected}
-					aria-label={isSelected ? "Deselect task" : "Select task for bulk actions"}
-					aria-pressed={isSelected}
-					title={isSelected ? "Deselect task" : "Select task for bulk actions"}
+					<button
+						class="icon-button select-task"
+						class:is-selected={isSelected}
+						role="checkbox"
+						aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
+						aria-checked={isSelected}
+						title={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
 					on:click={onToggleSelection}
 					on:keydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
@@ -271,30 +357,6 @@
 						size={18}
 						opacity={isSelected ? 1 : 0.5}
 					/>
-				</button>
-			{:else}
-				<!-- Mark done button (circle) -->
-				<button
-					class="icon-button mark-done"
-					class:is-done={task.done}
-					aria-label={task.done ? "Mark as incomplete" : "Move to Done"}
-					aria-pressed={task.done}
-					title={task.done ? "Mark as incomplete" : "Move to Done"}
-					on:click={() => taskActions.toggleDone(task.id)}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							taskActions.toggleDone(task.id);
-						}
-					}}
-					tabindex="0"
-				>
-					<span class="default-icon">
-						<Icon name={task.done ? "lucide-circle-check" : "lucide-circle"} size={18} opacity={0.5} />
-					</span>
-					<span class="hover-icon">
-						<Icon name="lucide-circle-check" size={18} opacity={1} />
-					</span>
 				</button>
 			{/if}
 		</div>
@@ -375,17 +437,18 @@
 		}
 
 		// Task row
-		.task-row {
-			padding: var(--size-4-2);
-			display: flex;
-			gap: var(--size-4-1);
-			align-items: center;
-
-			.task-row-left {
+			.task-row {
+				padding: var(--size-4-2);
+				padding-inline-start: calc(var(--size-4-2) + 8px);
 				display: flex;
-				align-items: center;
-				flex-shrink: 0;
-			}
+				gap: var(--size-4-1);
+				align-items: flex-start;
+
+				.task-row-left {
+					display: flex;
+					align-items: center;
+					flex-shrink: 0;
+				}
 
 			.task-row-content {
 				flex: 1;
@@ -399,9 +462,6 @@
 
 				.content-preview {
 					min-height: 1.5rem;
-					display: flex;
-					flex-direction: column;
-					justify-content: center;
 
 					&:focus-within {
 						box-shadow: 0 0 0 3px
@@ -410,12 +470,28 @@
 				}
 			}
 
-			.task-row-right {
-				display: flex;
-				align-items: center;
-				flex-shrink: 0;
+				.task-row-right {
+					display: flex;
+					align-items: center;
+					flex-shrink: 0;
+				}
 			}
-		}
+
+			&.is-selection-mode {
+				.task-row {
+					.task-row-left {
+						width: 0;
+						flex: 0 0 0;
+						overflow: visible;
+						z-index: 1;
+					}
+				}
+
+				.select-task {
+					// Keep text position fixed while moving the icon into the native checkbox lane.
+					transform: translateX(calc(var(--size-4-2) * -1));
+				}
+			}
 
 		// Icon button styling
 		.icon-button {
@@ -430,7 +506,6 @@
 			cursor: pointer;
 			border-radius: var(--radius-s);
 			transition: opacity 0.2s ease;
-			position: relative;
 			box-shadow: none;
 
 			&:hover,
@@ -442,46 +517,6 @@
 			&:focus-visible {
 				outline: 2px solid var(--background-modifier-border-focus);
 				outline-offset: 2px;
-			}
-
-			.default-icon,
-			.hover-icon {
-				position: absolute;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				transition: opacity 0.2s ease;
-			}
-
-			// Hide hover icon by default
-			.hover-icon {
-				opacity: 0;
-			}
-
-			&.mark-done {
-				// Show hover checkmark on hover
-				&:hover {
-					.hover-icon {
-						opacity: 1;
-
-						:global(svg) {
-							color: var(--interactive-accent);
-						}
-					}
-
-					// Hide default icon on hover
-					.default-icon {
-						opacity: 0;
-					}
-				}
-
-				// If already done, show checkmark with default icon color
-				&.is-done {
-					.default-icon :global(svg) {
-						opacity: 1;
-						color: var(--icon-color);
-					}
-				}
 			}
 
 			&.select-task {
@@ -559,11 +594,6 @@
 		}
 	}
 
-	:global(.task-row-content *) {
-		word-break: break-word;
-		margin: 0;
-	}
-
 	:global(.task-row-content img) {
 		max-width: 100%;
 		max-height: 160px;
@@ -574,7 +604,32 @@
 		white-space: pre-wrap;
 	}
 
-	:global(.task-row-content input[type="checkbox"]) {
+	:global(.task-row-content .content-preview),
+	:global(.task-row-content .content-preview > ul),
+	:global(.task-row-content .content-preview > ul > li),
+	:global(.task-row-content .content-preview > ul > li > p) {
+		margin: 0;
+	}
+
+	:global(.task .task-row-content .content-preview > ul) {
+		padding-left: var(--size-4-4, 16px);
+	}
+
+	:global(.task-row-content .content-preview .task-list-item) {
+		min-width: 0;
+		word-break: break-word;
+	}
+
+	:global(.task-row-content input.task-nested-checkbox) {
 		pointer-events: none;
+	}
+
+	:global(.task-row-content .content-preview .task-list-item > input[type="checkbox"]) {
+		margin-right: var(--size-2-2);
+		transform: translateY(2px);
+	}
+
+	:global(.task-row-content .content-preview .task-list-item > *:not(input[type="checkbox"])) {
+		min-width: 0;
 	}
 </style>
