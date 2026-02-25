@@ -35,6 +35,7 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
+	export let sortByPriority: boolean = false;
 	export let isVerticalFlow: boolean = false;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
@@ -62,11 +63,14 @@
 	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
 
 	$: sortedTasks = [...tasks].sort((a, b) => {
-		if (a.path === b.path) {
-			return a.rowIndex - b.rowIndex;
-		} else {
+		if (sortByPriority) {
+			const pd = a.priority - b.priority;
+			if (pd !== 0) return pd;
+		}
+		if (a.path !== b.path) {
 			return a.path.localeCompare(b.path);
 		}
+		return a.rowIndex - b.rowIndex;
 	});
 
 	// Selection state

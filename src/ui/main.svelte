@@ -15,7 +15,7 @@
 	import type { TaskActions } from "./tasks/actions";
 	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
 	import { onMount } from "svelte";
-	import type { App } from "obsidian";
+	import { Menu, type App } from "obsidian";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -415,6 +415,7 @@
 	$: ({
 		showFilepath = true,
 		consolidateTags = false,
+		sortByPriority = false,
 		uncategorizedVisibility = VisibilityOption.Auto,
 		doneVisibility = VisibilityOption.AlwaysShow,
 		filtersSidebarExpanded = true,
@@ -422,6 +423,19 @@
 		columnWidth = 300,
 		flowDirection = FlowDirection.LeftToRight
 	} = $settingsStore);
+
+	function showSortMenu(e: MouseEvent) {
+		const menu = new Menu();
+		menu.addItem((i) => {
+			i.setTitle("Emoji ranking")
+				.setChecked(sortByPriority)
+				.onClick(() => {
+					$settingsStore.sortByPriority = !sortByPriority;
+					requestSave();
+				});
+		});
+		menu.showAtMouseEvent(e);
+	}
 
 	$: showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
@@ -670,6 +684,7 @@
 						Total: {totalTaskCount} tasks
 					{/if}
 				</span>
+				<IconButton icon="lucide-arrow-up-down" on:click={showSortMenu} aria-label="Sort tasks" />
 				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 			</div>
 			
@@ -686,6 +701,7 @@
 							{columnColourTableStore}
 							{showFilepath}
 							{consolidateTags}
+							{sortByPriority}
 							{isVerticalFlow}
 							isCollapsed={$collapsedColumnsStore.has(column)}
 							onToggleCollapse={() => toggleColumnCollapse(column)}
