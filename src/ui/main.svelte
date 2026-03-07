@@ -662,7 +662,7 @@
 		{/if}
 
 		<div class="board-content">
-			<div class="settings">
+			<div class="board-header">
 				<span class="board-task-count" aria-live="polite">
 					{#if isFiltered}
 						{filteredTaskCount} of {totalTaskCount} tasks
@@ -789,7 +789,7 @@
 			padding-left: var(--size-4-4);
 		}
 
-		.settings {
+		.board-header {
 			display: flex;
 			justify-content: flex-end;
 			align-items: center;
