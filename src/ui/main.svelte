@@ -1032,10 +1032,11 @@
 		}
 
 		.columns {
-			height: 100%;
-			flex-grow: 1;
+			flex: 1 1 0;
+			min-height: 0;
 			max-width: 100vw;
 			overflow-x: scroll;
+			overflow-y: auto;
 			padding-bottom: var(--size-4-3);
 
 			> div {
