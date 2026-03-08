@@ -102,6 +102,9 @@ cutting a release, make sure to "land the plane". This means:
 ### Pull Request Messages
 - PR descriptions should end with a note indicating they were created with a coding agent
 - Format: `Created in collaboration with [Amp](https://ampcode.com)`
+- When linking issues in PRs, use references only (e.g. `Refs #123`)
+- Do **not** use auto-closing keywords in PRs (`Fixes`, `Closes`, `Resolves`)
+- Issues should only be closed as part of the release workflow
 
 ### Release Notes
 Release notes should be informative and comprehensive, covering all changes since the last tagged release.
