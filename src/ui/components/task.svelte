@@ -369,7 +369,7 @@
 					on:blur={handleContentBlur}
 					on:input={onInput}
 					value={task.content.replaceAll("<br />", "\n")}
-				/>
+				></textarea>
 			{:else}
 				<div
 					role="button"
@@ -378,7 +378,7 @@
 					on:mouseup={handleFocus}
 					on:keypress={handleOpenKeypress}
 					tabindex="0"
-				/>
+				></div>
 			{/if}
 		</div>
 		<div class="task-row-right">

@@ -30,7 +30,7 @@
 	style:opacity={opacity}
 	aria-label={ariaLabel}
 	role={ariaLabel ? "img" : undefined}
-/>
+></span>
 
 <style lang="scss">
 	.icon {

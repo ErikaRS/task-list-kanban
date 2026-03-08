@@ -294,7 +294,7 @@
 			{/if}
 		</div>
 		{#if !isVerticalFlow}
-			<div class="divide" />
+			<div class="divide"></div>
 		{/if}
 		<div class="tasks-wrapper">
 			<div class="tasks">
@@ -324,7 +324,7 @@
 						}
 					}}
 				>
-					<span bind:this={buttonEl} />
+					<span bind:this={buttonEl}></span>
 					Add new
 				</button>
 			{/if}
