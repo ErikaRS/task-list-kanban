@@ -5,6 +5,7 @@ import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { ColumnTagTable } from "../columns/columns";
 import { createTaskActions, type TaskActions } from "./actions";
 import type { SettingValues } from "../settings/settings_store";
+import { shouldIncludeFilePath } from "./scope";
 
 export function createTasksStore(
 	vault: Vault,
@@ -44,8 +45,7 @@ export function createTasksStore(
 	}
 
 	function shouldHandle(file: TFile): boolean {
-		const filenameFilter = getFilenameFilter()?.replace(/^\//, "");
-		return !filenameFilter || file.path.startsWith(filenameFilter);
+		return shouldIncludeFilePath(file.path, getFilenameFilter());
 	}
 
 	function initialise() {
@@ -161,6 +161,7 @@ export function createTasksStore(
 		metadataByTaskId,
 		vault,
 		workspace,
+		getFilenameFilter,
 	});
 
 	return { tasksStore, taskActions, initialise };

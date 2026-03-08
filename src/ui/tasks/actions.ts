@@ -8,6 +8,7 @@ import {
 import type { Task } from "./task";
 import type { Metadata } from "./tasks";
 import type { ColumnTag } from "../columns/columns";
+import { shouldIncludeFilePath } from "./scope";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
@@ -27,11 +28,13 @@ export function createTaskActions({
 	metadataByTaskId,
 	vault,
 	workspace,
+	getFilenameFilter,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
 	vault: Vault;
 	workspace: Workspace;
+	getFilenameFilter: () => string | null;
 }): TaskActions {
 	async function updateRowWithTask(
 		id: string,
@@ -119,6 +122,9 @@ export function createTaskActions({
 		async addNew(column, e) {
 			const files = vault
 				.getMarkdownFiles()
+				.filter((file) =>
+					shouldIncludeFilePath(file.path, getFilenameFilter())
+				)
 				.sort((a, b) => a.path.localeCompare(b.path));
 
 			const target = e.target as HTMLButtonElement | undefined;
