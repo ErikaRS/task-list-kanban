@@ -10,7 +10,9 @@ import {
 	createCancelledStatusMarkers,
 	validateIgnoredStatusMarkers,
 	createIgnoredStatusMarkers,
-	DEFAULT_CANCELLED_STATUS_MARKERS
+	DEFAULT_CANCELLED_STATUS_MARKERS,
+	PRIORITY_EMOJI_MAP,
+	NO_PRIORITY_VALUE,
 } from "../task";
 import { type ColumnTag, type ColumnTagTable } from "src/ui/columns/columns";
 import { kebab } from "src/parsing/kebab/kebab";
@@ -431,6 +433,72 @@ describe("Task", () => {
 				expect(task).toBeTruthy();
 				expect(task?.done).toBe(true);
 			});
+		});
+	});
+
+	describe("priority getter", () => {
+		it("returns 1 for highest priority emoji 🔺", () => {
+			const taskString = "- [ ] 🔺 Urgent task";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(1);
+			}
+		});
+
+		it("returns 2 for high priority emoji ⏫", () => {
+			const taskString = "- [ ] ⏫ High priority task";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(2);
+			}
+		});
+
+		it("returns 3 for medium priority emoji 🔼", () => {
+			const taskString = "- [ ] 🔼 Medium priority task";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(3);
+			}
+		});
+
+		it("returns 4 for low priority emoji 🔽", () => {
+			const taskString = "- [ ] 🔽 Low priority task";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(4);
+			}
+		});
+
+		it("returns 5 for lowest priority emoji ⏬", () => {
+			const taskString = "- [ ] ⏬ Lowest priority task";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(5);
+			}
+		});
+
+		it("returns NO_PRIORITY_VALUE for tasks without priority emoji", () => {
+			const taskString = "- [ ] Regular task without priority";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(NO_PRIORITY_VALUE);
+			}
+		});
+
+		it("returns first matching priority when multiple emojis present", () => {
+			const taskString = "- [ ] 🔺 Do this ⏬ later";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(1);
+			}
+		});
+
+		it("returns NO_PRIORITY_VALUE for non-priority emojis", () => {
+			const taskString = "- [ ] 🚀 Ship it";
+			if (isTrackedTaskString(taskString)) {
+				const task = new Task(taskString, { path: "/" }, 0, columnTags, false, "xX", "-", "");
+				expect(task.priority).toBe(NO_PRIORITY_VALUE);
+			}
 		});
 	});
 

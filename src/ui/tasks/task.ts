@@ -76,6 +76,16 @@ export type CancelledStatusMarkers = Brand<string, "CancelledStatusMarkers">;
  */
 export const DEFAULT_CANCELLED_STATUS_MARKERS: CancelledStatusMarkers = "-" as CancelledStatusMarkers;
 
+export const PRIORITY_EMOJI_MAP = [
+	{ emoji: '\u{1F53A}', value: 1 }, // 🔺 highest
+	{ emoji: '\u{23EB}',  value: 2 }, // ⏫ high
+	{ emoji: '\u{1F53C}', value: 3 }, // 🔼 medium
+	{ emoji: '\u{1F53D}', value: 4 }, // 🔽 low
+	{ emoji: '\u{23EC}',  value: 5 }, // ⏬ lowest
+] as const;
+
+export const NO_PRIORITY_VALUE = 6;
+
 /**
  * Common validation logic for status marker strings.
  * 
@@ -389,6 +399,13 @@ export class Task {
 
 	readonly blockLink: string | undefined;
 	readonly tags: ReadonlySet<string>;
+
+	get priority(): number {
+		for (const { emoji, value } of PRIORITY_EMOJI_MAP) {
+			if (this.content.includes(emoji)) return value;
+		}
+		return NO_PRIORITY_VALUE;
+	}
 
 	serialise(): string {
 		if (this._deleted) {
