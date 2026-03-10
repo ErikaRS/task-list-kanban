@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Select from "svelte-select";
-	import { tick, afterUpdate } from "svelte";
+	import { tick } from "svelte";
 	import type { SavedFilter } from "../../settings/settings_store";
+	import { toValidSelectedOptions, type SelectOption } from "./selection";
 
 	export let label: string;
-	export let items: { label: string; value: string }[];
+	export let items: SelectOption[];
 	export let value: string[];
 	export let savedFilters: SavedFilter[] = [];
 	export let loadSavedFilter: ((filter: SavedFilter) => void) | undefined = undefined;
@@ -17,28 +18,22 @@
 
 	$: fieldName = `field=${label}`;
 
-	let selectedItems: { label: string; value: string }[] = items.filter(
+	let selectedItems: SelectOption[] = items.filter(
 		(item) => value.includes(item.value),
 	);
-	$: value = (selectedItems ?? []).map(({ value }) => value);
-	
-	// Sync selectedItems after updates when value/items change
-	let lastSyncedValue = JSON.stringify(value);
-	afterUpdate(() => {
-		const currentValueStr = JSON.stringify(value);
-		if (currentValueStr !== lastSyncedValue) {
-			const expectedItems = items.filter((item) => value.includes(item.value));
-			const currentValues = selectedItems.map(i => i.value).sort().join(',');
-			const expectedValues = expectedItems.map(i => i.value).sort().join(',');
-			if (currentValues !== expectedValues) {
-				selectedItems = expectedItems;
-			}
-			lastSyncedValue = currentValueStr;
+	$: availableValues = new Set(items.map((item) => item.value));
+	$: selectedItemsFromValue = items.filter((item) => value.includes(item.value));
+	$: {
+		const currentValues = selectedItems.map((item) => item.value).sort().join(",");
+		const nextValues = selectedItemsFromValue.map((item) => item.value).sort().join(",");
+		if (currentValues !== nextValues) {
+			selectedItems = selectedItemsFromValue;
 		}
-	});
-	
+	}
+
 	export function clearSelection() {
 		selectedItems = [];
+		value = [];
 	}
 
 	$: savedFilterOptions = savedFilters.map((filter) => {
@@ -54,6 +49,11 @@
 			// Now update selectedItems based on the new value
 			selectedItems = items.filter((item) => value.includes(item.value));
 		}
+	}
+
+	function handleSelectInput(event: CustomEvent<unknown>) {
+		selectedItems = toValidSelectedOptions(event.detail, availableValues);
+		value = selectedItems.map((option) => option.value);
 	}
 </script>
 
@@ -99,7 +99,8 @@
 		listAutoWidth={true}
 		placeholder=""
 		{items}
-		bind:value={selectedItems}
+		value={selectedItems}
+		on:input={handleSelectInput}
 		--background="var(--background-primary)"
 		--border="var(--border-width) solid var(--background-modifier-border)"
 		--border-focused="var(--border-width) solid var(--background-modifier-border-focus)"
