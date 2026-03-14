@@ -21,7 +21,7 @@ export function createTasksStore(
 	workspace: Workspace,
 	registerEvent: (eventRef: EventRef) => void,
 	columnTagTableStore: Readable<ColumnTagTable>,
-	getFilenameFilter: () => string | null,
+	getFilenameFilter: () => string[] | null,
 	settingsStore: Writable<SettingValues>
 ): {
 	tasksStore: Writable<Task[]>;

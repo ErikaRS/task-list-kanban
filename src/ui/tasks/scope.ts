@@ -1,12 +1,13 @@
 export function shouldIncludeFilePath(
 	filePath: string,
-	filenameFilter: string | null
+	filenameFilter: string[] | null
 ): boolean {
-	const filter = filenameFilter?.replace(/^\//, "");
-
-	if (!filter) {
+	if (filenameFilter === null) {
 		return true;
 	}
 
-	return filePath === filter || filePath.startsWith(`${filter}/`);
+	return filenameFilter.some((folder) => {
+		const filter = folder.replace(/^\//, "").replace(/\/$/, "");
+		return filePath === filter || filePath.startsWith(`${filter}/`);
+	});
 }

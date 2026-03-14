@@ -11,6 +11,7 @@ export enum VisibilityOption {
 export enum ScopeOption {
 	Folder = "folder",
 	Everywhere = "everywhere",
+	SelectedFolders = "selectedFolders",
 }
 
 export enum FlowDirection {
@@ -85,6 +86,7 @@ const settingsObject = z.object({
 	flowDirection: z.nativeEnum(FlowDirection).default(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
 	defaultTaskFile: z.string().default("").optional(),
+	scopeFolders: z.array(z.string()).default([]).optional(),
 });
 
 export type SettingValues = z.infer<typeof settingsObject>;
@@ -107,6 +109,7 @@ export const defaultSettings: SettingValues = {
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],
 	defaultTaskFile: "",
+	scopeFolders: [],
 };
 
 export const createSettingsStore = () =>
