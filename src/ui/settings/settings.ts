@@ -109,10 +109,20 @@ export class SettingsModal extends Modal {
 				setDefaultTaskFileError("File not found");
 				return;
 			}
-			const scopeFilter =
-				this.settings.scope === ScopeOption.Folder
-					? this.boardFolderPath
-					: null;
+			let scopeFilter: string[] | null;
+			switch (this.settings.scope) {
+				case ScopeOption.Folder:
+					scopeFilter = this.boardFolderPath
+						? [this.boardFolderPath]
+						: null;
+					break;
+				case ScopeOption.SelectedFolders:
+					scopeFilter = this.settings.scopeFolders ?? [];
+					break;
+				default:
+					scopeFilter = null;
+					break;
+			}
 			if (!shouldIncludeFilePath(value, scopeFilter)) {
 				setDefaultTaskFileError(
 					"File is outside the board's folder scope"
