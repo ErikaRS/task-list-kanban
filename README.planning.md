@@ -8,6 +8,8 @@
   - Status can be: `IN_PROGRESS`, `COMPLETE`, `CANCELLED`, etc.
   - Example: `SPEC_0001__COMPLETE__FILTER_SAVE_DESIGN.md`
 - Date of implementation should be included in the file content as: `Implemented: YYYY-MM`
+- **Numbering is global and sequential** — new specs always use the next available number, regardless of where previous specs are filed
+- **Completed specs** should be moved to `specs/complete/` to keep the top-level `specs/` directory focused on active work
 
 ### Temporary Planning Artifacts
 - Temporary planning artifacts (drafts, exploration notes, implementation logs) should go in `tmp_specs/`
