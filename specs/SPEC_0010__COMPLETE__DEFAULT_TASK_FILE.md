@@ -107,7 +107,7 @@ Default task file
 
 **Deliverable:** Complete working feature — default task file setting persists, and the menu shows it prominently.
 
-**Implemented by:** (pending commit)
+**Implemented by:** [ba07979](https://github.com/ErikaRS/task-list-kanban/commit/ba07979)
 
 ### Phase 2: Edge Case Verification & Polish ✅ COMPLETE
 
@@ -121,7 +121,7 @@ Default task file
 
 **Deliverable:** Feature handles all path variations correctly.
 
-**Implemented by:** (pending commit)
+**Implemented by:** [ba07979](https://github.com/ErikaRS/task-list-kanban/commit/ba07979)
 
 ## Files to Modify
 
