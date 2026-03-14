@@ -118,38 +118,24 @@ function validateStatusMarkers(markers: string): string[] {
 }
 
 /**
- * Validates that a done status markers string contains only valid characters.
- * 
- * Valid markers must:
- * - Be single Unicode code points (properly handles emoji and accented characters)
- * - Not contain whitespace, newlines, or control characters
- * - Not be empty
- * 
+ * Validates a status markers string with configurable empty-string handling.
+ *
  * @param markers - The string to validate
+ * @param label - Human-readable label for error messages (e.g., "Done", "Cancelled")
+ * @param allowEmpty - Whether an empty string is valid
  * @returns Array of validation errors, empty if valid
- * 
- * @example
- * ```typescript
- * validateDoneStatusMarkers("xX✓") // []
- * validateDoneStatusMarkers("x X") // ["Marker at position 2 is whitespace"]
- * validateDoneStatusMarkers("") // ["Done status markers cannot be empty"]
- * ```
  */
-export function validateDoneStatusMarkers(markers: string): string[] {
+function validateTypedStatusMarkers(markers: string, label: string, allowEmpty: boolean): string[] {
 	if (!markers || markers.length === 0) {
-		return ["Done status markers cannot be empty"];
+		return allowEmpty ? [] : [`${label} status markers cannot be empty`];
 	}
-
 	return validateStatusMarkers(markers);
 }
 
-/**
- * Creates a validated DoneStatusMarkers type from a string.
- * 
- * @param markers - The string to convert
- * @returns Validated DoneStatusMarkers or throws if invalid
- * @throws Error if validation fails
- */
+export function validateDoneStatusMarkers(markers: string): string[] {
+	return validateTypedStatusMarkers(markers, "Done", false);
+}
+
 export function createDoneStatusMarkers(markers: string): DoneStatusMarkers {
 	const errors = validateDoneStatusMarkers(markers);
 	if (errors.length > 0) {
@@ -158,35 +144,10 @@ export function createDoneStatusMarkers(markers: string): DoneStatusMarkers {
 	return markers as DoneStatusMarkers;
 }
 
-/**
- * Validates that an ignored status markers string contains only valid characters.
- * Unlike done status markers, ignored status markers can be empty (no tasks ignored).
- * 
- * Valid markers must:
- * - Be single Unicode code points (properly handles emoji and accented characters)
- * - Not contain whitespace, newlines, or control characters
- * - Can be empty (meaning no tasks are ignored)
- * 
- * @param markers - The string to validate
- * @returns Array of validation errors, empty if valid
- */
 export function validateIgnoredStatusMarkers(markers: string): string[] {
-	// Empty string is valid for ignored status markers (means no tasks are ignored)
-	if (!markers || markers.length === 0) {
-		return [];
-	}
-
-	// For non-empty strings, use common validation logic
-	return validateStatusMarkers(markers);
+	return validateTypedStatusMarkers(markers, "Ignored", true);
 }
 
-/**
- * Creates a validated IgnoredStatusMarkers type from a string.
- * 
- * @param markers - The string to convert
- * @returns Validated IgnoredStatusMarkers or throws if invalid
- * @throws Error if validation fails
- */
 export function createIgnoredStatusMarkers(markers: string): IgnoredStatusMarkers {
 	const errors = validateIgnoredStatusMarkers(markers);
 	if (errors.length > 0) {
@@ -195,25 +156,10 @@ export function createIgnoredStatusMarkers(markers: string): IgnoredStatusMarker
 	return markers as IgnoredStatusMarkers;
 }
 
-/**
- * Validates that a cancelled status markers string contains only valid characters.
- * 
- * Valid markers must:
- * - Be single Unicode code points
- * - Not contain whitespace, newlines, or control characters
- * - Not be empty
- */
 export function validateCancelledStatusMarkers(markers: string): string[] {
-	if (!markers || markers.length === 0) {
-		return ["Cancelled status markers cannot be empty"];
-	}
-
-	return validateStatusMarkers(markers);
+	return validateTypedStatusMarkers(markers, "Cancelled", false);
 }
 
-/**
- * Creates a validated CancelledStatusMarkers type from a string.
- */
 export function createCancelledStatusMarkers(markers: string): CancelledStatusMarkers {
 	const errors = validateCancelledStatusMarkers(markers);
 	if (errors.length > 0) {
@@ -247,28 +193,6 @@ function isStatusMatch(statusContent: string | undefined, markers: string): bool
 	return markersChars.includes(singleChar);
 }
 
-/**
- * Checks if a checkbox status is marked as done based on the configured markers.
- * Properly handles multi-codepoint Unicode characters using Array.from.
- */
-function isDoneStatus(statusContent: string | undefined, doneStatusMarkers: string): boolean {
-	return isStatusMatch(statusContent, doneStatusMarkers);
-}
-
-/**
- * Checks if a checkbox status should be ignored (not processed as a task).
- * Properly handles multi-codepoint Unicode characters using Array.from.
- */
-function isIgnoredStatus(statusContent: string | undefined, ignoredStatusMarkers: string): boolean {
-	return isStatusMatch(statusContent, ignoredStatusMarkers);
-}
-
-/**
- * Checks if a checkbox status is marked as cancelled based on configured markers.
- */
-function isCancelledStatus(statusContent: string | undefined, cancelledStatusMarkers: string): boolean {
-	return isStatusMatch(statusContent, cancelledStatusMarkers);
-}
 
 export class Task {
 	constructor(
@@ -304,7 +228,7 @@ export class Task {
 		this._id = sha256(content + fileHandle.path + rowIndex).toString();
 		this.content = content;
 		this._displayStatus = status || " ";
-		this._done = isDoneStatus(this._displayStatus, this.doneStatusMarkers);
+		this._done = isStatusMatch(this._displayStatus, this.doneStatusMarkers);
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
 
@@ -352,7 +276,7 @@ export class Task {
 	}
 
 	get isCancelled(): boolean {
-		return isCancelledStatus(this._displayStatus, this.cancelledStatusMarkers);
+		return isStatusMatch(this._displayStatus, this.cancelledStatusMarkers);
 	}
 
 	undone() {
@@ -455,7 +379,7 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 	const match = input.match(taskStringRegex);
 	if (match) {
 		const [, , status] = match;
-		if (isIgnoredStatus(status, ignoredStatusMarkers)) {
+		if (isStatusMatch(status, ignoredStatusMarkers)) {
 			return false;
 		}
 	}

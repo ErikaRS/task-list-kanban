@@ -80,6 +80,13 @@
 	let selectedTags: string[] = [];
 	$: selectedTagsSet = new Set(selectedTags);
 
+	function tagsMatch(a: string[], b: string[]): boolean {
+		if (a.length !== b.length) return false;
+		const sortedA = [...a].sort();
+		const sortedB = [...b].sort();
+		return sortedA.every((tag, i) => tag === sortedB[i]);
+	}
+
 	let activeContentFilterId: string | undefined = undefined;
 	let activeTagFilterId: string | undefined = undefined;
 	let activeFileFilterId: string | undefined = undefined;
@@ -89,52 +96,24 @@
 
 	$: savedFilters = $settingsStore.savedFilters ?? [];
 
-	$: {
-		const trimmedText = filterText.trim();
-		if (trimmedText) {
-			const matchingFilter = savedFilters.find(f => f.content?.text === trimmedText);
-			if (matchingFilter) {
-				activeContentFilterId = matchingFilter.id;
-			} else {
-				activeContentFilterId = undefined;
-			}
-		} else {
-			activeContentFilterId = undefined;
-		}
-	}
+	$: activeContentFilterId = filterText.trim()
+		? savedFilters.find(f => f.content?.text === filterText.trim())?.id
+		: undefined;
 
 	$: {
 		if (selectedTags.length > 0) {
-			const sortedCurrent = [...selectedTags].sort();
-			const matchingFilter = savedFilters.find(f => {
-				if (!f.tag) return false;
-				const sortedSaved = [...f.tag.tags].sort();
-				return sortedCurrent.length === sortedSaved.length &&
-					sortedCurrent.every((tag, i) => tag === sortedSaved[i]);
-			});
-			if (matchingFilter) {
-				activeTagFilterId = matchingFilter.id;
-			} else {
-				activeTagFilterId = undefined;
-			}
+			const matchingFilter = savedFilters.find(f =>
+				f.tag ? tagsMatch(selectedTags, f.tag.tags) : false
+			);
+			activeTagFilterId = matchingFilter?.id;
 		} else {
 			activeTagFilterId = undefined;
 		}
 	}
 
-	$: {
-		const trimmedPath = fileFilter.trim();
-		if (trimmedPath) {
-			const matchingFilter = savedFilters.find(f => f.file?.filepaths[0] === trimmedPath);
-			if (matchingFilter) {
-				activeFileFilterId = matchingFilter.id;
-			} else {
-				activeFileFilterId = undefined;
-			}
-		} else {
-			activeFileFilterId = undefined;
-		}
-	}
+	$: activeFileFilterId = fileFilter.trim()
+		? savedFilters.find(f => f.file?.filepaths[0] === fileFilter.trim())?.id
+		: undefined;
 
 	$: contentFilters = savedFilters
 		.filter((f) => f.content !== undefined)
@@ -164,16 +143,8 @@
 		(f) => f.content?.text === filterText.trim()
 	);
 
-	$: tagFilterExists = (() => {
-		if (selectedTags.length === 0) return false;
-		const sortedTags = [...selectedTags].sort();
-		return savedFilters.some((f) => {
-			const filterTags = f.tag?.tags ?? [];
-			if (filterTags.length !== sortedTags.length) return false;
-			const sortedFilterTags = [...filterTags].sort();
-			return sortedFilterTags.every((tag, i) => tag === sortedTags[i]);
-		});
-	})();
+	$: tagFilterExists = selectedTags.length > 0 &&
+		savedFilters.some((f) => f.tag ? tagsMatch(selectedTags, f.tag.tags) : false);
 
 	$: fileFilterExists = savedFilters.some(
 		(f) => f.file?.filepaths[0] === fileFilter.trim()
@@ -242,24 +213,12 @@
 	}
 
 	function addTagFilter() {
-		if (selectedTags.length === 0) {
-			return;
-		}
-		const sortedTags = [...selectedTags].sort();
-		const existingFilterIndex = savedFilters.findIndex(
-			(f) => {
-				const filterTags = f.tag?.tags ?? [];
-				if (filterTags.length !== sortedTags.length) return false;
-				const sortedFilterTags = [...filterTags].sort();
-				return sortedFilterTags.every((tag, i) => tag === sortedTags[i]);
-			}
-		);
-		if (existingFilterIndex >= 0) {
+		if (selectedTags.length === 0 || tagFilterExists) {
 			return;
 		}
 		const newFilter = {
 			id: crypto.randomUUID(),
-			tag: { tags: sortedTags },
+			tag: { tags: [...selectedTags].sort() },
 		};
 		$settingsStore.savedFilters = [...savedFilters, newFilter];
 		requestSave();
@@ -881,83 +840,7 @@
 				}
 			}
 
-			.text-filter {
-				display: flex;
-				flex-direction: column;
-
-				label {
-					display: inline-block;
-					margin-bottom: var(--size-2-3);
-					font-weight: 600;
-				}
-
-				.filter-input-container {
-					input[type="search"] {
-						display: block;
-						width: 100%;
-						background: var(--background-primary);
-						padding: var(--size-4-2);
-						box-sizing: border-box;
-						transition: box-shadow 150ms ease;
-
-						&:focus-visible {
-							box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
-						}
-
-						&::-webkit-calendar-picker-indicator,
-						&::-webkit-list-button {
-							display: none !important;
-							opacity: 0 !important;
-							pointer-events: none !important;
-						}
-					}
-				}
-
-				.filter-actions {
-					display: flex;
-					gap: var(--size-4-2);
-					margin-top: var(--size-4-2);
-				}
-
-				.filter-action-btn {
-					padding: var(--size-2-2) var(--size-4-3);
-					border-radius: var(--radius-s);
-					cursor: pointer;
-					font-size: var(--font-ui-small);
-					transition: background 150ms ease, opacity 150ms ease;
-					
-					&.save-btn {
-						background: var(--interactive-accent);
-						color: var(--text-on-accent);
-						border: none;
-
-						&:hover:not(:disabled) {
-							background: var(--interactive-accent-hover);
-						}
-					}
-
-					&.clear-btn {
-						background: transparent;
-						color: var(--text-muted);
-						border: 1px solid var(--background-modifier-border);
-
-						&:hover:not(:disabled) {
-							background: var(--background-modifier-hover);
-						}
-					}
-
-					&:disabled {
-						opacity: 0.5;
-						cursor: not-allowed;
-					}
-				}
-			}
-
-			.tag-filter {
-				display: flex;
-				flex-direction: column;
-			}
-
+			.text-filter,
 			.file-filter {
 				display: flex;
 				flex-direction: column;
@@ -1002,7 +885,7 @@
 					cursor: pointer;
 					font-size: var(--font-ui-small);
 					transition: background 150ms ease, opacity 150ms ease;
-					
+
 					&.save-btn {
 						background: var(--interactive-accent);
 						color: var(--text-on-accent);
@@ -1028,6 +911,11 @@
 						cursor: not-allowed;
 					}
 				}
+			}
+
+			.tag-filter {
+				display: flex;
+				flex-direction: column;
 			}
 		}
 

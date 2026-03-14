@@ -7,6 +7,15 @@ import { createTaskActions, type TaskActions } from "./actions";
 import type { SettingValues } from "../settings/settings_store";
 import { shouldIncludeFilePath } from "./scope";
 
+function getMarkerSettings(settings: SettingValues) {
+	return {
+		consolidateTags: settings.consolidateTags ?? false,
+		doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+		cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
+		ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+	};
+}
+
 export function createTasksStore(
 	vault: Vault,
 	workspace: Workspace,
@@ -48,61 +57,38 @@ export function createTasksStore(
 		return shouldIncludeFilePath(file.path, getFilenameFilter());
 	}
 
+	function processFile(fileHandle: TFile) {
+		updateMapsFromFile({
+			fileHandle,
+			tasksByTaskId,
+			metadataByTaskId,
+			taskIdsByFileHandle,
+			vault,
+			columnTagTableStore,
+			...getMarkerSettings(get(settingsStore)),
+		}).then(() => {
+			debounceSetTasks();
+		});
+	}
+
 	function initialise() {
 		tasksByTaskId.clear();
 		metadataByTaskId.clear();
 		taskIdsByFileHandle.clear();
-
-		const settings = get(settingsStore);
-		const consolidateTags = settings.consolidateTags ?? false;
-		const doneStatusMarkers = settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS;
-		const cancelledStatusMarkers = settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS;
-		const ignoredStatusMarkers = settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS;
 
 		for (const fileHandle of fileHandles) {
 			if (!shouldHandle(fileHandle)) {
 				continue;
 			}
 
-			updateMapsFromFile({
-				fileHandle,
-				tasksByTaskId,
-				metadataByTaskId,
-				taskIdsByFileHandle,
-				vault,
-				columnTagTableStore,
-				consolidateTags,
-				doneStatusMarkers,
-				cancelledStatusMarkers,
-				ignoredStatusMarkers,
-			}).then(() => {
-				debounceSetTasks();
-			});
+			processFile(fileHandle);
 		}
 	}
 
 	registerEvent(
 		vault.on("modify", (fileHandle) => {
 			if (fileHandle instanceof TFile && shouldHandle(fileHandle)) {
-				const settings = get(settingsStore);
-				const consolidateTags = settings.consolidateTags ?? false;
-				const doneStatusMarkers = settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS;
-				const cancelledStatusMarkers = settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS;
-				const ignoredStatusMarkers = settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS;
-				updateMapsFromFile({
-					fileHandle,
-					tasksByTaskId,
-					metadataByTaskId,
-					taskIdsByFileHandle,
-					vault,
-					columnTagTableStore,
-					consolidateTags,
-					doneStatusMarkers,
-					cancelledStatusMarkers,
-					ignoredStatusMarkers,
-				}).then(() => {
-					debounceSetTasks();
-				});
+				processFile(fileHandle);
 			}
 		})
 	);
@@ -110,25 +96,7 @@ export function createTasksStore(
 	registerEvent(
 		vault.on("create", (fileHandle) => {
 			if (fileHandle instanceof TFile && shouldHandle(fileHandle)) {
-				const settings = get(settingsStore);
-				const consolidateTags = settings.consolidateTags ?? false;
-				const doneStatusMarkers = settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS;
-				const cancelledStatusMarkers = settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS;
-				const ignoredStatusMarkers = settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS;
-				updateMapsFromFile({
-					fileHandle,
-					tasksByTaskId,
-					metadataByTaskId,
-					taskIdsByFileHandle,
-					vault,
-					columnTagTableStore,
-					consolidateTags,
-					doneStatusMarkers,
-					cancelledStatusMarkers,
-					ignoredStatusMarkers,
-				}).then(() => {
-					debounceSetTasks();
-				});
+				processFile(fileHandle);
 			}
 		})
 	);
