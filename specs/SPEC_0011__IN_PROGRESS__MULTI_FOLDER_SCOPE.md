@@ -71,7 +71,9 @@ The `filenameFilter` in `text_view.ts` changes from `string | null` to `string[]
 - `string[]` → include if the file path matches any folder in the array
 - Empty array → include nothing (no folders selected = no tasks shown)
 
-**Important implementation note:** JavaScript's `[]` is truthy, so the existing `!filter` guard would incorrectly treat an empty array as "include everything." The rewritten function must explicitly check for `null` (not just falsiness) to distinguish "no filter" from "empty filter."
+**Important implementation notes:**
+- JavaScript's `[]` is truthy, so the existing `!filter` guard would incorrectly treat an empty array as "include everything." The rewritten function must explicitly check for `null` (not just falsiness) to distinguish "no filter" from "empty filter."
+- Each folder path in the array should have both leading and trailing slashes stripped to prevent matching failures (e.g., `"work/"` would otherwise try to match `"work//"` prefix).
 
 All consumers of the filter (`store.ts`, `actions.ts`) already receive it via the `getFilenameFilter` callback, so they adapt automatically.
 
@@ -83,7 +85,7 @@ The existing `validateDefaultTaskFile` in `settings.ts` builds a `scopeFilter` i
 
 ### Adding Folders
 - User types a vault-relative folder path into the text input and clicks "Add" (or presses Enter — requires explicit `keydown` handler since Obsidian text inputs don't natively submit on Enter)
-- Leading/trailing whitespace is trimmed; leading `/` is stripped
+- Leading/trailing whitespace is trimmed; leading `/` and trailing `/` are stripped
 - If the path is empty after trimming, nothing happens
 - If the path is already in the list, nothing happens (no duplicates)
 - The folder is added to `scopeFolders` and appears in the list below
