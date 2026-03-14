@@ -132,21 +132,126 @@ export class SettingsModal extends Modal {
 			setDefaultTaskFileError("");
 		};
 
-		new Setting(this.contentEl)
+		// --- Folder scope dropdown + selected folders UI ---
+		const scopeContainer = this.contentEl.createDiv();
+
+		let folderListContainer: HTMLDivElement;
+		let folderListEl: HTMLDivElement;
+
+		const renderFolderList = () => {
+			folderListEl.empty();
+			const folders = this.settings.scopeFolders ?? [];
+			for (const folder of folders) {
+				const row = folderListEl.createDiv();
+				row.style.display = "flex";
+				row.style.alignItems = "center";
+				row.style.justifyContent = "space-between";
+				row.style.padding = "4px 8px";
+				row.style.borderBottom =
+					"1px solid var(--background-modifier-border)";
+
+				const label = row.createSpan();
+				label.setText(folder);
+				label.style.flexGrow = "1";
+
+				// Check if folder exists in vault
+				const abstractFolder =
+					this.app.vault.getAbstractFileByPath(folder);
+				if (!abstractFolder) {
+					const warning = row.createSpan();
+					warning.setText(" (not found)");
+					warning.style.color = "var(--text-error)";
+					warning.style.fontStyle = "italic";
+					warning.style.fontSize = "var(--font-smallest)";
+				}
+
+				const removeBtn = row.createEl("button");
+				removeBtn.setText("✕");
+				removeBtn.style.marginLeft = "8px";
+				removeBtn.style.cursor = "pointer";
+				removeBtn.style.background = "none";
+				removeBtn.style.border = "none";
+				removeBtn.style.color = "var(--text-muted)";
+				removeBtn.style.padding = "2px 6px";
+				removeBtn.addEventListener("click", () => {
+					this.settings.scopeFolders = (
+						this.settings.scopeFolders ?? []
+					).filter((f) => f !== folder);
+					renderFolderList();
+					validateDefaultTaskFile();
+				});
+			}
+		};
+
+		const updateFolderListVisibility = () => {
+			folderListContainer.style.display =
+				this.settings.scope === ScopeOption.SelectedFolders
+					? "block"
+					: "none";
+		};
+
+		new Setting(scopeContainer)
 			.setName("Folder scope")
 			.setDesc("Where should we try to find tasks for this Kanban?")
 			.addDropdown((dropdown) => {
 				dropdown.addOption(ScopeOption.Folder, "This folder");
 				dropdown.addOption(ScopeOption.Everywhere, "Every folder");
+				dropdown.addOption(
+					ScopeOption.SelectedFolders,
+					"Selected folders"
+				);
 				dropdown.setValue(this.settings.scope);
 				dropdown.onChange((value) => {
 					const validatedValue = ScopeOptionSchema.safeParse(value);
 					this.settings.scope = validatedValue.success
 						? validatedValue.data
 						: defaultSettings.scope;
+					updateFolderListVisibility();
 					validateDefaultTaskFile();
 				});
 			});
+
+		// Selected folders list UI
+		folderListContainer = scopeContainer.createDiv();
+		folderListContainer.style.marginLeft = "16px";
+		folderListContainer.style.marginBottom = "12px";
+
+		const addFolderRow = folderListContainer.createDiv();
+		addFolderRow.style.display = "flex";
+		addFolderRow.style.gap = "8px";
+		addFolderRow.style.marginBottom = "8px";
+
+		const folderInput = addFolderRow.createEl("input", {
+			type: "text",
+			placeholder: "e.g., projects/active",
+		});
+		folderInput.style.flexGrow = "1";
+		folderInput.addClass("setting-input");
+
+		const addFolder = () => {
+			const raw = folderInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
+			if (!raw) return;
+			const folders = this.settings.scopeFolders ?? [];
+			if (folders.includes(raw)) return;
+			this.settings.scopeFolders = [...folders, raw];
+			folderInput.value = "";
+			renderFolderList();
+			validateDefaultTaskFile();
+		};
+
+		const addBtn = addFolderRow.createEl("button", { text: "Add" });
+		addBtn.addEventListener("click", addFolder);
+
+		folderInput.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				addFolder();
+			}
+		});
+
+		folderListEl = folderListContainer.createDiv();
+		renderFolderList();
+		updateFolderListVisibility();
 
 		const defaultTaskFileSetting = new Setting(this.contentEl)
 			.setName("Default task file")
