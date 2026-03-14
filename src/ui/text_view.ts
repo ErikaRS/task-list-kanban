@@ -86,7 +86,8 @@ export class KanbanView extends TextFileView {
 		const settingsModal = new SettingsModal(
 			this.app,
 			structuredClone(get(this.settingsStore)),
-			(newSettings) => this.onLocalSettingsChange(newSettings)
+			(newSettings) => this.onLocalSettingsChange(newSettings),
+			this.file?.parent?.path ?? null
 		);
 
 		settingsModal.open();

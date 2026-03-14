@@ -29,12 +29,14 @@ export function createTaskActions({
 	vault,
 	workspace,
 	getFilenameFilter,
+	getDefaultTaskFile,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
 	vault: Vault;
 	workspace: Workspace;
 	getFilenameFilter: () => string | null;
+	getDefaultTaskFile: () => string | null;
 }): TaskActions {
 	async function updateRowWithTask(
 		id: string,
@@ -136,6 +138,31 @@ export function createTaskActions({
 			const y = boundingRect.top + boundingRect.height / 2;
 			const x = boundingRect.left + boundingRect.width / 2;
 
+			// Resolve the default task file if configured
+			const defaultTaskFilePath = getDefaultTaskFile();
+			let defaultFileState: { file: TFile } | { error: string } | null =
+				null;
+			if (defaultTaskFilePath) {
+				const abstractFile =
+					vault.getAbstractFileByPath(defaultTaskFilePath);
+				if (!(abstractFile instanceof TFile)) {
+					defaultFileState = {
+						error: `★ ${defaultTaskFilePath} (not found)`,
+					};
+				} else if (
+					!shouldIncludeFilePath(
+						defaultTaskFilePath,
+						getFilenameFilter()
+					)
+				) {
+					defaultFileState = {
+						error: `★ ${defaultTaskFilePath} (outside scope)`,
+					};
+				} else {
+					defaultFileState = { file: abstractFile };
+				}
+			}
+
 			function createMenu(folder: Folder, parentMenu: Menu | undefined) {
 				const menu = new Menu();
 				menu.addItem((i) => {
@@ -145,6 +172,30 @@ export function createTaskActions({
 							parentMenu?.showAtPosition({ x: x, y: y });
 						});
 				});
+
+				// Show default file as first item in root menu
+				if (!parentMenu && defaultFileState) {
+					if ("file" in defaultFileState) {
+						const df = defaultFileState.file;
+						menu.addItem((i) => {
+							i.setTitle(`★ ${df.path}`).onClick(() => {
+								updateRow(
+									vault,
+									df,
+									undefined,
+									`- [ ] TODO #${column}`
+								);
+							});
+						});
+					} else {
+						menu.addItem((i) => {
+							i.setTitle(defaultFileState.error).setDisabled(
+								true
+							);
+						});
+					}
+					menu.addSeparator();
+				}
 
 				for (const [label, folderItem] of Object.entries(folder)) {
 					menu.addItem((i) => {

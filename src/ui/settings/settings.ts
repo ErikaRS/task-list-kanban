@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from "obsidian";
+import { App, Modal, Setting, TFile } from "obsidian";
 import type { SettingValues } from "./settings_store";
 import {
 	VisibilityOption,
@@ -8,6 +8,7 @@ import {
 } from "../settings/settings_store";
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
+import { shouldIncludeFilePath } from "../tasks/scope";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -17,7 +18,8 @@ export class SettingsModal extends Modal {
 	constructor(
 		app: App,
 		private settings: SettingValues,
-		private readonly onSubmit: (newSettings: SettingValues) => void
+		private readonly onSubmit: (newSettings: SettingValues) => void,
+		private readonly boardFolderPath: string | null
 	) {
 		super(app);
 	}
@@ -71,6 +73,55 @@ export class SettingsModal extends Modal {
 					});
 			});
 
+		// Validation for default task file — shared between scope dropdown and text input
+		let defaultTaskFileInputEl: HTMLInputElement | null = null;
+		let defaultTaskFileErrorEl: HTMLElement | null = null;
+		const setDefaultTaskFileError = (message: string) => {
+			if (!defaultTaskFileInputEl) return;
+			if (message) {
+				defaultTaskFileInputEl.style.outline =
+					"2px solid var(--text-error)";
+				defaultTaskFileInputEl.style.outlineOffset = "-1px";
+				defaultTaskFileInputEl.title = message;
+				if (defaultTaskFileErrorEl) {
+					defaultTaskFileErrorEl.setText(message);
+					defaultTaskFileErrorEl.style.visibility = "visible";
+				}
+			} else {
+				defaultTaskFileInputEl.style.outline = "";
+				defaultTaskFileInputEl.style.outlineOffset = "";
+				defaultTaskFileInputEl.title = "";
+				if (defaultTaskFileErrorEl) {
+					defaultTaskFileErrorEl.setText("");
+					defaultTaskFileErrorEl.style.visibility = "hidden";
+				}
+			}
+		};
+		const validateDefaultTaskFile = () => {
+			const value = this.settings.defaultTaskFile ?? "";
+			if (!value) {
+				setDefaultTaskFileError("");
+				return;
+			}
+			const abstractFile =
+				this.app.vault.getAbstractFileByPath(value);
+			if (!(abstractFile instanceof TFile)) {
+				setDefaultTaskFileError("File not found");
+				return;
+			}
+			const scopeFilter =
+				this.settings.scope === ScopeOption.Folder
+					? this.boardFolderPath
+					: null;
+			if (!shouldIncludeFilePath(value, scopeFilter)) {
+				setDefaultTaskFileError(
+					"File is outside the board's folder scope"
+				);
+				return;
+			}
+			setDefaultTaskFileError("");
+		};
+
 		new Setting(this.contentEl)
 			.setName("Folder scope")
 			.setDesc("Where should we try to find tasks for this Kanban?")
@@ -83,8 +134,37 @@ export class SettingsModal extends Modal {
 					this.settings.scope = validatedValue.success
 						? validatedValue.data
 						: defaultSettings.scope;
+					validateDefaultTaskFile();
 				});
 			});
+
+		const defaultTaskFileSetting = new Setting(this.contentEl)
+			.setName("Default task file")
+			.setDesc(
+				"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
+			)
+			.addText((text) => {
+				defaultTaskFileInputEl = text.inputEl;
+				text.setPlaceholder("e.g., notes/tasks.md");
+				text.setValue(this.settings.defaultTaskFile ?? "");
+				text.onChange((value) => {
+					this.settings.defaultTaskFile = value;
+					validateDefaultTaskFile();
+				});
+			});
+		defaultTaskFileSetting.controlEl.style.flexDirection = "column";
+		defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
+		defaultTaskFileErrorEl = createEl("div", {
+			cls: "setting-error-message",
+		});
+		defaultTaskFileErrorEl.style.color = "var(--text-error)";
+		defaultTaskFileErrorEl.style.fontSize = "var(--font-smallest)";
+		defaultTaskFileErrorEl.style.fontStyle = "italic";
+		defaultTaskFileErrorEl.style.marginTop = "4px";
+		defaultTaskFileErrorEl.style.minHeight = "1.2em";
+		defaultTaskFileErrorEl.style.visibility = "hidden";
+		defaultTaskFileSetting.controlEl.appendChild(defaultTaskFileErrorEl);
+		validateDefaultTaskFile();
 
 		new Setting(this.contentEl)
 			.setName("Show filepath")

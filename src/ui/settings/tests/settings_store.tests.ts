@@ -309,6 +309,39 @@ describe("Flow direction configuration", () => {
 	});
 });
 
+describe("Default task file configuration", () => {
+	it("defaults to empty string when defaultTaskFile is missing", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo", "In Progress", "Done"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.defaultTaskFile).toBe("");
+	});
+
+	it("parses defaultTaskFile string", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			defaultTaskFile: "notes/tasks.md",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.defaultTaskFile).toBe("notes/tasks.md");
+	});
+
+	it("roundtrips defaultTaskFile through serialization", () => {
+		const original = {
+			...defaultSettings,
+			defaultTaskFile: "folder/subfolder/tasks.md",
+		};
+
+		const serialized = toSettingsString(original);
+		const parsed = parseSettingsString(serialized);
+
+		expect(parsed.defaultTaskFile).toBe("folder/subfolder/tasks.md");
+	});
+});
+
 describe("Collapsed columns configuration", () => {
 	it("defaults to empty array when collapsedColumns is missing", () => {
 		const settingsJson = JSON.stringify({

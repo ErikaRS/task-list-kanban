@@ -162,6 +162,7 @@ export function createTasksStore(
 		vault,
 		workspace,
 		getFilenameFilter,
+		getDefaultTaskFile: () => get(settingsStore).defaultTaskFile || null,
 	});
 
 	return { tasksStore, taskActions, initialise };
