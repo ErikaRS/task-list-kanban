@@ -69,6 +69,8 @@ Access settings via the settings icon in the top right corner of your kanban.
 
 **Every folder**: The kanban shows tasks from your entire Obsidian vault.
 
+**Selected folders**: The kanban shows tasks from specific folders you choose. When selected, a folder list appears where you can add vault-relative folder paths (e.g., `projects/active`). The board's own folder is always included and cannot be removed. Folders that don't exist in the vault are shown with a "(not found)" warning but are still saved (useful if the folder will be created later).
+
 Change this setting in the kanban's settings menu.
 
 ## Advanced Features

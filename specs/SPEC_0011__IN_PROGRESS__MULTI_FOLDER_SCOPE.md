@@ -17,6 +17,7 @@ Users with tasks spread across multiple (but not all) vault folders currently ha
 5. The folder list persists in the board's frontmatter settings
 6. Invalid folder paths are accepted (the folder may be created later) but validated with a warning
 7. The default task file validation respects the new scope option
+8. The board's own folder is always included in "Selected folders" scope and cannot be removed
 
 ## High-Level Design
 
@@ -42,8 +43,9 @@ Folder scope: [ Selected folders ▾ ]
   └──────────────────────────────┘
 ```
 
-- A text input + "Add" button for entering vault-relative folder paths
-- A list of currently-included folders, each with a remove (✕) button
+- The board's own folder is always shown first with a "(this board)" label and no remove button
+- A text input + "Add" button for entering additional vault-relative folder paths
+- Additional folders are shown with a remove (✕) button
 - The folder list section is hidden when "This folder" or "All folders" is selected
 
 ### Data Model
@@ -64,7 +66,7 @@ The `filenameFilter` in `text_view.ts` changes from `string | null` to `string[]
 |---|---|
 | All folders | `null` |
 | This folder | `[boardFile.parent.path]` |
-| Selected folders | `settings.scopeFolders` (the array as-is) |
+| Selected folders | `[boardFolder, ...settings.scopeFolders]` (board folder always prepended) |
 
 `shouldIncludeFilePath` is updated to accept `string[] | null`:
 - `null` → include everything (no filter)
@@ -120,43 +122,51 @@ If a user downgrades to an older plugin version after using "Selected folders," 
 
 ## Implementation Plan
 
-### Phase 1: Data Model & Filter Logic
+### Phase 1: Data Model & Filter Logic ✅ COMPLETE
 **Goal:** The scope enum, settings schema, and filter function support multiple folders. Testable via unit tests.
 
-1. Add `ScopeOption.SelectedFolders = "selectedFolders"` to `settings_store.ts`
-2. Add `scopeFolders: z.array(z.string()).default([]).optional()` to the Zod schema
-3. Add `scopeFolders: []` to `defaultSettings`
-4. Rewrite `shouldIncludeFilePath` in `scope.ts` to accept `string[] | null` instead of `string | null`. Use explicit `=== null` check (not `!filter`) to distinguish "no filter" from "empty array"
-5. Add unit tests in `scope.tests.ts`: multi-folder array, empty array returns `false`, single-element array, null returns `true`, mixed matches/misses
-6. `npm run build` and `npm test` pass
+1. ✅ Add `ScopeOption.SelectedFolders = "selectedFolders"` to `settings_store.ts`
+2. ✅ Add `scopeFolders: z.array(z.string()).default([]).optional()` to the Zod schema
+3. ✅ Add `scopeFolders: []` to `defaultSettings`
+4. ✅ Rewrite `shouldIncludeFilePath` in `scope.ts` to accept `string[] | null` instead of `string | null`. Use explicit `=== null` check (not `!filter`) to distinguish "no filter" from "empty array"
+5. ✅ Add unit tests in `scope.tests.ts`: multi-folder array, empty array returns `false`, single-element array, null returns `true`, mixed matches/misses, trailing slashes, overlapping folders
+6. ✅ `npm run build` and `npm test` pass
 
 **Deliverable:** Filter logic supports multiple folders, verified by unit tests.
 
-### Phase 2: View Plumbing
+**Implemented by:** [2b182d0](https://github.com/ErikaRS/task-list-kanban/commit/2b182d0), [8fb8046](https://github.com/ErikaRS/task-list-kanban/commit/8fb8046)
+
+### Phase 2: View Plumbing ✅ COMPLETE
 **Goal:** The kanban view correctly passes multi-folder filters to the task store. Testable by changing settings JSON manually and verifying tasks appear from multiple folders.
 
-1. Update `text_view.ts` to set `filenameFilter` to `string[] | null` based on the new scope option
-2. Update `getFilenameFilter` type signature in `store.ts` from `() => string | null` to `() => string[] | null`
-3. Update `shouldHandle` in `store.ts` to pass the array filter
-4. Update `actions.ts` `getFilenameFilter` type to match
-5. `npm run build` and `npm test` pass
+1. ✅ Update `text_view.ts` to set `filenameFilter` to `string[] | null` based on the new scope option
+2. ✅ Update `getFilenameFilter` type signature in `store.ts` from `() => string | null` to `() => string[] | null`
+3. ✅ Update `shouldHandle` in `store.ts` to pass the array filter
+4. ✅ Update `actions.ts` `getFilenameFilter` type to match
+5. ✅ Always prepend board folder to the filter in `SelectedFolders` mode (defense in depth)
+6. ✅ `npm run build` and `npm test` pass
 
 **Deliverable:** Multi-folder scope works end-to-end when settings are configured via frontmatter.
 
-### Phase 3: Settings UI
+**Implemented by:** [549528a](https://github.com/ErikaRS/task-list-kanban/commit/549528a), [5d93372](https://github.com/ErikaRS/task-list-kanban/commit/5d93372)
+
+### Phase 3: Settings UI ✅ COMPLETE
 **Goal:** Users can select "Selected folders" and manage their folder list through the settings modal.
 
-1. Add the `ScopeOption.SelectedFolders` option to the scope dropdown in `settings.ts`
-2. Add a container div below the dropdown that shows/hides based on scope selection
-3. Add a text input + "Add" button for entering folder paths
-4. Add a folder list display with ✕ remove buttons for each entry
-5. Wire up add/remove to modify `settings.scopeFolders`; clear text input on successful add; handle Enter key via `keydown` listener
-6. Add folder existence validation (italic "(not found)" suffix using `var(--text-error)`)
-7. Update `validateDefaultTaskFile` to handle the third scope branch: pass `this.settings.scopeFolders` when scope is `SelectedFolders`, and wrap `this.boardFolderPath` in an array for the `Folder` case
-8. Call `validateDefaultTaskFile()` from folder add/remove handlers (not just scope dropdown change)
-9. `npm run build` and `npm test` pass
+1. ✅ Add the `ScopeOption.SelectedFolders` option to the scope dropdown in `settings.ts`
+2. ✅ Add a container div below the dropdown that shows/hides based on scope selection
+3. ✅ Show the board's own folder as a non-removable first entry with "(this board)" badge
+4. ✅ Add a text input + "Add" button for entering additional folder paths
+5. ✅ Add a folder list display with ✕ remove buttons for each user-added entry
+6. ✅ Wire up add/remove to modify `settings.scopeFolders`; clear text input on successful add; handle Enter key via `keydown` listener; prevent adding the board folder as a duplicate
+7. ✅ Add folder existence validation (italic "(not found)" suffix using `var(--text-error)`)
+8. ✅ Update `validateDefaultTaskFile` to handle the third scope branch: pass `this.settings.scopeFolders` when scope is `SelectedFolders`, and wrap `this.boardFolderPath` in an array for the `Folder` case
+9. ✅ Call `validateDefaultTaskFile()` from folder add/remove handlers (not just scope dropdown change)
+10. ✅ `npm run build` and `npm test` pass
 
 **Deliverable:** Complete working feature — users can configure multi-folder scope through the UI.
+
+**Implemented by:** [b12b944](https://github.com/ErikaRS/task-list-kanban/commit/b12b944), [41e6d89](https://github.com/ErikaRS/task-list-kanban/commit/41e6d89), [5d93372](https://github.com/ErikaRS/task-list-kanban/commit/5d93372)
 
 ## Files to Modify
 
