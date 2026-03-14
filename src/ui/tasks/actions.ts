@@ -35,7 +35,7 @@ export function createTaskActions({
 	metadataByTaskId: Map<string, Metadata>;
 	vault: Vault;
 	workspace: Workspace;
-	getFilenameFilter: () => string | null;
+	getFilenameFilter: () => string[] | null;
 	getDefaultTaskFile: () => string | null;
 }): TaskActions {
 	async function updateRowWithTask(

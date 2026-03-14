@@ -29,7 +29,7 @@ export class KanbanView extends TextFileView {
 	private readonly columnTagTableStore: Readable<ColumnTagTable>;
 	private readonly columnColourTableStore: Readable<ColumnColourTable>;
 
-	private filenameFilter: string | null = null;
+	private filenameFilter: string[] | null = null;
 
 	private readonly tasksStore: Writable<Task[]>;
 	private readonly taskActions: TaskActions;
@@ -47,8 +47,13 @@ export class KanbanView extends TextFileView {
 				case ScopeOption.Everywhere:
 					this.filenameFilter = null;
 					break;
-				case ScopeOption.Folder:
-					this.filenameFilter = this.file?.parent?.path ?? null;
+				case ScopeOption.Folder: {
+					const folderPath = this.file?.parent?.path;
+					this.filenameFilter = folderPath ? [folderPath] : null;
+					break;
+				}
+				case ScopeOption.SelectedFolders:
+					this.filenameFilter = settings.scopeFolders ?? [];
 					break;
 				default:
 					this.filenameFilter = null;
