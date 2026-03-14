@@ -138,22 +138,30 @@ export class SettingsModal extends Modal {
 		let folderListContainer: HTMLDivElement;
 		let folderListEl: HTMLDivElement;
 
-		const renderFolderList = () => {
-			folderListEl.empty();
-			const folders = this.settings.scopeFolders ?? [];
-			for (const folder of folders) {
-				const row = folderListEl.createDiv();
-				row.style.display = "flex";
-				row.style.alignItems = "center";
-				row.style.justifyContent = "space-between";
-				row.style.padding = "4px 8px";
-				row.style.borderBottom =
-					"1px solid var(--background-modifier-border)";
+		const renderFolderRow = (
+			container: HTMLDivElement,
+			folder: string,
+			removable: boolean
+		) => {
+			const row = container.createDiv();
+			row.style.display = "flex";
+			row.style.alignItems = "center";
+			row.style.justifyContent = "space-between";
+			row.style.padding = "4px 8px";
+			row.style.borderBottom =
+				"1px solid var(--background-modifier-border)";
 
-				const label = row.createSpan();
-				label.setText(folder);
-				label.style.flexGrow = "1";
+			const label = row.createSpan();
+			label.setText(folder);
+			label.style.flexGrow = "1";
 
+			if (!removable) {
+				const badge = row.createSpan();
+				badge.setText(" (this board)");
+				badge.style.color = "var(--text-muted)";
+				badge.style.fontStyle = "italic";
+				badge.style.fontSize = "var(--font-smallest)";
+			} else {
 				// Check if folder exists in vault
 				const abstractFolder =
 					this.app.vault.getAbstractFileByPath(folder);
@@ -180,6 +188,23 @@ export class SettingsModal extends Modal {
 					renderFolderList();
 					validateDefaultTaskFile();
 				});
+			}
+		};
+
+		const renderFolderList = () => {
+			folderListEl.empty();
+
+			// Always show the board's own folder first (non-removable)
+			if (this.boardFolderPath) {
+				renderFolderRow(folderListEl, this.boardFolderPath, false);
+			}
+
+			// Show user-added folders (removable)
+			const folders = (this.settings.scopeFolders ?? []).filter(
+				(f) => f !== this.boardFolderPath
+			);
+			for (const folder of folders) {
+				renderFolderRow(folderListEl, folder, true);
 			}
 		};
 
@@ -231,6 +256,7 @@ export class SettingsModal extends Modal {
 		const addFolder = () => {
 			const raw = folderInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
 			if (!raw) return;
+			if (raw === this.boardFolderPath) return; // already included implicitly
 			const folders = this.settings.scopeFolders ?? [];
 			if (folders.includes(raw)) return;
 			this.settings.scopeFolders = [...folders, raw];
