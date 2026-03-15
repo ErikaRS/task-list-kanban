@@ -1,6 +1,6 @@
 Status: IN_PROGRESS
 
-# SPEC 0015 — Task Properties, Manual Ordering, and Swim Lanes
+# SPEC 0015 — Task Properties, Manual Ordering, and Grouping
 
 ## Feature Request Summary
 
@@ -8,9 +8,9 @@ Three related features that all affect how tasks are arranged in the board:
 
 1. **Task properties** — structured key-value metadata parsed from task text according to a user-selected schema (Tasks plugin emoji format or Dataview inline fields), enabling property-based sorting and grouping.
 2. **Manual ordering** — persistent drag-to-reorder within a column, surviving page reloads and file edits.
-3. **Swim lanes** — a second structural axis: horizontal bands spanning all columns, partitioning tasks by a property value (e.g. all High-priority tasks in one row, all Medium in another).
+3. **Grouping** — partitioning tasks by a property value, with labelled section dividers that span all columns simultaneously, creating a grid-like layout while keeping columns as the primary visual axis.
 
-These three features share a common ordering model and must be designed together.
+Note: "swim lanes" and "grouped columns with spanning dividers" are the **same feature**. The spanning divider is what creates the swim-lane appearance. There is no separate swim-lanes concept in this design.
 
 Supported schemas at launch:
 - **Obsidian Tasks plugin** (emoji-based fields, e.g. `📅 2024-01-15`)
@@ -26,16 +26,16 @@ The active schema is a plugin setting; properties are never inferred.
 1. The user can choose which property schema to use (Tasks plugin, Dataview, or None) in plugin settings.
 2. When a schema is selected, the plugin parses properties from task strings according to that schema.
 3. Parsed properties are available on task cards (optionally displayed).
-4. Adding properties to this system later (new schemas or new property keys) should require minimal changes.
+4. Adding new schemas or property keys later should require minimal changes.
 
-### Ordering (within a column/cell)
-5. Tasks within a column can be sorted by a property value (e.g. sort by `due` ascending). Properties that do not exist on a task sort last.
-6. Alternatively, the user can manually drag tasks into a custom order within a column, and that order persists across sessions and file edits.
+### Ordering (within a column)
+5. Tasks within a column can be sorted by a property value (e.g. sort by `due` ascending). Missing properties sort last.
+6. Alternatively, the user can manually drag tasks into a custom order that persists across sessions and file edits.
 7. The ordering mode (file order / property sort / manual) is a board-level setting.
 
 ### Grouping
-8. Tasks can be grouped within a column by a property value (e.g. group by `priority`), creating labelled sub-sections.
-9. The board can display swim lanes — horizontal bands spanning all columns — where each band shows only tasks matching a given property value. This is orthogonal to within-column grouping.
+8. Tasks can be grouped by a property value, creating labelled sections. When grouping is active, every column shows all group sections (including empty ones), and a single horizontal divider line spans across all columns at each section boundary.
+9. Grouping is only available in horizontal flow mode (LTR/RTL). It is disabled and hidden in vertical flow (TTB/BTT).
 
 ### General
 10. All of the above are configurable settings; no behaviour is inferred.
@@ -50,7 +50,7 @@ A **property** is a named, typed value extracted from task text. Properties live
 
 ```
 Task text:   "Fix login bug 📅 2024-01-20 ⏫"
-Properties:  { due: Date(2024-01-20), priority: "high" }
+Properties:  { due: Date(2024-01-20), priority: 4 }
 
 Task text:   "Write docs [due:: 2024-01-20] [priority:: medium]"
 Properties:  { due: Date(2024-01-20), priority: "medium" }
@@ -59,17 +59,14 @@ Properties:  { due: Date(2024-01-20), priority: "medium" }
 ### Schema Abstraction
 
 A `PropertySchema` is a named object that knows:
-1. How to **parse** properties from a raw task string → `TaskProperty[]`
+1. How to **parse** properties from a raw task string → `TaskPropertyMap`
 2. The **canonical keys** it produces (used to build sort/group UI dropdowns)
-3. How to **compare** two values for a given key (date, number, priority order, text)
 
 ```typescript
 export interface PropertySchema {
   id: PropertySchemaOption;
   label: string;
-  /** Extract properties from raw task text (the full line, before column/block-link stripping). */
   parseProperties(rawLine: string): TaskPropertyMap;
-  /** Well-known keys this schema can produce, for driving UI dropdowns. */
   knownKeys(): PropertyKeyMeta[];
 }
 
@@ -78,7 +75,7 @@ export type TaskPropertyMap = Map<string, TaskProperty>;
 export interface TaskProperty {
   key: string;        // normalized key, e.g. "due", "priority"
   rawValue: string;   // raw string as it appears in source
-  value: string | number | Date | null;  // parsed for comparison
+  value: string | number | Date | null;
 }
 
 export interface PropertyKeyMeta {
@@ -91,7 +88,7 @@ export interface PropertyKeyMeta {
 ### Schema Implementations
 
 #### `NoneSchema`
-Returns an empty map for every task. Used when schema is `"none"`.
+Returns an empty map for every task.
 
 #### `TasksPluginSchema`
 Parses the [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/Reference/Task+Formats/Tasks+Emoji+Format) emoji format:
@@ -102,157 +99,87 @@ Parses the [Obsidian Tasks plugin](https://publish.obsidian.md/tasks/Reference/T
 | `⏰` | `scheduled` | date |
 | `🛫` | `start` | date |
 | `🏁` | `done` | date |
-| `🔺` | `priority` | priority (highest) |
-| `⏫` | `priority` | priority (high) |
-| `🔼` | `priority` | priority (medium) |
-| `🔽` | `priority` | priority (low) |
-| `⏬` | `priority` | priority (lowest) |
+| `🔺` | `priority` | priority (5=highest) |
+| `⏫` | `priority` | priority (4) |
+| `🔼` | `priority` | priority (3) |
+| `🔽` | `priority` | priority (2) |
+| `⏬` | `priority` | priority (1=lowest) |
 | `🔁 <recurrence>` | `recurrence` | text |
-
-Priority values are stored as numbers (5=highest … 1=lowest) to allow numeric comparison.
 
 #### `DataviewSchema`
 Parses [Dataview inline fields](https://blacksmithgu.github.io/obsidian-dataview/annotation/add-metadata/) in three forms:
-- `key:: value` (standalone in text)
+- `key:: value` (standalone)
 - `[key:: value]` (bracketed)
 - `(key:: value)` (parenthesized)
 
-Values are heuristically typed:
-- ISO date string (`YYYY-MM-DD`) → `Date`
-- Pure number → `number`
-- Everything else → `string`
-
-Common keys (`due`, `priority`, `start`, `scheduled`, `done`) get extra treatment (e.g. `priority: high/medium/low` mapped to numeric order).
-
----
-
-### Data Model Changes
-
-#### `Task` class (`src/ui/tasks/task.ts`)
-
-New field:
-```typescript
-readonly properties: TaskPropertyMap;   // populated during construction
-```
-
-The schema is passed in at construction time (similar to `columnTagTable`):
-
-```typescript
-constructor(
-  rawContent: TaskString,
-  fileHandle: { path: string },
-  readonly rowIndex: number,
-  private readonly columnTagTable: ColumnTagTable,
-  private readonly consolidateTags: boolean,
-  private readonly doneStatusMarkers: string,
-  private readonly cancelledStatusMarkers: string,
-  private readonly ignoredStatusMarkers: string,
-  private readonly propertySchema: PropertySchema = noneSchema,  // NEW
-)
-```
-
-Properties are parsed from the *raw* content before any stripping, so emoji / inline-fields remain available even if the content is later cleaned up for display.
-
-#### Settings (`src/ui/settings/settings_store.ts`)
-
-New settings fields:
-```typescript
-propertySchema: PropertySchemaOption;   // "none" | "tasks" | "dataview"
-sortProperty: string | null;            // property key to sort by, or null
-sortDirection: "asc" | "desc";          // sort direction
-groupProperty: string | null;           // property key to group by, or null
-```
-
-`PropertySchemaOption` is a new enum:
-```typescript
-export enum PropertySchemaOption {
-  None = "none",
-  TasksPlugin = "tasks",
-  Dataview = "dataview",
-}
-```
-
----
-
-### Sorting
-
-Within each column, tasks are ordered by the active sort property:
-
-```
-nulls-last comparator:
-  if (a.value === null && b.value === null) return 0
-  if (a.value === null) return +1   // nulls last
-  if (b.value === null) return -1
-  compare(a.value, b.value) * (direction === "asc" ? 1 : -1)
-```
-
-Type-specific comparison:
-- `date` → numeric timestamp diff
-- `number` → arithmetic diff
-- `priority` → stored as number, same as number
-- `text` → `localeCompare`
-
-The sort is applied reactively in the store/column layer, not inside the `Task` class itself.
-
----
-
-### Grouping
-
-When a `groupProperty` is set, tasks within a column are partitioned into sub-groups by property value (or `null`). Each group renders a lightweight header row showing the property value. Groups are themselves sorted by value (with null-group last).
-
-Grouping is a pure UI transformation — no markdown changes.
-
----
-
-### File Structure
-
-```
-src/
-  parsing/
-    properties/
-      index.ts               — re-exports public API
-      property_schema.ts     — PropertySchema interface + types
-      none_schema.ts         — NoneSchema implementation
-      tasks_schema.ts        — TasksPluginSchema implementation
-      dataview_schema.ts     — DataviewSchema implementation
-      comparators.ts         — typed value comparison + ManualOrderStore utilities
-  ui/
-    tasks/
-      task.ts                — add `properties` field + schema param
-      tasks.ts               — thread schema through to Task constructor
-      store.ts               — thread schema through; apply sort/group
-      manual_order.ts        — block-link auto-assign, order list CRUD helpers
-    settings/
-      settings_store.ts      — add propertySchema, columnOrderMode, swimLaneProperty, etc.
-      settings.ts            — add schema picker + ordering + swim lane UI
-    components/
-      column.svelte          — apply sort/group/manual-order; render group headers
-      task_card.svelte       — optionally display key properties; drag handle
-      swim_lane.svelte       — lane header + row of columns (new)
-    main.svelte              — wrap board in lane rows when swimLaneProperty is set
-```
+Values are heuristically typed: ISO date → `Date`, pure number → `number`, else `string`. Common keys (`due`, `priority`, `start`, `scheduled`) get priority-string-to-number mapping.
 
 ---
 
 ### Column Ordering Mode
 
-Ordering mode replaces the simpler `sortProperty` concept. It is a board-level enum:
-
 ```typescript
 export enum ColumnOrderMode {
-  FileOrder  = "file",      // default: tasks appear in file path + row order
-  Property   = "property",  // sort by a configured property key
-  Manual     = "manual",    // explicit user-defined order via drag-and-drop
+  FileOrder = "file",     // default: path + rowIndex order (current behaviour)
+  Property  = "property", // sort by a configured property key
+  Manual    = "manual",   // explicit user-defined order via drag-and-drop
 }
 ```
 
-Settings fields:
-```typescript
-columnOrderMode: ColumnOrderMode;    // default: FileOrder
-sortProperty:    string | null;      // used when mode = Property
-sortDirection:   "asc" | "desc";     // used when mode = Property
-columnManualOrder: ManualOrderStore; // used when mode = Manual (see below)
+---
+
+### Board Layout: Grouped vs Ungrouped
+
+This is the central architectural decision for grouping.
+
+**Ungrouped (current layout, preserved):**
 ```
+.columns > div  { display: flex; gap: ... }
+  <Column />   <Column />   <Column />
+```
+Each `Column` component renders its full task list. This is unchanged.
+
+**Grouped layout (new):**
+
+When `groupProperty` is set and flow is horizontal, `main.svelte` renders a CSS grid instead:
+
+```
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(N, {columnWidth}px);
+}
+
+DOM structure:
+  <div class="group-divider" style="grid-column: 1 / -1">⏫ High</div>
+  <ColumnCell tasks={Later∩High} />
+  <ColumnCell tasks={Soonish∩High} />
+  <ColumnCell tasks={Today∩High} />
+
+  <div class="group-divider" style="grid-column: 1 / -1">🔼 Medium</div>
+  <ColumnCell tasks={Later∩Medium} />
+  ...
+```
+
+The `group-divider` element spans all columns (`grid-column: 1 / -1`) in a single DOM node — no JS measurement, no overlay. CSS grid row heights are determined by the tallest cell in each group row automatically.
+
+The global group-value list is derived from all tasks (not just the visible column) so every column shows every group section, including empty ones. Empty sections show just the divider header with minimal height — no card-sized placeholder.
+
+**Column headers** in grouped mode:
+Column headers (name, colour, collapse toggle) are pinned as a sticky header row above the grid, outside the grid structure, since they don't participate in group rows.
+
+**Component split:**
+
+| Mode | Component | Responsibility |
+|---|---|---|
+| Ungrouped | `column.svelte` | Full column: header + sorted task list |
+| Grouped | `column.svelte` | Full column: header + sorted task list (unchanged) |
+| Grouped | `column_cell.svelte` | Task list only, for one (group, column) cell |
+| Grouped | `board_grid.svelte` | CSS grid, column headers, group dividers, ColumnCell grid |
+
+`column.svelte` is **not** modified to be dual-mode. It is used as-is in ungrouped mode. `column_cell.svelte` is a new, simpler component used only in grouped mode. `board_grid.svelte` owns the grouped layout.
+
+**flowDirection constraint:**
+Grouping is only meaningful in horizontal flow (LTR/RTL). In vertical flow (TTB/BTT) the concept of a "horizontal line across all columns" has no equivalent — columns are stacked, not side by side. When `flowDirection` is TTB or BTT, the `groupProperty` setting is ignored and the grouping controls are hidden in the UI.
 
 ---
 
@@ -260,93 +187,44 @@ columnManualOrder: ManualOrderStore; // used when mode = Manual (see below)
 
 #### The Stable Identity Problem
 
-The current task ID (`sha256(content + path + rowIndex)`) is intentionally derived from file state. It is **not** suitable as a persistent order key because:
+The current task ID (`sha256(content + path + rowIndex)`) is unstable for persistent ordering:
 - Content edits → new ID
 - Lines inserted above → rowIndex changes → new ID
 - File rename → path changes → new ID
 
-Ordering needs a key that survives these mutations.
-
 #### Block Links as Stable Keys
 
-Obsidian block links (`^abc12` appended to a line) are the right tool: they are embedded in the markdown alongside the task, survive content edits, survive file renames, and are already part of the Task model (`task.blockLink`).
+Obsidian block links (`^abc12` appended to a line) are stable: they are embedded in the markdown, survive content edits, survive file renames, and are already part of the Task model.
 
-When the user first manually reorders a task that has **no** block link, the plugin auto-assigns one:
-1. Generate a short random alphanumeric ID (5–6 chars, e.g. `k7mxp`)
-2. Write it to the task line in the source file immediately
-3. Use `(path, blockLink)` as the stable compound key
+When the user first manually reorders a task that has no block link, the plugin auto-assigns one:
+1. Generate a short random alphanumeric ID (5–6 chars)
+2. Write it to the task line via `vault.modify()`
+3. Use `path + "::" + blockLink` as the stable key
 
-Using the compound `(path, blockLink)` means file renames do break the key. This is an acceptable tradeoff — renames reinitialise the store anyway, and the user can re-order after a rename. A future improvement could migrate order keys on rename.
+File rename caveat: the `(path, blockLink)` key breaks on rename. Renames already trigger full store reinitialisation, so manual order silently degrades (tasks fall back to file order) and the user can re-drag. A rename migration handler is a future improvement.
 
 #### Manual Order Storage
 
+Stored separately from display settings in plugin data (see Architectural Concerns below):
+
 ```typescript
-// Stored in plugin settings
-// Top-level key: lane identifier (see Swim Lanes section)
-//   "__default__" when swim lanes are disabled
-// Second-level key: column tag
-// Value: array of [path, blockLink] pairs in display order
-type ManualOrderStore = Record<string, Record<string, Array<[string, string]>>>;
+type ManualOrderKey = string; // "path::blockLink"
+
+// key: columnTag (or groupValue + "::" + columnTag when grouped)
+type ManualOrderStore = Record<string, ManualOrderKey[]>;
 ```
 
-Tasks absent from the array appear **after** listed tasks, in their natural file order (preserving relative stability for unordered tasks).
-
-Tasks removed from a column (moved, archived, done) have their entry cleaned from the order list at save time.
+When grouping is active, the key for a cell is `"${groupValue}::${columnTag}"` (with `"__ungrouped__"` as the groupValue when grouping is off — avoiding the fragile `__default__` sentinel and making intent clearer). Tasks absent from the array appear after listed tasks in file order.
 
 #### Drag-and-Drop Integration
 
 When `columnOrderMode = Manual`:
-- Within-column drag handles appear on task cards
-- Dropping a card at a new within-column position updates `columnManualOrder` and triggers a settings save
-- Cross-column drag still works (reassigns the column tag, inserts task at the end of the destination column's order list)
-- Block links are auto-assigned if absent before writing the order
+- Within-column (or within-cell) drag handles appear
+- Block links are auto-assigned before writing the order
+- Cross-column drag reassigns the column tag and appends to the destination's order list
+- On task removal (done, archived, deleted), stale entries are pruned at save time
 
-When `columnOrderMode` is not Manual, within-column drag handles are hidden (cross-column drag still works).
-
----
-
-### Swim Lanes
-
-#### Concept
-
-Swim lanes add a second axis to the board. Each lane is a full horizontal row of all columns, showing only tasks whose swim-lane property matches the lane's value.
-
-```
-Board with swimLaneProperty = "priority":
-
-              | Later  | Soonish | Today  |
-  ────────────┼────────┼─────────┼────────┤
-  ⏫ High     │ [t1]   │ [t3]    │ [t5]   │
-  ────────────┼────────┼─────────┼────────┤
-  🔼 Medium   │ [t2]   │         │ [t4]   │
-  ────────────┼────────┼─────────┼────────┤
-  (no value)  │        │ [t6]    │ [t7]   │
-  ────────────┼────────┼─────────┼────────┤
-```
-
-Each cell is a `(lane, column)` pair. The full set of columns is shown in every lane.
-
-#### Lane Source
-
-`swimLaneProperty: string | null` — any property key from the active schema, or `null` (swim lanes disabled). The property key `"file"` is also a valid pseudo-property (group by source file path), available regardless of schema.
-
-#### Lane Ordering
-
-Lanes are ordered by the same typed comparator used for property sorting: priority order, date ascending, text alphabetically. A "no value" lane always appears last.
-
-Future: allow manual lane reordering via a drag handle on the lane header.
-
-#### Cross-Lane Drag
-
-Dragging a task from one lane to another would change the task's property value — a write operation. This is deferred. For now, tasks can only be dragged **within** their own lane (changing column). Moving a task to a different lane is done via the task context menu (select new property value), once property editing is implemented.
-
-#### Interaction with Manual Ordering
-
-When both swim lanes and manual ordering are active, each `(lane, column)` cell has an independent order list. The `ManualOrderStore` nesting handles this naturally: the lane value is the top-level key (with `"__default__"` when swim lanes are off).
-
-#### Interaction with Column Grouping (Phase 4)
-
-Column grouping (sub-sections within one column based on a property) and swim lanes are **different features** and can coexist in principle, but the settings UI should discourage using `groupProperty` and `swimLaneProperty` with the same property key simultaneously (the result would be redundant).
+The vault modify event triggered by block-link assignment must be handled carefully: the store's file-modify handler should detect when a re-parse produces the same logical tasks (same content, different raw line due to added block link) and not reset ordering state. This is a subtle re-entrancy concern addressed in the implementation notes.
 
 ---
 
@@ -355,149 +233,284 @@ Column grouping (sub-sections within one column based on a property) and swim la
 New section in the Settings modal: **"Task Properties"**
 
 ```
-Property Schema:  [ None ▼ ]   (dropdown: None / Tasks Plugin / Dataview)
+Property Schema:  [ None ▼ ]
 
-── Ordering ────────────────────────────────────────────
+── Ordering ─────────────────────────────────────────
 Column order:     [ File order ▼ ]
-                  (dropdown: File order / Sort by property / Manual)
+                  File order / Sort by property / Manual
 
-  [when Property sort is selected:]
+  [if Property sort:]
   Sort by:        [ due ▼ ]   [ Ascending ▼ ]
 
-── Grouping ─────────────────────────────────────────────
-Group within columns by:  [ (none) ▼ ]
-
-Swim lanes:       [ (none) ▼ ]
-                  (key dropdown: (none) / file / [schema keys])
+── Grouping ─────────────────────────────────────────
+Group by:         [ (none) ▼ ]
+  (disabled + hidden when flow = vertical)
 ```
 
 The property key dropdowns are disabled when schema is `"none"`.
-Manual ordering setting is always available (doesn't require a schema).
 
 ---
 
 ### Display on Task Cards
 
-When a property schema is active, a small property strip can appear below the task content showing recognized properties (e.g. `📅 Jan 20` or `due: Jan 20`). This should be opt-in (a separate setting: `showProperties: boolean`) to keep the default card footprint small.
+Opt-in (`showProperties: boolean`, default `false`): a small strip below task content shows recognized properties (e.g. `📅 Jan 20`).
+
+---
+
+## Data Model Changes
+
+### `Task` class
+
+New field:
+```typescript
+readonly properties: TaskPropertyMap;
+```
+
+The schema is passed in at construction time. To avoid a 9-parameter constructor (already at 8), introduce a `TaskParseContext` value object:
+
+```typescript
+export interface TaskParseContext {
+  columnTagTable: ColumnTagTable;
+  consolidateTags: boolean;
+  doneStatusMarkers: string;
+  cancelledStatusMarkers: string;
+  ignoredStatusMarkers: string;
+  propertySchema: PropertySchema;  // new
+}
+```
+
+Constructor becomes:
+```typescript
+constructor(
+  rawContent: TaskString,
+  fileHandle: { path: string },
+  rowIndex: number,
+  context: TaskParseContext,
+)
+```
+
+This is a breaking change to the `Task` constructor signature but it's the right one — the constructor is already overloaded and this gives a named, extensible structure.
+
+### Settings
+
+New display settings fields (in `settings_store.ts`):
+```typescript
+propertySchema:   PropertySchemaOption;   // "none" | "tasks" | "dataview"
+columnOrderMode:  ColumnOrderMode;        // "file" | "property" | "manual"
+sortProperty:     string | null;
+sortDirection:    "asc" | "desc";
+groupProperty:    string | null;
+showProperties:   boolean;
+```
+
+Manual order data is **not** in `SettingValues`. It is stored separately (see below).
+
+### Separate Manual Order Storage
+
+`plugin.loadData()` / `plugin.saveData()` returns one blob. We split it into two keys:
+
+```typescript
+// What plugin.loadData() returns:
+{
+  settings: SettingValues,          // display + behaviour settings (existing)
+  manualOrder: ManualOrderStore,    // ordering data (new, separate concern)
+}
+```
+
+`ManualOrderStore` is loaded alongside settings at startup and saved independently on drag events. This avoids bloating the settings object and allows different save frequencies (settings save on user action; order saves on drag-drop).
+
+---
+
+## File Structure
+
+```
+src/
+  parsing/
+    properties/
+      index.ts               — re-exports public API
+      property_schema.ts     — PropertySchema interface, TaskParseContext, types
+      none_schema.ts         — NoneSchema
+      tasks_schema.ts        — TasksPluginSchema + tests
+      dataview_schema.ts     — DataviewSchema + tests
+      comparators.ts         — typed null-last comparators
+  ui/
+    tasks/
+      task.ts                — add properties field; adopt TaskParseContext
+      tasks.ts               — thread TaskParseContext through
+      store.ts               — thread TaskParseContext through
+      manual_order.ts        — block-link auto-assign, ManualOrderStore CRUD
+    settings/
+      settings_store.ts      — add new fields (not ManualOrderStore)
+      settings.ts            — add schema/ordering/grouping UI
+    components/
+      column.svelte          — unchanged (used in ungrouped mode)
+      column_cell.svelte     — task list only, for grouped mode cells (new)
+      board_grid.svelte      — CSS grid layout + column headers + dividers (new)
+      task_card.svelte       — add property strip, drag handle
+    main.svelte              — switch between column.svelte and board_grid.svelte
+```
 
 ---
 
 ## Detailed Behavior
 
 ### Property Parsing
+- Non-destructive: `content` field is not modified.
+- Parsed from the raw line before column tag / block-link stripping.
+- First occurrence wins for duplicate keys.
 
-- Parsing is **non-destructive**: the `content` field of Task is not modified by property extraction.
-- Properties are parsed from the **raw line** (before column tag / block-link stripping).
-- Unrecognized keys under Dataview schema are still stored (key present, value as string), allowing users to sort/group by any key they define.
-- If a key appears multiple times, the **first** occurrence wins.
+### Grouping — Global Group Values
+The set of group values is derived from **all tasks in the board** (not just the visible column), then sorted by the property comparator with null last. Every column/cell renders all group values — including empty ones — so section boundaries align.
 
-### Schema = None
+### Grouping — Empty Sections
+An empty group section renders the divider header only (minimal height, no padding). It does not render a card-sized drop zone. This keeps columns compact when a group has no tasks.
 
-- `task.properties` is an empty map.
-- Sort / group controls are hidden (or disabled) in the UI.
-- No parsing overhead.
+### Grouping — Special Columns
+The Done, Uncategorised, and Archived columns participate in grouping the same way as regular columns. Done and Uncategorised columns already have their own visibility logic; grouping does not override it.
 
-### Interaction with Existing Tag System
+### Ordering — Interaction with Grouping
+When both `columnOrderMode = Manual` and `groupProperty` are set, the manual order applies within each `(group, column)` cell independently. The `ManualOrderStore` key is `"${groupValue}::${columnTag}"`.
 
-Properties are completely separate from the tag system. Tags continue to drive column assignment. Properties are additive metadata that does not affect column routing.
+When `columnOrderMode = Property`, the sort applies within each cell as well.
 
 ### Serialization
-
-Properties stay in the raw markdown exactly as written. The plugin does **not** modify, reorder, or reformat properties when serializing tasks back to disk. This is intentional to avoid corrupting files managed by other plugins.
+Properties stay in raw markdown exactly as written. The plugin does not modify, reorder, or reformat properties.
 
 ---
 
 ## Implementation Plan
 
 ### Phase 1: Schema infrastructure + parsing
-**Goal:** Property schema can be selected in settings; properties are parsed and stored on Task objects. No UI changes yet except the settings picker.
+**Goal:** Schema can be selected in settings; properties parsed and stored on Task objects; no UI changes beyond the settings picker.
 
-1. [ ] Add `PropertySchemaOption` enum to `settings_store.ts`
-2. [ ] Add `propertySchema` to settings schema + defaults
-3. [ ] Create `src/parsing/properties/` with `property_schema.ts`, `none_schema.ts`
-4. [ ] Implement `TasksPluginSchema` with emoji parsing + tests
-5. [ ] Implement `DataviewSchema` with inline-field parsing + tests
-6. [ ] Add `properties: TaskPropertyMap` to `Task` class; thread schema through constructors in `tasks.ts` and `store.ts`
-7. [ ] Add schema picker to Settings UI
+1. [ ] Define `TaskParseContext` in `property_schema.ts`; refactor `Task` constructor to use it (update all call sites in `tasks.ts`, `store.ts`, test files)
+2. [ ] Add `PropertySchemaOption` enum + `propertySchema` to settings
+3. [ ] Implement `NoneSchema`, `TasksPluginSchema` + tests, `DataviewSchema` + tests
+4. [ ] Add `properties: TaskPropertyMap` to `Task`; wire schema through `TaskParseContext`
+5. [ ] Add schema picker to Settings UI
 
-**Deliverable:** Schema selection is persisted; tasks have `.properties` populated correctly (verified via unit tests).
+**Deliverable:** Schema selection persists; `task.properties` is populated correctly (verified by unit tests).
 
 ---
 
 ### Phase 2: Property sort
-**Goal:** Tasks in each column are sorted by the configured property.
+**Goal:** Tasks in each column sort by the configured property.
 
-1. [ ] Add `ColumnOrderMode` enum + `columnOrderMode`, `sortProperty`, `sortDirection` to settings
+1. [ ] Add `ColumnOrderMode`, `columnOrderMode`, `sortProperty`, `sortDirection` to settings
 2. [ ] Implement `comparators.ts` with typed null-last comparison
-3. [ ] Apply sort in column rendering when mode = `Property` (reactive, no store mutation)
-4. [ ] Add ordering mode + sort controls to settings UI
-5. [ ] Test: tasks sort correctly by date, priority, text; nulls go last
+3. [ ] Apply sort in column rendering when mode = `Property` (reactive, in `column.svelte`)
+4. [ ] Add ordering mode + sort key controls to Settings UI
+5. [ ] Test: sort by date, priority, text; nulls last; file order unaffected
 
 **Deliverable:** Tasks in a column sort by due date / priority when configured.
 
 ---
 
 ### Phase 3: Property display on task cards
-**Goal:** Configured properties are optionally shown on each card.
+**Goal:** Recognized properties shown on cards when enabled.
 
 1. [ ] Add `showProperties: boolean` to settings (default `false`)
-2. [ ] Add property strip component to `task_card.svelte`
-3. [ ] Format dates as locale-short; priorities as labels; text as-is
-4. [ ] Test: properties appear/disappear correctly when toggled
+2. [ ] Add property strip to `task_card.svelte`
+3. [ ] Format: dates as locale-short, priorities as labels, text as-is
+4. [ ] Test: strip appears/disappears correctly
 
 **Deliverable:** Card shows `📅 Jan 20` or `due: Jan 20` when enabled.
 
 ---
 
 ### Phase 4: Manual ordering
-**Goal:** User can drag tasks within a column; order persists across sessions.
+**Goal:** Drag-to-reorder within a column persists across sessions.
 
-1. [ ] Add `columnManualOrder: ManualOrderStore` to settings; define `ManualOrderStore` type
-2. [ ] Implement block-link auto-assignment: when a task is first manually ordered and has no block link, write one to the file
-3. [ ] Add within-column drag handle to task cards (visible only when mode = `Manual`)
-4. [ ] On drop, update `columnManualOrder` and save settings
-5. [ ] Apply manual order in column rendering when mode = `Manual`; unordered tasks append in file order
-6. [ ] On task removal (done, archived, deleted, moved column), prune stale entries from order list
-7. [ ] Test: reorder tasks, reload board, verify order preserved; test new tasks append; test stale-entry cleanup
+1. [ ] Split plugin data into `{ settings, manualOrder }` at load/save; update `entry.ts`
+2. [ ] Implement `manual_order.ts`: `ManualOrderStore` type, CRUD helpers, stale-entry pruning
+3. [ ] Implement block-link auto-assignment in `manual_order.ts`; handle vault-modify re-entrancy in `store.ts`
+4. [ ] Add within-column drag handles to `task_card.svelte` (visible only when mode = `Manual`)
+5. [ ] On drop: update `ManualOrderStore`, save
+6. [ ] Apply manual order in `column.svelte` when mode = `Manual`; unordered tasks append in file order
+7. [ ] Prune stale order entries when tasks are done/archived/deleted/moved
+8. [ ] Test: reorder → reload → order preserved; new tasks append; stale-entry cleanup; block-link assignment round-trip
 
-**Deliverable:** Drag-reordered tasks stay in place across board reloads.
-
----
-
-### Phase 5: Within-column grouping
-**Goal:** Tasks within a column can be grouped by a property value, with group headers.
-
-1. [ ] Add `groupProperty: string | null` to settings
-2. [ ] Implement grouping logic in column rendering (pure UI partition; no store mutation)
-3. [ ] Add group header component
-4. [ ] Add group control to settings UI
-5. [ ] Test: tasks group correctly; null-group appears last; interacts correctly with sort modes
-
-**Deliverable:** Column shows tasks grouped by priority with labelled section headers.
+**Deliverable:** Manually reordered tasks stay in place across board reloads.
 
 ---
 
-### Phase 6: Swim lanes
-**Goal:** Board shows horizontal bands per property value, each containing all columns.
+### Phase 5: Grouping with spanning dividers
+**Goal:** Tasks grouped by property with a single horizontal divider spanning all columns.
 
-1. [ ] Add `swimLaneProperty: string | null` to settings (including `"file"` as a pseudo-key option)
-2. [ ] Compute lane set reactively from task list (distinct values of swim-lane property, plus null lane)
-3. [ ] Refactor `main.svelte` board layout to render one row per lane with a lane header
-4. [ ] Each cell is the existing column component, filtered to the lane's task subset
-5. [ ] Wire manual order: use lane value as top-level key in `ManualOrderStore`
-6. [ ] Test: tasks appear in correct lane; null-value tasks go to "(no value)" lane at bottom; manual order works per cell
+1. [ ] Add `groupProperty: string | null` to settings; hide control when `flowDirection` is vertical
+2. [ ] Implement global group-value derivation (from all tasks; sorted; null last)
+3. [ ] Implement `column_cell.svelte`: task list only (no header), accepts `tasks` + ordering context
+4. [ ] Implement `board_grid.svelte`: CSS grid layout, sticky column-header row, group dividers (`grid-column: 1 / -1`), `ColumnCell` grid items
+5. [ ] In `main.svelte`: render `board_grid.svelte` when `groupProperty` is set and flow is horizontal; render existing `column.svelte` loop otherwise
+6. [ ] Wire `columnOrderMode = Manual` with `(groupValue, columnTag)` keyed order in `ManualOrderStore`
+7. [ ] Test: tasks appear in correct group sections; empty sections show header only; dividers span all columns; manual order works per cell; vertical flow disables grouping
 
-**Deliverable:** Setting `swimLaneProperty = "priority"` shows three horizontal bands (High / Medium / no value), each with the full column set.
+**Deliverable:** Setting `groupProperty = "priority"` shows grouped sections with a single spanning divider line between High / Medium / (no value).
+
+---
+
+## Architectural Concerns
+
+The following concerns must be addressed during implementation. Some require changes to the plan above; all require conscious decisions.
+
+### 1. `main.svelte` is already too large (946 lines)
+
+The current file handles: filter state and persistence, column grouping logic (`groupByColumnTag`), sidebar resize, task count, and all column rendering. Adding two more rendering modes (grid) and property controls will make it unmanageable.
+
+**Required before Phase 5:** Extract `groupByColumnTag` into `src/ui/tasks/task_grouping.ts` as a pure function. Extract filter sidebar state management into a separate component (`filter_sidebar.svelte`). `main.svelte` should be a thin coordinator, not a logic sink.
+
+### 2. The `Task` constructor takes 8 parameters — and the plan adds a 9th
+
+The `TaskParseContext` refactor in Phase 1 is **not optional**. It must happen first, because every subsequent phase depends on Task construction. Skipping it and adding `propertySchema` as a 9th positional argument would make the codebase worse, not better.
+
+### 3. `ManualOrderStore` must not live in `SettingValues`
+
+Manual order data has completely different characteristics from display settings: it changes on every drag, can grow large (one entry per manually-ordered task), and does not benefit from the Zod-validated settings schema. Storing it in `SettingValues` would bloat every settings write and couple two unrelated concerns. The Phase 4 plan correctly separates them in plugin data; this must not be simplified away.
+
+### 4. Block-link auto-assignment triggers vault modify re-entrancy
+
+When a task is first drag-reordered:
+1. A block link is written to the file via `vault.modify()`
+2. The `vault.on("modify")` handler fires
+3. `processFile()` re-parses the file
+4. `debounceSetTasks()` emits a new task list
+5. If the new task list causes the UI to re-render the column before the manual order is applied, the task jumps back to its pre-drag position momentarily
+
+This must be handled: when re-parsing a file immediately after a block-link assignment, the store should recognise the re-parse as a "block link addition only" and not emit a task-list update that would disrupt ordering. One approach: after auto-assigning a block link, suppress the next modify event for that file path for a short window (100ms).
+
+### 5. Dual rendering mode (`column.svelte` loop vs `board_grid.svelte`) is a conditional in `main.svelte`
+
+This is acceptable as long as the condition is a single `{#if groupProperty && !isVerticalFlow}` block that switches between two completely self-contained rendering paths. It becomes a problem if the condition starts leaking into child components as feature flags. Keep the two paths strictly separate.
+
+### 6. `groupByColumnTag` is a pure function but lives in the view
+
+The existing `groupByColumnTag` function in `main.svelte` contains business logic (handling done, archived, uncategorised). It belongs in the task layer (`src/ui/tasks/`) as a pure, tested utility. This is pre-existing technical debt that these phases will make worse if not addressed first.
+
+### 7. The `"file"` pseudo-property for grouping is inconsistent with the schema model
+
+If we allow `groupProperty = "file"` (group by source file), it cannot be parsed from a `PropertySchema` — it is derived from `task.path`, not from task text. Using a bare string `"file"` that is specially handled in comparators and the group-value derivation is a type inconsistency.
+
+**Decision required:** Either (a) make `"file"` a proper pseudo-schema that implements `PropertySchema` and returns `task.path` as a property, or (b) use a discriminated union for the group source:
+```typescript
+type GroupSource =
+  | { kind: "property"; key: string }
+  | { kind: "file" };
+```
+Option (b) is safer and more explicit. Recommendation: use (b), stored as `groupSource` in settings rather than `groupProperty`.
+
+### 8. Collapsible groups are not addressed
+
+The existing `collapsedColumns` setting tracks which columns are collapsed. Once grouping is added, users will want to collapse individual group sections too. This is a separate feature, but the data model for it should be considered now to avoid a conflicting schema later. Placeholder: a `collapsedGroups: string[]` field (storing `"${groupValue}::${columnTag}"` keys) in settings.
 
 ---
 
 ## Open Questions / Future Considerations
 
-- **Per-column ordering mode**: start global; per-column can be added later without schema changes (the `ManualOrderStore` nesting already supports it).
-- **Additional schemas**: YAML frontmatter, custom regex — the `PropertySchema` interface supports these without core changes.
-- **Filtering by property**: natural follow-on (e.g. "only show tasks due this week").
-- **Cross-lane drag**: requires property editing (writing to markdown); defer to a separate spec.
-- **Manual lane ordering**: let user drag swim-lane headers to reorder lanes; deferred.
-- **Property editing from the kanban**: complex; defer to later spec.
-- **Property key discovery**: for Dataview, sort/swim-lane dropdowns could auto-discover keys present in the current task set rather than only listing `knownKeys()`. Defer to Phase 2+.
-- **Block-link collision on rename**: if a user renames a file after setting manual order, the `(path, blockLink)` keys become stale. A rename handler could migrate keys; deferred.
+- **Per-column ordering mode**: start global; per-column can be added without schema changes later.
+- **Additional schemas**: YAML frontmatter, custom regex — the interface supports these.
+- **Filtering by property**: natural follow-on.
+- **Cross-group drag** (changing a task's property value): requires property editing; separate spec.
+- **Manual group-row ordering**: drag lane headers to reorder; deferred.
+- **Property editing from kanban**: complex; separate spec.
+- **Block-link collision on rename**: migrate order keys on rename; deferred.
+- **Collapsible group sections**: design the data model (`collapsedGroups`) now even if UI is deferred.
