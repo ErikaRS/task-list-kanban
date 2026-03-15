@@ -267,10 +267,11 @@ Column order:     [ File order ▼ ]
 
 ── Grouping ─────────────────────────────────────────
 Group by:         [ (none) ▼ ]
-  (disabled + hidden when flow = vertical)
+                  (none) / By file / [schema property keys]
+  (entire section hidden when flow = vertical)
 ```
 
-The property key dropdowns are disabled when schema is `"none"`.
+The sort and group property dropdowns are disabled when schema is `"none"`. The "By file" group option is always available regardless of schema.
 
 ---
 
@@ -320,11 +321,21 @@ New display settings fields (in `settings_store.ts`):
 ```typescript
 propertySchema:   PropertySchemaOption;   // "none" | "tasks" | "dataview"
 columnOrderMode:  ColumnOrderMode;        // "file" | "property" | "manual"
-sortProperty:     string | null;
-sortDirection:    "asc" | "desc";
-groupProperty:    string | null;
+sortProperty:     string | null;          // used when columnOrderMode = "property"
+sortDirection:    "asc" | "desc";         // used when columnOrderMode = "property"
+groupSource:      GroupSource | null;     // null = no grouping (see type below)
 showProperties:   boolean;
+collapsedGroups:  string[];               // reserved for future collapsible sections; default []
 ```
+
+`GroupSource` is a discriminated union (see Architectural Concerns §3):
+```typescript
+type GroupSource =
+  | { kind: "property"; key: string }   // group by a parsed property key
+  | { kind: "file" };                   // group by task.path
+```
+
+Stored as a JSON object in settings. Serializes cleanly; no magic string values.
 
 Manual order data is **not** in `SettingValues`. It is stored separately (see below).
 
@@ -369,10 +380,11 @@ src/
       settings_store.ts      [pre-work] — split plugin data shape; [Phase 1+] add new fields
       settings.ts            [Phase 1+] — add schema/ordering/grouping UI
     components/
-      column.svelte          [pre-work] — extract task list body into task_list.svelte
+      column.svelte          [pre-work] — extract task list body into task_list.svelte; extract header into column_header.svelte
+      column_header.svelte   [Phase 5] — column title, count, collapse toggle, mode toggle (shared by column.svelte and board_grid.svelte)
       task_list.svelte       [pre-work] — drag target, task loop, inline creation (extracted from column.svelte)
-      board_grid.svelte      [new] — CSS grid layout + sticky column headers + group dividers
-      task.svelte            [Phase 1+] — add property strip
+      board_grid.svelte      [Phase 5] — CSS grid layout + sticky column header row + group dividers
+      task.svelte            [Phase 3] — add property strip
     main.svelte              [pre-work] — extract filter sidebar; use task_grouping; [Phase 5] switch to board_grid
     filter_sidebar.svelte    [pre-work] — all filter state, persistence, and sidebar UI (extracted from main.svelte)
 ```
@@ -409,7 +421,10 @@ Properties stay in raw markdown exactly as written. The plugin does not modify, 
 
 These phases make **no functional changes** — the board looks and behaves identically before and after each one. They are preconditions for implementing the new features cleanly. Each is independently testable: run the existing test suite and manually verify the board works after every phase.
 
-They are ordered by dependency. P1–P3 must be complete before any functional phase begins. P4 and P5 gate specific later phases.
+**Dependency order:**
+- P1, P2, P3, P4 must all be complete before Phase 1 begins
+- P5 must be complete before Phase 4 begins
+- P1–P5 can be executed in any order relative to each other (they are independent)
 
 ---
 
@@ -550,9 +565,9 @@ interface PluginData {
 
 Backward compatibility: if `loadData()` returns an object without a `manualOrder` key (old format), default `manualOrder` to `{}`. If `loadData()` returns an object that looks like old-format settings directly (has a `columns` key at the top level), treat the entire object as `settings` with empty `manualOrder`.
 
-1. [ ] Define `PluginData` interface and `ManualOrderStore` type (empty for now, filled in Phase 4)
-2. [ ] Update `text_view.ts` load path: parse new shape, fall back gracefully for old data
-3. [ ] Update `text_view.ts` save path: write new shape
+1. [ ] Define `PluginData` interface and `ManualOrderStore` type (empty `Record<string, string[]>` for now; filled in Phase 4)
+2. [ ] Update `text_view.ts` load path: parse new shape with backward-compatible fallback — if loaded object has a top-level `columns` key, treat whole object as legacy `settings` with `manualOrder: {}`
+3. [ ] Update `text_view.ts` save path: always write `{ settings, manualOrder }` shape
 4. [ ] Verify: existing settings survive a load/save round-trip; no data loss
 
 **Deliverable:** Plugin data has a stable two-key shape. Phase 4 can add manual ordering without touching the storage layer.
@@ -564,13 +579,18 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
 ### Phase 1: Schema infrastructure + parsing
 **Goal:** Schema can be selected in settings; properties parsed and stored on Task objects; no UI changes beyond the settings picker.
 
-1. [ ] Define `TaskParseContext` in `property_schema.ts`; refactor `Task` constructor to use it (update all call sites in `tasks.ts`, `store.ts`, test files)
-2. [ ] Add `PropertySchemaOption` enum + `propertySchema` to settings
-3. [ ] Implement `NoneSchema`, `TasksPluginSchema` + tests, `DataviewSchema` + tests
-4. [ ] Add `properties: TaskPropertyMap` to `Task`; wire schema through `TaskParseContext`
-5. [ ] Add schema picker to Settings UI
+*Depends on: P4 (TaskParseContext exists), P1–P3 (codebase clean).*
 
-**Deliverable:** Schema selection persists; `task.properties` is populated correctly (verified by unit tests).
+1. [ ] Add `propertySchema: PropertySchema` field to the existing `TaskParseContext` interface (defined in P4); default to `NoneSchema`
+2. [ ] Create `src/parsing/properties/` with `property_schema.ts` (types), `none_schema.ts`, `index.ts`
+3. [ ] Add `PropertySchemaOption` enum + `propertySchema` setting to `settings_store.ts`
+4. [ ] Implement `TasksPluginSchema` + unit tests
+5. [ ] Implement `DataviewSchema` + unit tests
+6. [ ] Add `properties: TaskPropertyMap` to `Task`; call `context.propertySchema.parseProperties(rawContent)` in constructor
+7. [ ] Thread schema selection from settings through `store.ts` → `tasks.ts` → `TaskParseContext`
+8. [ ] Add schema picker to Settings UI
+
+**Deliverable:** Schema selection persists; `task.properties` is populated correctly per schema (verified by unit tests). Board behaviour otherwise unchanged.
 
 ---
 
@@ -590,95 +610,78 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
 ### Phase 3: Property display on task cards
 **Goal:** Recognized properties shown on cards when enabled.
 
-1. [ ] Add `showProperties: boolean` to settings (default `false`)
-2. [ ] Add property strip to `task_card.svelte`
-3. [ ] Format: dates as locale-short, priorities as labels, text as-is
-4. [ ] Test: strip appears/disappears correctly
+1. [ ] Add `showProperties: boolean` to settings (default `false`) + toggle in Settings UI
+2. [ ] Add property strip to `task.svelte` below the task content row; pass `task.properties` and `showProperties` as props
+3. [ ] Format values: dates as locale-short (`Jan 20`), priorities as text labels (`High`), text as-is
+4. [ ] Test: strip appears/disappears; correct values shown for each schema
 
-**Deliverable:** Card shows `📅 Jan 20` or `due: Jan 20` when enabled.
+**Deliverable:** Card shows `📅 Jan 20` or `due: Jan 20` when `showProperties` is enabled.
 
 ---
 
 ### Phase 4: Manual ordering
 **Goal:** Drag-to-reorder within a column persists across sessions.
 
-1. [ ] Split plugin data into `{ settings, manualOrder }` at load/save; update `entry.ts`
-2. [ ] Implement `manual_order.ts`: `ManualOrderStore` type, CRUD helpers, stale-entry pruning
-3. [ ] Implement block-link auto-assignment in `manual_order.ts`; handle vault-modify re-entrancy in `store.ts`
-4. [ ] Add within-column drag handles to `task_card.svelte` (visible only when mode = `Manual`)
-5. [ ] On drop: update `ManualOrderStore`, save
-6. [ ] Apply manual order in `column.svelte` when mode = `Manual`; unordered tasks append in file order
-7. [ ] Prune stale order entries when tasks are done/archived/deleted/moved
-8. [ ] Test: reorder → reload → order preserved; new tasks append; stale-entry cleanup; block-link assignment round-trip
+*Depends on: P5 (plugin data shape established).*
+
+1. [ ] Implement `manual_order.ts`: fill in `ManualOrderStore` CRUD helpers (insert, remove, reorder, prune-stale, look-up position)
+2. [ ] Implement block-link auto-assignment in `manual_order.ts`: generate ID, call `vault.modify()`, return stable key
+3. [ ] Handle vault-modify re-entrancy in `store.ts`: flag file path as "pending block-link write"; skip position-reset on next modify for that path within 100ms window
+4. [ ] Add `columnOrderMode = Manual` to settings; add within-column drag handles to `task.svelte` (visible only in Manual mode)
+5. [ ] In `task_list.svelte`: handle within-cell drop at a specific position (distinct from cross-column drop handled by `column.svelte`)
+6. [ ] On within-cell drop: auto-assign block link if absent, update `ManualOrderStore`, save via `text_view.ts`
+7. [ ] Apply manual order when computing tasks for `task_list.svelte`: look up position by `(path, blockLink)`, unordered tasks append in file order
+8. [ ] Prune stale order entries on task removal (done, archived, deleted, column change)
+9. [ ] Test: reorder → reload → order preserved; new tasks append after ordered tasks; stale-entry cleanup; block-link assignment round-trip; re-entrancy does not cause position flicker
 
 **Deliverable:** Manually reordered tasks stay in place across board reloads.
 
 ---
 
 ### Phase 5: Grouping with spanning dividers
-**Goal:** Tasks grouped by property with a single horizontal divider spanning all columns.
+**Goal:** Tasks grouped by a property or by file, with a single horizontal divider line spanning all columns.
 
-1. [ ] Add `groupProperty: string | null` to settings; hide control when `flowDirection` is vertical
-2. [ ] Implement global group-value derivation (from all tasks; sorted; null last)
-3. [ ] Implement `column_cell.svelte`: task list only (no header), accepts `tasks` + ordering context
-4. [ ] Implement `board_grid.svelte`: CSS grid layout, sticky column-header row, group dividers (`grid-column: 1 / -1`), `ColumnCell` grid items
-5. [ ] In `main.svelte`: render `board_grid.svelte` when `groupProperty` is set and flow is horizontal; render existing `column.svelte` loop otherwise
-6. [ ] Wire `columnOrderMode = Manual` with `(groupValue, columnTag)` keyed order in `ManualOrderStore`
-7. [ ] Test: tasks appear in correct group sections; empty sections show header only; dividers span all columns; manual order works per cell; vertical flow disables grouping
+1. [ ] Add `groupSource: GroupSource | null` to settings (replacing the placeholder `groupProperty`); add `collapsedGroups: string[]` with default `[]`; hide grouping controls when `flowDirection` is vertical
+2. [ ] Add `GroupSource` type to `settings_store.ts`; add Zod schema for it
+3. [ ] Implement `deriveGroupValues(tasks, groupSource): string[]` in `task_grouping.ts` — returns sorted distinct values from all tasks, null-value last, dispatches on `groupSource.kind`
+4. [ ] Implement `board_grid.svelte`:
+   - Sticky header row: one column-header element per column (title, collapse button, task count, mode toggle) — these are extracted from `column.svelte` into a shared `column_header.svelte` sub-component used by both `column.svelte` and `board_grid.svelte`
+   - CSS grid body: for each group value, render a spanning divider (`grid-column: 1 / -1`) then one `<TaskList>` per column
+   - `grid-template-columns` computed dynamically from column widths and `collapsedColumns` state (collapsed columns get 48px track width)
+   - Empty group sections: divider header only, no padding below it
+5. [ ] In `main.svelte`: `{#if groupSource && !isVerticalFlow}` switches to `<BoardGrid>`; otherwise renders the existing `<Column>` loop — two strictly separate paths sharing only `task_list.svelte`
+6. [ ] Manual order in grouped mode: `ManualOrderStore` key is `"${groupValue}::${columnTag}"`; when grouping is off the key is `"__ungrouped__::${columnTag}"`; no data migration needed between modes
+7. [ ] Test: tasks in correct sections; empty sections compact; dividers span all columns; manual order per cell; collapsing a column narrows its grid track; vertical flow shows no grouping controls and falls back to column loop
 
-**Deliverable:** Setting `groupProperty = "priority"` shows grouped sections with a single spanning divider line between High / Medium / (no value).
+**Deliverable:** Setting `groupSource = { kind: "property", key: "priority" }` shows High / Medium / (no value) sections with a single spanning divider. Setting `groupSource = { kind: "file" }` groups by source file.
 
 ---
 
 ## Architectural Concerns
 
-Concerns P1–P3 are addressed by the pre-work phases above and are resolved before any functional phase begins. The remaining concerns apply to the functional implementation.
+The pre-work phases resolve the structural debt identified earlier. The following concerns apply to the functional implementation and are reflected in the phase task lists above.
 
-### 1. Block-link auto-assignment triggers vault modify re-entrancy (Phase 4)
+### 1. Block-link auto-assignment re-entrancy (Phase 4, step 3)
 
-When a task is first drag-reordered and auto-assigned a block link:
-1. `vault.modify()` writes the block link to the file
-2. `vault.on("modify")` fires → `processFile()` re-parses → `debounceSetTasks()` emits new task list
-3. If the UI re-renders before the manual order is applied, the task jumps back to its pre-drag position
+When a task is auto-assigned a block link, `vault.modify()` fires the store's modify handler, which would re-emit a new task list and potentially reset the task's visual position before the manual order is saved. Mitigation: flag the file path as "pending block-link write" in the store; skip position-reset on the next modify for that path within a 100ms window. This is accounted for in Phase 4 step 3.
 
-**Mitigation:** After writing a block link, flag that file path as "pending block-link write" in the store. The next modify event for that path within a short window (100ms) is treated as a structural-only change — task identity is updated but task-list position is not reset. Clear the flag after processing.
+### 2. Dual rendering mode must stay strictly separated (Phase 5, step 5)
 
-### 2. Dual rendering mode must stay strictly separated (Phase 5)
+The `{#if groupSource && !isVerticalFlow}` conditional in `main.svelte` is one top-level branch. The two paths (`column.svelte` loop vs `board_grid.svelte`) share only `task_list.svelte`. If this condition starts propagating into child components as feature flags, it becomes a maintenance problem. Enforce: neither `column.svelte` nor `board_grid.svelte` contains conditionals referencing the other mode.
 
-The `{#if groupSource && !isVerticalFlow}` conditional in `main.svelte` switches between `column.svelte` loop and `board_grid.svelte`. This is acceptable as a single top-level branch. It becomes a maintenance problem if the condition starts propagating into child components as feature flags. Rule: the two rendering paths share only `task_list.svelte`. Neither `column.svelte` nor `board_grid.svelte` should have conditionals that reference the other mode.
+### 3. Column header duplication between modes (Phase 5, step 4)
 
-### 3. `groupSource` must be a discriminated union, not a bare string
-
-`groupProperty: string | null` with a magic `"file"` value is a type inconsistency — "file" is not a property key derivable from any `PropertySchema`. Use:
-
-```typescript
-type GroupSource =
-  | { kind: "property"; key: string }
-  | { kind: "file" };
-
-// In settings:
-groupSource: GroupSource | null;
-```
-
-Stored in settings as a JSON object. The group-value derivation function dispatches on `kind`, keeping the schema model clean.
-
-### 4. Collapsible group sections — reserve the data model now
-
-`collapsedColumns: string[]` tracks collapsed columns today. Once group sections exist, users will want to collapse them too. Reserve a `collapsedGroups: string[]` field in settings now (empty array, no UI yet) using the same `"${groupValue}::${columnTag}"` key format as `ManualOrderStore`. This prevents a breaking settings schema change later.
-
-### 5. Column collapse in grouped mode requires grid-template-columns coordination (Phase 5)
-
-In ungrouped mode, `column.svelte` manages its own collapse width via CSS. In grouped mode, collapsing a column must narrow its track in the CSS grid — a board-level concern. `board_grid.svelte` must subscribe to `collapsedColumns` state and compute `grid-template-columns` dynamically, giving collapsed columns a narrow fixed width (e.g. 48px) and normal columns `columnWidth`. This is a new coupling that does not exist in the ungrouped path.
+In ungrouped mode, `column.svelte` renders its own header. In grouped mode, `board_grid.svelte` must render a sticky header row with the same column headers. Rather than duplicating the header markup, extract a `column_header.svelte` sub-component used by both. This is included in Phase 5 step 4.
 
 ---
 
 ## Open Questions / Future Considerations
 
-- **Per-column ordering mode**: start global; per-column can be added without schema changes later.
-- **Additional schemas**: YAML frontmatter, custom regex — the interface supports these.
-- **Filtering by property**: natural follow-on.
-- **Cross-group drag** (changing a task's property value): requires property editing; separate spec.
-- **Manual group-row ordering**: drag lane headers to reorder; deferred.
-- **Property editing from kanban**: complex; separate spec.
-- **Block-link collision on rename**: migrate order keys on rename; deferred.
-- **Collapsible group sections**: design the data model (`collapsedGroups`) now even if UI is deferred.
+- **Per-column ordering mode**: currently global; per-column can be added without schema changes later (the `ManualOrderStore` key structure already supports it).
+- **Additional schemas**: YAML frontmatter, custom regex — the `PropertySchema` interface supports these with no core changes.
+- **Filtering by property**: natural follow-on once properties are parsed (e.g. "only show tasks due this week").
+- **Cross-group drag** (changing a task's property value by dragging between groups): requires property editing capability; separate spec.
+- **Manual group-row ordering**: drag group headers to reorder the groups themselves; deferred.
+- **Property editing from kanban**: complex write-back to markdown; separate spec.
+- **Block-link stability on rename**: migrate `ManualOrderStore` keys when a file is renamed; deferred (order silently degrades to file order on rename, user can re-drag).
+- **Collapsible group sections**: `collapsedGroups: string[]` is reserved in settings (Phase 5); UI toggle for collapsing individual group sections is a separate feature.
