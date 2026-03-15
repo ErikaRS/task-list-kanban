@@ -1,6 +1,7 @@
 # Inline Task Creation
 
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-03
 
 **Related issues:** [#92](https://github.com/ErikaRS/task-list-kanban/issues/92) (FR: "Add new" should allow to put the task info immediately)
 
