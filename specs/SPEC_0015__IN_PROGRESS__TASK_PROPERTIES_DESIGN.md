@@ -167,16 +167,39 @@ The global group-value list is derived from all tasks (not just the visible colu
 **Column headers** in grouped mode:
 Column headers (name, colour, collapse toggle) are pinned as a sticky header row above the grid, outside the grid structure, since they don't participate in group rows.
 
-**Component split:**
+**Component architecture — unified at the task-list level:**
+
+The key insight is that the task list rendering (drag target + task loop + inline creation) is the piece that needs to be reused between ungrouped and grouped modes. It is extracted into `task_list.svelte` in pre-work, before any functional changes.
+
+```
+task_list.svelte  ← shared building block
+      │
+      ├── used by column.svelte       (ungrouped: header + TaskList)
+      └── used by board_grid.svelte   (grouped: grid of TaskList cells)
+```
 
 | Mode | Component | Responsibility |
 |---|---|---|
-| Ungrouped | `column.svelte` | Full column: header + sorted task list |
-| Grouped | `column.svelte` | Full column: header + sorted task list (unchanged) |
-| Grouped | `column_cell.svelte` | Task list only, for one (group, column) cell |
-| Grouped | `board_grid.svelte` | CSS grid, column headers, group dividers, ColumnCell grid |
+| Ungrouped | `column.svelte` | Column header + `<TaskList>` |
+| Ungrouped | `task_list.svelte` | Drag target, task loop, inline creation |
+| Grouped | `board_grid.svelte` | CSS grid, sticky column headers, group dividers |
+| Grouped | `task_list.svelte` | Same component, used as each grid cell |
 
-`column.svelte` is **not** modified to be dual-mode. It is used as-is in ungrouped mode. `column_cell.svelte` is a new, simpler component used only in grouped mode. `board_grid.svelte` owns the grouped layout.
+`column.svelte` is **not** made dual-mode. It retains its current shape minus the task list body, which moves to `task_list.svelte`. `board_grid.svelte` uses `task_list.svelte` directly without going through `column.svelte`.
+
+**`task_list.svelte` props:**
+```typescript
+export let column: ColumnTag | DefaultColumns;
+export let tasks: Task[];          // pre-sorted and pre-filtered by parent
+export let taskActions: TaskActions;
+export let columnTagTableStore: Readable<ColumnTagTable>;
+export let showFilepath: boolean;
+export let consolidateTags: boolean;
+export let isSelectionMode: boolean;
+export let selectedIds: string[];
+```
+
+Sorting is the **parent's responsibility**. `task_list.svelte` renders tasks in the order it receives them — no internal sort. This removes the redundant re-sort that currently exists in `column.svelte` (the store already emits tasks in path+rowIndex order; the column's `sortedTasks` computation is a no-op re-sort of already-sorted data).
 
 **flowDirection constraint:**
 Grouping is only meaningful in horizontal flow (LTR/RTL). In vertical flow (TTB/BTT) the concept of a "horizontal line across all columns" has no equivalent — columns are stacked, not side by side. When `flowDirection` is TTB or BTT, the `groupProperty` setting is ignored and the grouping controls are hidden in the UI.
@@ -323,31 +346,35 @@ Manual order data is **not** in `SettingValues`. It is stored separately (see be
 
 ## File Structure
 
+Files marked `[pre-work]` are created or significantly changed during pre-work phases. Files marked `[new]` are created during functional phases.
+
 ```
 src/
   parsing/
     properties/
-      index.ts               — re-exports public API
-      property_schema.ts     — PropertySchema interface, TaskParseContext, types
-      none_schema.ts         — NoneSchema
-      tasks_schema.ts        — TasksPluginSchema + tests
-      dataview_schema.ts     — DataviewSchema + tests
-      comparators.ts         — typed null-last comparators
+      index.ts               [new] — re-exports public API
+      property_schema.ts     [new] — PropertySchema interface, TaskParseContext, types
+      none_schema.ts         [new] — NoneSchema
+      tasks_schema.ts        [new] — TasksPluginSchema + tests
+      dataview_schema.ts     [new] — DataviewSchema + tests
+      comparators.ts         [new] — typed null-last comparators
   ui/
     tasks/
-      task.ts                — add properties field; adopt TaskParseContext
-      tasks.ts               — thread TaskParseContext through
-      store.ts               — thread TaskParseContext through
-      manual_order.ts        — block-link auto-assign, ManualOrderStore CRUD
+      task.ts                [pre-work] — adopt TaskParseContext; [Phase 1] add properties
+      tasks.ts               [pre-work] — thread TaskParseContext
+      store.ts               [pre-work] — thread TaskParseContext
+      task_grouping.ts       [pre-work] — pure groupByColumnTag function + tests (extracted from main.svelte)
+      manual_order.ts        [new] — block-link auto-assign, ManualOrderStore CRUD
     settings/
-      settings_store.ts      — add new fields (not ManualOrderStore)
-      settings.ts            — add schema/ordering/grouping UI
+      settings_store.ts      [pre-work] — split plugin data shape; [Phase 1+] add new fields
+      settings.ts            [Phase 1+] — add schema/ordering/grouping UI
     components/
-      column.svelte          — unchanged (used in ungrouped mode)
-      column_cell.svelte     — task list only, for grouped mode cells (new)
-      board_grid.svelte      — CSS grid layout + column headers + dividers (new)
-      task_card.svelte       — add property strip, drag handle
-    main.svelte              — switch between column.svelte and board_grid.svelte
+      column.svelte          [pre-work] — extract task list body into task_list.svelte
+      task_list.svelte       [pre-work] — drag target, task loop, inline creation (extracted from column.svelte)
+      board_grid.svelte      [new] — CSS grid layout + sticky column headers + group dividers
+      task.svelte            [Phase 1+] — add property strip
+    main.svelte              [pre-work] — extract filter sidebar; use task_grouping; [Phase 5] switch to board_grid
+    filter_sidebar.svelte    [pre-work] — all filter state, persistence, and sidebar UI (extracted from main.svelte)
 ```
 
 ---
@@ -375,6 +402,160 @@ When `columnOrderMode = Property`, the sort applies within each cell as well.
 
 ### Serialization
 Properties stay in raw markdown exactly as written. The plugin does not modify, reorder, or reformat properties.
+
+---
+
+## Pre-work: Debt Reduction
+
+These phases make **no functional changes** — the board looks and behaves identically before and after each one. They are preconditions for implementing the new features cleanly. Each is independently testable: run the existing test suite and manually verify the board works after every phase.
+
+They are ordered by dependency. P1–P3 must be complete before any functional phase begins. P4 and P5 gate specific later phases.
+
+---
+
+### Pre-work P1: Extract `task_list.svelte` from `column.svelte`
+
+**Goal:** Create the shared building block that both `column.svelte` (ungrouped) and `board_grid.svelte` (grouped) will use. No visual change.
+
+**What moves to `task_list.svelte`:**
+- `isDraggedOver` state, `canDrop` derived value
+- `handleDragOver`, `handleDragLeave`, `handleDrop` handlers
+- `pendingNewTask`, `pendingCancelled`, `newTaskTextAreaEl` inline-creation state
+- `handleNewTaskSave`, `handleNewTaskKeydown` handlers
+- The `.tasks-wrapper` DOM subtree (tasks loop + new-task textarea + add-new button)
+
+**What stays in `column.svelte`:**
+- Column header (title, count, collapse toggle, Done/Select mode toggle, context menu)
+- `isSelectMode`, `selectedCount`, `selectedIds` selection state
+- `column.svelte` renders: header + `<TaskList tasks={sortedTasks} ... />`
+
+**Also in this phase:** remove `sortedTasks` from `column.svelte`. The store already emits tasks in path+rowIndex order; the column's `sortedTasks` computation is a no-op re-sort of already-sorted data. `task_list.svelte` renders the `tasks` prop in the order received. Sorting will be applied by the parent when property sort is added in Phase 2.
+
+1. [ ] Create `task_list.svelte` with the props interface above
+2. [ ] Move drag target state + handlers into `task_list.svelte`
+3. [ ] Move inline task creation state + handlers into `task_list.svelte`
+4. [ ] Move `.tasks-wrapper` DOM into `task_list.svelte`
+5. [ ] Replace extracted code in `column.svelte` with `<TaskList tasks={tasks} ... />`
+6. [ ] Delete `sortedTasks` reactive declaration in `column.svelte`
+7. [ ] Verify: build passes, existing tests pass, board is visually and functionally identical
+
+**Deliverable:** `task_list.svelte` exists and is used inside `column.svelte`. Drag-and-drop, inline creation, and task rendering work identically.
+
+---
+
+### Pre-work P2: Extract `groupByColumnTag` to `task_grouping.ts`
+
+**Goal:** Remove business logic from the view layer; make it testable in isolation.
+
+The `groupByColumnTag` function in `main.svelte` (lines 270–289) partitions a flat task list into columns. It contains non-trivial logic (done/archived/uncategorised routing) and is untested. Moving it to the task layer enables unit testing and makes `main.svelte` smaller.
+
+1. [ ] Create `src/ui/tasks/task_grouping.ts` with `groupByColumnTag` as a pure exported function
+2. [ ] Write unit tests for: normal column assignment, done tasks, archived tasks, uncategorised tasks, multi-column tasks
+3. [ ] Remove `groupByColumnTag` from `main.svelte`; import from `task_grouping.ts`
+4. [ ] Verify: build passes, new tests pass, board behaviour unchanged
+
+**Deliverable:** `groupByColumnTag` has unit tests and no longer lives in a Svelte component.
+
+---
+
+### Pre-work P3: Extract `filter_sidebar.svelte` from `main.svelte`
+
+**Goal:** Reduce `main.svelte` from ~950 lines to a manageable coordinator. `main.svelte` adding more code in Phase 5 without this pre-work would make it unmaintainable.
+
+**What moves to `filter_sidebar.svelte`:**
+- All filter state: `filterText`, `selectedTags`, `fileFilter`
+- Filter persistence logic: the `subscriptionCount`/`hydrated` pattern, the `setInterval` for tag hydration, `saveFilterState`
+- All saved-filter management functions: `addContentFilter`, `loadContentFilter`, `clearContentFilter`, `addFileFilter`, `loadFileFilter`, `clearFileFilter`, `addTagFilter`, `clearTagFilter`, `openDeleteModal`, `closeDeleteModal`, `confirmDelete`
+- Derived values: `contentFilters`, `tagFilters`, `fileFilters`, `contentFilterExists`, `tagFilterExists`, `fileFilterExists`, `availableFiles`, `activeContentFilterId`, `activeTagFilterId`, `activeFileFilterId`
+- The entire filter sidebar DOM (aside element and its contents)
+- The `DeleteFilterModal`
+
+**Interface:**
+```typescript
+// Props in:
+export let settingsStore: Writable<SettingValues>;
+export let tasks: Task[];     // for tag/file discovery
+export let requestSave: () => void;
+export let expanded: boolean;
+
+// Out (bound or dispatched):
+export let filteredTasks: Task[];   // reactive, replaces filteredByFile in main.svelte
+```
+
+**What stays in `main.svelte`:**
+- Board rendering (columns or grid)
+- Task count display
+- Sidebar expand/collapse toggle + resize logic
+- `tasksByColumn` derived from `filteredTasks`
+
+Note: the `setInterval` in the existing tag-hydration code (checks every 100ms until tags are loaded) is fragile. Replace with a reactive `$:` that checks `tags.size > 0` before applying the stored tag filter.
+
+1. [ ] Create `filter_sidebar.svelte` with above interface
+2. [ ] Move all filter state + DOM into it; fix tag-hydration to use reactive instead of setInterval
+3. [ ] Replace filter section in `main.svelte` with `<FilterSidebar bind:filteredTasks ... />`
+4. [ ] Verify: build passes, all filter behaviours (content, tag, file, saved, persistence) work identically
+
+**Deliverable:** `main.svelte` is under 400 lines. Filter state and persistence are fully encapsulated. Tag hydration no longer uses `setInterval`.
+
+---
+
+### Pre-work P4: Refactor `Task` constructor to `TaskParseContext`
+
+**Goal:** Replace the 8-parameter `Task` constructor with a named context object, making future additions a single field rather than a new positional parameter.
+
+**Why now:** This must be done before Phase 1 (properties), which would add a 9th parameter. Doing it as pre-work means Phase 1 is a clean addition rather than a painful refactor under pressure.
+
+```typescript
+// New interface (in property_schema.ts or task.ts):
+export interface TaskParseContext {
+  columnTagTable: ColumnTagTable;
+  consolidateTags: boolean;
+  doneStatusMarkers: string;
+  cancelledStatusMarkers: string;
+  ignoredStatusMarkers: string;
+  // propertySchema added in Phase 1
+}
+
+// New constructor signature:
+constructor(
+  rawContent: TaskString,
+  fileHandle: { path: string },
+  rowIndex: number,
+  context: TaskParseContext,
+)
+```
+
+1. [ ] Define `TaskParseContext` interface
+2. [ ] Refactor `Task` constructor to accept `context`; update internal references from `this.x` to `context.x`
+3. [ ] Update call sites in `tasks.ts` and `store.ts` to pass context object
+4. [ ] Update all tests that construct `Task` directly
+5. [ ] Verify: build passes, all tests pass
+
+**Deliverable:** `Task` constructor takes 4 parameters. Adding future parse-time configuration is a single field addition to `TaskParseContext`.
+
+---
+
+### Pre-work P5: Split plugin data into `settings` + `manualOrder`
+
+**Goal:** Establish the correct storage structure before manual ordering is implemented, so Phase 4 doesn't have to migrate a schema that was wrong from the start.
+
+Currently `text_view.ts` saves and loads a single blob that is the settings object. The new shape:
+
+```typescript
+interface PluginData {
+  settings: SettingValues;
+  manualOrder: ManualOrderStore;  // {} by default
+}
+```
+
+Backward compatibility: if `loadData()` returns an object without a `manualOrder` key (old format), default `manualOrder` to `{}`. If `loadData()` returns an object that looks like old-format settings directly (has a `columns` key at the top level), treat the entire object as `settings` with empty `manualOrder`.
+
+1. [ ] Define `PluginData` interface and `ManualOrderStore` type (empty for now, filled in Phase 4)
+2. [ ] Update `text_view.ts` load path: parse new shape, fall back gracefully for old data
+3. [ ] Update `text_view.ts` save path: write new shape
+4. [ ] Verify: existing settings survive a load/save round-trip; no data loss
+
+**Deliverable:** Plugin data has a stable two-key shape. Phase 4 can add manual ordering without touching the storage layer.
 
 ---
 
@@ -451,56 +632,43 @@ Properties stay in raw markdown exactly as written. The plugin does not modify, 
 
 ## Architectural Concerns
 
-The following concerns must be addressed during implementation. Some require changes to the plan above; all require conscious decisions.
+Concerns P1–P3 are addressed by the pre-work phases above and are resolved before any functional phase begins. The remaining concerns apply to the functional implementation.
 
-### 1. `main.svelte` is already too large (946 lines)
+### 1. Block-link auto-assignment triggers vault modify re-entrancy (Phase 4)
 
-The current file handles: filter state and persistence, column grouping logic (`groupByColumnTag`), sidebar resize, task count, and all column rendering. Adding two more rendering modes (grid) and property controls will make it unmanageable.
+When a task is first drag-reordered and auto-assigned a block link:
+1. `vault.modify()` writes the block link to the file
+2. `vault.on("modify")` fires → `processFile()` re-parses → `debounceSetTasks()` emits new task list
+3. If the UI re-renders before the manual order is applied, the task jumps back to its pre-drag position
 
-**Required before Phase 5:** Extract `groupByColumnTag` into `src/ui/tasks/task_grouping.ts` as a pure function. Extract filter sidebar state management into a separate component (`filter_sidebar.svelte`). `main.svelte` should be a thin coordinator, not a logic sink.
+**Mitigation:** After writing a block link, flag that file path as "pending block-link write" in the store. The next modify event for that path within a short window (100ms) is treated as a structural-only change — task identity is updated but task-list position is not reset. Clear the flag after processing.
 
-### 2. The `Task` constructor takes 8 parameters — and the plan adds a 9th
+### 2. Dual rendering mode must stay strictly separated (Phase 5)
 
-The `TaskParseContext` refactor in Phase 1 is **not optional**. It must happen first, because every subsequent phase depends on Task construction. Skipping it and adding `propertySchema` as a 9th positional argument would make the codebase worse, not better.
+The `{#if groupSource && !isVerticalFlow}` conditional in `main.svelte` switches between `column.svelte` loop and `board_grid.svelte`. This is acceptable as a single top-level branch. It becomes a maintenance problem if the condition starts propagating into child components as feature flags. Rule: the two rendering paths share only `task_list.svelte`. Neither `column.svelte` nor `board_grid.svelte` should have conditionals that reference the other mode.
 
-### 3. `ManualOrderStore` must not live in `SettingValues`
+### 3. `groupSource` must be a discriminated union, not a bare string
 
-Manual order data has completely different characteristics from display settings: it changes on every drag, can grow large (one entry per manually-ordered task), and does not benefit from the Zod-validated settings schema. Storing it in `SettingValues` would bloat every settings write and couple two unrelated concerns. The Phase 4 plan correctly separates them in plugin data; this must not be simplified away.
+`groupProperty: string | null` with a magic `"file"` value is a type inconsistency — "file" is not a property key derivable from any `PropertySchema`. Use:
 
-### 4. Block-link auto-assignment triggers vault modify re-entrancy
-
-When a task is first drag-reordered:
-1. A block link is written to the file via `vault.modify()`
-2. The `vault.on("modify")` handler fires
-3. `processFile()` re-parses the file
-4. `debounceSetTasks()` emits a new task list
-5. If the new task list causes the UI to re-render the column before the manual order is applied, the task jumps back to its pre-drag position momentarily
-
-This must be handled: when re-parsing a file immediately after a block-link assignment, the store should recognise the re-parse as a "block link addition only" and not emit a task-list update that would disrupt ordering. One approach: after auto-assigning a block link, suppress the next modify event for that file path for a short window (100ms).
-
-### 5. Dual rendering mode (`column.svelte` loop vs `board_grid.svelte`) is a conditional in `main.svelte`
-
-This is acceptable as long as the condition is a single `{#if groupProperty && !isVerticalFlow}` block that switches between two completely self-contained rendering paths. It becomes a problem if the condition starts leaking into child components as feature flags. Keep the two paths strictly separate.
-
-### 6. `groupByColumnTag` is a pure function but lives in the view
-
-The existing `groupByColumnTag` function in `main.svelte` contains business logic (handling done, archived, uncategorised). It belongs in the task layer (`src/ui/tasks/`) as a pure, tested utility. This is pre-existing technical debt that these phases will make worse if not addressed first.
-
-### 7. The `"file"` pseudo-property for grouping is inconsistent with the schema model
-
-If we allow `groupProperty = "file"` (group by source file), it cannot be parsed from a `PropertySchema` — it is derived from `task.path`, not from task text. Using a bare string `"file"` that is specially handled in comparators and the group-value derivation is a type inconsistency.
-
-**Decision required:** Either (a) make `"file"` a proper pseudo-schema that implements `PropertySchema` and returns `task.path` as a property, or (b) use a discriminated union for the group source:
 ```typescript
 type GroupSource =
   | { kind: "property"; key: string }
   | { kind: "file" };
+
+// In settings:
+groupSource: GroupSource | null;
 ```
-Option (b) is safer and more explicit. Recommendation: use (b), stored as `groupSource` in settings rather than `groupProperty`.
 
-### 8. Collapsible groups are not addressed
+Stored in settings as a JSON object. The group-value derivation function dispatches on `kind`, keeping the schema model clean.
 
-The existing `collapsedColumns` setting tracks which columns are collapsed. Once grouping is added, users will want to collapse individual group sections too. This is a separate feature, but the data model for it should be considered now to avoid a conflicting schema later. Placeholder: a `collapsedGroups: string[]` field (storing `"${groupValue}::${columnTag}"` keys) in settings.
+### 4. Collapsible group sections — reserve the data model now
+
+`collapsedColumns: string[]` tracks collapsed columns today. Once group sections exist, users will want to collapse them too. Reserve a `collapsedGroups: string[]` field in settings now (empty array, no UI yet) using the same `"${groupValue}::${columnTag}"` key format as `ManualOrderStore`. This prevents a breaking settings schema change later.
+
+### 5. Column collapse in grouped mode requires grid-template-columns coordination (Phase 5)
+
+In ungrouped mode, `column.svelte` manages its own collapse width via CSS. In grouped mode, collapsing a column must narrow its track in the CSS grid — a board-level concern. `board_grid.svelte` must subscribe to `collapsedColumns` state and compute `grid-template-columns` dynamically, giving collapsed columns a narrow fixed width (e.g. 48px) and normal columns `columnWidth`. This is a new coupling that does not exist in the ungrouped path.
 
 ---
 
