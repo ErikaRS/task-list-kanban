@@ -173,18 +173,16 @@ For detailed Obsidian plugin development guidance, see the [official plugin deve
 
 When ready to make a new deployment:
 
-1. Update the version number (using semver) in:
-   - `package.json`
-   - `manifest.json`
-   - `versions.json`
-2. Commit this change
-3. Create and push a new tag:
+1. Bump the version (updates `package.json`, `manifest.json`, and `versions.json`, then commits and tags):
    ```bash
-   git tag -a 1.2.10 -m "1.2.10"
-   git push origin main
-   git push origin 1.2.10
+   npm version patch   # or minor / major
    ```
-4. Wait for the GitHub Action to create a draft Release with built assets (`main.js`, `manifest.json`, `styles.css`)
+2. Push the commit and tag:
+   ```bash
+   git push origin main
+   git push origin <tag>
+   ```
+3. Wait for the GitHub Action to create a draft Release with built assets (`main.js`, `manifest.json`, `styles.css`)
 5. Go to the [releases page](https://github.com/ErikaRS/task-list-kanban/releases)
 6. Edit the draft created by `github-actions` for that tag, paste in your release notes, and publish
 7. Do not create a release draft manually (`gh release create` or UI), or you may end up with duplicate drafts and missing assets
