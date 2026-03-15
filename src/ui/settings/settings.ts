@@ -15,6 +15,10 @@ const ScopeOptionSchema = z.nativeEnum(ScopeOption);
 const FlowDirectionSchema = z.nativeEnum(FlowDirection);
 
 export class SettingsModal extends Modal {
+	private originalSettingsSnapshot: string;
+	private scrollWrapper!: HTMLDivElement;
+	private dirtyBanner: HTMLElement | null = null;
+
 	constructor(
 		app: App,
 		private settings: SettingValues,
@@ -22,12 +26,36 @@ export class SettingsModal extends Modal {
 		private readonly boardFolderPath: string | null
 	) {
 		super(app);
+		this.originalSettingsSnapshot = JSON.stringify(settings);
+	}
+
+	private isDirty(): boolean {
+		return JSON.stringify(this.settings) !== this.originalSettingsSnapshot;
+	}
+
+	private updateDirtyBanner() {
+		if (this.isDirty()) {
+			if (this.dirtyBanner) return; // already showing
+			this.dirtyBanner = this.scrollWrapper.createDiv({ cls: "settings-dirty-banner" });
+			this.scrollWrapper.insertBefore(this.dirtyBanner, this.scrollWrapper.firstChild);
+			this.dirtyBanner.createSpan({ text: "You have unsaved changes." });
+		} else {
+			if (!this.dirtyBanner) return; // already hidden
+			this.dirtyBanner.remove();
+			this.dirtyBanner = null;
+		}
 	}
 
 	onOpen() {
-		this.contentEl.createEl("h1", { text: "Settings" });
+		// Set up flex layout — need classes on both modalEl and contentEl
+		// so contentEl fills the modal and our inner flex layout works
+		this.modalEl.addClass("task-list-kanban-settings-modal-container");
+		this.contentEl.addClass("task-list-kanban-settings-modal");
 
-		new Setting(this.contentEl)
+		this.scrollWrapper = this.contentEl.createDiv({ cls: "settings-scroll-wrapper" });
+		this.scrollWrapper.createEl("h1", { text: "Settings" });
+
+		new Setting(this.scrollWrapper)
 			.setName("Columns")
 			.setDesc('The column names separated by a comma ","')
 			.setClass("column")
@@ -37,10 +65,11 @@ export class SettingsModal extends Modal {
 					this.settings.columns = value
 						.split(",")
 						.map((column) => column.trim());
+					this.updateDirtyBanner();
 				});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Column width")
 			.setDesc("Width of task cards in pixels (200-600)")
 			.addSlider((slider) => {
@@ -50,10 +79,11 @@ export class SettingsModal extends Modal {
 					.setDynamicTooltip()
 					.onChange((value) => {
 						this.settings.columnWidth = value;
+						this.updateDirtyBanner();
 					});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Flow direction")
 			.setDesc("Direction columns flow across the board")
 			.addDropdown((dropdown) => {
@@ -70,6 +100,7 @@ export class SettingsModal extends Modal {
 						this.settings.flowDirection = validatedValue.success
 							? validatedValue.data
 							: defaultSettings.flowDirection;
+						this.updateDirtyBanner();
 					});
 			});
 
@@ -139,7 +170,7 @@ export class SettingsModal extends Modal {
 		};
 
 		// --- Folder scope dropdown + selected folders UI ---
-		const scopeContainer = this.contentEl.createDiv();
+		const scopeContainer = this.scrollWrapper.createDiv();
 
 		let folderListContainer: HTMLDivElement;
 		let folderListEl: HTMLDivElement;
@@ -193,6 +224,7 @@ export class SettingsModal extends Modal {
 					).filter((f) => f !== folder);
 					renderFolderList();
 					validateDefaultTaskFile();
+					this.updateDirtyBanner();
 				});
 			}
 		};
@@ -239,6 +271,7 @@ export class SettingsModal extends Modal {
 						: defaultSettings.scope;
 					updateFolderListVisibility();
 					validateDefaultTaskFile();
+					this.updateDirtyBanner();
 				});
 			});
 
@@ -269,6 +302,7 @@ export class SettingsModal extends Modal {
 			folderInput.value = "";
 			renderFolderList();
 			validateDefaultTaskFile();
+			this.updateDirtyBanner();
 		};
 
 		const addBtn = addFolderRow.createEl("button", { text: "Add" });
@@ -329,6 +363,7 @@ export class SettingsModal extends Modal {
 				).filter((p) => p !== path);
 				renderExcludeList();
 				validateDefaultTaskFile();
+				this.updateDirtyBanner();
 			});
 		};
 
@@ -340,7 +375,7 @@ export class SettingsModal extends Modal {
 			}
 		};
 
-		const excludeContainer = this.contentEl.createDiv();
+		const excludeContainer = this.scrollWrapper.createDiv();
 		excludeContainer.style.marginBottom = "12px";
 
 		new Setting(excludeContainer)
@@ -374,6 +409,7 @@ export class SettingsModal extends Modal {
 			excludeInput.value = "";
 			renderExcludeList();
 			validateDefaultTaskFile();
+			this.updateDirtyBanner();
 		};
 
 		const addExcludeBtn = addExcludeRow.createEl("button", { text: "Add" });
@@ -389,7 +425,7 @@ export class SettingsModal extends Modal {
 		excludeListEl = excludeInputContainer.createDiv();
 		renderExcludeList();
 
-		const defaultTaskFileSetting = new Setting(this.contentEl)
+		const defaultTaskFileSetting = new Setting(this.scrollWrapper)
 			.setName("Default task file")
 			.setDesc(
 				"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
@@ -401,6 +437,7 @@ export class SettingsModal extends Modal {
 				text.onChange((value) => {
 					this.settings.defaultTaskFile = value;
 					validateDefaultTaskFile();
+					this.updateDirtyBanner();
 				});
 			});
 		defaultTaskFileSetting.controlEl.style.flexDirection = "column";
@@ -417,17 +454,18 @@ export class SettingsModal extends Modal {
 		defaultTaskFileSetting.controlEl.appendChild(defaultTaskFileErrorEl);
 		validateDefaultTaskFile();
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Show filepath")
 			.setDesc("Show the filepath on each task in Kanban?")
 			.addToggle((toggle) => {
 				toggle.setValue(this.settings.showFilepath ?? true);
 				toggle.onChange((value) => {
 					this.settings.showFilepath = value;
+					this.updateDirtyBanner();
 				});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Uncategorized column visibility")
 			.setDesc("When to show the Uncategorized column")
 			.addDropdown((dropdown) => {
@@ -446,10 +484,11 @@ export class SettingsModal extends Modal {
 							validatedValue.success
 								? validatedValue.data
 								: defaultSettings.uncategorizedVisibility;
+						this.updateDirtyBanner();
 					});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Done column visibility")
 			.setDesc("When to show the Done column")
 			.addDropdown((dropdown) => {
@@ -466,10 +505,11 @@ export class SettingsModal extends Modal {
 						this.settings.doneVisibility = validatedValue.success
 							? validatedValue.data
 							: defaultSettings.doneVisibility;
+						this.updateDirtyBanner();
 					});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Consolidate tags")
 			.setDesc(
 				"Consolidate the tags on each task in Kanban into the footer?"
@@ -478,10 +518,11 @@ export class SettingsModal extends Modal {
 				toggle.setValue(this.settings.consolidateTags ?? false);
 				toggle.onChange((value) => {
 					this.settings.consolidateTags = value;
+					this.updateDirtyBanner();
 				});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Done status markers")
 			.setDesc(
 				"Characters that mark a task as done (e.g., 'xX' for [x] and [X]). Each character should be a single Unicode character without spaces."
@@ -498,11 +539,12 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid done status markers";
 						this.settings.doneStatusMarkers = value;
+						this.updateDirtyBanner();
 					}
 				});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Cancelled status markers")
 			.setDesc(
 				"Characters that mark a task as cancelled (e.g., '-' for [-]). Each character should be a single Unicode character without spaces."
@@ -519,11 +561,12 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid cancelled status markers";
 						this.settings.cancelledStatusMarkers = value;
+						this.updateDirtyBanner();
 					}
 				});
 			});
 
-		new Setting(this.contentEl)
+		new Setting(this.scrollWrapper)
 			.setName("Ignored status markers")
 			.setDesc(
 				"Characters that mark tasks to be completely ignored by the kanban (e.g., '-' for [-] cancelled tasks). Leave empty to process all task-like strings. Each character should be a single Unicode character without spaces."
@@ -540,16 +583,24 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid ignored status markers";
 						this.settings.ignoredStatusMarkers = value;
+						this.updateDirtyBanner();
 					}
 				});
 			});
 
-		new Setting(this.contentEl).addButton((btn) =>
-			btn.setButtonText("Save").onClick(() => {
-				this.close();
-				this.onSubmit(this.settings);
-			})
-		);
+		// Button bar (after scroll wrapper, still inside contentEl)
+		const buttonBar = this.contentEl.createDiv({ cls: "settings-button-bar" });
+
+		const cancelBtn = buttonBar.createEl("button", { text: "Cancel" });
+		cancelBtn.addEventListener("click", () => {
+			this.close();
+		});
+
+		const saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
+		saveBtn.addEventListener("click", () => {
+			this.onSubmit(this.settings);
+			this.close();
+		});
 	}
 
 	onClose() {

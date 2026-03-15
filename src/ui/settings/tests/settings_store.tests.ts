@@ -7,6 +7,36 @@ import {
 	type SavedFilter,
 } from "../settings_store";
 
+describe("Settings dirty check", () => {
+	it("detects no changes as clean", () => {
+		const original = { ...defaultSettings };
+		const current = { ...defaultSettings };
+		expect(JSON.stringify(current)).toBe(JSON.stringify(original));
+	});
+
+	it("detects column change as dirty", () => {
+		const original = { ...defaultSettings };
+		const current = { ...defaultSettings, columns: ["A", "B"] };
+		expect(JSON.stringify(current)).not.toBe(JSON.stringify(original));
+	});
+
+	it("detects nested array change as dirty", () => {
+		const original = { ...defaultSettings };
+		const current = { ...defaultSettings, scopeFolders: ["projects/"] };
+		expect(JSON.stringify(current)).not.toBe(JSON.stringify(original));
+	});
+
+	it("detects reversion to original as clean", () => {
+		const snapshot = JSON.stringify(defaultSettings);
+		const current = { ...defaultSettings, columnWidth: 500 };
+		// Dirty after change
+		expect(JSON.stringify(current)).not.toBe(snapshot);
+		// Clean after revert
+		current.columnWidth = 300;
+		expect(JSON.stringify(current)).toBe(snapshot);
+	});
+});
+
 describe("SavedFilter persistence", () => {
 	it("parses settings with savedFilters array", () => {
 		const savedFilters: SavedFilter[] = [
