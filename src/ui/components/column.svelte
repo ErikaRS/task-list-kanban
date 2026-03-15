@@ -226,9 +226,16 @@
 
 	// Inline task creation
 	let pendingNewTask: TFile | null = null;
+	let pendingCancelled = false;
 	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
 
-	function handleNewTaskSave() {
+	async function handleNewTaskSave() {
+		if (pendingCancelled) {
+			pendingCancelled = false;
+			pendingNewTask = null;
+			return;
+		}
+
 		const content = newTaskTextAreaEl?.value?.trim();
 		const file = pendingNewTask;
 		pendingNewTask = null;
@@ -237,13 +244,14 @@
 			return;
 		}
 
-		taskActions.createTask(file, content, column);
+		await taskActions.createTask(file, content, column);
 	}
 
-	function handleNewTaskKeypress(e: KeyboardEvent) {
+	function handleNewTaskKeydown(e: KeyboardEvent) {
 		if (e.key === "Escape") {
 			e.preventDefault();
-			pendingNewTask = null;
+			pendingCancelled = true;
+			newTaskTextAreaEl?.blur();
 		} else if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			newTaskTextAreaEl?.blur();
@@ -349,7 +357,7 @@
 					<textarea
 						bind:this={newTaskTextAreaEl}
 						on:blur={handleNewTaskSave}
-						on:keydown={handleNewTaskKeypress}
+						on:keydown={handleNewTaskKeydown}
 						placeholder="Task name..."
 					></textarea>
 				</div>
