@@ -87,6 +87,7 @@ const settingsObject = z.object({
 	collapsedColumns: z.array(z.string()).default([]).optional(),
 	defaultTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
+	excludePaths: z.array(z.string()).default([]).optional(),
 });
 
 export type SettingValues = z.infer<typeof settingsObject>;
@@ -110,6 +111,7 @@ export const defaultSettings: SettingValues = {
 	collapsedColumns: [],
 	defaultTaskFile: "",
 	scopeFolders: [],
+	excludePaths: [],
 };
 
 export const createSettingsStore = () =>

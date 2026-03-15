@@ -19,3 +19,53 @@ If your plugin does not need CSS, delete this file.
 .setting-item.column .setting-item-control > input {
 	width: 100%;
 }
+
+/* Settings modal layout — the outer .modal element needs to constrain height
+   so the inner flex layout can create a scrollable area with a sticky button bar */
+.task-list-kanban-settings-modal-container {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.task-list-kanban-settings-modal {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	overflow: hidden;
+}
+
+.settings-scroll-wrapper {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 0;
+	padding-bottom: 8px;
+}
+
+.settings-button-bar {
+	flex-shrink: 0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 0 0;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* Dirty changes banner */
+.settings-dirty-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 8px 12px;
+	margin-bottom: 12px;
+	background: rgba(var(--background-modifier-error-rgb), 0.15);
+	border: 1px solid var(--background-modifier-error);
+	border-radius: var(--radius-s);
+}
+
+.settings-dirty-banner-buttons {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
