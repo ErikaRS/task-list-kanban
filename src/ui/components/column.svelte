@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, setIcon, type App } from "obsidian";
+	import { Menu, setIcon, type App, TFile } from "obsidian";
 	import {
 		type ColumnTag,
 		type DefaultColumns,
@@ -223,6 +223,36 @@
 
 	// Whether to show the context menu button
 	$: showContextMenu = column === "done" || (isSelectMode && selectedCount > 0);
+
+	// Inline task creation
+	let pendingNewTask: TFile | null = null;
+	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
+
+	function handleNewTaskSave() {
+		const content = newTaskTextAreaEl?.value?.trim();
+		const file = pendingNewTask;
+		pendingNewTask = null;
+
+		if (!content || !file || !isColumnTag(column, columnTagTableStore)) {
+			return;
+		}
+
+		taskActions.createTask(file, content, column);
+	}
+
+	function handleNewTaskKeypress(e: KeyboardEvent) {
+		if (e.key === "Escape") {
+			e.preventDefault();
+			pendingNewTask = null;
+		} else if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			newTaskTextAreaEl?.blur();
+		}
+	}
+
+	$: if (pendingNewTask && newTaskTextAreaEl) {
+		newTaskTextAreaEl.focus();
+	}
 </script>
 
 {#if !hideOnEmpty || tasks.length}
@@ -314,13 +344,26 @@
 					/>
 				{/each}
 			</div>
+			{#if pendingNewTask}
+				<div class="new-task-input">
+					<textarea
+						bind:this={newTaskTextAreaEl}
+						on:blur={handleNewTaskSave}
+						on:keydown={handleNewTaskKeypress}
+						placeholder="Task name..."
+					></textarea>
+				</div>
+			{/if}
 			{#if isColumnTag(column, columnTagTableStore)}
 				<button
 					class="add-new-btn"
 					aria-label="Add new task to {columnTitle}"
-					on:click={async (e) => {
+					disabled={!!pendingNewTask}
+					on:click={(e) => {
 						if (isColumnTag(column, columnTagTableStore)) {
-							await taskActions.addNew(column, e);
+							taskActions.pickFileForNewTask(column, e, (file) => {
+								pendingNewTask = file;
+							});
 						}
 					}}
 				>
@@ -581,6 +624,20 @@
 				display: flex;
 				flex-direction: column;
 				gap: var(--size-4-2);
+			}
+
+			.new-task-input {
+				margin-top: var(--size-4-2);
+				background-color: var(--background-secondary-alt);
+				border-radius: var(--radius-m);
+				border: var(--border-width) solid var(--background-modifier-border);
+				padding: var(--size-4-2);
+
+				textarea {
+					cursor: text;
+					background-color: var(--color-base-25);
+					width: 100%;
+				}
 			}
 
 			.add-new-btn {

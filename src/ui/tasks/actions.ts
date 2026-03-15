@@ -20,7 +20,16 @@ export type TaskActions = {
 	cancelTasks: (ids: string[]) => Promise<void>;
 	restoreTasks: (ids: string[]) => Promise<void>;
 	deleteTask: (ids: string) => Promise<void>;
-	addNew: (column: ColumnTag, e: MouseEvent) => Promise<void>;
+	pickFileForNewTask: (
+		column: ColumnTag,
+		e: MouseEvent,
+		onFileSelected: (file: TFile) => void,
+	) => void;
+	createTask: (
+		file: TFile,
+		content: string,
+		column: ColumnTag,
+	) => Promise<void>;
 };
 
 export function createTaskActions({
@@ -125,7 +134,7 @@ export function createTaskActions({
 			editorView?.editor.setCursor(rowIndex);
 		},
 
-		async addNew(column, e) {
+		pickFileForNewTask(column, e, onFileSelected) {
 			const files = vault
 				.getMarkdownFiles()
 				.filter((file) =>
@@ -185,12 +194,7 @@ export function createTaskActions({
 						const df = defaultFileState.file;
 						menu.addItem((i) => {
 							i.setTitle(`★ ${df.path}`).onClick(() => {
-								updateRow(
-									vault,
-									df,
-									undefined,
-									`- [ ] TODO #${column}`
-								);
+								onFileSelected(df);
 							});
 						});
 					} else {
@@ -209,12 +213,7 @@ export function createTaskActions({
 							folderItem instanceof TFile ? label : label + " →"
 						).onClick(() => {
 							if (folderItem instanceof TFile) {
-								updateRow(
-									vault,
-									folderItem,
-									undefined,
-									`- [ ] TODO #${column}`
-								);
+								onFileSelected(folderItem);
 							} else {
 								createMenu(folderItem, menu);
 							}
@@ -249,6 +248,15 @@ export function createTaskActions({
 			}
 
 			createMenu(folder, undefined);
+		},
+
+		async createTask(file, content, column) {
+			await updateRow(
+				vault,
+				file,
+				undefined,
+				`- [ ] ${content} #${column}`,
+			);
 		},
 	};
 }
