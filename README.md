@@ -41,7 +41,7 @@ The `#[column-name]` text won't be visible in the kanban view, keeping your task
 
 ### Setting Up Columns
 
-Access settings via the settings icon in the top right corner of your kanban. The Save and Cancel buttons are always visible at the bottom of the settings dialog, and a banner will appear if you have unsaved changes.
+Access settings via the settings icon in the top right corner of your kanban.
 
 **Basic Columns**: Add, edit, or remove columns in the 'Columns' section. Separate column names with commas.
 
