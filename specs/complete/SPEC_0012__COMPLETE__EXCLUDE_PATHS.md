@@ -161,39 +161,45 @@ Older plugin versions will encounter `excludePaths` in frontmatter. The Zod `par
 
 ## Implementation Plan
 
-### Phase 1: Data Model & Filter Logic
+### Phase 1: Data Model & Filter Logic ✅ COMPLETE
 **Goal:** The settings schema and filter function support exclude paths. Testable via unit tests.
 
-1. Add `excludePaths: z.array(z.string()).default([]).optional()` to the Zod schema in `settings_store.ts`
-2. Add `excludePaths: []` to `defaultSettings`
-3. Update `shouldIncludeFilePath` in `scope.ts` to accept optional `excludeFilter` and `boardFolderPath` parameters
-4. Add unit tests in `scope.tests.ts`: exclude single path, exclude multiple paths, exclude with null/empty/undefined (no-op), exclude exact file path, exclude doesn't match prefix-similar paths, exclude combined with include filter, board folder override (parent dir excluded but board folder survives, board folder itself excluded is no-op, subdirectory of board folder excluded works, file within board folder excluded works)
-5. `npm run build` and `npm test` pass
+1. ✅ Add `excludePaths: z.array(z.string()).default([]).optional()` to the Zod schema in `settings_store.ts`
+2. ✅ Add `excludePaths: []` to `defaultSettings`
+3. ✅ Update `shouldIncludeFilePath` in `scope.ts` to accept optional `excludeFilter` and `boardFolderPath` parameters
+4. ✅ Add unit tests in `scope.tests.ts`: exclude single path, exclude multiple paths, exclude with null/empty/undefined (no-op), exclude exact file path, exclude doesn't match prefix-similar paths, exclude combined with include filter, board folder override (parent dir excluded but board folder survives, board folder itself excluded is no-op, subdirectory of board folder excluded works, file within board folder excluded works)
+5. ✅ `npm run build` and `npm test` pass
 
 **Deliverable:** Filter logic supports exclude paths, verified by unit tests.
 
-### Phase 2: View Plumbing
+**Implemented by:** [e898510](https://github.com/ErikaRS/task-list-kanban/commit/e898510)
+
+### Phase 2: View Plumbing ✅ COMPLETE
 **Goal:** The kanban view correctly passes exclude filters to the task store and actions. Testable by editing frontmatter settings manually and verifying tasks are excluded.
 
-1. Add `getExcludeFilter` callback to `text_view.ts`, computed from `settings.excludePaths`
-2. Pass `boardFolderPath` alongside exclude filter so the board folder override is applied at the filter level
-3. Thread `getExcludeFilter` through to `store.ts` (file discovery and event handlers)
-4. Thread `getExcludeFilter` and `boardFolderPath` through to `actions.ts` so the "Add new task" file picker excludes files/folders matching the exclude list (with board folder override)
-4. `npm run build` and `npm test` pass
+1. ✅ Add `getExcludeFilter` callback to `text_view.ts`, computed from `settings.excludePaths`
+2. ✅ Pass `boardFolderPath` alongside exclude filter so the board folder override is applied at the filter level
+3. ✅ Thread `getExcludeFilter` through to `store.ts` (file discovery and event handlers)
+4. ✅ Thread `getExcludeFilter` and `boardFolderPath` through to `actions.ts` so the "Add new task" file picker excludes files/folders matching the exclude list (with board folder override)
+5. ✅ `npm run build` and `npm test` pass
 
 **Deliverable:** Exclude paths work end-to-end when configured via frontmatter.
 
-### Phase 3: Settings UI
+**Implemented by:** [e898510](https://github.com/ErikaRS/task-list-kanban/commit/e898510)
+
+### Phase 3: Settings UI ✅ COMPLETE
 **Goal:** Users can manage exclude paths through the settings modal.
 
-1. Add "Excluded paths" section below the scope settings in `settings.ts`
-2. Add text input + "Add" button (same pattern as scopeFolders)
-3. Add exclude path list with ✕ remove buttons and "(not found)" validation
-4. Add board folder exact match rejection on add (silent, same as scopeFolders)
-5. Update `validateDefaultTaskFile` to also check exclude paths (respecting board folder override)
-6. `npm run build` and `npm test` pass
+1. ✅ Add "Excluded paths" section below the scope settings in `settings.ts`
+2. ✅ Add text input + "Add" button (same pattern as scopeFolders)
+3. ✅ Add exclude path list with ✕ remove buttons and "(not found)" validation
+4. ✅ Add board folder exact match rejection on add (silent, same as scopeFolders)
+5. ✅ Update `validateDefaultTaskFile` to also check exclude paths (respecting board folder override)
+6. ✅ `npm run build` and `npm test` pass
 
 **Deliverable:** Complete working feature — users can manage exclude paths through the UI.
+
+**Implemented by:** [e898510](https://github.com/ErikaRS/task-list-kanban/commit/e898510)
 
 ## Files to Modify
 
