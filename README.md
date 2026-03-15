@@ -41,7 +41,7 @@ The `#[column-name]` text won't be visible in the kanban view, keeping your task
 
 ### Setting Up Columns
 
-Access settings via the settings icon in the top right corner of your kanban.
+Access settings via the settings icon in the top right corner of your kanban. The Save and Cancel buttons are always visible at the bottom of the settings dialog, and a banner will appear if you have unsaved changes.
 
 **Basic Columns**: Add, edit, or remove columns in the 'Columns' section. Separate column names with commas.
 
@@ -71,7 +71,13 @@ Access settings via the settings icon in the top right corner of your kanban.
 
 **Selected folders**: The kanban shows tasks from specific folders you choose. When selected, a folder list appears where you can add vault-relative folder paths (e.g., `projects/active`). The board's own folder is always included and cannot be removed. Folders that don't exist in the vault are shown with a "(not found)" warning but are still saved (useful if the folder will be created later).
 
-Change this setting in the kanban's settings menu.
+### Excluded Paths
+
+You can exclude specific directories or files from the kanban's scope. Add paths in the "Excluded paths" setting (e.g., `templates` or `notes/scratch.md`). Excluded paths are applied after the folder scope, so they work with all three scope modes.
+
+The board's own folder is always protected — you cannot exclude it directly. However, you can exclude subdirectories within it.
+
+Change these settings in the kanban's settings menu.
 
 ## Advanced Features
 
