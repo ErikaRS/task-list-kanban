@@ -22,6 +22,8 @@ export function createTasksStore(
 	registerEvent: (eventRef: EventRef) => void,
 	columnTagTableStore: Readable<ColumnTagTable>,
 	getFilenameFilter: () => string[] | null,
+	getExcludeFilter: () => string[] | null,
+	getBoardFolderPath: () => string | null,
 	settingsStore: Writable<SettingValues>
 ): {
 	tasksStore: Writable<Task[]>;
@@ -54,7 +56,7 @@ export function createTasksStore(
 	}
 
 	function shouldHandle(file: TFile): boolean {
-		return shouldIncludeFilePath(file.path, getFilenameFilter());
+		return shouldIncludeFilePath(file.path, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath());
 	}
 
 	function processFile(fileHandle: TFile) {
@@ -130,6 +132,8 @@ export function createTasksStore(
 		vault,
 		workspace,
 		getFilenameFilter,
+		getExcludeFilter,
+		getBoardFolderPath,
 		getDefaultTaskFile: () => get(settingsStore).defaultTaskFile || null,
 	});
 

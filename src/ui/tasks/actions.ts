@@ -29,6 +29,8 @@ export function createTaskActions({
 	vault,
 	workspace,
 	getFilenameFilter,
+	getExcludeFilter,
+	getBoardFolderPath,
 	getDefaultTaskFile,
 }: {
 	tasksByTaskId: Map<string, Task>;
@@ -36,6 +38,8 @@ export function createTaskActions({
 	vault: Vault;
 	workspace: Workspace;
 	getFilenameFilter: () => string[] | null;
+	getExcludeFilter: () => string[] | null;
+	getBoardFolderPath: () => string | null;
 	getDefaultTaskFile: () => string | null;
 }): TaskActions {
 	async function updateRowWithTask(
@@ -125,7 +129,7 @@ export function createTaskActions({
 			const files = vault
 				.getMarkdownFiles()
 				.filter((file) =>
-					shouldIncludeFilePath(file.path, getFilenameFilter())
+					shouldIncludeFilePath(file.path, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath())
 				)
 				.sort((a, b) => a.path.localeCompare(b.path));
 
@@ -152,7 +156,9 @@ export function createTaskActions({
 				} else if (
 					!shouldIncludeFilePath(
 						defaultTaskFilePath,
-						getFilenameFilter()
+						getFilenameFilter(),
+						getExcludeFilter(),
+						getBoardFolderPath()
 					)
 				) {
 					defaultFileState = {

@@ -123,9 +123,15 @@ export class SettingsModal extends Modal {
 					scopeFilter = null;
 					break;
 			}
-			if (!shouldIncludeFilePath(value, scopeFilter)) {
+			if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], this.boardFolderPath)) {
+				const excludePaths = this.settings.excludePaths ?? [];
+				const isExcludedByPath = excludePaths.length > 0 &&
+					shouldIncludeFilePath(value, scopeFilter) &&
+					!shouldIncludeFilePath(value, scopeFilter, excludePaths, this.boardFolderPath);
 				setDefaultTaskFileError(
-					"File is outside the board's folder scope"
+					isExcludedByPath
+						? "File is excluded from the board's scope"
+						: "File is outside the board's folder scope"
 				);
 				return;
 			}
@@ -278,6 +284,110 @@ export class SettingsModal extends Modal {
 		folderListEl = folderListContainer.createDiv();
 		renderFolderList();
 		updateFolderListVisibility();
+
+		// --- Excluded paths UI ---
+		let excludeListEl: HTMLDivElement;
+
+		const renderExcludeRow = (
+			container: HTMLDivElement,
+			path: string
+		) => {
+			const row = container.createDiv();
+			row.style.display = "flex";
+			row.style.alignItems = "center";
+			row.style.justifyContent = "space-between";
+			row.style.padding = "4px 8px";
+			row.style.borderBottom =
+				"1px solid var(--background-modifier-border)";
+
+			const label = row.createSpan();
+			label.setText(path);
+			label.style.flexGrow = "1";
+
+			// Check if path exists in vault
+			const abstractPath =
+				this.app.vault.getAbstractFileByPath(path);
+			if (!abstractPath) {
+				const warning = row.createSpan();
+				warning.setText(" (not found)");
+				warning.style.color = "var(--text-error)";
+				warning.style.fontStyle = "italic";
+				warning.style.fontSize = "var(--font-smallest)";
+			}
+
+			const removeBtn = row.createEl("button");
+			removeBtn.setText("✕");
+			removeBtn.style.marginLeft = "8px";
+			removeBtn.style.cursor = "pointer";
+			removeBtn.style.background = "none";
+			removeBtn.style.border = "none";
+			removeBtn.style.color = "var(--text-muted)";
+			removeBtn.style.padding = "2px 6px";
+			removeBtn.addEventListener("click", () => {
+				this.settings.excludePaths = (
+					this.settings.excludePaths ?? []
+				).filter((p) => p !== path);
+				renderExcludeList();
+				validateDefaultTaskFile();
+			});
+		};
+
+		const renderExcludeList = () => {
+			excludeListEl.empty();
+			const paths = this.settings.excludePaths ?? [];
+			for (const path of paths) {
+				renderExcludeRow(excludeListEl, path);
+			}
+		};
+
+		const excludeContainer = this.contentEl.createDiv();
+		excludeContainer.style.marginBottom = "12px";
+
+		new Setting(excludeContainer)
+			.setName("Excluded paths")
+			.setDesc(
+				"Directories and files excluded from the scope above. The board's own folder is always included."
+			);
+
+		const excludeInputContainer = excludeContainer.createDiv();
+		excludeInputContainer.style.marginLeft = "16px";
+
+		const addExcludeRow = excludeInputContainer.createDiv();
+		addExcludeRow.style.display = "flex";
+		addExcludeRow.style.gap = "8px";
+		addExcludeRow.style.marginBottom = "8px";
+
+		const excludeInput = addExcludeRow.createEl("input", {
+			type: "text",
+			placeholder: "e.g., templates or notes/scratch.md",
+		});
+		excludeInput.style.flexGrow = "1";
+		excludeInput.addClass("setting-input");
+
+		const addExcludePath = () => {
+			const raw = excludeInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
+			if (!raw) return;
+			if (raw === this.boardFolderPath) return; // can't exclude the board folder directly
+			const paths = this.settings.excludePaths ?? [];
+			if (paths.includes(raw)) return;
+			this.settings.excludePaths = [...paths, raw];
+			excludeInput.value = "";
+			renderExcludeList();
+			validateDefaultTaskFile();
+		};
+
+		const addExcludeBtn = addExcludeRow.createEl("button", { text: "Add" });
+		addExcludeBtn.addEventListener("click", addExcludePath);
+
+		excludeInput.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				addExcludePath();
+			}
+		});
+
+		excludeListEl = excludeInputContainer.createDiv();
+		renderExcludeList();
 
 		const defaultTaskFileSetting = new Setting(this.contentEl)
 			.setName("Default task file")

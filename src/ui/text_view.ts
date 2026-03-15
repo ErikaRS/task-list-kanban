@@ -30,6 +30,8 @@ export class KanbanView extends TextFileView {
 	private readonly columnColourTableStore: Readable<ColumnColourTable>;
 
 	private filenameFilter: string[] | null = null;
+	private excludeFilter: string[] | null = null;
+	private boardFolderPath: string | null = null;
 
 	private readonly tasksStore: Writable<Task[]>;
 	private readonly taskActions: TaskActions;
@@ -43,20 +45,20 @@ export class KanbanView extends TextFileView {
 
 		this.settingsStore = createSettingsStore();
 		this.destroySettingsStore = this.settingsStore.subscribe((settings) => {
+			this.boardFolderPath = this.file?.parent?.path ?? null;
+
 			switch (settings.scope) {
 				case ScopeOption.Everywhere:
 					this.filenameFilter = null;
 					break;
 				case ScopeOption.Folder: {
-					const folderPath = this.file?.parent?.path;
-					this.filenameFilter = folderPath ? [folderPath] : null;
+					this.filenameFilter = this.boardFolderPath ? [this.boardFolderPath] : null;
 					break;
 				}
 				case ScopeOption.SelectedFolders: {
-					const boardFolder = this.file?.parent?.path;
 					const selected = settings.scopeFolders ?? [];
-					this.filenameFilter = boardFolder
-						? [boardFolder, ...selected.filter((f) => f !== boardFolder)]
+					this.filenameFilter = this.boardFolderPath
+						? [this.boardFolderPath, ...selected.filter((f) => f !== this.boardFolderPath)]
 						: selected;
 					break;
 				}
@@ -64,6 +66,9 @@ export class KanbanView extends TextFileView {
 					this.filenameFilter = null;
 					break;
 			}
+
+			const excludePaths = settings.excludePaths ?? [];
+			this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
 		});
 
 		const { columnTagTable, columnColourTable } = createColumnStores(
@@ -78,6 +83,8 @@ export class KanbanView extends TextFileView {
 			this.registerEvent.bind(this),
 			this.columnTagTableStore,
 			() => this.filenameFilter,
+			() => this.excludeFilter,
+			() => this.boardFolderPath,
 			this.settingsStore
 		);
 
