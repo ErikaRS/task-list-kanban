@@ -32,3 +32,6 @@ tmp_specs/
 
 # superpowers
 .superpowers/
+
+# dist
+dist/

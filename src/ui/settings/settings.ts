@@ -522,6 +522,52 @@ export class SettingsModal extends Modal {
 				});
 			});
 
+		this.scrollWrapper.createEl("h3", { text: "Subtasks" });
+
+		new Setting(this.scrollWrapper)
+			.setName("Parse subtasks")
+			.setDesc("Enable parsing of nested subtasks based on indentation.")
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.parseSubtasks ?? true);
+				toggle.onChange((value) => {
+					this.settings.parseSubtasks = value;
+					this.updateDirtyBanner();
+				});
+			});
+
+		new Setting(this.scrollWrapper)
+			.setName("Hide completed subtasks")
+			.setDesc("Hide subtasks that are marked as done (except in the Done column).")
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.hideCompletedSubtasks ?? false);
+				toggle.onChange((value) => {
+					this.settings.hideCompletedSubtasks = value;
+					this.updateDirtyBanner();
+				});
+			});
+
+		new Setting(this.scrollWrapper)
+			.setName("Sync parent status")
+			.setDesc("Automatically update parent task status based on children completion.")
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.syncParentStatus ?? true);
+				toggle.onChange((value) => {
+					this.settings.syncParentStatus = value;
+					this.updateDirtyBanner();
+				});
+			});
+
+		new Setting(this.scrollWrapper)
+			.setName("Collapse subtasks by default")
+			.setDesc("Keep subtasks collapsed when the board is loaded.")
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.subtasksCollapsedDefault ?? true);
+				toggle.onChange((value) => {
+					this.settings.subtasksCollapsedDefault = value;
+					this.updateDirtyBanner();
+				});
+			});
+
 		new Setting(this.scrollWrapper)
 			.setName("Done status markers")
 			.setDesc(

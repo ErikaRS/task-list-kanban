@@ -10,6 +10,7 @@
 	import { onDestroy } from "svelte";
 
 	export let app: App;
+
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
@@ -20,6 +21,18 @@
 	export let isSelected: boolean = false;
 	export let onToggleSelection: () => void = () => {};
 	export let selectedTaskIds: string[] = [];
+	export let allTasks: Task[] = [];
+	export let isSubtask: boolean = false;
+	export let hideCompletedSubtasks: boolean = false;
+	export let subtasksCollapsedDefault: boolean = true;
+
+	$: subtasks = allTasks.filter(t => t.parentTaskId === task.id);
+	$: renderedSubtasks = subtasks.filter(t => {
+		if (!hideCompletedSubtasks || displayColumn === 'done') return true;
+		return !t.done;
+	});
+	let subtasksExpanded = !subtasksCollapsedDefault;
+	$: doneSubtasksCount = subtasks.filter(t => t.done).length;
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -326,8 +339,9 @@
 		class:is-dragging={isDragging}
 		class:is-selected={isSelectionMode && isSelected}
 		class:is-selection-mode={isSelectionMode}
+		class:is-subtask={isSubtask}
 		role="group"
-		draggable={!isEditing}
+		draggable={!isEditing && !isSubtask}
 		on:dragstart={handleDragStart}
 		on:dragend={handleDragEnd}
 >
@@ -418,6 +432,37 @@
 			{/each}
 		</div>
 	{/if}
+	{#if subtasks.length > 0 && !isEditing}
+		<div class="subtasks-container">
+			<button class="subtasks-toggle" on:click={() => subtasksExpanded = !subtasksExpanded} aria-expanded={subtasksExpanded}>
+				<Icon name={subtasksExpanded ? "lucide-chevron-down" : "lucide-chevron-right"} size={14} opacity={0.5} />
+				<span>{doneSubtasksCount}/{subtasks.length} subtasks</span>
+			</button>
+			{#if subtasksExpanded}
+				<div class="subtasks-list">
+					{#each renderedSubtasks as st (st.id)}
+						<svelte:self
+							{app}
+							task={st}
+							{taskActions}
+							{columnTagTableStore}
+							{showFilepath}
+							{consolidateTags}
+							{displayColumn}
+							{isSelectionMode}
+							isSelected={selectedTaskIds.includes(st.id)}
+							onToggleSelection={() => { /* ... */ }}
+							{selectedTaskIds}
+							{allTasks}
+							{hideCompletedSubtasks}
+							{subtasksCollapsedDefault}
+							isSubtask={true}
+						/>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
 </div>
 
 <style lang="scss">
@@ -434,6 +479,23 @@
 		&.is-selected {
 			border-color: var(--interactive-accent);
 			background-color: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary-alt));
+		}
+
+		&.is-subtask {
+			border: none;
+			background: transparent;
+			padding: 0;
+			margin-left: 0;
+			border-radius: 0;
+
+			.task-row {
+				padding: var(--size-2-1) 0;
+				padding-inline-start: var(--size-4-4);
+			}
+
+			.task-footer {
+				display: none;
+			}
 		}
 
 		// Task row
@@ -591,6 +653,39 @@
 			gap: var(--size-4-1) var(--size-2-1);
 			padding: var(--size-4-2) var(--size-2-2);
 			padding-top: 0;
+		}
+
+		.subtasks-container {
+			display: flex;
+			flex-direction: column;
+
+			.subtasks-toggle {
+				display: flex;
+				align-items: center;
+				gap: var(--size-2-1);
+				padding: var(--size-2-1) var(--size-4-2);
+				background: transparent;
+				background-color: transparent;
+				border: none;
+				box-shadow: none;
+				cursor: pointer;
+				font-size: var(--font-ui-smaller);
+				color: var(--text-muted);
+				text-align: left;
+				width: max-content;
+
+				&:hover {
+					color: var(--text-normal);
+					background: transparent;
+					background-color: transparent;
+					box-shadow: none;
+				}
+			}
+
+			.subtasks-list {
+				display: flex;
+				flex-direction: column;
+			}
 		}
 	}
 
