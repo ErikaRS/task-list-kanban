@@ -22,6 +22,7 @@ export async function updateMapsFromFile({
 	doneStatusMarkers,
 	cancelledStatusMarkers,
 	ignoredStatusMarkers,
+	parseSubtasks,
 }: {
 	fileHandle: TFile;
 	tasksByTaskId: Map<string, Task>;
@@ -33,6 +34,7 @@ export async function updateMapsFromFile({
 	doneStatusMarkers: string;
 	cancelledStatusMarkers: string;
 	ignoredStatusMarkers: string;
+	parseSubtasks: boolean;
 }) {
 	try {
 		const previousTaskIds =
@@ -42,6 +44,7 @@ export async function updateMapsFromFile({
 		const contents = await vault.read(fileHandle);
 		const rows = contents.split("\n");
 		const columnTagTable = get(columnTagTableStore);
+		const taskStack: { task: Task; depth: number }[] = [];
 
 		for (let i = 0; i < rows.length; i++) {
 			const row = rows[i];
@@ -60,6 +63,23 @@ export async function updateMapsFromFile({
 					cancelledStatusMarkers,
 					ignoredStatusMarkers
 				);
+				task.hasChildren = false;
+
+				if (parseSubtasks) {
+					const depth = task.indentation.replace(/\t/g, "    ").length;
+
+					while (taskStack.length > 0 && taskStack[taskStack.length - 1]!.depth >= depth) {
+						taskStack.pop();
+					}
+
+					if (taskStack.length > 0) {
+						const parent = taskStack[taskStack.length - 1]!.task;
+						task.parentTaskId = parent.id;
+						parent.hasChildren = true;
+					}
+
+					taskStack.push({ task, depth });
+				}
 
 				newTaskIds.add(task.id);
 				tasksByTaskId.set(task.id, task);

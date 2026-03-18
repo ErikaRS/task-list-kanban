@@ -259,6 +259,8 @@ export class Task {
 	}
 
 	private _id: string;
+	public parentTaskId?: string;
+	public hasChildren: boolean = false;
 	get id() {
 		return this._id;
 	}

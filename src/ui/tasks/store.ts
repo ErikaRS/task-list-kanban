@@ -13,6 +13,7 @@ function getMarkerSettings(settings: SettingValues) {
 		doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 		cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 		ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		parseSubtasks: settings.parseSubtasks ?? true,
 	};
 }
 
@@ -135,6 +136,7 @@ export function createTasksStore(
 		getExcludeFilter,
 		getBoardFolderPath,
 		getDefaultTaskFile: () => get(settingsStore).defaultTaskFile || null,
+		getSyncParentStatus: () => get(settingsStore).syncParentStatus ?? true,
 	});
 
 	return { tasksStore, taskActions, initialise };

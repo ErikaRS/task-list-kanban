@@ -41,6 +41,7 @@ export function createTaskActions({
 	getExcludeFilter,
 	getBoardFolderPath,
 	getDefaultTaskFile,
+	getSyncParentStatus,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
@@ -50,6 +51,7 @@ export function createTaskActions({
 	getExcludeFilter: () => string[] | null;
 	getBoardFolderPath: () => string | null;
 	getDefaultTaskFile: () => string | null;
+	getSyncParentStatus: () => boolean;
 }): TaskActions {
 	async function updateRowWithTask(
 		id: string,
@@ -73,6 +75,38 @@ export function createTaskActions({
 		);
 	}
 
+	async function syncParent(id: string) {
+		if (!getSyncParentStatus()) return;
+
+		const task = tasksByTaskId.get(id);
+		if (!task) return;
+
+		const parentId = task.parentTaskId;
+		if (!parentId) return;
+
+		const parentTask = tasksByTaskId.get(parentId);
+		if (!parentTask) return;
+
+		const children = [...tasksByTaskId.values()].filter(
+			(t) => t.parentTaskId === parentId && t.path === task.path
+		);
+
+		if (children.length === 0) return;
+
+		const allDone = children.every((t) => t.done);
+
+		if (parentTask.done !== allDone) {
+			await updateRowWithTask(parentId, (t) => {
+				if (allDone) {
+					t.done = true;
+				} else {
+					t.undone();
+				}
+			});
+			await syncParent(parentId);
+		}
+	}
+
 	return {
 		async changeColumn(id, column) {
 			await updateRowWithTask(id, (task) => (task.column = column));
@@ -80,6 +114,7 @@ export function createTaskActions({
 
 		async markDone(id) {
 			await updateRowWithTask(id, (task) => (task.done = true));
+			await syncParent(id);
 		},
 
 		async toggleDone(id) {
@@ -90,6 +125,7 @@ export function createTaskActions({
 					task.done = true;
 				}
 			});
+			await syncParent(id);
 		},
 
 		async updateContent(id, content) {

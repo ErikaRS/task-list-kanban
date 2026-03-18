@@ -30,6 +30,9 @@
 	export let column: ColumnTag | DefaultColumns;
 	export let hideOnEmpty: boolean = false;
 	export let tasks: Task[];
+	export let allTasks: Task[];
+	export let hideCompletedSubtasks: boolean = false;
+	export let subtasksCollapsedDefault: boolean = true;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
@@ -340,6 +343,9 @@
 					<TaskComponent
 						{app}
 						{task}
+						{allTasks}
+						{hideCompletedSubtasks}
+						{subtasksCollapsedDefault}
 						{taskActions}
 						{columnTagTableStore}
 						{showFilepath}

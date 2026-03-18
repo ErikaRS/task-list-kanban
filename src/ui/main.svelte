@@ -275,6 +275,8 @@
 			done: [],
 		};
 		for (const task of tasks) {
+			if (task.parentTaskId && !task.hasChildren) continue;
+
 			if (task.done || task.column === "done") {
 				output["done"] = output["done"].concat(task);
 			} else if (task.column === "archived") {
@@ -640,6 +642,9 @@
 							{column}
 							hideOnEmpty={false}
 							tasks={tasksByColumn[column] ?? []}
+							allTasks={$tasksStore}
+							hideCompletedSubtasks={$settingsStore.hideCompletedSubtasks}
+							subtasksCollapsedDefault={$settingsStore.subtasksCollapsedDefault}
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}

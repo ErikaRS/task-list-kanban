@@ -88,6 +88,10 @@ const settingsObject = z.object({
 	defaultTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
 	excludePaths: z.array(z.string()).default([]).optional(),
+	parseSubtasks: z.boolean().default(true).optional(),
+	hideCompletedSubtasks: z.boolean().default(false).optional(),
+	syncParentStatus: z.boolean().default(true).optional(),
+	subtasksCollapsedDefault: z.boolean().default(true).optional(),
 });
 
 export type SettingValues = z.infer<typeof settingsObject>;
@@ -112,6 +116,10 @@ export const defaultSettings: SettingValues = {
 	defaultTaskFile: "",
 	scopeFolders: [],
 	excludePaths: [],
+	parseSubtasks: true,
+	hideCompletedSubtasks: false,
+	syncParentStatus: true,
+	subtasksCollapsedDefault: true,
 };
 
 export const createSettingsStore = () =>
