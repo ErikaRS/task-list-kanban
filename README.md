@@ -25,6 +25,8 @@ To assign a task to a specific column:
 
 The `#[column-name]` text won't be visible in the kanban view, keeping your tasks clean!
 
+**Creating tasks from the kanban**: Click the **+ Add new** button at the bottom of any column. If a default task file is configured (in settings) or you've previously added a task, the text input appears immediately — no file picker needed. A small indicator below the button shows which file will be used. If no file is known yet, a file picker appears to choose where the task should be saved; that choice is remembered for next time. You can click **(change)** on the indicator to pick a different file.
+
 ### Basic Task Management
 
 **Editing tasks**: Click any task text in the kanban view to edit it directly. Changes sync to the original file.
