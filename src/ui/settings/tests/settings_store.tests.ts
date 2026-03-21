@@ -372,6 +372,51 @@ describe("Default task file configuration", () => {
 	});
 });
 
+describe("Last-used task file configuration", () => {
+	it("defaults to empty string when lastUsedTaskFile is missing", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo", "In Progress", "Done"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.lastUsedTaskFile).toBe("");
+	});
+
+	it("parses lastUsedTaskFile string", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			lastUsedTaskFile: "notes/tasks.md",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.lastUsedTaskFile).toBe("notes/tasks.md");
+	});
+
+	it("roundtrips lastUsedTaskFile through serialization", () => {
+		const original = {
+			...defaultSettings,
+			lastUsedTaskFile: "folder/subfolder/tasks.md",
+		};
+
+		const serialized = toSettingsString(original);
+		const parsed = parseSettingsString(serialized);
+
+		expect(parsed.lastUsedTaskFile).toBe("folder/subfolder/tasks.md");
+	});
+
+	it("preserves both defaultTaskFile and lastUsedTaskFile independently", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			defaultTaskFile: "default.md",
+			lastUsedTaskFile: "recent.md",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.defaultTaskFile).toBe("default.md");
+		expect(parsed.lastUsedTaskFile).toBe("recent.md");
+	});
+});
+
 describe("Collapsed columns configuration", () => {
 	it("defaults to empty array when collapsedColumns is missing", () => {
 		const settingsJson = JSON.stringify({

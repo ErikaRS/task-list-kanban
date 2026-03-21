@@ -24,7 +24,8 @@ export function createTasksStore(
 	getFilenameFilter: () => string[] | null,
 	getExcludeFilter: () => string[] | null,
 	getBoardFolderPath: () => string | null,
-	settingsStore: Writable<SettingValues>
+	settingsStore: Writable<SettingValues>,
+	requestSave: () => void
 ): {
 	tasksStore: Writable<Task[]>;
 	taskActions: TaskActions;
@@ -135,6 +136,11 @@ export function createTasksStore(
 		getExcludeFilter,
 		getBoardFolderPath,
 		getDefaultTaskFile: () => get(settingsStore).defaultTaskFile || null,
+		getLastUsedTaskFile: () => get(settingsStore).lastUsedTaskFile || null,
+		setLastUsedTaskFile: (path: string) => {
+			settingsStore.update((s) => ({ ...s, lastUsedTaskFile: path }));
+			requestSave();
+		},
 	});
 
 	return { tasksStore, taskActions, initialise };

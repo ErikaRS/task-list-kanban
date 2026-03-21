@@ -382,6 +382,12 @@
 		flowDirection = FlowDirection.LeftToRight
 	} = $settingsStore);
 
+	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
+	$: void $settingsStore, targetTaskFile = taskActions.getTargetFile();
+	let targetTaskFile: import("obsidian").TFile | null = null;
+	// Target is from an explicit default when the default file is valid and matches the resolved target
+	$: targetFileIsDefault = !!targetTaskFile && !!$settingsStore.defaultTaskFile && targetTaskFile.path === $settingsStore.defaultTaskFile;
+
 	$: showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
 		$collapsedColumnsStore.has("uncategorised") ||
@@ -646,6 +652,8 @@
 							{showFilepath}
 							{consolidateTags}
 							{isVerticalFlow}
+							{targetTaskFile}
+							{targetFileIsDefault}
 							isCollapsed={$collapsedColumnsStore.has(column)}
 							onToggleCollapse={() => toggleColumnCollapse(column)}
 						/>

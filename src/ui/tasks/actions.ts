@@ -24,12 +24,14 @@ export type TaskActions = {
 		column: ColumnTag,
 		e: MouseEvent,
 		onFileSelected: (file: TFile) => void,
+		forceShowPicker?: boolean,
 	) => void;
 	createTask: (
 		file: TFile,
 		content: string,
 		column: ColumnTag,
 	) => Promise<void>;
+	getTargetFile: () => TFile | null;
 };
 
 export function createTaskActions({
@@ -41,6 +43,8 @@ export function createTaskActions({
 	getExcludeFilter,
 	getBoardFolderPath,
 	getDefaultTaskFile,
+	getLastUsedTaskFile,
+	setLastUsedTaskFile,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
@@ -50,7 +54,21 @@ export function createTaskActions({
 	getExcludeFilter: () => string[] | null;
 	getBoardFolderPath: () => string | null;
 	getDefaultTaskFile: () => string | null;
+	getLastUsedTaskFile: () => string | null;
+	setLastUsedTaskFile: (path: string) => void;
 }): TaskActions {
+	function resolveFileIfValid(filePath: string | null): TFile | null {
+		if (!filePath) return null;
+		const abstractFile = vault.getAbstractFileByPath(filePath);
+		if (!(abstractFile instanceof TFile)) return null;
+		if (!shouldIncludeFilePath(filePath, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath())) return null;
+		return abstractFile;
+	}
+
+	function getTargetFile(): TFile | null {
+		return resolveFileIfValid(getDefaultTaskFile()) ?? resolveFileIfValid(getLastUsedTaskFile());
+	}
+
 	async function updateRowWithTask(
 		id: string,
 		updater: (task: Task) => void
@@ -134,7 +152,23 @@ export function createTaskActions({
 			editorView?.editor.setCursor(rowIndex);
 		},
 
-		pickFileForNewTask(column, e, onFileSelected) {
+		getTargetFile,
+
+		pickFileForNewTask(column, e, onFileSelected, forceShowPicker = false) {
+			if (!forceShowPicker) {
+				const targetFile = getTargetFile();
+				if (targetFile) {
+					onFileSelected(targetFile);
+					return;
+				}
+			}
+
+			// Wrap onFileSelected to persist last-used file when picking through the menu
+			const onFileSelectedWithPersist = (file: TFile) => {
+				setLastUsedTaskFile(file.path);
+				onFileSelected(file);
+			};
+
 			const files = vault
 				.getMarkdownFiles()
 				.filter((file) =>
@@ -194,7 +228,7 @@ export function createTaskActions({
 						const df = defaultFileState.file;
 						menu.addItem((i) => {
 							i.setTitle(`★ ${df.path}`).onClick(() => {
-								onFileSelected(df);
+								onFileSelectedWithPersist(df);
 							});
 						});
 					} else {
@@ -213,7 +247,7 @@ export function createTaskActions({
 							folderItem instanceof TFile ? label : label + " →"
 						).onClick(() => {
 							if (folderItem instanceof TFile) {
-								onFileSelected(folderItem);
+								onFileSelectedWithPersist(folderItem);
 							} else {
 								createMenu(folderItem, menu);
 							}

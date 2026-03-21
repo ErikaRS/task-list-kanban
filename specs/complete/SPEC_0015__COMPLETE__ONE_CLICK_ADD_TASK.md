@@ -1,6 +1,6 @@
 # One-Click Add Task
 
-Status: IN_PROGRESS
+Status: COMPLETE
 
 **Related issues:** [#34 (comment)](https://github.com/ErikaRS/task-list-kanban/issues/34#issuecomment-4063392401) (FR: Skip file picker when default/last-used file is known)
 

@@ -86,6 +86,7 @@ const settingsObject = z.object({
 	flowDirection: z.nativeEnum(FlowDirection).default(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
 	defaultTaskFile: z.string().default("").optional(),
+	lastUsedTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
 	excludePaths: z.array(z.string()).default([]).optional(),
 });
@@ -110,6 +111,7 @@ export const defaultSettings: SettingValues = {
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],
 	defaultTaskFile: "",
+	lastUsedTaskFile: "",
 	scopeFolders: [],
 	excludePaths: [],
 };

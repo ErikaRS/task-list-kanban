@@ -85,7 +85,8 @@ export class KanbanView extends TextFileView {
 			() => this.filenameFilter,
 			() => this.excludeFilter,
 			() => this.boardFolderPath,
-			this.settingsStore
+			this.settingsStore,
+			() => this.requestSave()
 		);
 
 		this.tasksStore = tasksStore;

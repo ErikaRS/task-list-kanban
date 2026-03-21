@@ -36,6 +36,8 @@
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let isVerticalFlow: boolean = false;
+	export let targetTaskFile: TFile | null = null;
+	export let targetFileIsDefault: boolean = false;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
 
@@ -378,6 +380,34 @@
 					<span bind:this={buttonEl}></span>
 					Add new
 				</button>
+				{#if targetTaskFile}
+					<div class="file-indicator">
+						<span class="file-indicator-arrow">→</span>
+						<span class="file-indicator-name" title={targetTaskFile.path}>{targetTaskFile.name}</span>
+						{#if targetFileIsDefault}
+							<span class="file-indicator-label">(default)</span>
+						{:else}
+							<span
+								class="file-indicator-change"
+								role="button"
+								tabindex="0"
+								on:click={(e) => {
+									if (isColumnTag(column, columnTagTableStore)) {
+										taskActions.pickFileForNewTask(column, e, (file) => {
+											pendingNewTask = file;
+										}, true);
+									}
+								}}
+								on:keydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										e.currentTarget.click();
+									}
+								}}
+							>(change)</span>
+						{/if}
+					</div>
+				{/if}
 			{/if}
 		</div>
 	</div>
@@ -657,6 +687,39 @@
 
 				span {
 					height: 18px;
+				}
+			}
+
+			.file-indicator {
+				display: flex;
+				align-items: center;
+				gap: var(--size-2-1);
+				font-size: var(--font-ui-smaller);
+				color: var(--text-muted);
+				margin-top: var(--size-2-1);
+
+				.file-indicator-arrow {
+					flex-shrink: 0;
+				}
+
+				.file-indicator-name {
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
+
+				.file-indicator-label {
+					white-space: nowrap;
+				}
+
+				.file-indicator-change {
+					color: var(--text-accent);
+					cursor: pointer;
+					white-space: nowrap;
+
+					&:hover {
+						text-decoration: underline;
+					}
 				}
 			}
 		}
