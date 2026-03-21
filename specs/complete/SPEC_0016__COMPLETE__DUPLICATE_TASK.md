@@ -1,6 +1,7 @@
 # Duplicate Task
 
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-03
 
 **Related issues:** [#36](https://github.com/ErikaRS/task-list-kanban/issues/36) (FR: duplicate note)
 
@@ -28,8 +29,8 @@ Go to file
 ─────────
 Move to [Column]...
 Move to Done
-Duplicate task
 ─────────
+Duplicate task
 Cancel task / Restore task
 Archive task
 Delete task

@@ -138,6 +138,8 @@ Once tasks are selected, a count ("N selected") appears under the column title a
 
 You can also **drag** any selected task to a different column and all selected tasks in that column will move together. The Done column has an additional option to archive all tasks at once.
 
+**Duplicating tasks**: Use the task menu to duplicate a task. The duplicate is inserted directly below the original in the source file, with its checkbox reset to unchecked. Content, tags, column assignment, and formatting are all preserved.
+
 **Archive tasks**: Use the task settings menu (or bulk actions) to archive completed tasks. This marks them as done and removes them from the active kanban while preserving them in the original file.
 
 **Task formatting**: The plugin preserves original indentation and formatting when moving tasks between columns.

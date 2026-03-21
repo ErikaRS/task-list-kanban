@@ -9,6 +9,7 @@ import type { Task } from "./task";
 import type { Metadata } from "./tasks";
 import type { ColumnTag } from "../columns/columns";
 import { shouldIncludeFilePath } from "./scope";
+import { createDuplicateLine } from "./duplicate";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
@@ -20,6 +21,7 @@ export type TaskActions = {
 	cancelTasks: (ids: string[]) => Promise<void>;
 	restoreTasks: (ids: string[]) => Promise<void>;
 	deleteTask: (ids: string) => Promise<void>;
+	duplicateTask: (id: string) => Promise<void>;
 	pickFileForNewTask: (
 		column: ColumnTag,
 		e: MouseEvent,
@@ -134,6 +136,24 @@ export function createTaskActions({
 
 		async deleteTask(id) {
 			await updateRowWithTask(id, (task) => task.delete());
+		},
+
+		async duplicateTask(id) {
+			const metadata = metadataByTaskId.get(id);
+			if (!metadata) return;
+
+			const { fileHandle, rowIndex } = metadata;
+			const file = await vault.read(fileHandle);
+			const rows = file.split("\n");
+
+			if (rowIndex >= rows.length) return;
+
+			const originalLine = rows[rowIndex];
+			if (!originalLine) return;
+
+			const newLine = createDuplicateLine(originalLine);
+			rows.splice(rowIndex + 1, 0, newLine);
+			await vault.modify(fileHandle, rows.join("\n"));
 		},
 
 		async viewFile(id) {

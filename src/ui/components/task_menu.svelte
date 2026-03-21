@@ -53,6 +53,12 @@
 		menu.addSeparator();
 
 		menu.addItem((i) => {
+			i.setTitle(`Duplicate task`).onClick(() =>
+				taskActions.duplicateTask(task.id),
+			);
+		});
+
+		menu.addItem((i) => {
 			if (task.isCancelled) {
 				i.setTitle(`Restore task`).onClick(() =>
 					taskActions.restoreTasks([task.id]),
