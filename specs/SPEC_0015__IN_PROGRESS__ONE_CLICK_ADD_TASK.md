@@ -29,7 +29,7 @@ Users who consistently add tasks to the same file find the mandatory file picker
 The system resolves which file to use in priority order:
 
 1. **Default task file** (from board settings, SPEC_0010) — if configured and valid
-2. **Last-used file** (in-memory, per board) — if set and still valid
+2. **Last-used file** (persisted in board frontmatter, per board) — if set and still valid
 3. **None** — show file picker as today
 
 "Valid" means the file exists in the vault AND is within the board's folder scope.
@@ -56,7 +56,9 @@ The system resolves which file to use in priority order:
 
 ### Last-Used File Storage
 
-The last-used file path is stored in-memory only (not persisted to settings). It resets when the board is closed and reopened. This keeps the implementation simple and avoids polluting settings with transient state. The default task file setting (SPEC_0010) serves as the persistent preference.
+The last-used file path is persisted in the board's frontmatter settings as `lastUsedTaskFile` (alongside the existing `defaultTaskFile`). This means the last-used file survives board close/reopen, giving users one-click behavior automatically after their first task creation — even without explicitly configuring a default file.
+
+Unlike `defaultTaskFile`, `lastUsedTaskFile` is not exposed in the settings modal. It is written silently whenever the user picks a file through the file picker. Users who want explicit control use the `defaultTaskFile` setting; `lastUsedTaskFile` is the implicit, zero-configuration convenience layer.
 
 ### Interaction Flow
 
@@ -104,12 +106,14 @@ The last-used file path is stored in-memory only (not persisted to settings). It
   2. Opens the inline textarea (same as selecting a file via "Add new" today)
 - The "(change)" click should position the menu relative to the "(change)" link, not the "Add new" button
 
-### Last-Used File Memory
+### Last-Used File Persistence
 
-- Stored as a single `TFile` reference (or vault-relative path string) on the task actions instance
-- Scoped to the board's lifecycle — resets when the board view is destroyed and recreated
+- Stored as a vault-relative path string in the board's frontmatter settings (`lastUsedTaskFile`)
+- Persists across board close/reopen and Obsidian restarts
 - Updated whenever a file is selected through the picker (cold start or "(change)")
 - Not updated when the default task file is used (the default is authoritative; last-used is the fallback)
+- Not exposed in the settings modal — this is an implicit, auto-managed value
+- Uses the same Zod schema / settings store pattern as `defaultTaskFile`
 
 ### Edge Cases
 
@@ -125,14 +129,16 @@ The last-used file path is stored in-memory only (not persisted to settings). It
 
 **Goal:** Clicking "Add new" skips the file picker and opens the inline textarea directly when a default or last-used file is available.
 
-1. In `actions.ts`, add a `lastUsedFile` variable (string path or null) to the `createTaskActions` closure
-2. Add a `getTargetFile()` helper that resolves: default file → last-used file → null, validating each
-3. Modify `pickFileForNewTask` to check `getTargetFile()` first — if a valid file is found, call `onFileSelected` directly without showing the menu
-4. After any file selection through the picker, update `lastUsedFile`
-5. Verify: set default file → click "Add new" → textarea appears immediately (no menu)
-6. Verify: no default, add a task via picker → next "Add new" skips picker
-7. Verify: no default, no last-used → picker appears as today
-8. `npm run build` and `npm test` pass
+1. Add `lastUsedTaskFile` to the Zod schema in `settings_store.ts` (same pattern as `defaultTaskFile`)
+2. In `actions.ts`, accept a `getLastUsedTaskFile` callback and a `setLastUsedTaskFile` callback from the store
+3. Add a `getTargetFile()` helper that resolves: default file → last-used file → null, validating each
+4. Modify `pickFileForNewTask` to check `getTargetFile()` first — if a valid file is found, call `onFileSelected` directly without showing the menu
+5. After any file selection through the picker, call `setLastUsedTaskFile` to persist the choice
+6. Verify: set default file → click "Add new" → textarea appears immediately (no menu)
+7. Verify: no default, add a task via picker → next "Add new" skips picker
+8. Verify: no default, no last-used → picker appears as today
+9. Verify: close and reopen board → last-used file is remembered
+10. `npm run build` and `npm test` pass
 
 **Deliverable:** One-click task creation when a target file is known.
 
@@ -156,13 +162,13 @@ The last-used file path is stored in-memory only (not persisted to settings). It
 
 | File | Change |
 |------|--------|
-| `src/ui/tasks/actions.ts` | Add `lastUsedFile` state, `getTargetFile()` resolver, skip-picker logic, expose target file for UI |
+| `src/ui/settings/settings_store.ts` | Add `lastUsedTaskFile` to Zod schema and `defaultSettings` |
+| `src/ui/tasks/actions.ts` | Accept `getLastUsedTaskFile`/`setLastUsedTaskFile` callbacks, add `getTargetFile()` resolver, skip-picker logic, expose target file for UI |
 | `src/ui/components/column.svelte` | Add file indicator + "(change)" link below "Add new" button, wire to picker |
-| `src/ui/tasks/store.ts` | Expose target file state to components (if needed for reactivity) |
+| `src/ui/tasks/store.ts` | Create `getLastUsedTaskFile`/`setLastUsedTaskFile` callbacks from settings store, pass to `createTaskActions`; expose target file state to components |
 
 ## Out of Scope
 
-- Persisting last-used file across board reopen (the default task file setting serves this purpose)
 - Per-column last-used file memory (global per board is sufficient)
 - Per-board setting to force skip picker (explicitly avoiding per-board settings per maintainer preference)
 - Keyboard shortcut for "(change)"
