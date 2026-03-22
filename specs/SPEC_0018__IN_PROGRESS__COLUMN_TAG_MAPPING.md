@@ -97,14 +97,19 @@ This prevents renaming a label from breaking collapse state or any future per-co
 
 Replace the comma-separated `Columns` text input with a per-column editor list, visually closer to the concept referenced in issue `#28`.
 
-Each row should include:
+The editor should mirror the board layout:
 
-- Label input
-- Match mode selector: "Match by column name" vs "Match by explicit tags"
-- Tags input (shown only when match mode is "explicit tags"), for one or more tags
-- Color input or picker
-- Remove button
-- Drag handle for reordering columns
+1. **Uncategorized row** (fixed at top) — label and color only. No match mode, remove, or drag handle.
+2. **Custom column rows** (drag-reorderable) — each row includes:
+   - Label input
+   - Match mode selector: "Match by column name" vs "Match by explicit tags"
+   - Tags input (shown only when match mode is "explicit tags"), for one or more tags
+   - Color input or picker
+   - Remove button
+   - Drag handle for reordering
+3. **Done row** (fixed at bottom) — label and color only. No match mode, remove, or drag handle.
+
+The Uncategorized and Done rows should be visually distinct from custom columns (e.g., slightly muted) to make it clear they are fixed bookends, not reorderable or removable.
 
 The UI should make it obvious that:
 
@@ -163,10 +168,10 @@ A task that has some but not all of a column's `matchTags` does **not** match th
 
 ### Uncategorized and Done Columns
 
-The Uncategorized and Done columns are not configurable via `ColumnDefinition` and do not use tag matching:
+The Uncategorized and Done columns behave exactly as they do today — this spec does not change their logic. They are not configurable via `ColumnDefinition` and do not use tag matching:
 
-- **Done:** A task is done if it has a done marker (e.g., `[x]`) and does not have an archived tag. Column tags are irrelevant.
-- **Uncategorized:** A task is uncategorized if it is not done and does not fully satisfy any configured column's match rule. A partial match (some but not all of a tags-mode column's `matchTags`) still counts as uncategorized.
+- **Done:** A task is done if it has a done marker (e.g., `[x]`) and does not have an archived tag. Column tags are irrelevant. (Existing behavior, unchanged.)
+- **Uncategorized:** A task is uncategorized if it is not done and has no recognized column tag. With the new matching model, this means the task does not fully satisfy any configured column's match rule. A partial match (some but not all of a tags-mode column's `matchTags`) still counts as uncategorized. (Same logic as today, just applied to the new match rules.)
 
 ### Column Validation
 
@@ -345,6 +350,10 @@ All test cases must be checked off before this spec can be marked complete.
 - [ ] **UI4.** Adding a new column defaults to name mode.
 - [ ] **UI5.** Removing a column works — tasks that were in it become Uncategorized on next reparse.
 - [ ] **UI6.** Canceling the settings dialog discards all changes (no task files modified, no settings changed).
+- [ ] **UI7.** Uncategorized appears as the first row in the editor. It has label and color inputs but no match mode, remove button, or drag handle.
+- [ ] **UI8.** Done appears as the last row in the editor. It has label and color inputs but no match mode, remove button, or drag handle.
+- [ ] **UI9.** Uncategorized and Done rows are visually distinct from custom column rows.
+- [ ] **UI10.** Custom columns can be dragged to reorder, but cannot be dragged above Uncategorized or below Done.
 
 ### Settings Validation
 
