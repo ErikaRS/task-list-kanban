@@ -1,4 +1,5 @@
 import {
+	Keymap,
 	MarkdownView,
 	Menu,
 	TFile,
@@ -16,7 +17,7 @@ export type TaskActions = {
 	markDone: (id: string) => Promise<void>;
 	toggleDone: (id: string) => Promise<void>;
 	updateContent: (id: string, content: string) => Promise<void>;
-	viewFile: (id: string) => Promise<void>;
+	viewFile: (id: string, event?: MouseEvent | KeyboardEvent) => Promise<void>;
 	archiveTasks: (ids: string[]) => Promise<void>;
 	cancelTasks: (ids: string[]) => Promise<void>;
 	restoreTasks: (ids: string[]) => Promise<void>;
@@ -156,7 +157,7 @@ export function createTaskActions({
 			await vault.modify(fileHandle, rows.join("\n"));
 		},
 
-		async viewFile(id) {
+		async viewFile(id, event) {
 			const metadata = metadataByTaskId.get(id);
 
 			if (!metadata) {
@@ -165,7 +166,7 @@ export function createTaskActions({
 
 			const { fileHandle, rowIndex } = metadata;
 
-			const leaf = workspace.getLeaf("tab");
+			const leaf = workspace.getLeaf(Keymap.isModEvent(event));
 			await leaf.openFile(fileHandle);
 
 			const editorView = workspace.getActiveViewOfType(MarkdownView);

@@ -5,7 +5,7 @@
 	import type { Task } from "../tasks/task";
 	import TaskMenu from "./task_menu.svelte";
 	import Icon from "./icon.svelte";
-	import { Component, MarkdownRenderer, type App } from "obsidian";
+	import { Component, Keymap, MarkdownRenderer, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
 	import { onDestroy } from "svelte";
 
@@ -195,7 +195,7 @@
 		internalLinks.forEach((link) => {
 			const anchorEl = link as HTMLAnchorElement;
 
-			// Click handler
+			// Click handler — delegate to Obsidian's native modifier handling
 			anchorEl.addEventListener("click", (e) => {
 				e.preventDefault();
 				e.stopPropagation();
@@ -204,7 +204,7 @@
 					app.workspace.openLinkText(
 						linkTarget,
 						task.path,
-						true, // Open in new tab
+						Keymap.isModEvent(e),
 					);
 				}
 			});
@@ -392,11 +392,11 @@
 				class="go-to-file-button"
 				aria-label="Go to file"
 				title="Go to file"
-				on:click={() => taskActions.viewFile(task.id)}
+				on:click={(e) => taskActions.viewFile(task.id, e)}
 				on:keydown={(e) => {
 					if (e.key === 'Enter' || e.key === ' ') {
 						e.preventDefault();
-						taskActions.viewFile(task.id);
+						taskActions.viewFile(task.id, e);
 					}
 				}}
 				tabindex="0"
