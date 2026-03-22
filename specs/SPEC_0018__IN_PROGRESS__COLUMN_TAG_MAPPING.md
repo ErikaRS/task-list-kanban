@@ -227,12 +227,13 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 
 1. Add `ColumnDefinition` schema. Parse legacy strings into structured columns on load (`matchMode: 'name'`, empty `matchTags`). Preserve color syntax during migration.
 2. Generate stable `id` values for migrated columns. Move collapsed-column persistence from normalized labels to `column.id`.
-3. Replace the comma-separated column input with a per-column editor showing label and color per row.
+3. Replace the comma-separated column input with a per-column editor showing label and color per row, with add and remove buttons for custom columns.
 4. Add bookend rows for Uncategorized (top) and Done (bottom) with label and color only.
-5. Save in structured format on any save. Legacy format is not preserved.
-6. Tests: migration round-tripping, color preservation, parentheses edge cases, collapsed state by ID.
+5. Validate: empty labels blocked, duplicate name-mode columns that normalize to the same derived tag blocked.
+6. Cancel discards all changes. Save writes structured format. Legacy format is not preserved.
+7. Tests: migration round-tripping, color preservation, parentheses edge cases, collapsed state by ID, add/remove columns, cancel safety, basic validation.
 
-**Deliverable:** Better settings UI, structured data model in place, identical board behavior. Covers test cases: M1–M6, N1–N6, UI1, UI7–UI9, ID1, CO1–CO4.
+**Deliverable:** Better settings UI, structured data model in place, identical board behavior. Covers test cases: M1–M6, N1–N6, UI1, UI4–UI9, ID1, CO1–CO4, V4, V8.
 
 ### Phase 2: Column Rename with Task Propagation
 
@@ -261,14 +262,15 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 **Goal:** Users can configure a column to match by a single explicit tag instead of its label.
 
 1. Add match mode selector to the per-column editor UI ("Match by column name" vs "Match by explicit tags"). Tags input shown conditionally.
-2. Update matching logic to dispatch on `matchMode`. Tags-mode columns match by explicit tag; name-mode unchanged.
-3. Update task serialization: write the explicit tag when moving into a tags-mode column, remove it when moving out. Archive removes the column tag.
-4. Strip the explicit tag from card display. Show it as a subtitle beneath the column header.
-5. Add "Update existing task tags" checkbox when switching match mode or changing the tag.
-6. Add collision validation: identical single tags across columns, name-mode label vs single-tag collision.
-7. Tests: single-tag matching, tag stripping, write-back, mode switching with/without task update, collision detection.
+2. Refactor internal column identity: update menus, grouping, and drag/drop flows to pass `column.id` instead of `kebab(label)`. This is required before tags-mode columns can work, since their identity no longer derives from the label.
+3. Update matching logic to dispatch on `matchMode`. Tags-mode columns match by explicit tag; name-mode unchanged.
+4. Update task serialization: write the explicit tag when moving into a tags-mode column, remove it when moving out. Archive removes the column tag.
+5. Strip the explicit tag from card display. Show it as a subtitle beneath the column header.
+6. Add "Update existing task tags" checkbox when switching match mode or changing the tag.
+7. Add collision validation: identical single tags across columns, name-mode label vs single-tag collision.
+8. Tests: single-tag matching, tag stripping, write-back, internal ID refactoring, mode switching with/without task update, collision detection.
 
-**Deliverable:** Full single-tag explicit matching, end to end. Covers test cases: T1–T4, S1–S2, S4, H1–H2, V2–V5, V8, SC1–SC4, SC6, SC8, UI2–UI6, AR1–AR2.
+**Deliverable:** Full single-tag explicit matching, end to end. Covers test cases: T1–T4, S1–S2, S4, H1–H2, V2–V3, V5, SC1–SC4, SC6, SC8, UI2–UI3, UI5–UI6, AR1–AR2.
 
 ### Phase 5: Multi-Tag AND Matching
 
@@ -287,9 +289,9 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 
 ### Phase 6: Documentation and Final Audit
 
-**Goal:** Clean up remaining assumptions and update docs.
+**Goal:** Verify no stale assumptions remain and update docs.
 
-1. Audit all references to `settings.columns` string assumptions and `kebab(label)` identity patterns.
+1. Final audit for any remaining `kebab(label)` identity patterns or legacy `settings.columns` string assumptions missed in Phase 4.
 2. Update `README.md` and settings help text.
 3. Run full build and test quality gates.
 
