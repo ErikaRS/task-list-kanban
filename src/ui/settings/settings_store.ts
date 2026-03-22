@@ -89,6 +89,8 @@ const settingsObject = z.object({
 	lastUsedTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
 	excludePaths: z.array(z.string()).default([]).optional(),
+	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
+	doneColumnName: z.string().default("Done").optional(),
 });
 
 export type SettingValues = z.infer<typeof settingsObject>;
@@ -114,6 +116,8 @@ export const defaultSettings: SettingValues = {
 	lastUsedTaskFile: "",
 	scopeFolders: [],
 	excludePaths: [],
+	uncategorizedColumnName: "Uncategorized",
+	doneColumnName: "Done",
 };
 
 export const createSettingsStore = () =>

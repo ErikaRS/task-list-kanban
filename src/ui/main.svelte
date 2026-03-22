@@ -379,7 +379,9 @@
 		filtersSidebarExpanded = true,
 		filtersSidebarWidth = 280,
 		columnWidth = 300,
-		flowDirection = FlowDirection.LeftToRight
+		flowDirection = FlowDirection.LeftToRight,
+		uncategorizedColumnName,
+		doneColumnName,
 	} = $settingsStore);
 
 	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
@@ -656,6 +658,8 @@
 							{targetFileIsDefault}
 							isCollapsed={$collapsedColumnsStore.has(column)}
 							onToggleCollapse={() => toggleColumnCollapse(column)}
+							{uncategorizedColumnName}
+							{doneColumnName}
 						/>
 					{/each}
 				</div>

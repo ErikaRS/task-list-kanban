@@ -20,6 +20,7 @@
 	export let isSelected: boolean = false;
 	export let onToggleSelection: () => void = () => {};
 	export let selectedTaskIds: string[] = [];
+	export let doneColumnName: string | undefined = undefined;
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -382,7 +383,7 @@
 			{/if}
 		</div>
 		<div class="task-row-right">
-			<TaskMenu {task} {taskActions} {columnTagTableStore} />
+			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
 		</div>
 	</div>
 

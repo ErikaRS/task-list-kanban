@@ -69,6 +69,84 @@ export class SettingsModal extends Modal {
 				});
 			});
 
+		let uncategorizedNameInput: HTMLInputElement | null = null;
+		new Setting(this.scrollWrapper)
+			.setName("Uncategorized column")
+			.setDesc("Visibility and display name for untagged tasks")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption(VisibilityOption.AlwaysShow, "Always show")
+					.addOption(VisibilityOption.Auto, "Hide when empty")
+					.addOption(VisibilityOption.NeverShow, "Never show")
+					.setValue(
+						this.settings.uncategorizedVisibility ??
+						VisibilityOption.Auto
+					)
+					.onChange((value) => {
+						const validatedValue =
+							VisibilityOptionSchema.safeParse(value);
+						this.settings.uncategorizedVisibility =
+							validatedValue.success
+								? validatedValue.data
+								: defaultSettings.uncategorizedVisibility;
+						if (uncategorizedNameInput) {
+							const hidden = this.settings.uncategorizedVisibility === VisibilityOption.NeverShow;
+							uncategorizedNameInput.style.visibility = hidden ? "hidden" : "";
+						}
+						this.updateDirtyBanner();
+					});
+			})
+			.addText((text) => {
+				uncategorizedNameInput = text.inputEl;
+				text.setPlaceholder("Uncategorized");
+				text.setValue(this.settings.uncategorizedColumnName ?? "");
+				if ((this.settings.uncategorizedVisibility ?? VisibilityOption.Auto) === VisibilityOption.NeverShow) {
+					text.inputEl.style.visibility = "hidden";
+				}
+				text.onChange((value) => {
+					this.settings.uncategorizedColumnName = value;
+					this.updateDirtyBanner();
+				});
+			});
+
+		let doneNameInput: HTMLInputElement | null = null;
+		new Setting(this.scrollWrapper)
+			.setName("Done column")
+			.setDesc("Visibility and display name for completed tasks")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption(VisibilityOption.AlwaysShow, "Always show")
+					.addOption(VisibilityOption.Auto, "Hide when empty")
+					.addOption(VisibilityOption.NeverShow, "Never show")
+					.setValue(
+						this.settings.doneVisibility ?? VisibilityOption.Auto
+					)
+					.onChange((value) => {
+						const validatedValue =
+							VisibilityOptionSchema.safeParse(value);
+						this.settings.doneVisibility = validatedValue.success
+							? validatedValue.data
+							: defaultSettings.doneVisibility;
+						if (doneNameInput) {
+							const hidden = this.settings.doneVisibility === VisibilityOption.NeverShow;
+							doneNameInput.style.visibility = hidden ? "hidden" : "";
+						}
+						this.updateDirtyBanner();
+					});
+			})
+			.addText((text) => {
+				doneNameInput = text.inputEl;
+				text.setPlaceholder("Done");
+				text.setValue(this.settings.doneColumnName ?? "");
+				if ((this.settings.doneVisibility ?? VisibilityOption.AlwaysShow) === VisibilityOption.NeverShow) {
+					text.inputEl.style.visibility = "hidden";
+				}
+				text.onChange((value) => {
+					this.settings.doneColumnName = value;
+					this.updateDirtyBanner();
+				});
+			});
+
 		new Setting(this.scrollWrapper)
 			.setName("Column width")
 			.setDesc("Width of task cards in pixels (200-600)")
@@ -463,50 +541,6 @@ export class SettingsModal extends Modal {
 					this.settings.showFilepath = value;
 					this.updateDirtyBanner();
 				});
-			});
-
-		new Setting(this.scrollWrapper)
-			.setName("Uncategorized column visibility")
-			.setDesc("When to show the Uncategorized column")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(VisibilityOption.AlwaysShow, "Always show")
-					.addOption(VisibilityOption.Auto, "Hide when empty")
-					.addOption(VisibilityOption.NeverShow, "Never show")
-					.setValue(
-						this.settings.uncategorizedVisibility ??
-						VisibilityOption.Auto
-					)
-					.onChange((value) => {
-						const validatedValue =
-							VisibilityOptionSchema.safeParse(value);
-						this.settings.uncategorizedVisibility =
-							validatedValue.success
-								? validatedValue.data
-								: defaultSettings.uncategorizedVisibility;
-						this.updateDirtyBanner();
-					});
-			});
-
-		new Setting(this.scrollWrapper)
-			.setName("Done column visibility")
-			.setDesc("When to show the Done column")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(VisibilityOption.AlwaysShow, "Always show")
-					.addOption(VisibilityOption.Auto, "Hide when empty")
-					.addOption(VisibilityOption.NeverShow, "Never show")
-					.setValue(
-						this.settings.doneVisibility ?? VisibilityOption.Auto
-					)
-					.onChange((value) => {
-						const validatedValue =
-							VisibilityOptionSchema.safeParse(value);
-						this.settings.doneVisibility = validatedValue.success
-							? validatedValue.data
-							: defaultSettings.doneVisibility;
-						this.updateDirtyBanner();
-					});
 			});
 
 		new Setting(this.scrollWrapper)

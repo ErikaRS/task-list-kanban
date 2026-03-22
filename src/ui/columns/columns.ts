@@ -77,6 +77,22 @@ export function isColumnTag(
 	return input in get(columnTagTableStore);
 }
 
+const DEFAULT_UNCATEGORIZED_LABEL = "Uncategorized";
+const DEFAULT_DONE_LABEL = "Done";
+
+export function resolveDefaultColumnName(
+	column: DefaultColumns,
+	uncategorizedColumnName: string | undefined,
+	doneColumnName: string | undefined,
+): string {
+	switch (column) {
+		case "uncategorised":
+			return uncategorizedColumnName || DEFAULT_UNCATEGORIZED_LABEL;
+		case "done":
+			return doneColumnName || DEFAULT_DONE_LABEL;
+	}
+}
+
 export const createCollapsedColumnsStore = (
 	settingsStore: Writable<SettingValues>
 ): Readable<Set<string>> => {

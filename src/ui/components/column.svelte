@@ -6,6 +6,7 @@
 		type ColumnTagTable,
 		type ColumnColourTable,
 		isColumnTag,
+		resolveDefaultColumnName,
 	} from "../columns/columns";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
@@ -40,6 +41,8 @@
 	export let targetFileIsDefault: boolean = false;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
+	export let uncategorizedColumnName: string | undefined = undefined;
+	export let doneColumnName: string | undefined = undefined;
 
 	function getColumnTitle(
 		column: ColumnTag | DefaultColumns,
@@ -47,15 +50,19 @@
 	) {
 		switch (column) {
 			case "done":
-				return "Done";
 			case "uncategorised":
-				return "Uncategorised";
+				return resolveDefaultColumnName(column, uncategorizedColumnName, doneColumnName);
 			default:
 				return columnTagTable[column];
 		}
 	}
 
-	$: columnTitle = getColumnTitle(column, $columnTagTableStore);
+	$: columnTitle = (() => {
+		// Reference name props so Svelte re-derives when they change
+		void uncategorizedColumnName;
+		void doneColumnName;
+		return getColumnTitle(column, $columnTagTableStore);
+	})();
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
@@ -86,7 +93,7 @@
 			// Bulk actions for selected tasks
 			if (column !== "done") {
 				menu.addItem((i) => {
-					i.setTitle(`Move ${selectedCount} selected to Done`).onClick(
+					i.setTitle(`Move ${selectedCount} selected to ${resolveDefaultColumnName("done", uncategorizedColumnName, doneColumnName)}`).onClick(
 						async () => {
 							for (const id of selectedIds) {
 								await taskActions.markDone(id);
@@ -351,6 +358,7 @@
 						isSelected={isTaskSelected(task.id, $taskSelectionStore)}
 						onToggleSelection={() => toggleTaskSelection(task.id)}
 						selectedTaskIds={selectedIds}
+						{doneColumnName}
 					/>
 				{/each}
 			</div>

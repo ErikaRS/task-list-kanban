@@ -417,6 +417,72 @@ describe("Last-used task file configuration", () => {
 	});
 });
 
+describe("Default column name configuration", () => {
+	it("defaults uncategorizedColumnName to 'Uncategorized' when missing", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo", "In Progress", "Done"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.uncategorizedColumnName).toBe("Uncategorized");
+	});
+
+	it("defaults doneColumnName to 'Done' when missing", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo", "In Progress", "Done"],
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.doneColumnName).toBe("Done");
+	});
+
+	it("parses custom uncategorizedColumnName", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			uncategorizedColumnName: "Backlog",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.uncategorizedColumnName).toBe("Backlog");
+	});
+
+	it("parses custom doneColumnName", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			doneColumnName: "Complete",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.doneColumnName).toBe("Complete");
+	});
+
+	it("roundtrips custom column names through serialization", () => {
+		const original = {
+			...defaultSettings,
+			uncategorizedColumnName: "Inbox",
+			doneColumnName: "Finished",
+		};
+
+		const serialized = toSettingsString(original);
+		const parsed = parseSettingsString(serialized);
+
+		expect(parsed.uncategorizedColumnName).toBe("Inbox");
+		expect(parsed.doneColumnName).toBe("Finished");
+	});
+
+	it("preserves empty string for column names", () => {
+		const settingsJson = JSON.stringify({
+			...defaultSettings,
+			uncategorizedColumnName: "",
+			doneColumnName: "",
+		});
+		const parsed = parseSettingsString(settingsJson);
+
+		expect(parsed.uncategorizedColumnName).toBe("");
+		expect(parsed.doneColumnName).toBe("");
+	});
+});
+
 describe("Collapsed columns configuration", () => {
 	it("defaults to empty array when collapsedColumns is missing", () => {
 		const settingsJson = JSON.stringify({

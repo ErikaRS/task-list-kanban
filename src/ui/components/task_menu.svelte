@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Menu } from "obsidian";
-	import { type ColumnTag, type ColumnTagTable } from "../columns/columns";
+	import { type ColumnTag, type ColumnTagTable, resolveDefaultColumnName } from "../columns/columns";
 	import type { Task } from "../tasks/task";
 	import type { TaskActions } from "../tasks/actions";
 	import IconButton from "./icon_button.svelte";
@@ -9,6 +9,7 @@
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
+	export let doneColumnName: string | undefined = undefined;
 
 	function showMenu(e: MouseEvent) {
 		const menu = new Menu();
@@ -42,7 +43,7 @@
 		}
 
 		menu.addItem((i) => {
-			i.setTitle(`Move to Done`).onClick(() =>
+			i.setTitle(`Move to ${resolveDefaultColumnName("done", undefined, doneColumnName)}`).onClick(() =>
 				taskActions.markDone(task.id),
 			);
 			if (task.done) {

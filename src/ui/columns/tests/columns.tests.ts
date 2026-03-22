@@ -1,7 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { get } from "svelte/store";
-import { createCollapsedColumnsStore } from "../columns";
+import { createCollapsedColumnsStore, resolveDefaultColumnName } from "../columns";
 import { createSettingsStore, defaultSettings } from "../../settings/settings_store";
+
+describe("resolveDefaultColumnName", () => {
+	it("returns default 'Uncategorized' when no custom name is set", () => {
+		expect(resolveDefaultColumnName("uncategorised", undefined, undefined)).toBe("Uncategorized");
+	});
+
+	it("returns default 'Done' when no custom name is set", () => {
+		expect(resolveDefaultColumnName("done", undefined, undefined)).toBe("Done");
+	});
+
+	it("returns custom uncategorized name when set", () => {
+		expect(resolveDefaultColumnName("uncategorised", "Backlog", undefined)).toBe("Backlog");
+	});
+
+	it("returns custom done name when set", () => {
+		expect(resolveDefaultColumnName("done", undefined, "Complete")).toBe("Complete");
+	});
+
+	it("falls back to default when custom name is empty string", () => {
+		expect(resolveDefaultColumnName("uncategorised", "", undefined)).toBe("Uncategorized");
+		expect(resolveDefaultColumnName("done", undefined, "")).toBe("Done");
+	});
+});
 
 describe("createCollapsedColumnsStore", () => {
 	it("returns empty set when collapsedColumns is not set", () => {
