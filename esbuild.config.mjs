@@ -17,6 +17,10 @@ const require = createRequire(import.meta.url);
 const svelteVersion = require("svelte/package.json").version;
 const svelteMajorVersion = Number.parseInt(svelteVersion.split(".")[0] ?? "4", 10);
 const compilerOptions = { css: "injected" };
+const ignoredSvelteWarnings = new Set([
+	"a11y_no_static_element_interactions",
+	"element_invalid_self_closing_tag",
+]);
 
 if (svelteMajorVersion >= 5) {
 	compilerOptions.compatibility = { componentApi: 4 };
@@ -55,6 +59,11 @@ const context = await esbuild.context({
 		sassPlugin(),
 		esbuildSvelte({
 			compilerOptions,
+			filterWarnings: (warning) =>
+				!(
+					warning.filename?.includes("node_modules/svelte-select/Select.svelte") &&
+					ignoredSvelteWarnings.has(warning.code)
+				),
 			preprocess: sveltePreprocess(),
 		}),
 	],
