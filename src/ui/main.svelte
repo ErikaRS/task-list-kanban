@@ -677,6 +677,7 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
+		font-size: var(--font-text-size);
 
 		.sidebar-toggle-btn {
 			position: fixed;
