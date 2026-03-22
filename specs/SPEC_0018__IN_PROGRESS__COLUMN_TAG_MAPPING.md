@@ -219,55 +219,79 @@ This checkbox is per-column and only relevant when the column’s matching confi
 
 ## Implementation Plan
 
-### Phase 1: Structured Settings and Migration
+Each phase delivers end-to-end functionality that can be tested and shipped independently.
 
-**Goal:** Boards load old column settings into a new structured in-memory model without behavior change.
+### Phase 1: Per-Column Settings UI and Migration
 
-1. Add `ColumnDefinition` schema and supporting parsing helpers in the settings layer.
-2. Extend settings parsing to accept both legacy string columns and new structured columns.
-3. Preserve legacy color syntax during migration.
-4. Generate stable `id` values for migrated columns.
-5. Update tests for settings round-tripping and migration from legacy frontmatter.
+**Goal:** Replace the comma-separated column input with a per-column editor, backed by the new structured model. No behavior change to matching.
 
-**Deliverable:** Existing boards open with unchanged behavior, but the app can now reason about columns as structured objects.
+1. Add `ColumnDefinition` schema. Parse legacy strings into structured columns on load (`matchMode: 'name'`, empty `matchTags`). Preserve color syntax during migration.
+2. Generate stable `id` values for migrated columns. Move collapsed-column persistence from normalized labels to `column.id`.
+3. Replace the comma-separated column input with a per-column editor showing label and color per row.
+4. Add bookend rows for Uncategorized (top) and Done (bottom) with label and color only.
+5. Save in structured format on any save. Legacy format is not preserved.
+6. Tests: migration round-tripping, color preservation, parentheses edge cases, collapsed state by ID.
 
-### Phase 2: Matching and Serialization
+**Deliverable:** Better settings UI, structured data model in place, identical board behavior. Covers test cases: M1–M6, N1–N6, UI1, UI7–UI9, ID1, CO1–CO4.
 
-**Goal:** Task parsing and task writes use explicit column matching rules instead of label-only identity.
+### Phase 2: Column Rename with Task Propagation
 
-1. Replace `ColumnTagTable` with a structure that tests each task's full tag set against column match rules, supporting AND semantics for `matchTags` and resolving `column.id` back to display metadata.
-2. Update task parsing to dispatch on `matchMode`: name-mode columns use label-derived matching, tags-mode columns check that a task contains **all** `matchTags`.
-3. Update task serialization to write **all** `matchTags` for the destination column, and remove **all** source column tags when moving.
-4. Update menus, grouping, and drag/drop flows to pass column IDs internally.
-5. Display `matchTags` as a subtitle beneath the column label for tags-mode columns.
-6. Add tests for: single-tag matching, multi-tag AND matching, partial tag sets not matching, legacy compatibility matching, subset/superset column validation, and multi-column conflict resolution by column order.
+**Goal:** Users can rename columns and optionally update existing tasks.
 
-**Deliverable:** Users can configure explicit mapping and still move tasks between columns correctly.
+1. Renaming a name-mode column's label changes its effective derived tag.
+2. Add "Update existing task tags" checkbox (default checked) when a name-mode column's label changes. On save: find tasks with old derived tag, replace with new derived tag.
+3. Renaming preserves color, `matchTags`, `id`, and collapsed state.
+4. Tests: rename preserves config, task retagging with checkbox on/off, cancel safety.
 
-### Phase 3: Settings UI Replacement
+**Deliverable:** Column rename works end-to-end with optional task migration. Covers test cases: R1–R3, SC5–SC7, ID2.
 
-**Goal:** Users can edit structured column settings directly from a clearer UI.
+### Phase 3: Column Reordering
 
-1. Replace the comma-separated column input with a per-column editor list.
-2. Add per-column fields for label, match mode selector, tags input (conditional on tags mode), and color.
-3. Add per-column "Update existing task tags" checkbox, default checked, shown when match configuration has changed.
-4. Surface inline validation for empty labels, identical `matchTags` conflicts, name/tags-mode collisions, and unusable columns (tags mode with no tags).
-5. On save, execute task retagging for columns where the checkbox is checked and the match rule changed.
-6. Preserve the existing overall settings modal patterns so this still feels native to the plugin.
-7. Confirm the UI reflects the intent discussed in issue `#28`.
+**Goal:** Users can drag columns into a new order in the settings editor.
 
-**Deliverable:** Users can configure column display and matching rules without encoding behavior into label text.
+1. Add drag handles to custom column rows.
+2. Uncategorized and Done are fixed bookends — not draggable.
+3. Persist new order on save. Cancel reverts.
+4. Tests: reorder + save, reorder + cancel, tasks stay in correct columns.
 
-### Phase 4: State Cleanup and Follow-Through
+**Deliverable:** Drag-reorder in settings. Covers test cases: O1–O3, UI10.
 
-**Goal:** Finish the migration by removing old assumptions that column identity equals normalized label.
+### Phase 4: Single Explicit Tag Matching
 
-1. Move collapsed-column persistence from normalized labels to stable `column.id` values.
-2. Audit all references to `settings.columns` and `kebab(label)` assumptions.
-3. Update documentation in `README.md` and settings help text.
-4. Run build and test quality gates before landing.
+**Goal:** Users can configure a column to match by a single explicit tag instead of its label.
 
-**Deliverable:** Column behavior is fully driven by structured settings, and no major UI or persistence path depends on legacy label parsing.
+1. Add match mode selector to the per-column editor UI ("Match by column name" vs "Match by explicit tags"). Tags input shown conditionally.
+2. Update matching logic to dispatch on `matchMode`. Tags-mode columns match by explicit tag; name-mode unchanged.
+3. Update task serialization: write the explicit tag when moving into a tags-mode column, remove it when moving out. Archive removes the column tag.
+4. Strip the explicit tag from card display. Show it as a subtitle beneath the column header.
+5. Add "Update existing task tags" checkbox when switching match mode or changing the tag.
+6. Add collision validation: identical single tags across columns, name-mode label vs single-tag collision.
+7. Tests: single-tag matching, tag stripping, write-back, mode switching with/without task update, collision detection.
+
+**Deliverable:** Full single-tag explicit matching, end to end. Covers test cases: T1–T4, S1–S2, S4, H1–H2, V2–V5, V8, SC1–SC4, SC6, SC8, UI2–UI6, AR1–AR2.
+
+### Phase 5: Multi-Tag AND Matching
+
+**Goal:** Tags-mode columns can require multiple tags, all of which must be present (AND semantics).
+
+1. Allow multiple tags in the tags input field.
+2. Update matching to check that a task contains **all** `matchTags`. Tag order is irrelevant.
+3. Update task serialization to write **all** tags on move-in, remove **all** on move-out and archive.
+4. Partial matches go to Uncategorized — those tags remain visible, not stripped.
+5. Column header subtitle shows all tags. Tag stripping removes all matched tags.
+6. Multi-column conflict resolution uses column definition order.
+7. Extend validation: identical `matchTags` sets blocked; subset relationships and partial overlaps are valid.
+8. Tests: AND matching, partial match → Uncategorized, tag order independence, write/remove all, archive, conflict resolution, subset validation.
+
+**Deliverable:** Full multi-tag AND matching. Covers test cases: A1–A8, S3, S5, H3, C1–C2, U1–U5, V1, V3, V6–V7, AR3.
+
+### Phase 6: Documentation and Final Audit
+
+**Goal:** Clean up remaining assumptions and update docs.
+
+1. Audit all references to `settings.columns` string assumptions and `kebab(label)` identity patterns.
+2. Update `README.md` and settings help text.
+3. Run full build and test quality gates.
 
 ## Manual Test Cases
 
