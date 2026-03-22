@@ -18,7 +18,7 @@ This change must also preserve other column settings currently embedded in the `
 1. Users can give each column a display label that is independent from the tag or tags used to match tasks into that column.
 2. Users can configure one or more explicit matching tags per column as an alternative to label-derived matching. When multiple tags are configured, a task must contain **all** of them to match (AND semantics).
 3. Each column uses either label-derived matching or explicit tag matching, not both.
-4. Label-derived matching continues to recognize the current normalized variants of a column name, such as `#InProgress` and `#in-progress`.
+4. Label-derived matching recognizes tags that normalize to the same kebab-case form as the column label. For example, a column labeled "In Progress" matches `#in-progress` and `#InProgress` (both kebab-normalize to `in-progress`), but not `#inprogress` or `#IN_PROGRESS`.
 5. Existing boards continue to work without manual migration.
 6. Existing column colors are preserved when old settings are migrated.
 7. Moving a task into a column writes predictable placement tags back to the source file.
