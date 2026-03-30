@@ -133,7 +133,6 @@ describe("createColumnStores reserved key filtering", () => {
 		const { columnPlacementTagTable } = createColumnStores(settingsStore);
 
 		const placementTags = Object.values(get(columnPlacementTagTable));
-		// "DONE" → "d-o-n-e" (each uppercase letter gets a dash prefix)
 		expect(placementTags).toContain("d-o-n-e");
 		expect(placementTags).toContain("todo");
 	});

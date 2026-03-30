@@ -1069,7 +1069,6 @@ describe("Columns with spaces and special characters", () => {
 		expect(task?.column).toBe("in-progress");
 
 		const output = task?.serialise();
-		// Should fall back to kebab-case because "In Progress" has spaces
 		expect(output).toBe("- [ ] Something #in-progress");
 	});
 
@@ -1084,7 +1083,6 @@ describe("Columns with spaces and special characters", () => {
 		expect(task?.column).toBe("waiting-for-review");
 
 		const output = task?.serialise();
-		// Should fall back to kebab-case because "Waiting for review" has spaces
 		expect(output).toBe("- [ ] Something #waiting-for-review");
 	});
 

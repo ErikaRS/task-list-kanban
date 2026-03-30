@@ -22,20 +22,26 @@ const FlowDirectionSchema = z.nativeEnum(FlowDirection);
 
 export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
+	private readonly originalSettings: SettingValues;
 	private scrollWrapper!: HTMLDivElement;
 	private dirtyBanner: HTMLElement | null = null;
 	private validationError: string | null = null;
 	private validationBanner: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
 	private columnsEditorEl: HTMLDivElement | null = null;
+	private readonly updateExistingTaskTagsByColumnId = new Map<string, boolean>();
 
 	constructor(
 		app: App,
 		private settings: SettingValues,
-		private readonly onSubmit: (newSettings: SettingValues) => void,
+		private readonly onSubmit: (
+			newSettings: SettingValues,
+			options: { updateExistingTaskTagsByColumnId: Record<string, boolean> },
+		) => void | Promise<void>,
 		private readonly boardFolderPath: string | null
 	) {
 		super(app);
+		this.originalSettings = structuredClone(settings);
 		this.originalSettingsSnapshot = JSON.stringify(settings);
 	}
 
@@ -74,6 +80,21 @@ export class SettingsModal extends Modal {
 	private touchSettings() {
 		this.validateColumns();
 		this.updateDirtyBanner();
+	}
+
+	private getOriginalColumn(columnId: string): ColumnDefinition | undefined {
+		return this.originalSettings.columns.find((column) => column.id === columnId);
+	}
+
+	private shouldShowRetagOption(column: ColumnDefinition): boolean {
+		const originalColumn = this.getOriginalColumn(column.id);
+		if (!originalColumn) return false;
+		if (originalColumn.matchMode !== "name" || column.matchMode !== "name") return false;
+		return originalColumn.label !== column.label;
+	}
+
+	private shouldUpdateExistingTaskTags(columnId: string): boolean {
+		return this.updateExistingTaskTagsByColumnId.get(columnId) ?? true;
 	}
 
 	private addColumn() {
@@ -207,13 +228,27 @@ export class SettingsModal extends Modal {
 		row.createDiv({ cls: "column-editor-mode", text: "Tagged" });
 
 		const fields = row.createDiv({ cls: "column-editor-fields" });
+		const renameOption = row.createDiv({ cls: "column-editor-rename-option" });
 
 		const labelField = fields.createDiv({ cls: "column-editor-field" });
 		const labelInput = labelField.createEl("input", { type: "text", value: column.label });
 		labelInput.addClass("setting-input");
 		labelInput.setAttribute("aria-label", "Column label");
+		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
+		const renameLabel = renameOption.createEl("label", {
+			text: "Update existing task tags",
+		});
+		const updateRenameOption = () => {
+			const show = this.shouldShowRetagOption(column);
+			renameOption.style.display = show ? "flex" : "none";
+			renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
+			renameCheckbox.setAttribute("aria-label", `Update existing task tags for ${column.label || "column"}`);
+			void renameLabel;
+		};
+		updateRenameOption();
 		labelInput.addEventListener("input", () => {
 			column.label = labelInput.value;
+			updateRenameOption();
 			this.touchSettings();
 		});
 
@@ -230,11 +265,16 @@ export class SettingsModal extends Modal {
 			column.color = colorInput.value.trim() || undefined;
 			this.touchSettings();
 		});
+		renameCheckbox.addEventListener("change", () => {
+			this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
+			this.touchSettings();
+		});
 
 		const removeButton = row.createEl("button", { text: "✕", cls: "clickable-icon" });
 		removeButton.setAttribute("aria-label", `Remove ${column.label} column`);
 		removeButton.addEventListener("click", () => {
 			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
+			this.updateExistingTaskTagsByColumnId.delete(column.id);
 			this.renderColumnsEditor();
 			this.touchSettings();
 		});
@@ -768,7 +808,9 @@ export class SettingsModal extends Modal {
 
 		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
 		this.saveBtn.addEventListener("click", () => {
-			this.onSubmit(this.settings);
+			void this.onSubmit(this.settings, {
+				updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+			});
 			this.close();
 		});
 

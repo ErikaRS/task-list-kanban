@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { Notice, TextFileView, WorkspaceLeaf } from "obsidian";
 import matter from "front-matter";
 
 import Main from "./main.svelte";
@@ -21,6 +21,7 @@ import {
 	type ColumnPlacementLookupTable,
 	type ColumnPlacementTagTable,
 } from "./columns/columns";
+import { applyRenamedColumnTagUpdates } from "./settings/column_rename_migration";
 
 export const KANBAN_VIEW_NAME = "kanban-view";
 
@@ -101,7 +102,25 @@ export class KanbanView extends TextFileView {
 		this.initialiseTasksStore = initialise;
 	}
 
-	private onLocalSettingsChange(newSettings: SettingValues) {
+	private async onLocalSettingsChange(
+		newSettings: SettingValues,
+		options: { updateExistingTaskTagsByColumnId: Record<string, boolean> },
+	) {
+		const previousSettings = structuredClone(get(this.settingsStore));
+		try {
+			await applyRenamedColumnTagUpdates({
+				vault: this.app.vault,
+				oldSettings: previousSettings,
+				newSettings,
+				boardFolderPath: this.file?.parent?.path ?? null,
+				renameChoices: options.updateExistingTaskTagsByColumnId,
+			});
+		} catch (error) {
+			console.error("Failed to update renamed column task tags", error);
+			new Notice("Failed to update existing task tags for renamed columns.");
+			return;
+		}
+
 		this.settingsStore.set(newSettings);
 		this.initialiseTasksStore();
 		this.requestSave();
@@ -111,7 +130,7 @@ export class KanbanView extends TextFileView {
 		const settingsModal = new SettingsModal(
 			this.app,
 			structuredClone(get(this.settingsStore)),
-			(newSettings) => this.onLocalSettingsChange(newSettings),
+			(newSettings, options) => this.onLocalSettingsChange(newSettings, options),
 			this.file?.parent?.path ?? null
 		);
 

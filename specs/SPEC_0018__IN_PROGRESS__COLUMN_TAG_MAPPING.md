@@ -221,30 +221,32 @@ This checkbox is per-column and only relevant when the column’s matching confi
 
 Each phase delivers end-to-end functionality that can be tested and shipped independently.
 
-### Phase 1: Per-Column Settings UI and Migration
+### Phase 1: Per-Column Settings UI and Migration ✅ COMPLETE
 
 **Goal:** Replace the comma-separated column input with a per-column editor, backed by the new structured model. No behavior change to matching.
 
-1. Add `ColumnDefinition` schema. Parse legacy strings into structured columns on load (`matchMode: 'name'`, empty `matchTags`). Preserve color syntax during migration.
-2. Generate stable `id` values for migrated columns. Move collapsed-column persistence from normalized labels to `column.id`.
-3. Replace the comma-separated column input with a per-column editor showing label and color per row, with add and remove buttons for custom columns.
-4. Add bookend rows for Uncategorized (top) and Done (bottom) with label and color only.
-5. Validate: empty labels blocked, duplicate name-mode columns that normalize to the same derived tag blocked.
-6. Cancel discards all changes. Save writes structured format. Legacy format is not preserved.
-7. Tests: migration round-tripping, color preservation, parentheses edge cases, collapsed state by ID, add/remove columns, cancel safety, basic validation.
+1. ✅ Add `ColumnDefinition` schema. Parse legacy strings into structured columns on load (`matchMode: 'name'`, empty `matchTags`). Preserve color syntax during migration.
+2. ✅ Generate stable `id` values for migrated columns. Move collapsed-column persistence from normalized labels to `column.id`.
+3. ✅ Replace the comma-separated column input with a compact per-column editor showing inline label editing and add/remove controls for custom columns.
+4. ✅ Add fixed bookend rows for Uncategorized (top) and Done (bottom) with inline rename and visibility controls.
+5. ✅ Validate: empty labels blocked, duplicate name-mode columns that normalize to the same derived tag blocked.
+6. ✅ Cancel discards all changes. Save writes structured format. Legacy format is not preserved.
+7. ✅ Tests: migration round-tripping, color preservation, parentheses edge cases, collapsed state by ID, add/remove columns, cancel safety, basic validation.
 
-**Deliverable:** Better settings UI, structured data model in place, identical board behavior. Covers test cases: M1–M6, N1–N6, UI1, UI4–UI9, ID1, CO1–CO4, V4, V8.
+**Deliverable:** Better settings UI, structured data model in place, identical board behavior. The new editor is present and compact, but it is not yet a full replacement for the old flow because custom columns cannot be reordered yet and new columns can only be appended at the end. Covers test cases: M1–M6, N1–N6, UI1, UI4–UI9, ID1, CO1–CO4, V4, V8.
 
-### Phase 2: Column Rename with Task Propagation
+**Implemented by:** `7f7e003` (`feat(settings): add structured column editor foundation`)
+
+### Phase 2: Column Rename with Task Propagation ✅ COMPLETE
 
 **Goal:** Users can rename columns and optionally update existing tasks.
 
-1. Renaming a name-mode column's label changes its effective derived tag.
-2. Add "Update existing task tags" checkbox (default checked) when a name-mode column's label changes. On save: find tasks with old derived tag, replace with new derived tag.
-3. Renaming preserves color, `matchTags`, `id`, and collapsed state.
-4. Tests: rename preserves config, task retagging with checkbox on/off, cancel safety.
+1. ✅ Renaming a name-mode column's label changes its effective derived tag.
+2. ✅ Add "Update existing task tags" checkbox (default checked) when a name-mode column's label changes. On save: find tasks with old derived tag, replace with new derived tag.
+3. ✅ Renaming preserves color, `matchTags`, `id`, and collapsed state.
+4. ✅ Tests: rename preserves config, task retagging with checkbox on/off, old-scope handling, cancel safety via save-only application.
 
-**Deliverable:** Column rename works end-to-end with optional task migration. Covers test cases: R1–R3, SC5–SC7, ID2.
+**Deliverable:** Column rename works end-to-end with optional task migration. The settings UI now surfaces a per-column opt-in for rewriting existing task tags when a name-mode label changes, and save applies the rewrite before persisting the new settings. Covers test cases: R1–R3, SC5–SC7, ID2.
 
 ### Phase 3: Column Reordering
 

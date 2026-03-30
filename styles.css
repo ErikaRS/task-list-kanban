@@ -96,6 +96,16 @@ If your plugin does not need CSS, delete this file.
 	background: var(--background-secondary-alt);
 }
 
+.column-editor-rename-option {
+	grid-column: 2 / 3;
+	display: none;
+	align-items: center;
+	gap: 8px;
+	padding-top: 2px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
 .column-editor-mode {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
@@ -159,6 +169,10 @@ If your plugin does not need CSS, delete this file.
 @media (max-width: 720px) {
 	.column-editor-row {
 		grid-template-columns: 1fr;
+	}
+
+	.column-editor-rename-option {
+		grid-column: auto;
 	}
 
 	.column-editor-fields {

@@ -33,48 +33,13 @@ export const createColumnStores = (
 } => {
 	const columnDefinitions = derived([settingsStore], ([settings]) => settings.columns ?? []);
 
-	const columnTagTable = derived([columnDefinitions], ([columns]) => {
-		const output: ColumnTagTable = {};
+	const columnTagTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnTagTable);
 
-		for (const column of columns) {
-			if (RESERVED_COLUMN_KEYS.has(column.id)) continue;
-			output[column.id] = column.label;
-		}
+	const columnColourTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnColourTable);
 
-		return output;
-	});
+	const columnPlacementTagTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnPlacementTagTable);
 
-	const columnColourTable = derived([columnDefinitions], ([columns]) => {
-		const output: ColumnColourTable = {};
-
-		for (const column of columns) {
-			if (RESERVED_COLUMN_KEYS.has(column.id) || !column.color) continue;
-			output[column.id] = column.color;
-		}
-
-		return output;
-	});
-
-	const columnPlacementTagTable = derived([columnDefinitions], ([columns]) => {
-		const output: ColumnPlacementTagTable = {};
-
-		for (const column of columns) {
-			if (RESERVED_COLUMN_KEYS.has(column.id)) continue;
-			output[column.id] = getColumnPlacementTag(column);
-		}
-
-		return output;
-	});
-
-	const columnPlacementLookupTable = derived([columnPlacementTagTable], ([placementTable]) => {
-		const output: ColumnPlacementLookupTable = {};
-
-		for (const [columnId, placementTag] of Object.entries(placementTable)) {
-			output[placementTag] = columnId as ColumnTag;
-		}
-
-		return output;
-	});
+	const columnPlacementLookupTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnPlacementLookupTable);
 
 	return {
 		columnDefinitions,
@@ -121,3 +86,33 @@ export const createCollapsedColumnsStore = (
 		return new Set<string>(settings.collapsedColumns ?? []);
 	});
 };
+
+export function createColumnData(columns: ColumnDefinition[]): {
+	columnTagTable: ColumnTagTable;
+	columnColourTable: ColumnColourTable;
+	columnPlacementTagTable: ColumnPlacementTagTable;
+	columnPlacementLookupTable: ColumnPlacementLookupTable;
+} {
+	const columnTagTable: ColumnTagTable = {};
+	const columnColourTable: ColumnColourTable = {};
+	const columnPlacementTagTable: ColumnPlacementTagTable = {};
+	const columnPlacementLookupTable: ColumnPlacementLookupTable = {};
+
+	for (const column of columns) {
+		if (RESERVED_COLUMN_KEYS.has(column.id)) continue;
+		columnTagTable[column.id] = column.label;
+		if (column.color) {
+			columnColourTable[column.id] = column.color;
+		}
+		const placementTag = getColumnPlacementTag(column);
+		columnPlacementTagTable[column.id] = placementTag;
+		columnPlacementLookupTable[placementTag] = column.id;
+	}
+
+	return {
+		columnTagTable,
+		columnColourTable,
+		columnPlacementTagTable,
+		columnPlacementLookupTable,
+	};
+}
