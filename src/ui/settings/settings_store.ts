@@ -1,6 +1,12 @@
 import { writable } from "svelte/store";
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS } from "../tasks/task";
+import {
+	type ColumnDefinition,
+	createColumnId,
+	migrateCollapsedColumns,
+	migrateColumnDefinitions,
+} from "../columns/definitions";
 
 export enum VisibilityOption {
 	Auto = "auto",
@@ -59,8 +65,16 @@ const savedFilterSchema = z.object({
 	file: fileValueSchema.optional(),
 });
 
+const columnDefinitionSchema = z.object({
+	id: z.string(),
+	label: z.string(),
+	color: z.string().optional(),
+	matchMode: z.enum(["name", "tags"]).default("name"),
+	matchTags: z.array(z.string()).default([]),
+});
+
 const settingsObject = z.object({
-	columns: z.array(z.string()),
+	columns: z.array(z.union([z.string(), columnDefinitionSchema])),
 	scope: z.nativeEnum(ScopeOption).default(ScopeOption.Folder),
 	showFilepath: z.boolean().default(true).optional(),
 	consolidateTags: z.boolean().default(false).optional(),
@@ -93,10 +107,36 @@ const settingsObject = z.object({
 	doneColumnName: z.string().default("Done").optional(),
 });
 
-export type SettingValues = z.infer<typeof settingsObject>;
+export interface SettingValues {
+	columns: ColumnDefinition[];
+	scope: ScopeOption;
+	showFilepath?: boolean;
+	consolidateTags?: boolean;
+	uncategorizedVisibility?: VisibilityOption;
+	doneVisibility?: VisibilityOption;
+	doneStatusMarkers?: string;
+	cancelledStatusMarkers?: string;
+	ignoredStatusMarkers?: string;
+	savedFilters?: SavedFilter[];
+	lastContentFilter?: string;
+	lastTagFilter?: string[];
+	lastFileFilter?: string[];
+	filtersExpanded?: boolean;
+	filtersSidebarExpanded?: boolean;
+	filtersSidebarWidth?: number;
+	columnWidth?: number;
+	flowDirection?: FlowDirection;
+	collapsedColumns?: string[];
+	defaultTaskFile?: string;
+	lastUsedTaskFile?: string;
+	scopeFolders?: string[];
+	excludePaths?: string[];
+	uncategorizedColumnName?: string;
+	doneColumnName?: string;
+}
 
 export const defaultSettings: SettingValues = {
-	columns: ["Later", "Soonish", "Next week", "This week", "Today", "Pending"],
+	columns: createDefaultColumns(["Later", "Soonish", "Next week", "This week", "Today", "Pending"]),
 	scope: ScopeOption.Folder,
 	showFilepath: true,
 	consolidateTags: false,
@@ -127,7 +167,15 @@ export function parseSettingsString(str: string): SettingValues {
 	try {
 		const parsed = JSON.parse(str);
 		const partial = settingsObject.partial().parse(parsed);
-		return { ...defaultSettings, ...partial };
+		const columns = migrateColumnDefinitions(
+			(partial.columns ?? defaultSettings.columns) as Array<string | Partial<ColumnDefinition>>,
+		);
+		return {
+			...defaultSettings,
+			...partial,
+			columns,
+			collapsedColumns: migrateCollapsedColumns(partial.collapsedColumns, columns),
+		};
 	} catch {
 		return defaultSettings;
 	}
@@ -135,4 +183,14 @@ export function parseSettingsString(str: string): SettingValues {
 
 export function toSettingsString(settings: SettingValues): string {
 	return JSON.stringify(settings);
+}
+
+function createDefaultColumns(labels: string[]): ColumnDefinition[] {
+	const usedIds = new Set<string>();
+	return labels.map((label) => ({
+		id: createColumnId(label, usedIds),
+		label,
+		matchMode: "name",
+		matchTags: [],
+	}));
 }

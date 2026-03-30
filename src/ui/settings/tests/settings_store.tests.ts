@@ -6,6 +6,7 @@ import {
 	FlowDirection,
 	type SavedFilter,
 } from "../settings_store";
+import { migrateColumnDefinitions } from "../../columns/definitions";
 
 describe("Settings dirty check", () => {
 	it("detects no changes as clean", () => {
@@ -16,7 +17,7 @@ describe("Settings dirty check", () => {
 
 	it("detects column change as dirty", () => {
 		const original = { ...defaultSettings };
-		const current = { ...defaultSettings, columns: ["A", "B"] };
+		const current = { ...defaultSettings, columns: migrateColumnDefinitions(["A", "B"]) };
 		expect(JSON.stringify(current)).not.toBe(JSON.stringify(original));
 	});
 
@@ -494,13 +495,15 @@ describe("Collapsed columns configuration", () => {
 	});
 
 	it("parses collapsedColumns array", () => {
+		const columns = migrateColumnDefinitions(["Backlog", "Waiting"]);
 		const settingsJson = JSON.stringify({
 			...defaultSettings,
+			columns,
 			collapsedColumns: ["backlog", "waiting"],
 		});
 		const parsed = parseSettingsString(settingsJson);
 
-		expect(parsed.collapsedColumns).toEqual(["backlog", "waiting"]);
+		expect(parsed.collapsedColumns).toEqual(columns.map((column) => column.id));
 	});
 
 	it("parses empty collapsedColumns array", () => {
@@ -526,14 +529,17 @@ describe("Collapsed columns configuration", () => {
 	});
 
 	it("roundtrips collapsedColumns through serialization", () => {
+		const collapsedColumns = defaultSettings.columns
+			.filter((column) => ["Later", "Today"].includes(column.label))
+			.map((column) => column.id);
 		const original = {
 			...defaultSettings,
-			collapsedColumns: ["backlog", "later"],
+			collapsedColumns,
 		};
 
 		const serialized = toSettingsString(original);
 		const parsed = parseSettingsString(serialized);
 
-		expect(parsed.collapsedColumns).toEqual(["backlog", "later"]);
+		expect(parsed.collapsedColumns).toEqual(collapsedColumns);
 	});
 });

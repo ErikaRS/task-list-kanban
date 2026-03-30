@@ -10,7 +10,11 @@ import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import { kebab } from "src/parsing/kebab/kebab";
-import { RESERVED_COLUMN_KEYS, parseColumnSpec } from "../columns/columns";
+import {
+	RESERVED_COLUMN_KEYS,
+	type ColumnDefinition,
+} from "../columns/columns";
+import { createColumnId } from "../columns/definitions";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -23,6 +27,7 @@ export class SettingsModal extends Modal {
 	private validationError: string | null = null;
 	private validationBanner: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
+	private columnsEditorEl: HTMLDivElement | null = null;
 
 	constructor(
 		app: App,
@@ -39,17 +44,200 @@ export class SettingsModal extends Modal {
 	}
 
 	private validateColumns() {
-		const reserved = (this.settings.columns ?? [])
-			.filter(col => col.trim() !== "")
-			.filter(col => RESERVED_COLUMN_KEYS.has(kebab(parseColumnSpec(col).label)));
-		if (reserved.length > 0) {
-			const names = reserved.map(c => `"${parseColumnSpec(c).label}"`).join(", ");
-			this.validationError =
-				`Column name ${names} conflicts with a built-in column. Please choose a different name.`;
-		} else {
-			this.validationError = null;
+		const errors: string[] = [];
+		const seenDerivedTags = new Map<string, string>();
+
+		for (const column of this.settings.columns ?? []) {
+			const label = column.label.trim();
+			if (label.length === 0) {
+				errors.push("Column labels cannot be empty.");
+				continue;
+			}
+
+			const derivedTag = kebab(label);
+			if (RESERVED_COLUMN_KEYS.has(derivedTag)) {
+				errors.push(`Column name "${label}" conflicts with a built-in column.`);
+			}
+
+			const existingLabel = seenDerivedTags.get(derivedTag);
+			if (existingLabel) {
+				errors.push(`Columns "${existingLabel}" and "${label}" match the same tag.`);
+			} else {
+				seenDerivedTags.set(derivedTag, label);
+			}
 		}
+
+		this.validationError = errors.length > 0 ? errors[0]! : null;
 		this.updateValidationBanner();
+	}
+
+	private touchSettings() {
+		this.validateColumns();
+		this.updateDirtyBanner();
+	}
+
+	private addColumn() {
+		const usedIds = new Set(this.settings.columns.map((column) => column.id));
+		this.settings.columns = [
+			...this.settings.columns,
+			{
+				id: createColumnId("New Column", usedIds),
+				label: "New Column",
+				matchMode: "name",
+				matchTags: [],
+			},
+		];
+		this.renderColumnsEditor();
+		this.touchSettings();
+	}
+
+	private renderColumnsEditor() {
+		if (!this.columnsEditorEl) {
+			return;
+		}
+
+		this.columnsEditorEl.empty();
+
+		const section = this.columnsEditorEl.createDiv({ cls: "column-editor-section" });
+		section.createEl("h2", { text: "Columns" });
+		section.createEl("p", {
+			text: "Edit each board column directly. Labels control display and current tag matching.",
+			cls: "setting-item-description",
+		});
+
+		const rows = section.createDiv({ cls: "column-editor-list" });
+		this.renderBookendRow(rows, {
+			title: "Uncategorized",
+			label: this.settings.uncategorizedColumnName ?? "",
+			placeholder: "Uncategorized",
+			visibility: this.settings.uncategorizedVisibility ?? VisibilityOption.Auto,
+			onLabelChange: (value) => {
+				this.settings.uncategorizedColumnName = value;
+				this.touchSettings();
+			},
+			onVisibilityChange: (value) => {
+				const validatedValue = VisibilityOptionSchema.safeParse(value);
+				this.settings.uncategorizedVisibility = validatedValue.success
+					? validatedValue.data
+					: defaultSettings.uncategorizedVisibility;
+				this.touchSettings();
+			},
+		});
+
+		for (const column of this.settings.columns) {
+			this.renderCustomColumnRow(rows, column);
+		}
+
+		this.renderBookendRow(rows, {
+			title: "Done",
+			label: this.settings.doneColumnName ?? "",
+			placeholder: "Done",
+			visibility: this.settings.doneVisibility ?? VisibilityOption.AlwaysShow,
+			onLabelChange: (value) => {
+				this.settings.doneColumnName = value;
+				this.touchSettings();
+			},
+			onVisibilityChange: (value) => {
+				const validatedValue = VisibilityOptionSchema.safeParse(value);
+				this.settings.doneVisibility = validatedValue.success
+					? validatedValue.data
+					: defaultSettings.doneVisibility;
+				this.touchSettings();
+			},
+		});
+
+		const controls = section.createDiv({ cls: "column-editor-controls" });
+		const addButton = controls.createEl("button", { text: "Add column" });
+		addButton.addEventListener("click", () => this.addColumn());
+	}
+
+	private renderBookendRow(
+		container: HTMLDivElement,
+		options: {
+			title: string;
+			label: string;
+			placeholder: string;
+			visibility: VisibilityOption;
+			onLabelChange: (value: string) => void;
+			onVisibilityChange: (value: string) => void;
+		},
+	) {
+		const row = container.createDiv({ cls: "column-editor-row is-bookend" });
+		const mode = row.createDiv({ cls: "column-editor-mode", text: "Fixed" });
+
+		const fields = row.createDiv({ cls: "column-editor-fields" });
+
+		const labelField = fields.createDiv({ cls: "column-editor-field" });
+		const labelInput = labelField.createEl("input", {
+			type: "text",
+			value: options.label,
+			placeholder: options.placeholder,
+		});
+		labelInput.addClass("setting-input");
+		labelInput.addEventListener("input", () => {
+			options.onLabelChange(labelInput.value);
+		});
+
+		const visibilityField = fields.createDiv({ cls: "column-editor-field" });
+		const visibilityLabel = visibilityField.createDiv({ cls: "column-editor-inline-label", text: "Visibility" });
+		const visibilitySelect = visibilityField.createEl("select");
+		visibilitySelect.addClass("dropdown");
+		visibilitySelect.setAttribute("aria-label", `${options.title} visibility`);
+		visibilitySelect.createEl("option", {
+			value: VisibilityOption.AlwaysShow,
+			text: "Always show",
+		});
+		visibilitySelect.createEl("option", {
+			value: VisibilityOption.Auto,
+			text: "Hide when empty",
+		});
+		visibilitySelect.createEl("option", {
+			value: VisibilityOption.NeverShow,
+			text: "Never show",
+		});
+		visibilitySelect.value = options.visibility;
+		visibilitySelect.addEventListener("change", () => {
+			options.onVisibilityChange(visibilitySelect.value);
+		});
+		void visibilityLabel;
+	}
+
+	private renderCustomColumnRow(container: HTMLDivElement, column: ColumnDefinition) {
+		const row = container.createDiv({ cls: "column-editor-row" });
+		row.createDiv({ cls: "column-editor-mode", text: "Tagged" });
+
+		const fields = row.createDiv({ cls: "column-editor-fields" });
+
+		const labelField = fields.createDiv({ cls: "column-editor-field" });
+		const labelInput = labelField.createEl("input", { type: "text", value: column.label });
+		labelInput.addClass("setting-input");
+		labelInput.setAttribute("aria-label", "Column label");
+		labelInput.addEventListener("input", () => {
+			column.label = labelInput.value;
+			this.touchSettings();
+		});
+
+		const colorField = fields.createDiv({ cls: "column-editor-field column-editor-field-color" });
+		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
+		const colorInput = colorField.createEl("input", {
+			type: "text",
+			value: column.color ?? "",
+			placeholder: "#RRGGBB",
+		});
+		colorInput.addClass("setting-input");
+		colorInput.setAttribute("aria-label", `${column.label} color`);
+		colorInput.addEventListener("input", () => {
+			column.color = colorInput.value.trim() || undefined;
+			this.touchSettings();
+		});
+
+		const removeButton = row.createEl("button", { text: "✕", cls: "clickable-icon" });
+		removeButton.setAttribute("aria-label", `Remove ${column.label} column`);
+		removeButton.addEventListener("click", () => {
+			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
+			this.renderColumnsEditor();
+			this.touchSettings();
+		});
 	}
 
 	private updateValidationBanner() {
@@ -91,99 +279,9 @@ export class SettingsModal extends Modal {
 		this.scrollWrapper = this.contentEl.createDiv({ cls: "settings-scroll-wrapper" });
 		this.scrollWrapper.createEl("h1", { text: "Settings" });
 
-		new Setting(this.scrollWrapper)
-			.setName("Columns")
-			.setDesc('The column names separated by a comma ","')
-			.setClass("column")
-			.addText((text) => {
-				text.setValue(this.settings.columns.join(", "));
-				text.onChange((value) => {
-					this.settings.columns = value
-						.split(",")
-						.map((column) => column.trim());
-					this.validateColumns();
-					this.updateDirtyBanner();
-				});
-			});
+		this.columnsEditorEl = this.scrollWrapper.createDiv();
+		this.renderColumnsEditor();
 		this.validateColumns();
-
-		let uncategorizedNameInput: HTMLInputElement | null = null;
-		new Setting(this.scrollWrapper)
-			.setName("Uncategorized column")
-			.setDesc("Visibility and display name for untagged tasks")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(VisibilityOption.AlwaysShow, "Always show")
-					.addOption(VisibilityOption.Auto, "Hide when empty")
-					.addOption(VisibilityOption.NeverShow, "Never show")
-					.setValue(
-						this.settings.uncategorizedVisibility ??
-						VisibilityOption.Auto
-					)
-					.onChange((value) => {
-						const validatedValue =
-							VisibilityOptionSchema.safeParse(value);
-						this.settings.uncategorizedVisibility =
-							validatedValue.success
-								? validatedValue.data
-								: defaultSettings.uncategorizedVisibility;
-						if (uncategorizedNameInput) {
-							const hidden = this.settings.uncategorizedVisibility === VisibilityOption.NeverShow;
-							uncategorizedNameInput.style.visibility = hidden ? "hidden" : "";
-						}
-						this.updateDirtyBanner();
-					});
-			})
-			.addText((text) => {
-				uncategorizedNameInput = text.inputEl;
-				text.setPlaceholder("Uncategorized");
-				text.setValue(this.settings.uncategorizedColumnName ?? "");
-				if ((this.settings.uncategorizedVisibility ?? VisibilityOption.Auto) === VisibilityOption.NeverShow) {
-					text.inputEl.style.visibility = "hidden";
-				}
-				text.onChange((value) => {
-					this.settings.uncategorizedColumnName = value;
-					this.updateDirtyBanner();
-				});
-			});
-
-		let doneNameInput: HTMLInputElement | null = null;
-		new Setting(this.scrollWrapper)
-			.setName("Done column")
-			.setDesc("Visibility and display name for completed tasks")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(VisibilityOption.AlwaysShow, "Always show")
-					.addOption(VisibilityOption.Auto, "Hide when empty")
-					.addOption(VisibilityOption.NeverShow, "Never show")
-					.setValue(
-						this.settings.doneVisibility ?? VisibilityOption.Auto
-					)
-					.onChange((value) => {
-						const validatedValue =
-							VisibilityOptionSchema.safeParse(value);
-						this.settings.doneVisibility = validatedValue.success
-							? validatedValue.data
-							: defaultSettings.doneVisibility;
-						if (doneNameInput) {
-							const hidden = this.settings.doneVisibility === VisibilityOption.NeverShow;
-							doneNameInput.style.visibility = hidden ? "hidden" : "";
-						}
-						this.updateDirtyBanner();
-					});
-			})
-			.addText((text) => {
-				doneNameInput = text.inputEl;
-				text.setPlaceholder("Done");
-				text.setValue(this.settings.doneColumnName ?? "");
-				if ((this.settings.doneVisibility ?? VisibilityOption.AlwaysShow) === VisibilityOption.NeverShow) {
-					text.inputEl.style.visibility = "hidden";
-				}
-				text.onChange((value) => {
-					this.settings.doneColumnName = value;
-					this.updateDirtyBanner();
-				});
-			});
 
 		new Setting(this.scrollWrapper)
 			.setName("Column width")

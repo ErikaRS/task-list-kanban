@@ -289,7 +289,7 @@
 	}
 
 	let columns: ("uncategorised" | ColumnTag)[];
-	$: columns = Object.keys($columnTagTableStore) as ColumnTag[];
+	$: columns = $settingsStore.columns.map((column) => column.id);
 
 	let filterText = "";
 	let fileFilter = "";

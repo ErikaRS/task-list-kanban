@@ -18,6 +18,8 @@ import {
 	createColumnStores,
 	type ColumnTagTable,
 	type ColumnColourTable,
+	type ColumnPlacementLookupTable,
+	type ColumnPlacementTagTable,
 } from "./columns/columns";
 
 export const KANBAN_VIEW_NAME = "kanban-view";
@@ -28,6 +30,8 @@ export class KanbanView extends TextFileView {
 
 	private readonly columnTagTableStore: Readable<ColumnTagTable>;
 	private readonly columnColourTableStore: Readable<ColumnColourTable>;
+	private readonly columnPlacementTagTableStore: Readable<ColumnPlacementTagTable>;
+	private readonly columnPlacementLookupTableStore: Readable<ColumnPlacementLookupTable>;
 
 	private filenameFilter: string[] | null = null;
 	private excludeFilter: string[] | null = null;
@@ -71,17 +75,20 @@ export class KanbanView extends TextFileView {
 			this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
 		});
 
-		const { columnTagTable, columnColourTable } = createColumnStores(
+		const { columnTagTable, columnColourTable, columnPlacementTagTable, columnPlacementLookupTable } = createColumnStores(
 			this.settingsStore
 		);
 		this.columnTagTableStore = columnTagTable;
 		this.columnColourTableStore = columnColourTable;
+		this.columnPlacementTagTableStore = columnPlacementTagTable;
+		this.columnPlacementLookupTableStore = columnPlacementLookupTable;
 
 		const { tasksStore, taskActions, initialise } = createTasksStore(
 			this.app.vault,
 			this.app.workspace,
 			this.registerEvent.bind(this),
-			this.columnTagTableStore,
+			this.columnPlacementLookupTableStore,
+			this.columnPlacementTagTableStore,
 			() => this.filenameFilter,
 			() => this.excludeFilter,
 			() => this.boardFolderPath,

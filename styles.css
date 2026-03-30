@@ -69,3 +69,109 @@ If your plugin does not need CSS, delete this file.
 	gap: 8px;
 	flex-shrink: 0;
 }
+
+.column-editor-section {
+	margin-bottom: 20px;
+}
+
+.column-editor-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+.column-editor-row {
+	display: grid;
+	grid-template-columns: 72px minmax(0, 1fr) 32px;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary-alt);
+}
+
+.column-editor-row.is-bookend {
+	background: var(--background-secondary-alt);
+}
+
+.column-editor-mode {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.column-editor-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 10px;
+	align-items: center;
+}
+
+.column-editor-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.column-editor-field input,
+.column-editor-field select {
+	margin: 0;
+}
+
+.column-editor-field:first-child {
+	min-width: 0;
+}
+
+.column-editor-field:first-child .setting-input {
+	width: 100%;
+}
+
+.column-editor-inline-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.column-editor-field-color .setting-input {
+	width: 120px;
+}
+
+.column-editor-controls {
+	display: flex;
+	justify-content: flex-start;
+	margin-top: 10px;
+}
+
+.column-editor-row > button {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+@media (max-width: 720px) {
+	.column-editor-row {
+		grid-template-columns: 1fr;
+	}
+
+	.column-editor-fields {
+		grid-template-columns: 1fr;
+	}
+
+	.column-editor-field {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 4px;
+	}
+
+	.column-editor-field-color .setting-input {
+		width: 100%;
+	}
+}
