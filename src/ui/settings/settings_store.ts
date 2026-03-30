@@ -73,18 +73,22 @@ const columnDefinitionSchema = z.object({
 	matchTags: z.array(z.string()).default([]),
 });
 
+// Fields with strict validation (enums, ranges) use .catch() so that a single
+// invalid value degrades gracefully instead of failing the entire settings parse.
+// Without .catch(), an unrecognized scope like "file" would cause ALL settings
+// (columns, colors, etc.) to be silently replaced with defaults.
 const settingsObject = z.object({
 	columns: z.array(z.union([z.string(), columnDefinitionSchema])),
-	scope: z.nativeEnum(ScopeOption).default(ScopeOption.Folder),
+	scope: z.nativeEnum(ScopeOption).catch(ScopeOption.Folder),
 	showFilepath: z.boolean().default(true).optional(),
 	consolidateTags: z.boolean().default(false).optional(),
 	uncategorizedVisibility: z
 		.nativeEnum(VisibilityOption)
-		.default(VisibilityOption.Auto)
+		.catch(VisibilityOption.Auto)
 		.optional(),
 	doneVisibility: z
 		.nativeEnum(VisibilityOption)
-		.default(VisibilityOption.AlwaysShow)
+		.catch(VisibilityOption.AlwaysShow)
 		.optional(),
 	doneStatusMarkers: z.string().default(DEFAULT_DONE_STATUS_MARKERS).optional(),
 	cancelledStatusMarkers: z.string().default(DEFAULT_CANCELLED_STATUS_MARKERS).optional(),
@@ -96,8 +100,8 @@ const settingsObject = z.object({
 	filtersExpanded: z.boolean().default(true).optional(),
 	filtersSidebarExpanded: z.boolean().default(true).optional(),
 	filtersSidebarWidth: z.number().default(280).optional(),
-	columnWidth: z.number().min(200).max(600).default(300).optional(),
-	flowDirection: z.nativeEnum(FlowDirection).default(FlowDirection.LeftToRight).optional(),
+	columnWidth: z.number().min(200).max(600).catch(300).optional(),
+	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
 	defaultTaskFile: z.string().default("").optional(),
 	lastUsedTaskFile: z.string().default("").optional(),

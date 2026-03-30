@@ -4,6 +4,7 @@ import {
 	toSettingsString,
 	defaultSettings,
 	FlowDirection,
+	ScopeOption,
 	type SavedFilter,
 } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
@@ -35,6 +36,50 @@ describe("Settings dirty check", () => {
 		// Clean after revert
 		current.columnWidth = 300;
 		expect(JSON.stringify(current)).toBe(snapshot);
+	});
+});
+
+describe("Invalid field resilience", () => {
+	it("recovers from unrecognized scope value without losing columns", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["ProjectA", "ProjectB"],
+			scope: "file",
+			showFilepath: false,
+		});
+
+		const parsed = parseSettingsString(settingsJson);
+		expect(parsed.scope).toBe(ScopeOption.Folder);
+		expect(parsed.columns.map(c => c.label)).toEqual(["ProjectA", "ProjectB"]);
+		expect(parsed.showFilepath).toBe(false);
+	});
+
+	it("recovers from unrecognized scope value with structured columns", () => {
+		const settingsJson = JSON.stringify({
+			columns: [
+				{ id: "col-a", label: "Alpha", matchMode: "name", matchTags: [] },
+				{ id: "col-b", label: "Beta", color: "#FF0000", matchMode: "tags", matchTags: ["status/active"] },
+			],
+			scope: "nonexistent",
+		});
+
+		const parsed = parseSettingsString(settingsJson);
+		expect(parsed.scope).toBe(ScopeOption.Folder);
+		expect(parsed.columns).toHaveLength(2);
+		expect(parsed.columns[0]!.label).toBe("Alpha");
+		expect(parsed.columns[1]!.color).toBe("#FF0000");
+		expect(parsed.columns[1]!.matchTags).toEqual(["status/active"]);
+	});
+
+	it("recovers from invalid columnWidth without losing other settings", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["MyColumn"],
+			scope: "folder",
+			columnWidth: 9999,
+		});
+
+		const parsed = parseSettingsString(settingsJson);
+		expect(parsed.columnWidth).toBe(300);
+		expect(parsed.columns.map(c => c.label)).toEqual(["MyColumn"]);
 	});
 });
 
@@ -210,7 +255,7 @@ describe("Column width configuration", () => {
 			columnWidth: 199,
 		});
 
-		// Zod validation should fail and fallback to defaults
+		// Invalid columnWidth falls back to default without affecting other fields
 		expect(() => parseSettingsString(settingsJson)).not.toThrow();
 		const parsed = parseSettingsString(settingsJson);
 		expect(parsed.columnWidth).toBe(300); // Falls back to default
@@ -222,7 +267,7 @@ describe("Column width configuration", () => {
 			columnWidth: 601,
 		});
 
-		// Zod validation should fail and fallback to defaults
+		// Invalid columnWidth falls back to default without affecting other fields
 		expect(() => parseSettingsString(settingsJson)).not.toThrow();
 		const parsed = parseSettingsString(settingsJson);
 		expect(parsed.columnWidth).toBe(300); // Falls back to default
@@ -303,16 +348,19 @@ describe("Flow direction configuration", () => {
 		expect(parsed.flowDirection).toBe(FlowDirection.BottomToTop);
 	});
 
-	it("rejects invalid flow direction values", () => {
+	it("rejects invalid flow direction values without losing other settings", () => {
+		const customColumns = migrateColumnDefinitions(["Alpha", "Beta"]);
 		const settingsJson = JSON.stringify({
 			...defaultSettings,
+			columns: customColumns,
 			flowDirection: "invalid",
 		});
 
-		// Zod validation should fail and fallback to defaults
+		// Invalid flowDirection falls back to default without affecting other fields
 		expect(() => parseSettingsString(settingsJson)).not.toThrow();
 		const parsed = parseSettingsString(settingsJson);
 		expect(parsed.flowDirection).toBe(FlowDirection.LeftToRight);
+		expect(parsed.columns.map(c => c.label)).toEqual(["Alpha", "Beta"]);
 	});
 
 	it("serializes flowDirection correctly", () => {

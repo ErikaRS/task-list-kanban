@@ -303,19 +303,19 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Migration from Legacy Settings
 
-- [ ] **M1.** Open a board that has never been edited with the new plugin version. Columns defined as plain strings (e.g., `Today, In Progress, Blocked`) appear with unchanged labels and behavior.
-- [ ] **M2.** Open a board with color-suffixed columns (e.g., `Doing(#FF5733)`, `Review(0x3498DB)`). Labels display without the color suffix. Colors render correctly.
-- [ ] **M3.** Open a board with a column whose name contains parentheses but not a valid color (e.g., `Stuff (misc)`). The label is preserved as-is, no color is extracted.
-- [ ] **M4.** After migration, tasks that were in specific columns remain in those same columns — nothing moves to Uncategorized unexpectedly.
+- [x] **M1.** Open a board that has never been edited with the new plugin version. Columns defined as plain strings (e.g., `Today, In Progress, Blocked`) appear with unchanged labels and behavior.
+- [x] **M2.** Open a board with color-suffixed columns (e.g., `Doing(#FF5733)`, `Review(0x3498DB)`). Labels display without the color suffix. Colors render correctly.
+- [x] **M3.** Open a board with a column whose name contains parentheses but not a valid color (e.g., `Stuff (misc)`). The label is preserved as-is, no color is extracted.
+- [x] **M4.** After migration, tasks that were in specific columns remain in those same columns — nothing moves to Uncategorized unexpectedly.
 - [ ] **M5.** After migration, moving a task between columns writes the same tag format that the old plugin would have written.
-- [ ] **M6.** Open a legacy board and change any setting (not columns). Save. The board frontmatter now contains structured column definitions, not legacy strings. Board behavior is unchanged.
+- [x] **M6.** Open a legacy board and change any setting (not columns). Save. The board frontmatter now contains structured column definitions, not legacy strings. Board behavior is unchanged.
 
 ### Name Mode Matching
 
-- [ ] **N1.** A name-mode column with label "In Progress" matches a task tagged `#in-progress`.
-- [ ] **N2.** A name-mode column with label "In Progress" matches a task tagged `#InProgress`.
-- [ ] **N3.** A name-mode column with label "In Progress" does **not** match a task tagged `#status/now` (arbitrary unrelated tag).
-- [ ] **N4.** A task with no tags at all appears in Uncategorized, not in any name-mode column.
+- [x] **N1.** A name-mode column with label "In Progress" matches a task tagged `#in-progress`.
+- [x] **N2.** A name-mode column with label "In Progress" matches a task tagged `#InProgress`.
+- [x] **N3.** A name-mode column with label "In Progress" does **not** match a task tagged `#status/now` (arbitrary unrelated tag).
+- [x] **N4.** A task with no tags at all appears in Uncategorized, not in any name-mode column.
 - [ ] **N5.** Moving a task into a name-mode column writes the normalized label-derived tag to the source file.
 - [ ] **N6.** Moving a task out of a name-mode column removes the label-derived tag from the source file.
 
@@ -345,7 +345,7 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Tag Stripping from Display
 
-- [ ] **S1.** A task matched by a name-mode column: the label-derived tag is not shown in the card's tag list.
+- [x] **S1.** A task matched by a name-mode column: the label-derived tag is not shown in the card's tag list.
 - [ ] **S2.** A task matched by a single-tag tags-mode column: the explicit tag is not shown in the card's tag list.
 - [ ] **S3.** A task matched by a multi-tag tags-mode column: all explicit tags are stripped from the card's tag list.
 - [ ] **S4.** A task with both column tags and non-column tags: only the column tags are stripped; other tags remain visible.
@@ -354,7 +354,7 @@ All test cases must be checked off before this spec can be marked complete.
 ### Column Header Display
 
 - [ ] **H1.** A tags-mode column shows its `matchTags` beneath the label in smaller/less prominent text.
-- [ ] **H2.** A name-mode column does **not** show a tag subtitle.
+- [x] **H2.** A name-mode column does **not** show a tag subtitle.
 - [ ] **H3.** A tags-mode column with multiple tags shows all of them in the subtitle.
 
 ### Multi-Column Conflict Resolution
@@ -364,11 +364,11 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Uncategorized and Done
 
-- [ ] **U1.** A task with no recognized tags appears in Uncategorized.
+- [x] **U1.** A task with no recognized tags appears in Uncategorized.
 - [ ] **U2.** A task with some but not all tags for a tags-mode column appears in Uncategorized (partial match).
-- [ ] **U3.** A done task (`[x]`) appears in Done regardless of what column tags it has.
+- [x] **U3.** A done task (`[x]`) appears in Done regardless of what column tags it has.
 - [ ] **U4.** A done task with an archive tag does not appear on the board at all.
-- [ ] **U5.** An undone task with column tags appears in the matched column, not in Uncategorized or Done.
+- [x] **U5.** An undone task with column tags appears in the matched column, not in Uncategorized or Done.
 
 ### Settings UI
 
@@ -424,10 +424,10 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Color
 
-- [ ] **CO1.** A column with a configured color renders that color in the column header.
+- [x] **CO1.** A column with a configured color renders that color in the column header.
 - [ ] **CO2.** Changing a column's color in settings takes effect after save.
-- [ ] **CO3.** A column with no color configured uses the default styling.
-- [ ] **CO4.** A migrated column that had `(#FF5733)` in the legacy format retains that color after migration.
+- [x] **CO3.** A column with no color configured uses the default styling.
+- [x] **CO4.** A migrated column that had `(#FF5733)` in the legacy format retains that color after migration.
 
 ## Open Questions
 
