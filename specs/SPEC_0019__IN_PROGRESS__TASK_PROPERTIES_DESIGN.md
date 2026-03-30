@@ -1,6 +1,6 @@
 Status: IN_PROGRESS
 
-# SPEC 0015 — Task Properties, Manual Ordering, and Grouping
+# SPEC 0019 — Task Properties, Manual Ordering, and Grouping
 
 ## Feature Request Summary
 
