@@ -4,14 +4,31 @@ Status: IN_PROGRESS
 
 ## Feature Request Summary
 
-GitHub issues (Properties milestone):
+GitHub issues reviewed for this spec:
+
+### Addressed
 - [#11](https://github.com/ErikaRS/task-list-kanban/issues/11) — FR: Lists grouping and sorting
-- [#21](https://github.com/ErikaRS/task-list-kanban/issues/21) — Additional support for scheduled tasks
+
+### Partially addressed
+- [#21](https://github.com/ErikaRS/task-list-kanban/issues/21) — Additional support for scheduled tasks 
+	- This spec adds scheduled-date parsing as prerequisite infrastructure, but the requested hide/auto-column behavior still requires follow-up work.
 - [#61](https://github.com/ErikaRS/task-list-kanban/issues/61) — FR: Add date support
+	- This spec adds Dataview date parsing as prerequisite infrastructure, but completion-date write-back still requires follow-up work.
 - [#65](https://github.com/ErikaRS/task-list-kanban/issues/65) — FR: Sorting
+	- This spec adds generic property-based sorting infrastructure, but explicit estimated-time and natural-name sorting still require follow-up work.
 - [#81](https://github.com/ErikaRS/task-list-kanban/issues/81) — FR: Add Horizontal Swimlanes to Kanban Board
-- [#84](https://github.com/ErikaRS/task-list-kanban/issues/84) — FR: Dataview-generated tasks support
+	- This spec adds grouped swimlane-style board layout, but cross-group property editing and collapsible swimlanes still require follow-up work.
 - [#86](https://github.com/ErikaRS/task-list-kanban/issues/86) — FR: add Tasks plugin compatibility
+	- This spec adds Tasks-plugin property parsing and date-based sorting infrastructure, but completion/status workflow compatibility still requires follow-up work.
+
+### Related but not addressed
+- [#84](https://github.com/ErikaRS/task-list-kanban/issues/84) — FR: Dataview-generated tasks support
+
+Scope notes:
+- This spec fully covers property-based grouping and sorting as board layout features.
+- It partially covers Tasks/Dataview metadata support by parsing, displaying, sorting, and grouping on recognized properties, but it does not include property write-back, automatic completion-date insertion, or Tasks-plugin status workflows.
+- It treats swimlanes as grouped rows with spanning dividers, but does not include cross-group drag that edits the underlying property or collapsible swimlane sections.
+- It does not cover executing Dataview queries or rendering Dataview-generated tasks as read-only board items.
 
 Three related features that all affect how tasks are arranged in the board:
 
@@ -69,7 +86,7 @@ Properties:  { due: Date(2024-01-20), priority: "medium" }
 
 A `PropertySchema` is a named object that knows:
 1. How to **parse** properties from a raw task string → `TaskPropertyMap`
-2. The **canonical keys** it produces (used to build sort/group UI dropdowns)
+2. The **canonical keys** it produces (used as the base set for sort/group UI dropdowns)
 
 ```typescript
 export interface PropertySchema {
@@ -123,6 +140,12 @@ Parses [Dataview inline fields](https://blacksmithgu.github.io/obsidian-dataview
 
 Values are heuristically typed: ISO date → `Date`, pure number → `number`, else `string`. Common keys (`due`, `priority`, `start`, `scheduled`) get priority-string-to-number mapping.
 
+For Dataview, the sort/group dropdowns use the union of:
+- schema-known keys (`due`, `priority`, `start`, `scheduled`, etc.)
+- discovered keys currently present on parsed tasks in the board (e.g. `assignee`, `label`)
+
+This keeps the schema extensible without requiring a code change for every Dataview inline field name.
+
 ---
 
 ### Column Ordering Mode
@@ -150,7 +173,7 @@ Each `Column` component renders its full task list. This is unchanged.
 
 **Grouped layout (new):**
 
-When `groupProperty` is set and flow is horizontal, `main.svelte` renders a CSS grid instead:
+When `groupSource` is set and flow is horizontal, `main.svelte` renders a CSS grid instead:
 
 ```
 .board-grid {
@@ -211,7 +234,7 @@ export let selectedIds: string[];
 Sorting is the **parent's responsibility**. `task_list.svelte` renders tasks in the order it receives them — no internal sort. This removes the redundant re-sort that currently exists in `column.svelte` (the store already emits tasks in path+rowIndex order; the column's `sortedTasks` computation is a no-op re-sort of already-sorted data).
 
 **flowDirection constraint:**
-Grouping is only meaningful in horizontal flow (LTR/RTL). In vertical flow (TTB/BTT) the concept of a "horizontal line across all columns" has no equivalent — columns are stacked, not side by side. When `flowDirection` is TTB or BTT, the `groupProperty` setting is ignored and the grouping controls are hidden in the UI.
+Grouping is only meaningful in horizontal flow (LTR/RTL). In vertical flow (TTB/BTT) the concept of a "horizontal line across all columns" has no equivalent — columns are stacked, not side by side. When `flowDirection` is TTB or BTT, the `groupSource` setting is ignored and the grouping controls are hidden in the UI.
 
 ---
 
@@ -241,12 +264,23 @@ Stored separately from display settings in plugin data (see Architectural Concer
 
 ```typescript
 type ManualOrderKey = string; // "path::blockLink"
+type GroupBucketId = string;  // stable encoded id for a rendered group bucket
 
-// key: columnTag (or groupValue + "::" + columnTag when grouped)
-type ManualOrderStore = Record<string, ManualOrderKey[]>;
+// top-level key: group bucket id ("__ungrouped__" when grouping is off)
+// nested key: columnTag
+type ManualOrderStore = Record<GroupBucketId, Record<string, ManualOrderKey[]>>;
 ```
 
-When grouping is active, the key for a cell is `"${groupValue}::${columnTag}"` (with `"__ungrouped__"` as the groupValue when grouping is off — avoiding the fragile `__default__` sentinel and making intent clearer). Tasks absent from the array appear after listed tasks in file order.
+Important distinction:
+- `ManualOrderKey` is the stable task identity, using Obsidian's native block-link mechanism to refer back to a specific task line in a source file.
+- `ManualOrderStore` does **not** define task identity. It only organizes those stable task keys by board cell so the kanban can remember display order in each column/group bucket.
+
+When grouping is active, manual ordering is stored per `(group bucket, column)` cell. When grouping is off, the top-level bucket id is `"__ungrouped__"`. This avoids fragile delimiter-based composite keys and cleanly supports:
+- property groups whose display label contains `::`
+- file-based grouping, where the group value is a full file path
+- a dedicated `(no value)` bucket without colliding with a literal string value
+
+Tasks absent from the array appear after listed tasks in file order.
 
 #### Drag-and-Drop Integration
 
@@ -280,7 +314,7 @@ Group by:         [ (none) ▼ ]
   (entire section hidden when flow = vertical)
 ```
 
-The sort and group property dropdowns are disabled when schema is `"none"`. The "By file" group option is always available regardless of schema.
+The sort and group property dropdowns are disabled when schema is `"none"`. The "By file" group option is always available regardless of schema. When schema = `Dataview`, property-key dropdowns include both built-in keys and discovered inline keys present on current tasks.
 
 ---
 
@@ -408,7 +442,12 @@ src/
 - First occurrence wins for duplicate keys.
 
 ### Grouping — Global Group Values
-The set of group values is derived from **all tasks in the board** (not just the visible column), then sorted by the property comparator with null last. Every column/cell renders all group values — including empty ones — so section boundaries align.
+The set of group values is derived from **all tasks in the board** (not just the visible column), then sorted by the property comparator with null last. The derived result is a list of `GroupBucket` records, each with:
+- `id`: stable internal key used for rendering and manual-order storage
+- `label`: user-facing text for the divider header
+- `value`: the typed property value (or `null`)
+
+Every column/cell renders all group buckets — including empty ones — so section boundaries align.
 
 ### Grouping — Empty Sections
 An empty group section renders the divider header only (minimal height, no padding). It does not render a card-sized drop zone. This keeps columns compact when a group has no tasks.
@@ -417,7 +456,7 @@ An empty group section renders the divider header only (minimal height, no paddi
 The Done, Uncategorised, and Archived columns participate in grouping the same way as regular columns. Done and Uncategorised columns already have their own visibility logic; grouping does not override it.
 
 ### Ordering — Interaction with Grouping
-When both `columnOrderMode = Manual` and `groupProperty` are set, the manual order applies within each `(group, column)` cell independently. The `ManualOrderStore` key is `"${groupValue}::${columnTag}"`.
+When both `columnOrderMode = Manual` and `groupSource` are set, the manual order applies within each `(group, column)` cell independently. `ManualOrderStore[groupBucket.id][columnTag]` contains the ordered task keys for that cell.
 
 When `columnOrderMode = Property`, the sort applies within each cell as well.
 
@@ -574,7 +613,7 @@ interface PluginData {
 
 Backward compatibility: if `loadData()` returns an object without a `manualOrder` key (old format), default `manualOrder` to `{}`. If `loadData()` returns an object that looks like old-format settings directly (has a `columns` key at the top level), treat the entire object as `settings` with empty `manualOrder`.
 
-1. [ ] Define `PluginData` interface and `ManualOrderStore` type (empty `Record<string, string[]>` for now; filled in Phase 4)
+1. [ ] Define `PluginData` interface and `ManualOrderStore` type (empty `Record<string, Record<string, string[]>>` for now; filled in Phase 4)
 2. [ ] Update `text_view.ts` load path: parse new shape with backward-compatible fallback — if loaded object has a top-level `columns` key, treat whole object as legacy `settings` with `manualOrder: {}`
 3. [ ] Update `text_view.ts` save path: always write `{ settings, manualOrder }` shape
 4. [ ] Verify: existing settings survive a load/save round-trip; no data loss
@@ -609,8 +648,9 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
 1. [ ] Add `ColumnOrderMode`, `columnOrderMode`, `sortProperty`, `sortDirection` to settings
 2. [ ] Implement `comparators.ts` with typed null-last comparison
 3. [ ] Apply sort in column rendering when mode = `Property` (reactive, in `column.svelte`)
-4. [ ] Add ordering mode + sort key controls to Settings UI
-5. [ ] Test: sort by date, priority, text; nulls last; file order unaffected
+4. [ ] Populate sort-key choices from schema-known keys; for Dataview also include discovered inline keys present on current tasks
+5. [ ] Add ordering mode + sort key controls to Settings UI
+6. [ ] Test: sort by date, priority, text; nulls last; file order unaffected; Dataview custom inline keys appear when present
 
 **Deliverable:** Tasks in a column sort by due date / priority when configured.
 
@@ -635,7 +675,7 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
 
 1. [ ] Implement `manual_order.ts`: fill in `ManualOrderStore` CRUD helpers (insert, remove, reorder, prune-stale, look-up position)
 2. [ ] Implement block-link auto-assignment in `manual_order.ts`: generate ID, call `vault.modify()`, return stable key
-3. [ ] Handle vault-modify re-entrancy in `store.ts`: flag file path as "pending block-link write"; skip position-reset on next modify for that path within 100ms window
+3. [ ] Handle vault-modify re-entrancy in `store.ts`: track exact pending block-link writes by stable task key (or file path + block link) and suppress only the corresponding refresh-side position reset, rather than using a time-window heuristic
 4. [ ] Add `columnOrderMode = Manual` to settings; add within-column drag handles to `task.svelte` (visible only in Manual mode)
 5. [ ] In `task_list.svelte`: handle within-cell drop at a specific position (distinct from cross-column drop handled by `column.svelte`)
 6. [ ] On within-cell drop: auto-assign block link if absent, update `ManualOrderStore`, save via `text_view.ts`
@@ -650,16 +690,16 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
 ### Phase 5: Grouping with spanning dividers
 **Goal:** Tasks grouped by a property or by file, with a single horizontal divider line spanning all columns.
 
-1. [ ] Add `groupSource: GroupSource | null` to settings (replacing the placeholder `groupProperty`); add `collapsedGroups: string[]` with default `[]`; hide grouping controls when `flowDirection` is vertical
+1. [ ] Add `groupSource: GroupSource | null` to settings; add `collapsedGroups: string[]` with default `[]`; hide grouping controls when `flowDirection` is vertical
 2. [ ] Add `GroupSource` type to `settings_store.ts`; add Zod schema for it
-3. [ ] Implement `deriveGroupValues(tasks, groupSource): string[]` in `task_grouping.ts` — returns sorted distinct values from all tasks, null-value last, dispatches on `groupSource.kind`
+3. [ ] Implement `deriveGroupValues(tasks, groupSource): GroupBucket[]` in `task_grouping.ts` — returns sorted distinct group buckets from all tasks, null-value last, dispatches on `groupSource.kind`
 4. [ ] Implement `board_grid.svelte`:
    - Sticky header row: one column-header element per column (title, collapse button, task count, mode toggle) — these are extracted from `column.svelte` into a shared `column_header.svelte` sub-component used by both `column.svelte` and `board_grid.svelte`
    - CSS grid body: for each group value, render a spanning divider (`grid-column: 1 / -1`) then one `<TaskList>` per column
    - `grid-template-columns` computed dynamically from column widths and `collapsedColumns` state (collapsed columns get 48px track width)
    - Empty group sections: divider header only, no padding below it
 5. [ ] In `main.svelte`: `{#if groupSource && !isVerticalFlow}` switches to `<BoardGrid>`; otherwise renders the existing `<Column>` loop — two strictly separate paths sharing only `task_list.svelte`
-6. [ ] Manual order in grouped mode: `ManualOrderStore` key is `"${groupValue}::${columnTag}"`; when grouping is off the key is `"__ungrouped__::${columnTag}"`; no data migration needed between modes
+6. [ ] Manual order in grouped mode: store order under `ManualOrderStore[groupBucket.id][columnTag]`; when grouping is off, use the `"__ungrouped__"` bucket; no data migration needed between modes
 7. [ ] Test: tasks in correct sections; empty sections compact; dividers span all columns; manual order per cell; collapsing a column narrows its grid track; vertical flow shows no grouping controls and falls back to column loop
 
 **Deliverable:** Setting `groupSource = { kind: "property", key: "priority" }` shows High / Medium / (no value) sections with a single spanning divider. Setting `groupSource = { kind: "file" }` groups by source file.
@@ -672,7 +712,7 @@ The pre-work phases resolve the structural debt identified earlier. The followin
 
 ### 1. Block-link auto-assignment re-entrancy (Phase 4, step 3)
 
-When a task is auto-assigned a block link, `vault.modify()` fires the store's modify handler, which would re-emit a new task list and potentially reset the task's visual position before the manual order is saved. Mitigation: flag the file path as "pending block-link write" in the store; skip position-reset on the next modify for that path within a 100ms window. This is accounted for in Phase 4 step 3.
+When a task is auto-assigned a block link, `vault.modify()` fires the store's modify handler, which would re-emit a new task list and potentially reset the task's visual position before the manual order is saved. Mitigation: track the exact pending block-link write using the newly assigned stable task key (or file path + block link) and suppress only the corresponding refresh-side position reset. Avoid a fixed time-window heuristic; it is brittle under slow I/O and bulk edits. This is accounted for in Phase 4 step 3.
 
 ### 2. Dual rendering mode must stay strictly separated (Phase 5, step 5)
 
