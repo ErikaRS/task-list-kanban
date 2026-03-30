@@ -4,6 +4,7 @@ import { derived, get, type Readable, type Writable } from "svelte/store";
 import type { SettingValues } from "../settings/settings_store";
 
 export type DefaultColumns = "uncategorised" | "done";
+export const RESERVED_COLUMN_KEYS: ReadonlySet<string> = new Set<string>(["uncategorised", "done"]);
 export type ColumnTag = Brand<string, "ColumnTag">;
 
 export interface ParsedColumn {
@@ -42,7 +43,9 @@ export const createColumnStores = (
 
 		for (const column of settings.columns ?? []) {
 			const parsed = parseColumnSpec(column);
-			output[kebab<ColumnTag>(parsed.label)] = parsed.label;
+			const key = kebab<ColumnTag>(parsed.label);
+			if (RESERVED_COLUMN_KEYS.has(key)) continue;
+			output[key] = parsed.label;
 		}
 
 		return output;
@@ -53,8 +56,10 @@ export const createColumnStores = (
 
 		for (const column of settings.columns ?? []) {
 			const parsed = parseColumnSpec(column);
+			const key = kebab<ColumnTag>(parsed.label);
+			if (RESERVED_COLUMN_KEYS.has(key)) continue;
 			if (parsed.color) {
-				output[kebab<ColumnTag>(parsed.label)] = parsed.color;
+				output[key] = parsed.color;
 			}
 		}
 

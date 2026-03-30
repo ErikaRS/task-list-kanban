@@ -9,6 +9,8 @@ import {
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
 import { shouldIncludeFilePath } from "../tasks/scope";
+import { kebab } from "src/parsing/kebab/kebab";
+import { RESERVED_COLUMN_KEYS, parseColumnSpec } from "../columns/columns";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -18,6 +20,9 @@ export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
 	private scrollWrapper!: HTMLDivElement;
 	private dirtyBanner: HTMLElement | null = null;
+	private validationError: string | null = null;
+	private validationBanner: HTMLElement | null = null;
+	private saveBtn: HTMLButtonElement | null = null;
 
 	constructor(
 		app: App,
@@ -31,6 +36,37 @@ export class SettingsModal extends Modal {
 
 	private isDirty(): boolean {
 		return JSON.stringify(this.settings) !== this.originalSettingsSnapshot;
+	}
+
+	private validateColumns() {
+		const reserved = (this.settings.columns ?? [])
+			.filter(col => col.trim() !== "")
+			.filter(col => RESERVED_COLUMN_KEYS.has(kebab(parseColumnSpec(col).label)));
+		if (reserved.length > 0) {
+			const names = reserved.map(c => `"${parseColumnSpec(c).label}"`).join(", ");
+			this.validationError =
+				`Column name ${names} conflicts with a built-in column. Please choose a different name.`;
+		} else {
+			this.validationError = null;
+		}
+		this.updateValidationBanner();
+	}
+
+	private updateValidationBanner() {
+		if (this.validationError) {
+			if (!this.validationBanner) {
+				this.validationBanner = this.scrollWrapper.createDiv({ cls: "settings-dirty-banner" });
+				this.scrollWrapper.insertBefore(this.validationBanner, this.scrollWrapper.firstChild);
+			}
+			this.validationBanner.setText(this.validationError);
+			if (this.saveBtn) this.saveBtn.disabled = true;
+		} else {
+			if (this.validationBanner) {
+				this.validationBanner.remove();
+				this.validationBanner = null;
+			}
+			if (this.saveBtn) this.saveBtn.disabled = false;
+		}
 	}
 
 	private updateDirtyBanner() {
@@ -65,9 +101,11 @@ export class SettingsModal extends Modal {
 					this.settings.columns = value
 						.split(",")
 						.map((column) => column.trim());
+					this.validateColumns();
 					this.updateDirtyBanner();
 				});
 			});
+		this.validateColumns();
 
 		let uncategorizedNameInput: HTMLInputElement | null = null;
 		new Setting(this.scrollWrapper)
@@ -630,11 +668,16 @@ export class SettingsModal extends Modal {
 			this.close();
 		});
 
-		const saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
-		saveBtn.addEventListener("click", () => {
+		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
+		this.saveBtn.addEventListener("click", () => {
 			this.onSubmit(this.settings);
 			this.close();
 		});
+
+		// Apply validation state to save button now that it exists
+		if (this.validationError) {
+			this.saveBtn.disabled = true;
+		}
 	}
 
 	onClose() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { get } from "svelte/store";
-import { createCollapsedColumnsStore, resolveDefaultColumnName } from "../columns";
+import { createCollapsedColumnsStore, createColumnStores, resolveDefaultColumnName } from "../columns";
 import { createSettingsStore, defaultSettings } from "../../settings/settings_store";
 
 describe("resolveDefaultColumnName", () => {
@@ -90,5 +90,72 @@ describe("createCollapsedColumnsStore", () => {
 
 		expect(get(store).has("done")).toBe(true);
 		expect(get(store).has("uncategorised")).toBe(true);
+	});
+});
+
+describe("createColumnStores reserved key filtering", () => {
+	it("excludes user column named 'Done' (kebab-cases to reserved 'done')", () => {
+		const settingsStore = createSettingsStore();
+		settingsStore.set({ ...defaultSettings, columns: ["Backlog", "Done", "Review"] });
+		const { columnTagTable } = createColumnStores(settingsStore);
+
+		const table = get(columnTagTable);
+		expect(table).not.toHaveProperty("done");
+		expect(table).toHaveProperty("backlog");
+		expect(table).toHaveProperty("review");
+	});
+
+	it("excludes user column named 'Uncategorised' (kebab-cases to reserved 'uncategorised')", () => {
+		const settingsStore = createSettingsStore();
+		settingsStore.set({ ...defaultSettings, columns: ["Uncategorised", "Todo"] });
+		const { columnTagTable } = createColumnStores(settingsStore);
+
+		const table = get(columnTagTable);
+		expect(table).not.toHaveProperty("uncategorised");
+		expect(table).toHaveProperty("todo");
+	});
+
+	it("excludes exact lowercase match 'done' from user columns", () => {
+		const settingsStore = createSettingsStore();
+		settingsStore.set({ ...defaultSettings, columns: ["done", "Todo"] });
+		const { columnTagTable } = createColumnStores(settingsStore);
+
+		const table = get(columnTagTable);
+		expect(table).not.toHaveProperty("done");
+		expect(table).toHaveProperty("todo");
+	});
+
+	it("allows 'DONE' because it kebab-cases to 'd-o-n-e', not 'done'", () => {
+		const settingsStore = createSettingsStore();
+		settingsStore.set({ ...defaultSettings, columns: ["DONE", "Todo"] });
+		const { columnTagTable } = createColumnStores(settingsStore);
+
+		const table = get(columnTagTable);
+		// "DONE" → "d-o-n-e" (each uppercase letter gets a dash prefix)
+		expect(table).toHaveProperty("d-o-n-e");
+		expect(table).toHaveProperty("todo");
+	});
+
+	it("also excludes reserved keys from columnColourTable", () => {
+		const settingsStore = createSettingsStore();
+		settingsStore.set({ ...defaultSettings, columns: ["Done(#ff0000)", "Review(#00ff00)"] });
+		const { columnColourTable } = createColumnStores(settingsStore);
+
+		const table = get(columnColourTable);
+		expect(table).not.toHaveProperty("done");
+		expect(table).toHaveProperty("review");
+		expect(table["review" as keyof typeof table]).toBe("#00ff00");
+	});
+
+	it("allows normal columns through unchanged", () => {
+		const settingsStore = createSettingsStore();
+		settingsStore.set({ ...defaultSettings, columns: ["Backlog", "In Progress", "Review"] });
+		const { columnTagTable } = createColumnStores(settingsStore);
+
+		const table = get(columnTagTable);
+		expect(Object.keys(table)).toHaveLength(3);
+		expect(table).toHaveProperty("backlog");
+		expect(table).toHaveProperty("in-progress");
+		expect(table).toHaveProperty("review");
 	});
 });
