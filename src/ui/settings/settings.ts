@@ -219,8 +219,6 @@ export class SettingsModal extends Modal {
 	) {
 		const row = container.createDiv({ cls: "column-editor-row is-bookend" });
 		row.createDiv({ cls: "column-editor-handle-spacer" });
-		const mode = row.createDiv({ cls: "column-editor-mode", text: "Fixed" });
-		void mode;
 
 		const fields = row.createDiv({ cls: "column-editor-fields" });
 
@@ -279,7 +277,6 @@ export class SettingsModal extends Modal {
 		dragHandle.addEventListener("dragend", () => {
 			this.clearDragState(container);
 		});
-		row.createDiv({ cls: "column-editor-mode", text: "Tagged" });
 		row.addEventListener("dragover", (event) => {
 			if (!this.draggedColumnId || this.draggedColumnId === column.id) {
 				return;

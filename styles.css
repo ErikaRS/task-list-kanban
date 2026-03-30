@@ -83,7 +83,7 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-row {
 	display: grid;
-	grid-template-columns: 24px 72px minmax(0, 1fr) 32px;
+	grid-template-columns: 24px minmax(0, 1fr) 32px;
 	position: relative;
 	align-items: center;
 	gap: 10px;
@@ -91,10 +91,6 @@ If your plugin does not need CSS, delete this file.
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s);
 	background: var(--background-primary-alt);
-}
-
-.column-editor-row.is-bookend {
-	background: var(--background-secondary-alt);
 }
 
 .column-editor-row.is-drop-target {
@@ -146,20 +142,13 @@ If your plugin does not need CSS, delete this file.
 }
 
 .column-editor-rename-option {
-	grid-column: 3 / 4;
+	grid-column: 2 / 3;
 	display: none;
 	align-items: center;
 	gap: 8px;
 	padding-top: 2px;
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
-}
-
-.column-editor-mode {
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	font-weight: 600;
-	white-space: nowrap;
 }
 
 .column-editor-handle,
