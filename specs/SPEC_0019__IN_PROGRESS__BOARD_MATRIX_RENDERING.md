@@ -215,6 +215,14 @@ When grouping is on:
 - every primary bucket renders every secondary bucket
 - empty cells are materialized even when they contain no tasks
 
+The first end-to-end grouping case for validating the matrix should be `group by file`:
+
+- it exists for every task already
+- it does not depend on property-schema parsing
+- it exercises secondary-axis derivation and empty-cell materialization immediately
+
+Property-based grouping cases such as `priority` or `due` should be treated as follow-on validation once the property pipeline is available.
+
 ### Ordering
 
 Ordering is always applied within a single cell.
@@ -272,7 +280,7 @@ src/
 2. [ ] Derive the matrix from the current ungrouped board state using a single default secondary bucket
 3. [ ] Add unit tests for:
    - ungrouped matrix derivation
-   - grouped matrix derivation
+   - grouped-by-file matrix derivation
    - empty-cell materialization
    - primary/secondary bucket ordering
 
@@ -284,6 +292,7 @@ src/
 1. [ ] Implement `board_matrix_horizontal.svelte`
 2. [ ] Move horizontal board-specific CSS/layout concerns into the renderer
 3. [ ] Keep visible behavior aligned with the existing horizontal board
+4. [ ] Validate the renderer first with ungrouped mode and `group by file` before layering on property-based grouping
 
 **Deliverable:** Horizontal flows render from `BoardMatrix` rather than ad hoc column/group structures.
 
@@ -319,3 +328,5 @@ The architecture should unify semantics, not force identical markup. Horizontal 
 Feature specs that depend on board presentation should be revised to consume `BoardMatrix` rather than inventing their own layout model.
 
 In particular, the current task properties / grouping design should be revised after this spec is settled, since it currently mixes grouping semantics with a specific renderer shape.
+
+The preferred first integration target is `group by file`, because it validates matrix behavior independently of property parsing and schema selection.
