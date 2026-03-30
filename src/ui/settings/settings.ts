@@ -15,6 +15,7 @@ import {
 	type ColumnDefinition,
 } from "../columns/columns";
 import { createColumnId } from "../columns/definitions";
+import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -30,6 +31,8 @@ export class SettingsModal extends Modal {
 	private saveBtn: HTMLButtonElement | null = null;
 	private columnsEditorEl: HTMLDivElement | null = null;
 	private readonly updateExistingTaskTagsByColumnId = new Map<string, boolean>();
+	private draggedColumnId: string | null = null;
+	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
 
 	constructor(
 		app: App,
@@ -112,6 +115,37 @@ export class SettingsModal extends Modal {
 		this.touchSettings();
 	}
 
+	private reorderColumns(draggedColumnId: string, targetColumnId: string, position: DropPosition) {
+		const reordered = moveColumnRelativeTo(this.settings.columns, draggedColumnId, targetColumnId, position);
+		if (reordered === this.settings.columns) {
+			return;
+		}
+
+		this.settings.columns = reordered;
+		this.renderColumnsEditor();
+		this.touchSettings();
+	}
+
+	private setDragPreview(columnId: string, position: DropPosition) {
+		this.dragPreviewTarget = { columnId, position };
+	}
+
+	private clearDragPreview() {
+		this.dragPreviewTarget = null;
+	}
+
+	private clearDragState(container?: HTMLDivElement) {
+		this.draggedColumnId = null;
+		this.clearDragPreview();
+		if (!container) return;
+		container.querySelectorAll(".column-editor-row").forEach((candidate) => {
+			candidate.removeClass("is-drop-target");
+			candidate.removeClass("is-drop-before");
+			candidate.removeClass("is-drop-after");
+			candidate.removeClass("is-dragging");
+		});
+	}
+
 	private renderColumnsEditor() {
 		if (!this.columnsEditorEl) {
 			return;
@@ -184,7 +218,9 @@ export class SettingsModal extends Modal {
 		},
 	) {
 		const row = container.createDiv({ cls: "column-editor-row is-bookend" });
+		row.createDiv({ cls: "column-editor-handle-spacer" });
 		const mode = row.createDiv({ cls: "column-editor-mode", text: "Fixed" });
+		void mode;
 
 		const fields = row.createDiv({ cls: "column-editor-fields" });
 
@@ -225,7 +261,57 @@ export class SettingsModal extends Modal {
 
 	private renderCustomColumnRow(container: HTMLDivElement, column: ColumnDefinition) {
 		const row = container.createDiv({ cls: "column-editor-row" });
+		const dragHandle = row.createEl("button", {
+			text: "⋮⋮",
+			cls: "column-editor-handle clickable-icon",
+		});
+		dragHandle.setAttribute("aria-label", `Reorder ${column.label} column`);
+		dragHandle.draggable = true;
+		dragHandle.addEventListener("dragstart", (event) => {
+			this.draggedColumnId = column.id;
+			this.clearDragPreview();
+			row.addClass("is-dragging");
+			if (event.dataTransfer) {
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData("text/plain", column.id);
+			}
+		});
+		dragHandle.addEventListener("dragend", () => {
+			this.clearDragState(container);
+		});
 		row.createDiv({ cls: "column-editor-mode", text: "Tagged" });
+		row.addEventListener("dragover", (event) => {
+			if (!this.draggedColumnId || this.draggedColumnId === column.id) {
+				return;
+			}
+			event.preventDefault();
+			const rowRect = row.getBoundingClientRect();
+			const position: DropPosition = event.clientY > rowRect.top + rowRect.height / 2 ? "after" : "before";
+			this.setDragPreview(column.id, position);
+			row.addClass("is-drop-target");
+			row.classList.toggle("is-drop-before", position === "before");
+			row.classList.toggle("is-drop-after", position === "after");
+			if (event.dataTransfer) {
+				event.dataTransfer.dropEffect = "move";
+			}
+		});
+		row.addEventListener("dragleave", () => {
+			if (this.dragPreviewTarget?.columnId === column.id) {
+				this.clearDragPreview();
+			}
+			row.removeClass("is-drop-target");
+			row.removeClass("is-drop-before");
+			row.removeClass("is-drop-after");
+		});
+		row.addEventListener("drop", (event) => {
+			event.preventDefault();
+			const position = this.dragPreviewTarget?.columnId === column.id
+				? this.dragPreviewTarget.position
+				: "before";
+			const draggedColumnId = this.draggedColumnId ?? event.dataTransfer?.getData("text/plain") ?? "";
+			this.clearDragState(container);
+			this.reorderColumns(draggedColumnId, column.id, position);
+		});
 
 		const fields = row.createDiv({ cls: "column-editor-fields" });
 		const renameOption = row.createDiv({ cls: "column-editor-rename-option" });

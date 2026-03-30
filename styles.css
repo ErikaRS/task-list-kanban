@@ -83,7 +83,8 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-row {
 	display: grid;
-	grid-template-columns: 72px minmax(0, 1fr) 32px;
+	grid-template-columns: 24px 72px minmax(0, 1fr) 32px;
+	position: relative;
 	align-items: center;
 	gap: 10px;
 	padding: 6px 10px;
@@ -96,8 +97,56 @@ If your plugin does not need CSS, delete this file.
 	background: var(--background-secondary-alt);
 }
 
+.column-editor-row.is-drop-target {
+	border-color: var(--background-modifier-border);
+	box-shadow: none;
+}
+
+.column-editor-row.is-dragging {
+	opacity: 0.4;
+}
+
+.column-editor-row.is-drop-before::before,
+.column-editor-row.is-drop-after::before {
+	content: "";
+	position: absolute;
+	left: 8px;
+	right: 8px;
+	height: 2px;
+	background: var(--interactive-accent);
+	pointer-events: none;
+}
+
+.column-editor-row.is-drop-before::after,
+.column-editor-row.is-drop-after::after {
+	content: "";
+	position: absolute;
+	left: 4px;
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	background: var(--interactive-accent);
+	pointer-events: none;
+}
+
+.column-editor-row.is-drop-before::before {
+	top: -2px;
+}
+
+.column-editor-row.is-drop-before::after {
+	top: -6px;
+}
+
+.column-editor-row.is-drop-after::before {
+	bottom: -2px;
+}
+
+.column-editor-row.is-drop-after::after {
+	bottom: -6px;
+}
+
 .column-editor-rename-option {
-	grid-column: 2 / 3;
+	grid-column: 3 / 4;
 	display: none;
 	align-items: center;
 	gap: 8px;
@@ -111,6 +160,23 @@ If your plugin does not need CSS, delete this file.
 	font-size: var(--font-ui-small);
 	font-weight: 600;
 	white-space: nowrap;
+}
+
+.column-editor-handle,
+.column-editor-handle-spacer {
+	width: 24px;
+	height: 24px;
+}
+
+.column-editor-handle {
+	cursor: grab;
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1;
+}
+
+.column-editor-handle:active {
+	cursor: grabbing;
 }
 
 .column-editor-fields {

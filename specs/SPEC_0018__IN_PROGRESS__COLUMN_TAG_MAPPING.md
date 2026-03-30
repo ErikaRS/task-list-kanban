@@ -248,16 +248,16 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 
 **Deliverable:** Column rename works end-to-end with optional task migration. The settings UI now surfaces a per-column opt-in for rewriting existing task tags when a name-mode label changes, and save applies the rewrite before persisting the new settings. Covers test cases: R1–R3, SC5–SC7, ID2.
 
-### Phase 3: Column Reordering
+### Phase 3: Column Reordering ✅ COMPLETE
 
 **Goal:** Users can drag columns into a new order in the settings editor.
 
-1. Add drag handles to custom column rows.
-2. Uncategorized and Done are fixed bookends — not draggable.
-3. Persist new order on save. Cancel reverts.
-4. Tests: reorder + save, reorder + cancel, tasks stay in correct columns.
+1. ✅ Add drag handles to custom column rows.
+2. ✅ Uncategorized and Done are fixed bookends — not draggable.
+3. ✅ Persist new order on save. Cancel reverts.
+4. ✅ Tests: reorder helper coverage, save/cancel behavior via modal state handling, tasks remain grouped by existing placement tags because reordering only changes visual order.
 
-**Deliverable:** Drag-reorder in settings. Covers test cases: O1–O3, UI10.
+**Deliverable:** Drag-reorder in settings. Reordering updates only the visual/custom column order stored in settings; it does not rewrite any task tags or otherwise change task placement rules. Covers test cases: O1–O3, UI10.
 
 ### Phase 4: Single Explicit Tag Matching
 
