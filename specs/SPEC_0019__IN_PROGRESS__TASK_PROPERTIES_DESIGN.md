@@ -4,6 +4,15 @@ Status: IN_PROGRESS
 
 ## Feature Request Summary
 
+GitHub issues (Properties milestone):
+- [#11](https://github.com/ErikaRS/task-list-kanban/issues/11) — FR: Lists grouping and sorting
+- [#21](https://github.com/ErikaRS/task-list-kanban/issues/21) — Additional support for scheduled tasks
+- [#61](https://github.com/ErikaRS/task-list-kanban/issues/61) — FR: Add date support
+- [#65](https://github.com/ErikaRS/task-list-kanban/issues/65) — FR: Sorting
+- [#81](https://github.com/ErikaRS/task-list-kanban/issues/81) — FR: Add Horizontal Swimlanes to Kanban Board
+- [#84](https://github.com/ErikaRS/task-list-kanban/issues/84) — FR: Dataview-generated tasks support
+- [#86](https://github.com/ErikaRS/task-list-kanban/issues/86) — FR: add Tasks plugin compatibility
+
 Three related features that all affect how tasks are arranged in the board:
 
 1. **Task properties** — structured key-value metadata parsed from task text according to a user-selected schema (Tasks plugin emoji format or Dataview inline fields), enabling property-based sorting and grouping.
