@@ -1,6 +1,12 @@
 Status: IN_PROGRESS
 
-# SPEC 0019 — Task Properties, Manual Ordering, and Grouping
+# SPEC 0020 — Task Properties, Manual Ordering, and Grouping
+
+## Spec Status Note
+
+This spec was renumbered from `SPEC 0019` after extracting board-rendering architecture into [SPEC_0019__IN_PROGRESS__BOARD_MATRIX_RENDERING.md](/Users/erikars/Code/task-list-kanban/worktrees/spec-19-review/specs/SPEC_0019__IN_PROGRESS__BOARD_MATRIX_RENDERING.md).
+
+It will require significant revision once the matrix-rendering spec is finalized, because several sections currently assume renderer shapes that should instead be expressed in terms of the shared board-matrix model.
 
 ## Feature Request Summary
 
@@ -60,11 +66,13 @@ The active schema is a plugin setting; properties are never inferred.
 7. The ordering mode (file order / property sort / manual) is a board-level setting.
 
 ### Grouping
-8. Tasks can be grouped by a property value, creating labelled sections. When grouping is active, every column shows all group sections (including empty ones), and a single horizontal divider line spans across all columns at each section boundary.
-9. Grouping is only available in horizontal flow mode (LTR/RTL). It is disabled and hidden in vertical flow (TTB/BTT).
+8. Tasks can be grouped by a property value, creating labelled sections.
+9. When grouping is active, every column shows all group sections (including empty ones), so section order stays aligned across the board.
+10. In horizontal flow mode (LTR/RTL), grouped sections are rendered with a single horizontal divider line spanning across all columns at each section boundary.
+11. In vertical flow mode (TTB/BTT), grouping is still available, but uses a different presentation that fits stacked columns rather than a spanning divider.
 
 ### General
-10. All of the above are configurable settings; no behaviour is inferred.
+12. All of the above are configurable settings; no behaviour is inferred.
 
 ---
 
@@ -173,6 +181,12 @@ Each `Column` component renders its full task list. This is unchanged.
 
 **Grouped layout (new):**
 
+Grouping has two renderers sharing the same derived `GroupBucket[]` data:
+- **Horizontal grouped renderer** (Phase 5): board-wide CSS grid with spanning dividers
+- **Vertical grouped renderer** (Phase 6): grouped sections inside each stacked column
+
+#### Horizontal grouped renderer
+
 When `groupSource` is set and flow is horizontal, `main.svelte` renders a CSS grid instead:
 
 ```
@@ -196,8 +210,28 @@ The `group-divider` element spans all columns (`grid-column: 1 / -1`) in a singl
 
 The global group-value list is derived from all tasks (not just the visible column) so every column shows every group section, including empty ones. Empty sections show just the divider header with minimal height — no card-sized placeholder.
 
-**Column headers** in grouped mode:
+**Column headers** in grouped horizontal mode:
 Column headers (name, colour, collapse toggle) are pinned as a sticky header row above the grid, outside the grid structure, since they don't participate in group rows.
+
+#### Vertical grouped renderer
+
+When `groupSource` is set and flow is vertical, the board keeps the existing stacked-column flow, but each column renders the shared group bucket sequence internally:
+
+```
+<ColumnGroupedStack column="Later">
+  <div class="group-divider">⏫ High</div>
+  <TaskList tasks={Later∩High} />
+
+  <div class="group-divider">🔼 Medium</div>
+  <TaskList tasks={Later∩Medium} />
+</ColumnGroupedStack>
+
+<ColumnGroupedStack column="Soonish">
+  ...
+</ColumnGroupedStack>
+```
+
+There is no board-wide spanning divider in vertical flow. Instead, each stacked column renders the same ordered group buckets with repeated local section headers. Because every column uses the same `GroupBucket[]`, group order remains aligned conceptually even though the headers are not shared DOM nodes.
 
 **Component architecture — unified at the task-list level:**
 
@@ -206,18 +240,20 @@ The key insight is that the task list rendering (drag target + task loop + inlin
 ```
 task_list.svelte  ← shared building block
       │
-      ├── used by column.svelte       (ungrouped: header + TaskList)
-      └── used by board_grid.svelte   (grouped: grid of TaskList cells)
+      ├── used by column.svelte                (ungrouped: header + TaskList)
+      ├── used by board_grid.svelte            (grouped horizontal: grid of TaskList cells)
+      └── used by grouped_column_stack.svelte  (grouped vertical: repeated group sections)
 ```
 
 | Mode | Component | Responsibility |
 |---|---|---|
 | Ungrouped | `column.svelte` | Column header + `<TaskList>` |
 | Ungrouped | `task_list.svelte` | Drag target, task loop, inline creation |
-| Grouped | `board_grid.svelte` | CSS grid, sticky column headers, group dividers |
-| Grouped | `task_list.svelte` | Same component, used as each grid cell |
+| Grouped horizontal | `board_grid.svelte` | CSS grid, sticky column headers, spanning group dividers |
+| Grouped vertical | `grouped_column_stack.svelte` | Stacked column with repeated local group headers |
+| Grouped | `task_list.svelte` | Same component, used as each group/column cell |
 
-`column.svelte` is **not** made dual-mode. It retains its current shape minus the task list body, which moves to `task_list.svelte`. `board_grid.svelte` uses `task_list.svelte` directly without going through `column.svelte`.
+`column.svelte` is **not** made dual-mode. It retains its current shape minus the task list body, which moves to `task_list.svelte`. Grouped renderers use `task_list.svelte` directly without going through `column.svelte`.
 
 **`task_list.svelte` props:**
 ```typescript
@@ -233,8 +269,12 @@ export let selectedIds: string[];
 
 Sorting is the **parent's responsibility**. `task_list.svelte` renders tasks in the order it receives them — no internal sort. This removes the redundant re-sort that currently exists in `column.svelte` (the store already emits tasks in path+rowIndex order; the column's `sortedTasks` computation is a no-op re-sort of already-sorted data).
 
-**flowDirection constraint:**
-Grouping is only meaningful in horizontal flow (LTR/RTL). In vertical flow (TTB/BTT) the concept of a "horizontal line across all columns" has no equivalent — columns are stacked, not side by side. When `flowDirection` is TTB or BTT, the `groupSource` setting is ignored and the grouping controls are hidden in the UI.
+**flowDirection behavior:**
+Grouping is available in all flow directions, but the renderer depends on flow:
+- `LTR` / `RTL` → board-wide grouped grid with spanning dividers
+- `TTB` / `BTT` → per-column grouped stacks with repeated local section headers
+
+The setting is never ignored. Changing flow direction changes the grouped presentation, not whether grouping is enabled.
 
 ---
 
@@ -311,7 +351,7 @@ Column order:     [ File order ▼ ]
 ── Grouping ─────────────────────────────────────────
 Group by:         [ (none) ▼ ]
                   (none) / By file / [schema property keys]
-  (entire section hidden when flow = vertical)
+  (available for all flow directions)
 ```
 
 The sort and group property dropdowns are disabled when schema is `"none"`. The "By file" group option is always available regardless of schema. When schema = `Dataview`, property-key dropdowns include both built-in keys and discovered inline keys present on current tasks.
@@ -423,12 +463,13 @@ src/
       settings_store.ts      [pre-work] — split plugin data shape; [Phase 1+] add new fields
       settings.ts            [Phase 1+] — add schema/ordering/grouping UI
     components/
-      column.svelte          [pre-work] — extract task list body into task_list.svelte; extract header into column_header.svelte
-      column_header.svelte   [Phase 5] — column title, count, collapse toggle, mode toggle (shared by column.svelte and board_grid.svelte)
-      task_list.svelte       [pre-work] — drag target, task loop, inline creation (extracted from column.svelte)
-      board_grid.svelte      [Phase 5] — CSS grid layout + sticky column header row + group dividers
-      task.svelte            [Phase 3] — add property strip
-    main.svelte              [pre-work] — extract filter sidebar; use task_grouping; [Phase 5] switch to board_grid
+      column.svelte                [pre-work] — extract task list body into task_list.svelte; extract header into column_header.svelte
+      column_header.svelte         [Phase 5] — column title, count, collapse toggle, mode toggle (shared by column.svelte and grouped renderers)
+      task_list.svelte             [pre-work] — drag target, task loop, inline creation (extracted from column.svelte)
+      board_grid.svelte            [Phase 5] — horizontal grouped CSS grid + sticky column header row + spanning group dividers
+      grouped_column_stack.svelte  [Phase 6] — vertical grouped column renderer with repeated local group headers
+      task.svelte                  [Phase 3] — add property strip
+    main.svelte                    [pre-work] — extract filter sidebar; use task_grouping; [Phase 5+] switch between ungrouped / grouped-horizontal / grouped-vertical renderers
     filter_sidebar.svelte    [pre-work] — all filter state, persistence, and sidebar UI (extracted from main.svelte)
 ```
 
@@ -450,7 +491,7 @@ The set of group values is derived from **all tasks in the board** (not just the
 Every column/cell renders all group buckets — including empty ones — so section boundaries align.
 
 ### Grouping — Empty Sections
-An empty group section renders the divider header only (minimal height, no padding). It does not render a card-sized drop zone. This keeps columns compact when a group has no tasks.
+An empty group section renders the divider header only (minimal height, no padding). It does not render a card-sized drop zone. This keeps columns compact in both grouped renderers.
 
 ### Grouping — Special Columns
 The Done, Uncategorised, and Archived columns participate in grouping the same way as regular columns. Done and Uncategorised columns already have their own visibility logic; grouping does not override it.
@@ -478,7 +519,7 @@ These phases make **no functional changes** — the board looks and behaves iden
 
 ### Pre-work P1: Extract `task_list.svelte` from `column.svelte`
 
-**Goal:** Create the shared building block that both `column.svelte` (ungrouped) and `board_grid.svelte` (grouped) will use. No visual change.
+**Goal:** Create the shared building block that ungrouped and grouped renderers will use (`column.svelte`, `board_grid.svelte`, and later `grouped_column_stack.svelte`). No visual change.
 
 **What moves to `task_list.svelte`:**
 - `isDraggedOver` state, `canDrop` derived value
@@ -687,10 +728,10 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
 
 ---
 
-### Phase 5: Grouping with spanning dividers
-**Goal:** Tasks grouped by a property or by file, with a single horizontal divider line spanning all columns.
+### Phase 5: Horizontal grouping with spanning dividers
+**Goal:** In horizontal flows, tasks grouped by a property or by file, with a single horizontal divider line spanning all columns.
 
-1. [ ] Add `groupSource: GroupSource | null` to settings; add `collapsedGroups: string[]` with default `[]`; hide grouping controls when `flowDirection` is vertical
+1. [ ] Add `groupSource: GroupSource | null` to settings; add `collapsedGroups: string[]` with default `[]`; show grouping controls in all flows
 2. [ ] Add `GroupSource` type to `settings_store.ts`; add Zod schema for it
 3. [ ] Implement `deriveGroupValues(tasks, groupSource): GroupBucket[]` in `task_grouping.ts` — returns sorted distinct group buckets from all tasks, null-value last, dispatches on `groupSource.kind`
 4. [ ] Implement `board_grid.svelte`:
@@ -698,11 +739,26 @@ Backward compatibility: if `loadData()` returns an object without a `manualOrder
    - CSS grid body: for each group value, render a spanning divider (`grid-column: 1 / -1`) then one `<TaskList>` per column
    - `grid-template-columns` computed dynamically from column widths and `collapsedColumns` state (collapsed columns get 48px track width)
    - Empty group sections: divider header only, no padding below it
-5. [ ] In `main.svelte`: `{#if groupSource && !isVerticalFlow}` switches to `<BoardGrid>`; otherwise renders the existing `<Column>` loop — two strictly separate paths sharing only `task_list.svelte`
+5. [ ] In `main.svelte`: if `groupSource` is set and flow is horizontal, render `<BoardGrid>`; otherwise keep the existing `<Column>` loop for ungrouped and not-yet-implemented vertical grouped flows
 6. [ ] Manual order in grouped mode: store order under `ManualOrderStore[groupBucket.id][columnTag]`; when grouping is off, use the `"__ungrouped__"` bucket; no data migration needed between modes
-7. [ ] Test: tasks in correct sections; empty sections compact; dividers span all columns; manual order per cell; collapsing a column narrows its grid track; vertical flow shows no grouping controls and falls back to column loop
+7. [ ] Test: tasks in correct sections; empty sections compact; dividers span all columns; manual order per cell; collapsing a column narrows its grid track; vertical flow remains ungrouped for now
 
 **Deliverable:** Setting `groupSource = { kind: "property", key: "priority" }` shows High / Medium / (no value) sections with a single spanning divider. Setting `groupSource = { kind: "file" }` groups by source file.
+
+---
+
+### Phase 6: Vertical-flow grouping
+**Goal:** In vertical flows, tasks grouped by the same `groupSource`, using per-column grouped stacks rather than board-wide spanning dividers.
+
+1. [ ] Implement `grouped_column_stack.svelte`:
+   - render one column at a time in the existing vertical board flow
+   - within each column, render the shared `GroupBucket[]` sequence as repeated local section headers plus `<TaskList>`
+   - preserve the same empty-section behavior as horizontal grouping
+2. [ ] In `main.svelte`: when `groupSource` is set and flow is vertical, switch to the grouped vertical renderer instead of the ungrouped `<Column>` loop
+3. [ ] Reuse the same `GroupBucket[]` derivation, `ManualOrderStore`, and `task_list.svelte` integration from Phase 5
+4. [ ] Test: grouped sections appear in every stacked column; group order matches across columns; manual order remains per `(group bucket, column)` cell; switching between horizontal and vertical flow preserves grouping semantics
+
+**Deliverable:** Setting `groupSource = { kind: "property", key: "priority" }` in `TTB` or `BTT` shows repeated High / Medium / (no value) sections inside each stacked column.
 
 ---
 
@@ -714,13 +770,13 @@ The pre-work phases resolve the structural debt identified earlier. The followin
 
 When a task is auto-assigned a block link, `vault.modify()` fires the store's modify handler, which would re-emit a new task list and potentially reset the task's visual position before the manual order is saved. Mitigation: track the exact pending block-link write using the newly assigned stable task key (or file path + block link) and suppress only the corresponding refresh-side position reset. Avoid a fixed time-window heuristic; it is brittle under slow I/O and bulk edits. This is accounted for in Phase 4 step 3.
 
-### 2. Dual rendering mode must stay strictly separated (Phase 5, step 5)
+### 2. Grouped renderers must stay strictly separated by layout mode (Phase 5/6)
 
-The `{#if groupSource && !isVerticalFlow}` conditional in `main.svelte` is one top-level branch. The two paths (`column.svelte` loop vs `board_grid.svelte`) share only `task_list.svelte`. If this condition starts propagating into child components as feature flags, it becomes a maintenance problem. Enforce: neither `column.svelte` nor `board_grid.svelte` contains conditionals referencing the other mode.
+`main.svelte` should choose among three top-level paths: ungrouped, grouped-horizontal, grouped-vertical. These paths share `task_list.svelte`, `column_header.svelte`, `GroupBucket[]`, and manual-order infrastructure, but should not collapse into one heavily-conditional grouped component. Enforce: `board_grid.svelte` owns only the horizontal grouped layout, and `grouped_column_stack.svelte` owns only the vertical grouped layout.
 
 ### 3. Column header duplication between modes (Phase 5, step 4)
 
-In ungrouped mode, `column.svelte` renders its own header. In grouped mode, `board_grid.svelte` must render a sticky header row with the same column headers. Rather than duplicating the header markup, extract a `column_header.svelte` sub-component used by both. This is included in Phase 5 step 4.
+In ungrouped mode, `column.svelte` renders its own header. In grouped horizontal mode, `board_grid.svelte` must render a sticky header row with the same column headers. Rather than duplicating the header markup, extract a `column_header.svelte` sub-component used by both. Vertical grouped mode can keep headers in the normal column position and also reuse the same sub-component.
 
 ---
 
