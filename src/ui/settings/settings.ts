@@ -477,20 +477,7 @@ export class SettingsModal extends Modal {
 				setDefaultTaskFileError("File not found");
 				return;
 			}
-			let scopeFilter: string[] | null;
-			switch (this.settings.scope) {
-				case ScopeOption.Folder:
-					scopeFilter = this.boardFolderPath
-						? [this.boardFolderPath]
-						: null;
-					break;
-				case ScopeOption.SelectedFolders:
-					scopeFilter = this.settings.scopeFolders ?? [];
-					break;
-				default:
-					scopeFilter = null;
-					break;
-			}
+			const scopeFilter = this.getScopeFilter();
 			if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], this.boardFolderPath)) {
 				const excludePaths = this.settings.excludePaths ?? [];
 				const isExcludedByPath = excludePaths.length > 0 &&
@@ -890,11 +877,20 @@ export class SettingsModal extends Modal {
 		});
 
 		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
-		this.saveBtn.addEventListener("click", () => {
-			void this.onSubmit(this.settings, {
-				updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
-			});
-			this.close();
+		this.saveBtn.addEventListener("click", async () => {
+			if (this.saveBtn) {
+				this.saveBtn.disabled = true;
+			}
+			try {
+				await this.onSubmit(this.settings, {
+					updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+				});
+				this.close();
+			} finally {
+				if (this.saveBtn) {
+					this.saveBtn.disabled = false;
+				}
+			}
 		});
 
 		// Apply validation state to save button now that it exists
@@ -905,5 +901,20 @@ export class SettingsModal extends Modal {
 
 	onClose() {
 		this.contentEl.empty();
+	}
+
+	private getScopeFilter(): string[] | null {
+		switch (this.settings.scope) {
+			case ScopeOption.Folder:
+				return this.boardFolderPath ? [this.boardFolderPath] : null;
+			case ScopeOption.SelectedFolders: {
+				const selected = this.settings.scopeFolders ?? [];
+				return this.boardFolderPath
+					? [this.boardFolderPath, ...selected.filter((folder) => folder !== this.boardFolderPath)]
+					: selected;
+			}
+			default:
+				return null;
+		}
 	}
 }
