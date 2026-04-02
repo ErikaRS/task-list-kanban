@@ -307,7 +307,7 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **M2.** Open a board with color-suffixed columns (e.g., `Doing(#FF5733)`, `Review(0x3498DB)`). Labels display without the color suffix. Colors render correctly.
 - [x] **M3.** Open a board with a column whose name contains parentheses but not a valid color (e.g., `Stuff (misc)`). The label is preserved as-is, no color is extracted.
 - [x] **M4.** After migration, tasks that were in specific columns remain in those same columns — nothing moves to Uncategorized unexpectedly.
-- [ ] **M5.** After migration, moving a task between columns writes the same tag format that the old plugin would have written.
+- [x] **M5.** After migration, moving a task between columns writes the same tag format that the old plugin would have written.
 - [x] **M6.** Open a legacy board and change any setting (not columns). Save. The board frontmatter now contains structured column definitions, not legacy strings. Board behavior is unchanged.
 
 ### Name Mode Matching
@@ -315,7 +315,7 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **N1.** A name-mode column with label "In Progress" matches a task tagged `#in-progress`.
 - [x] **N2.** A name-mode column with label "In Progress" matches a task tagged `#InProgress`.
 - [x] **N3.** A name-mode column with label "In Progress" does **not** match a task tagged `#status/now` (arbitrary unrelated tag).
-- [x] **N4.** A task with no tags at all appears in Uncategorized, not in any name-mode column.
+- [x] **N4.** A task with no tags at all appears in Uncategorized, not in any name-mode column
 - [ ] **N5.** Moving a task into a name-mode column writes the normalized label-derived tag to the source file.
 - [ ] **N6.** Moving a task out of a name-mode column removes the label-derived tag from the source file.
 
