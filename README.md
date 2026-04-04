@@ -45,13 +45,13 @@ The `#[column-name]` text won't be visible in the kanban view, keeping your task
 
 Access settings via the settings icon in the top right corner of your kanban.
 
-**Basic Columns**: Add, edit, or remove columns in the 'Columns' section. Separate column names with commas.
+**Columns editor**: Manage columns directly in the **Columns** section of settings. You can rename columns, assign optional column background colors, remove columns, and drag custom columns to reorder them. The built-in **Uncategorized** and **Done** rows stay fixed at the top and bottom of the list, and each has its own visibility setting.
 
-**Column Colors**: Assign colors by adding hex codes after column names:
-- `To Do(#FF5733)` - Standard hex format
-- `In Progress(0x3498DB)` - Alternative hex format
+![Column settings](https://github.com/user-attachments/assets/6b9f0e79-1cac-4976-b46b-577917d6d42c)
 
-⚠️ **Important**: Think carefully when naming columns. Changing a column name later will move associated tasks to 'Uncategorised' since tasks are linked to exact column names.
+**Column Colors**: Enter a hex color like `#FF5733` in a column's **Color** field to tint that column's background.
+
+**Renaming columns**: For standard name-based columns, renaming changes the derived placement tag. When you rename an existing column, settings can optionally update existing task tags to match the new name.
 
 **Tag Mapping**: Column names are case-insensitive and ignore spaces when matching tags.
 - "In Progress" matches tags like `#InProgress`, `#in-progress`, and `#In-Progress`.

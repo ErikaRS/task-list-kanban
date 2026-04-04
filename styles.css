@@ -69,3 +69,178 @@ If your plugin does not need CSS, delete this file.
 	gap: 8px;
 	flex-shrink: 0;
 }
+
+.column-editor-section {
+	margin-bottom: 20px;
+}
+
+.column-editor-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+.column-editor-row {
+	display: grid;
+	grid-template-columns: 24px minmax(0, 1fr) 32px;
+	position: relative;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary-alt);
+}
+
+.column-editor-row.is-drop-target {
+	border-color: var(--background-modifier-border);
+	box-shadow: none;
+}
+
+.column-editor-row.is-dragging {
+	opacity: 0.4;
+}
+
+.column-editor-row.is-drop-before::before,
+.column-editor-row.is-drop-after::before {
+	content: "";
+	position: absolute;
+	left: 8px;
+	right: 8px;
+	height: 2px;
+	background: var(--interactive-accent);
+	pointer-events: none;
+}
+
+.column-editor-row.is-drop-before::after,
+.column-editor-row.is-drop-after::after {
+	content: "";
+	position: absolute;
+	left: 4px;
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	background: var(--interactive-accent);
+	pointer-events: none;
+}
+
+.column-editor-row.is-drop-before::before {
+	top: -2px;
+}
+
+.column-editor-row.is-drop-before::after {
+	top: -6px;
+}
+
+.column-editor-row.is-drop-after::before {
+	bottom: -2px;
+}
+
+.column-editor-row.is-drop-after::after {
+	bottom: -6px;
+}
+
+.column-editor-rename-option {
+	grid-column: 2 / 3;
+	display: none;
+	align-items: center;
+	gap: 8px;
+	padding-top: 2px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.column-editor-handle,
+.column-editor-handle-spacer {
+	width: 24px;
+	height: 24px;
+}
+
+.column-editor-handle {
+	cursor: grab;
+	color: var(--text-muted);
+	font-size: 14px;
+	line-height: 1;
+}
+
+.column-editor-handle:active {
+	cursor: grabbing;
+}
+
+.column-editor-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 10px;
+	align-items: center;
+}
+
+.column-editor-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.column-editor-field input,
+.column-editor-field select {
+	margin: 0;
+}
+
+.column-editor-field:first-child {
+	min-width: 0;
+}
+
+.column-editor-field:first-child .setting-input {
+	width: 100%;
+}
+
+.column-editor-inline-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.column-editor-field-color .setting-input {
+	width: 120px;
+}
+
+.column-editor-controls {
+	display: flex;
+	justify-content: flex-start;
+	margin-top: 10px;
+}
+
+.column-editor-row > button {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+@media (max-width: 720px) {
+	.column-editor-row {
+		grid-template-columns: 1fr;
+	}
+
+	.column-editor-rename-option {
+		grid-column: auto;
+	}
+
+	.column-editor-fields {
+		grid-template-columns: 1fr;
+	}
+
+	.column-editor-field {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 4px;
+	}
+
+	.column-editor-field-color .setting-input {
+		width: 100%;
+	}
+}

@@ -10,7 +10,12 @@ import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import { kebab } from "src/parsing/kebab/kebab";
-import { RESERVED_COLUMN_KEYS, parseColumnSpec } from "../columns/columns";
+import {
+	RESERVED_COLUMN_KEYS,
+	type ColumnDefinition,
+} from "../columns/columns";
+import { createColumnId } from "../columns/definitions";
+import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -18,19 +23,28 @@ const FlowDirectionSchema = z.nativeEnum(FlowDirection);
 
 export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
+	private readonly originalSettings: SettingValues;
 	private scrollWrapper!: HTMLDivElement;
 	private dirtyBanner: HTMLElement | null = null;
 	private validationError: string | null = null;
 	private validationBanner: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
+	private columnsEditorEl: HTMLDivElement | null = null;
+	private readonly updateExistingTaskTagsByColumnId = new Map<string, boolean>();
+	private draggedColumnId: string | null = null;
+	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
 
 	constructor(
 		app: App,
 		private settings: SettingValues,
-		private readonly onSubmit: (newSettings: SettingValues) => void,
+		private readonly onSubmit: (
+			newSettings: SettingValues,
+			options: { updateExistingTaskTagsByColumnId: Record<string, boolean> },
+		) => void | Promise<void>,
 		private readonly boardFolderPath: string | null
 	) {
 		super(app);
+		this.originalSettings = structuredClone(settings);
 		this.originalSettingsSnapshot = JSON.stringify(settings);
 	}
 
@@ -39,17 +53,314 @@ export class SettingsModal extends Modal {
 	}
 
 	private validateColumns() {
-		const reserved = (this.settings.columns ?? [])
-			.filter(col => col.trim() !== "")
-			.filter(col => RESERVED_COLUMN_KEYS.has(kebab(parseColumnSpec(col).label)));
-		if (reserved.length > 0) {
-			const names = reserved.map(c => `"${parseColumnSpec(c).label}"`).join(", ");
-			this.validationError =
-				`Column name ${names} conflicts with a built-in column. Please choose a different name.`;
-		} else {
-			this.validationError = null;
+		const errors: string[] = [];
+		const seenDerivedTags = new Map<string, string>();
+
+		for (const column of this.settings.columns ?? []) {
+			const label = column.label.trim();
+			if (label.length === 0) {
+				errors.push("Column labels cannot be empty.");
+				continue;
+			}
+
+			const derivedTag = kebab(label);
+			if (RESERVED_COLUMN_KEYS.has(derivedTag)) {
+				errors.push(`Column name "${label}" conflicts with a built-in column.`);
+			}
+
+			const existingLabel = seenDerivedTags.get(derivedTag);
+			if (existingLabel) {
+				errors.push(`Columns "${existingLabel}" and "${label}" match the same tag.`);
+			} else {
+				seenDerivedTags.set(derivedTag, label);
+			}
 		}
+
+		this.validationError = errors.length > 0 ? errors[0]! : null;
 		this.updateValidationBanner();
+	}
+
+	private touchSettings() {
+		this.validateColumns();
+		this.updateDirtyBanner();
+	}
+
+	private getOriginalColumn(columnId: string): ColumnDefinition | undefined {
+		return this.originalSettings.columns.find((column) => column.id === columnId);
+	}
+
+	private shouldShowRetagOption(column: ColumnDefinition): boolean {
+		const originalColumn = this.getOriginalColumn(column.id);
+		if (!originalColumn) return false;
+		if (originalColumn.matchMode !== "name" || column.matchMode !== "name") return false;
+		return originalColumn.label !== column.label;
+	}
+
+	private shouldUpdateExistingTaskTags(columnId: string): boolean {
+		return this.updateExistingTaskTagsByColumnId.get(columnId) ?? true;
+	}
+
+	private addColumn() {
+		const usedIds = new Set(this.settings.columns.map((column) => column.id));
+		this.settings.columns = [
+			...this.settings.columns,
+			{
+				id: createColumnId("New Column", usedIds),
+				label: "New Column",
+				matchMode: "name",
+				matchTags: [],
+			},
+		];
+		this.renderColumnsEditor();
+		this.touchSettings();
+	}
+
+	private reorderColumns(draggedColumnId: string, targetColumnId: string, position: DropPosition) {
+		const reordered = moveColumnRelativeTo(this.settings.columns, draggedColumnId, targetColumnId, position);
+		if (reordered === this.settings.columns) {
+			return;
+		}
+
+		this.settings.columns = reordered;
+		this.renderColumnsEditor();
+		this.touchSettings();
+	}
+
+	private setDragPreview(columnId: string, position: DropPosition) {
+		this.dragPreviewTarget = { columnId, position };
+	}
+
+	private clearDragPreview() {
+		this.dragPreviewTarget = null;
+	}
+
+	private clearDragState(container?: HTMLDivElement) {
+		this.draggedColumnId = null;
+		this.clearDragPreview();
+		if (!container) return;
+		container.querySelectorAll(".column-editor-row").forEach((candidate) => {
+			candidate.removeClass("is-drop-target");
+			candidate.removeClass("is-drop-before");
+			candidate.removeClass("is-drop-after");
+			candidate.removeClass("is-dragging");
+		});
+	}
+
+	private renderColumnsEditor() {
+		if (!this.columnsEditorEl) {
+			return;
+		}
+
+		this.columnsEditorEl.empty();
+
+		const section = this.columnsEditorEl.createDiv({ cls: "column-editor-section" });
+		section.createEl("h2", { text: "Columns" });
+		section.createEl("p", {
+			text: "Edit each board column directly. Labels control display and current tag matching.",
+			cls: "setting-item-description",
+		});
+
+		const rows = section.createDiv({ cls: "column-editor-list" });
+		this.renderBookendRow(rows, {
+			title: "Uncategorized",
+			label: this.settings.uncategorizedColumnName ?? "",
+			placeholder: "Uncategorized",
+			visibility: this.settings.uncategorizedVisibility ?? VisibilityOption.Auto,
+			onLabelChange: (value) => {
+				this.settings.uncategorizedColumnName = value;
+				this.touchSettings();
+			},
+			onVisibilityChange: (value) => {
+				const validatedValue = VisibilityOptionSchema.safeParse(value);
+				this.settings.uncategorizedVisibility = validatedValue.success
+					? validatedValue.data
+					: defaultSettings.uncategorizedVisibility;
+				this.touchSettings();
+			},
+		});
+
+		for (const column of this.settings.columns) {
+			this.renderCustomColumnRow(rows, column);
+		}
+
+		this.renderBookendRow(rows, {
+			title: "Done",
+			label: this.settings.doneColumnName ?? "",
+			placeholder: "Done",
+			visibility: this.settings.doneVisibility ?? VisibilityOption.AlwaysShow,
+			onLabelChange: (value) => {
+				this.settings.doneColumnName = value;
+				this.touchSettings();
+			},
+			onVisibilityChange: (value) => {
+				const validatedValue = VisibilityOptionSchema.safeParse(value);
+				this.settings.doneVisibility = validatedValue.success
+					? validatedValue.data
+					: defaultSettings.doneVisibility;
+				this.touchSettings();
+			},
+		});
+
+		const controls = section.createDiv({ cls: "column-editor-controls" });
+		const addButton = controls.createEl("button", { text: "Add column" });
+		addButton.addEventListener("click", () => this.addColumn());
+	}
+
+	private renderBookendRow(
+		container: HTMLDivElement,
+		options: {
+			title: string;
+			label: string;
+			placeholder: string;
+			visibility: VisibilityOption;
+			onLabelChange: (value: string) => void;
+			onVisibilityChange: (value: string) => void;
+		},
+	) {
+		const row = container.createDiv({ cls: "column-editor-row is-bookend" });
+		row.createDiv({ cls: "column-editor-handle-spacer" });
+
+		const fields = row.createDiv({ cls: "column-editor-fields" });
+
+		const labelField = fields.createDiv({ cls: "column-editor-field" });
+		const labelInput = labelField.createEl("input", {
+			type: "text",
+			value: options.label,
+			placeholder: options.placeholder,
+		});
+		labelInput.addClass("setting-input");
+		labelInput.addEventListener("input", () => {
+			options.onLabelChange(labelInput.value);
+		});
+
+		const visibilityField = fields.createDiv({ cls: "column-editor-field" });
+		const visibilityLabel = visibilityField.createDiv({ cls: "column-editor-inline-label", text: "Visibility" });
+		const visibilitySelect = visibilityField.createEl("select");
+		visibilitySelect.addClass("dropdown");
+		visibilitySelect.setAttribute("aria-label", `${options.title} visibility`);
+		visibilitySelect.createEl("option", {
+			value: VisibilityOption.AlwaysShow,
+			text: "Always show",
+		});
+		visibilitySelect.createEl("option", {
+			value: VisibilityOption.Auto,
+			text: "Hide when empty",
+		});
+		visibilitySelect.createEl("option", {
+			value: VisibilityOption.NeverShow,
+			text: "Never show",
+		});
+		visibilitySelect.value = options.visibility;
+		visibilitySelect.addEventListener("change", () => {
+			options.onVisibilityChange(visibilitySelect.value);
+		});
+		void visibilityLabel;
+	}
+
+	private renderCustomColumnRow(container: HTMLDivElement, column: ColumnDefinition) {
+		const row = container.createDiv({ cls: "column-editor-row" });
+		const dragHandle = row.createEl("button", {
+			text: "⋮⋮",
+			cls: "column-editor-handle clickable-icon",
+		});
+		dragHandle.setAttribute("aria-label", `Reorder ${column.label} column`);
+		dragHandle.draggable = true;
+		dragHandle.addEventListener("dragstart", (event) => {
+			this.draggedColumnId = column.id;
+			this.clearDragPreview();
+			row.addClass("is-dragging");
+			if (event.dataTransfer) {
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData("text/plain", column.id);
+			}
+		});
+		dragHandle.addEventListener("dragend", () => {
+			this.clearDragState(container);
+		});
+		row.addEventListener("dragover", (event) => {
+			if (!this.draggedColumnId || this.draggedColumnId === column.id) {
+				return;
+			}
+			event.preventDefault();
+			const rowRect = row.getBoundingClientRect();
+			const position: DropPosition = event.clientY > rowRect.top + rowRect.height / 2 ? "after" : "before";
+			this.setDragPreview(column.id, position);
+			row.addClass("is-drop-target");
+			row.classList.toggle("is-drop-before", position === "before");
+			row.classList.toggle("is-drop-after", position === "after");
+			if (event.dataTransfer) {
+				event.dataTransfer.dropEffect = "move";
+			}
+		});
+		row.addEventListener("dragleave", () => {
+			if (this.dragPreviewTarget?.columnId === column.id) {
+				this.clearDragPreview();
+			}
+			row.removeClass("is-drop-target");
+			row.removeClass("is-drop-before");
+			row.removeClass("is-drop-after");
+		});
+		row.addEventListener("drop", (event) => {
+			event.preventDefault();
+			const position = this.dragPreviewTarget?.columnId === column.id
+				? this.dragPreviewTarget.position
+				: "before";
+			const draggedColumnId = this.draggedColumnId ?? event.dataTransfer?.getData("text/plain") ?? "";
+			this.clearDragState(container);
+			this.reorderColumns(draggedColumnId, column.id, position);
+		});
+
+		const fields = row.createDiv({ cls: "column-editor-fields" });
+		const renameOption = row.createDiv({ cls: "column-editor-rename-option" });
+
+		const labelField = fields.createDiv({ cls: "column-editor-field" });
+		const labelInput = labelField.createEl("input", { type: "text", value: column.label });
+		labelInput.addClass("setting-input");
+		labelInput.setAttribute("aria-label", "Column label");
+		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
+		const renameLabel = renameOption.createEl("label", {
+			text: "Update existing task tags",
+		});
+		const updateRenameOption = () => {
+			const show = this.shouldShowRetagOption(column);
+			renameOption.style.display = show ? "flex" : "none";
+			renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
+			renameCheckbox.setAttribute("aria-label", `Update existing task tags for ${column.label || "column"}`);
+			void renameLabel;
+		};
+		updateRenameOption();
+		labelInput.addEventListener("input", () => {
+			column.label = labelInput.value;
+			updateRenameOption();
+			this.touchSettings();
+		});
+
+		const colorField = fields.createDiv({ cls: "column-editor-field column-editor-field-color" });
+		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
+		const colorInput = colorField.createEl("input", {
+			type: "text",
+			value: column.color ?? "",
+			placeholder: "#RRGGBB",
+		});
+		colorInput.addClass("setting-input");
+		colorInput.setAttribute("aria-label", `${column.label} color`);
+		colorInput.addEventListener("input", () => {
+			column.color = colorInput.value.trim() || undefined;
+			this.touchSettings();
+		});
+		renameCheckbox.addEventListener("change", () => {
+			this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
+			this.touchSettings();
+		});
+
+		const removeButton = row.createEl("button", { text: "✕", cls: "clickable-icon" });
+		removeButton.setAttribute("aria-label", `Remove ${column.label} column`);
+		removeButton.addEventListener("click", () => {
+			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
+			this.updateExistingTaskTagsByColumnId.delete(column.id);
+			this.renderColumnsEditor();
+			this.touchSettings();
+		});
 	}
 
 	private updateValidationBanner() {
@@ -91,99 +402,9 @@ export class SettingsModal extends Modal {
 		this.scrollWrapper = this.contentEl.createDiv({ cls: "settings-scroll-wrapper" });
 		this.scrollWrapper.createEl("h1", { text: "Settings" });
 
-		new Setting(this.scrollWrapper)
-			.setName("Columns")
-			.setDesc('The column names separated by a comma ","')
-			.setClass("column")
-			.addText((text) => {
-				text.setValue(this.settings.columns.join(", "));
-				text.onChange((value) => {
-					this.settings.columns = value
-						.split(",")
-						.map((column) => column.trim());
-					this.validateColumns();
-					this.updateDirtyBanner();
-				});
-			});
+		this.columnsEditorEl = this.scrollWrapper.createDiv();
+		this.renderColumnsEditor();
 		this.validateColumns();
-
-		let uncategorizedNameInput: HTMLInputElement | null = null;
-		new Setting(this.scrollWrapper)
-			.setName("Uncategorized column")
-			.setDesc("Visibility and display name for untagged tasks")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(VisibilityOption.AlwaysShow, "Always show")
-					.addOption(VisibilityOption.Auto, "Hide when empty")
-					.addOption(VisibilityOption.NeverShow, "Never show")
-					.setValue(
-						this.settings.uncategorizedVisibility ??
-						VisibilityOption.Auto
-					)
-					.onChange((value) => {
-						const validatedValue =
-							VisibilityOptionSchema.safeParse(value);
-						this.settings.uncategorizedVisibility =
-							validatedValue.success
-								? validatedValue.data
-								: defaultSettings.uncategorizedVisibility;
-						if (uncategorizedNameInput) {
-							const hidden = this.settings.uncategorizedVisibility === VisibilityOption.NeverShow;
-							uncategorizedNameInput.style.visibility = hidden ? "hidden" : "";
-						}
-						this.updateDirtyBanner();
-					});
-			})
-			.addText((text) => {
-				uncategorizedNameInput = text.inputEl;
-				text.setPlaceholder("Uncategorized");
-				text.setValue(this.settings.uncategorizedColumnName ?? "");
-				if ((this.settings.uncategorizedVisibility ?? VisibilityOption.Auto) === VisibilityOption.NeverShow) {
-					text.inputEl.style.visibility = "hidden";
-				}
-				text.onChange((value) => {
-					this.settings.uncategorizedColumnName = value;
-					this.updateDirtyBanner();
-				});
-			});
-
-		let doneNameInput: HTMLInputElement | null = null;
-		new Setting(this.scrollWrapper)
-			.setName("Done column")
-			.setDesc("Visibility and display name for completed tasks")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(VisibilityOption.AlwaysShow, "Always show")
-					.addOption(VisibilityOption.Auto, "Hide when empty")
-					.addOption(VisibilityOption.NeverShow, "Never show")
-					.setValue(
-						this.settings.doneVisibility ?? VisibilityOption.Auto
-					)
-					.onChange((value) => {
-						const validatedValue =
-							VisibilityOptionSchema.safeParse(value);
-						this.settings.doneVisibility = validatedValue.success
-							? validatedValue.data
-							: defaultSettings.doneVisibility;
-						if (doneNameInput) {
-							const hidden = this.settings.doneVisibility === VisibilityOption.NeverShow;
-							doneNameInput.style.visibility = hidden ? "hidden" : "";
-						}
-						this.updateDirtyBanner();
-					});
-			})
-			.addText((text) => {
-				doneNameInput = text.inputEl;
-				text.setPlaceholder("Done");
-				text.setValue(this.settings.doneColumnName ?? "");
-				if ((this.settings.doneVisibility ?? VisibilityOption.AlwaysShow) === VisibilityOption.NeverShow) {
-					text.inputEl.style.visibility = "hidden";
-				}
-				text.onChange((value) => {
-					this.settings.doneColumnName = value;
-					this.updateDirtyBanner();
-				});
-			});
 
 		new Setting(this.scrollWrapper)
 			.setName("Column width")
@@ -256,20 +477,7 @@ export class SettingsModal extends Modal {
 				setDefaultTaskFileError("File not found");
 				return;
 			}
-			let scopeFilter: string[] | null;
-			switch (this.settings.scope) {
-				case ScopeOption.Folder:
-					scopeFilter = this.boardFolderPath
-						? [this.boardFolderPath]
-						: null;
-					break;
-				case ScopeOption.SelectedFolders:
-					scopeFilter = this.settings.scopeFolders ?? [];
-					break;
-				default:
-					scopeFilter = null;
-					break;
-			}
+			const scopeFilter = this.getScopeFilter();
 			if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], this.boardFolderPath)) {
 				const excludePaths = this.settings.excludePaths ?? [];
 				const isExcludedByPath = excludePaths.length > 0 &&
@@ -669,9 +877,20 @@ export class SettingsModal extends Modal {
 		});
 
 		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
-		this.saveBtn.addEventListener("click", () => {
-			this.onSubmit(this.settings);
-			this.close();
+		this.saveBtn.addEventListener("click", async () => {
+			if (this.saveBtn) {
+				this.saveBtn.disabled = true;
+			}
+			try {
+				await this.onSubmit(this.settings, {
+					updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+				});
+				this.close();
+			} finally {
+				if (this.saveBtn) {
+					this.saveBtn.disabled = false;
+				}
+			}
 		});
 
 		// Apply validation state to save button now that it exists
@@ -682,5 +901,20 @@ export class SettingsModal extends Modal {
 
 	onClose() {
 		this.contentEl.empty();
+	}
+
+	private getScopeFilter(): string[] | null {
+		switch (this.settings.scope) {
+			case ScopeOption.Folder:
+				return this.boardFolderPath ? [this.boardFolderPath] : null;
+			case ScopeOption.SelectedFolders: {
+				const selected = this.settings.scopeFolders ?? [];
+				return this.boardFolderPath
+					? [this.boardFolderPath, ...selected.filter((folder) => folder !== this.boardFolderPath)]
+					: selected;
+			}
+			default:
+				return null;
+		}
 	}
 }

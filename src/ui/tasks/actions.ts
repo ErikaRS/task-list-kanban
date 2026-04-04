@@ -45,6 +45,7 @@ export function createTaskActions({
 	getFilenameFilter,
 	getExcludeFilter,
 	getBoardFolderPath,
+	getPlacementTagForColumn,
 	getDefaultTaskFile,
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
@@ -56,6 +57,7 @@ export function createTaskActions({
 	getFilenameFilter: () => string[] | null;
 	getExcludeFilter: () => string[] | null;
 	getBoardFolderPath: () => string | null;
+	getPlacementTagForColumn: (column: ColumnTag) => string;
 	getDefaultTaskFile: () => string | null;
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
@@ -310,7 +312,7 @@ export function createTaskActions({
 				vault,
 				file,
 				undefined,
-				`- [ ] ${content} #${column}`,
+				`- [ ] ${content} #${getPlacementTagForColumn(column)}`,
 			);
 		},
 	};

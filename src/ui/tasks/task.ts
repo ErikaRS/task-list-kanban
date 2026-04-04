@@ -1,6 +1,11 @@
 import sha256 from "crypto-js/sha256";
 import type { Brand } from "src/brand";
-import type { ColumnTag, ColumnTagTable } from "../columns/columns";
+import type {
+	ColumnPlacementLookupTable,
+	ColumnPlacementTagTable,
+	ColumnTag,
+	DefaultColumns,
+} from "../columns/columns";
 import { getTagsFromContent, isValidTag } from "src/parsing/tags/tags";
 import { kebab } from "src/parsing/kebab/kebab";
 
@@ -199,7 +204,8 @@ export class Task {
 		rawContent: TaskString,
 		fileHandle: { path: string },
 		readonly rowIndex: number,
-		private readonly columnTagTable: ColumnTagTable,
+		private readonly columnPlacementLookupTable: ColumnPlacementLookupTable,
+		private readonly columnPlacementTagTable: ColumnPlacementTagTable,
 		private readonly consolidateTags: boolean,
 		private readonly doneStatusMarkers: string = DEFAULT_DONE_STATUS_MARKERS,
 		private readonly cancelledStatusMarkers: string = DEFAULT_CANCELLED_STATUS_MARKERS,
@@ -234,9 +240,10 @@ export class Task {
 
 		for (const tag of tags) {
 			const kebabTag = kebab<ColumnTag>(tag);
-			if (kebabTag in columnTagTable || tag === "done") {
+			const mappedColumn = this.columnPlacementLookupTable[kebabTag];
+			if (mappedColumn || tag === "done") {
 				if (!this._column) {
-					this._column = kebabTag;
+					this._column = mappedColumn ?? ("done" as DefaultColumns);
 				}
 				tags.delete(tag);
 				if (!consolidateTags) {
@@ -301,8 +308,8 @@ export class Task {
 		return this._indentation;
 	}
 
-	private _column: ColumnTag | "archived" | undefined;
-	get column(): ColumnTag | "archived" | undefined {
+	private _column: ColumnTag | DefaultColumns | "archived" | undefined;
+	get column(): ColumnTag | DefaultColumns | "archived" | undefined {
 		return this._column;
 	}
 	set column(column: ColumnTag) {
@@ -332,7 +339,7 @@ export class Task {
 				? ` #${this.column === "archived"
 					? this.column
 					: (() => {
-						const mapped = this.columnTagTable[this.column];
+						const mapped = this.columnPlacementTagTable[this.column as ColumnTag];
 						return mapped && isValidTag(mapped) ? mapped : this.column;
 					})()
 				}`
