@@ -32,3 +32,6 @@ tmp_specs/
 
 # superpowers
 .superpowers/
+
+# claude local settings
+.claude/settings.local.json
