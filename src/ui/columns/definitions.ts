@@ -70,20 +70,24 @@ export function getNameModeWriteTag(column: ColumnDefinition): string {
 	return kebab(column.label);
 }
 
+export function usesTagMatching(column: ColumnDefinition): boolean {
+	return column.matchMode === "tags";
+}
+
 export function getColumnWriteTags(column: ColumnDefinition): string[] {
-	return column.matchMode === "tags"
+	return usesTagMatching(column)
 		? column.matchTags
 		: [getNameModeWriteTag(column)];
 }
 
 export function columnRuleSignature(column: ColumnDefinition): string {
-	return column.matchMode === "tags"
+	return usesTagMatching(column)
 		? `tags:${[...getColumnWriteTags(column)].sort().join(",")}`
 		: `name:${getNameModeWriteTag(column)}`;
 }
 
 export function matchesColumnDefinition(column: ColumnDefinition, taskTags: Set<string>): boolean {
-	if (column.matchMode === "tags") {
+	if (usesTagMatching(column)) {
 		const explicitTags = getColumnWriteTags(column);
 		return explicitTags.length > 0 && explicitTags.every((tag) => taskTags.has(tag));
 	}
@@ -99,14 +103,14 @@ export function matchesColumnDefinition(column: ColumnDefinition, taskTags: Set<
 }
 
 export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
-	if (column.matchMode === "tags") {
+	if (usesTagMatching(column)) {
 		return getColumnWriteTags(column).includes(tag);
 	}
 	return kebab(tag) === getNameModeWriteTag(column);
 }
 
 export function getColumnHeaderTags(column: ColumnDefinition): string[] {
-	return column.matchMode === "tags" ? column.matchTags : [];
+	return usesTagMatching(column) ? column.matchTags : [];
 }
 
 export function migrateColumnDefinitions(

@@ -1,7 +1,7 @@
 import { kebab } from "src/parsing/kebab/kebab";
 import { isValidTag } from "src/parsing/tags/tags";
 import { RESERVED_COLUMN_KEYS, type ColumnDefinition } from "../columns/columns";
-import { columnRuleSignature } from "../columns/definitions";
+import { columnRuleSignature, usesTagMatching } from "../columns/definitions";
 
 export function getColumnValidationError(columns: ColumnDefinition[]): string | null {
 	const errors: string[] = [];
@@ -19,12 +19,12 @@ export function getColumnValidationError(columns: ColumnDefinition[]): string | 
 			errors.push(`Column name "${label}" conflicts with a built-in column.`);
 		}
 
-		if (column.matchMode === "tags" && column.matchTags.length === 0) {
+		if (usesTagMatching(column) && column.matchTags.length === 0) {
 			errors.push(`Column "${label}" must define at least one explicit tag.`);
 			continue;
 		}
 
-		if (column.matchMode === "tags") {
+		if (usesTagMatching(column)) {
 			for (const tag of column.matchTags) {
 				if (!isValidTag(tag)) {
 					errors.push(`Column "${label}" has an invalid tag "${tag}".`);
@@ -41,7 +41,7 @@ export function getColumnValidationError(columns: ColumnDefinition[]): string | 
 			seenSignatures.set(signature, label);
 		}
 
-		if (column.matchMode === "tags" && column.matchTags.length === 1) {
+		if (usesTagMatching(column) && column.matchTags.length === 1) {
 			const nameEquivalent = `name:${kebab(column.matchTags[0]!)}`;
 			const nameCollision = seenSignatures.get(nameEquivalent);
 			if (nameCollision) {

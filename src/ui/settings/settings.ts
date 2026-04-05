@@ -16,7 +16,7 @@ import {
 	RESERVED_COLUMN_KEYS,
 	type ColumnDefinition,
 } from "../columns/columns";
-import { columnRuleSignature, createColumnId } from "../columns/definitions";
+import { columnRuleSignature, createColumnId, usesTagMatching } from "../columns/definitions";
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 import { getColumnValidationError } from "./column_validation";
 
@@ -376,7 +376,7 @@ export class SettingsModal extends Modal {
 			this.touchSettings();
 		});
 
-		if (column.matchMode === "tags") {
+		if (usesTagMatching(column)) {
 			const tagsField = fields.createDiv({ cls: "column-editor-field column-editor-field-tag" });
 			const tagPicker = tagsField.createDiv({ cls: "column-editor-tag-select-host" });
 			const tagSelect = new CompactTagSelect({

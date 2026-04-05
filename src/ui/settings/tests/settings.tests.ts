@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type ColumnTag } from "../../columns/columns";
-import { columnRuleSignature, migrateColumnDefinitions } from "../../columns/definitions";
+import { columnRuleSignature, migrateColumnDefinitions, usesTagMatching } from "../../columns/definitions";
 import { getColumnValidationError } from "../column_validation";
 
 describe("getColumnValidationError", () => {
@@ -35,5 +35,22 @@ describe("columnRuleSignature", () => {
 		expect(column?.matchTags).toEqual(["status/now", "project/alpha"]);
 		expect(columnRuleSignature(column!)).toBe("tags:project/alpha,status/now");
 		expect(column?.matchTags).toEqual(["status/now", "project/alpha"]);
+	});
+});
+
+describe("usesTagMatching", () => {
+	it("returns true only for tag-matched columns", () => {
+		const [nameModeColumn] = migrateColumnDefinitions(["In Progress"]);
+		const [explicitTagColumn] = migrateColumnDefinitions([
+			{
+				id: "doing" as ColumnTag,
+				label: "Doing",
+				matchMode: "tags",
+				matchTags: ["status/now"],
+			},
+		]);
+
+		expect(usesTagMatching(nameModeColumn!)).toBe(false);
+		expect(usesTagMatching(explicitTagColumn!)).toBe(true);
 	});
 });
