@@ -102,8 +102,9 @@
 		);
 		--compact-tag-chip-color: var(--text-normal);
 
-		width: auto;
-		display: inline-flex;
+		width: 100%;
+		min-width: 0;
+		display: flex;
 		max-width: 100%;
 	}
 
@@ -134,8 +135,8 @@
 		min-height: 20px;
 		align-items: center;
 		gap: 4px;
-		flex-wrap: nowrap;
-		overflow: visible !important;
+		flex-wrap: wrap;
+		overflow: hidden !important;
 	}
 
 	:global(.compact-tag-select .svelte-select .multi-item-text) {
@@ -178,7 +179,7 @@
 
 	:global(.compact-tag-select .svelte-select) {
 		font-size: var(--font-ui-smaller);
-		width: auto;
+		width: 100%;
 		min-width: 0;
 		max-width: 100%;
 		background: var(--background-modifier-form-field, var(--background-primary));
@@ -187,7 +188,8 @@
 
 	:global(.compact-tag-select .svelte-select .value-container) {
 		min-height: 20px;
-		overflow: visible !important;
+		min-width: 0;
+		overflow: hidden !important;
 	}
 
 	:global(.compact-tag-select .svelte-select input) {
@@ -197,8 +199,10 @@
 		padding-right: 0 !important;
 		margin: 0 !important;
 		line-height: 1.1;
-		min-width: var(--compact-tag-select-reserve) !important;
-		width: var(--compact-tag-select-reserve) !important;
+		min-width: 2ch !important;
+		width: auto !important;
+		flex: 1 1 var(--compact-tag-select-reserve);
+		max-width: 100%;
 		border: 0 !important;
 		background: transparent !important;
 		box-shadow: none !important;
@@ -210,12 +214,12 @@
 		align-items: center;
 		padding: 2px 6px !important;
 		min-height: 24px;
-		min-width: calc(var(--compact-tag-select-reserve) + 12px);
-		width: auto;
+		min-width: 0;
+		width: 100%;
 		max-width: 100%;
 		box-sizing: border-box;
-		flex-wrap: nowrap;
-		overflow: visible !important;
+		flex-wrap: wrap;
+		overflow: hidden !important;
 		background: var(--background-modifier-form-field, var(--background-primary));
 		border-radius: var(--input-radius);
 	}
