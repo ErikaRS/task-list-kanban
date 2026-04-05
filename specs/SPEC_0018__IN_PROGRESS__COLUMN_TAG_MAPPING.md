@@ -99,7 +99,7 @@ Replace the comma-separated `Columns` text input with a per-column editor list, 
 
 The editor should mirror the board layout:
 
-1. **Uncategorized row** (fixed at top) — label and color only. No match mode, remove, or drag handle.
+1. **Uncategorized row** (fixed at top) — label and visibility only. No match mode, remove, or drag handle.
 2. **Custom column rows** (drag-reorderable) — each row includes:
    - Label input
    - Match mode selector: "Match by column name" vs "Match by explicit tags"
@@ -107,7 +107,7 @@ The editor should mirror the board layout:
    - Color input or picker
    - Remove button
    - Drag handle for reordering
-3. **Done row** (fixed at bottom) — label and color only. No match mode, remove, or drag handle.
+3. **Done row** (fixed at bottom) — label and visibility only. No match mode, remove, or drag handle.
 
 The Uncategorized and Done rows should be visually distinct from custom columns (e.g., slightly muted) to make it clear they are fixed bookends, not reorderable or removable.
 
@@ -259,20 +259,22 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 
 **Deliverable:** Drag-reorder in settings. Reordering updates only the visual/custom column order stored in settings; it does not rewrite any task tags or otherwise change task placement rules. Covers test cases: O1–O3, UI10.
 
-### Phase 4: Single Explicit Tag Matching
+### Phase 4: Single Explicit Tag Matching ✅ COMPLETE
 
 **Goal:** Users can configure a column to match by a single explicit tag instead of its label.
 
-1. Add match mode selector to the per-column editor UI ("Match by column name" vs "Match by explicit tags"). Tags input shown conditionally.
-2. Refactor internal column identity: update menus, grouping, and drag/drop flows to pass `column.id` instead of `kebab(label)`. This is required before tags-mode columns can work, since their identity no longer derives from the label.
-3. Update matching logic to dispatch on `matchMode`. Tags-mode columns match by explicit tag; name-mode unchanged.
-4. Update task serialization: write the explicit tag when moving into a tags-mode column, remove it when moving out. Archive removes the column tag.
-5. Strip the explicit tag from card display. Show it as a subtitle beneath the column header.
-6. Add "Update existing task tags" checkbox when switching match mode or changing the tag.
-7. Add collision validation: identical single tags across columns, name-mode label vs single-tag collision.
-8. Tests: single-tag matching, tag stripping, write-back, internal ID refactoring, mode switching with/without task update, collision detection.
+1. ✅ Add match mode selector to the per-column editor UI ("Match by column name" vs "Match by explicit tags"). Tags input shown conditionally.
+2. ✅ Refactor internal column identity: update menus, grouping, and drag/drop flows to pass `column.id` instead of `kebab(label)`. This is required before tags-mode columns can work, since their identity no longer derives from the label.
+3. ✅ Update matching logic to dispatch on `matchMode`. Tags-mode columns match by explicit tag; name-mode unchanged.
+4. ✅ Update task serialization: write the explicit tag when moving into a tags-mode column, remove it when moving out. Archive removes the column tag.
+5. ✅ Strip the explicit tag from card display. Show it as a subtitle beneath the column header.
+6. ✅ Add "Update existing task tags" checkbox when switching match mode or changing the tag.
+7. ✅ Add collision validation: identical single tags across columns, name-mode label vs single-tag collision.
+8. ✅ Tests: single-tag matching, tag stripping, write-back, internal ID refactoring, mode switching with/without task update, collision detection.
 
 **Deliverable:** Full single-tag explicit matching, end to end. Covers test cases: T1–T4, S1–S2, S4, H1–H2, V2–V3, V5, SC1–SC4, SC6, SC8, UI2–UI3, UI5–UI6, AR1–AR2.
+
+**Implemented by:** `0f7e189` (`feat(columns): support explicit tag mapping in settings`)
 
 ### Phase 5: Multi-Tag AND Matching
 
@@ -286,6 +288,8 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 6. Multi-column conflict resolution uses column definition order.
 7. Extend validation: identical `matchTags` sets blocked; subset relationships and partial overlaps are valid.
 8. Tests: AND matching, partial match → Uncategorized, tag order independence, write/remove all, archive, conflict resolution, subset validation.
+
+**Status note:** The data model, parser, and serialization logic now support multi-tag arrays internally, but the settings UI currently limits tags-mode columns to a single selected tag. The full end-to-end multi-tag workflow in this phase remains incomplete.
 
 **Deliverable:** Full multi-tag AND matching. Covers test cases: A1–A8, S3, S5, H3, C1–C2, U1–U5, V1, V3, V6–V7, AR3.
 
@@ -321,10 +325,10 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Tags Mode — Single Tag
 
-- [ ] **T1.** A tags-mode column with `matchTags = ["status/now"]` matches a task tagged `#status/now`.
-- [ ] **T2.** A tags-mode column with `matchTags = ["status/now"]` and `label = "In Progress"` does **not** match a task tagged `#in-progress` (name matching is off).
-- [ ] **T3.** Moving a task into this column writes `#status/now` to the source file.
-- [ ] **T4.** Moving a task out of this column removes `#status/now` from the source file.
+- [x] **T1.** A tags-mode column with `matchTags = ["status/now"]` matches a task tagged `#status/now`.
+- [x] **T2.** A tags-mode column with `matchTags = ["status/now"]` and `label = "In Progress"` does **not** match a task tagged `#in-progress` (name matching is off).
+- [x] **T3.** Moving a task into this column writes `#status/now` to the source file.
+- [x] **T4.** Moving a task out of this column removes `#status/now` from the source file.
 
 ### Tags Mode — Multiple Tags (AND)
 
@@ -339,21 +343,21 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Archiving
 
-- [ ] **AR1.** Archive a task from a name-mode column. The label-derived tag is removed and the archive tag is added.
-- [ ] **AR2.** Archive a task from a single-tag tags-mode column. The explicit tag is removed and the archive tag is added.
+- [x] **AR1.** Archive a task from a name-mode column. The label-derived tag is removed and the archive tag is added.
+- [x] **AR2.** Archive a task from a single-tag tags-mode column. The explicit tag is removed and the archive tag is added.
 - [ ] **AR3.** Archive a task from a multi-tag tags-mode column. **All** `matchTags` are removed and the archive tag is added.
 
 ### Tag Stripping from Display
 
 - [x] **S1.** A task matched by a name-mode column: the label-derived tag is not shown in the card's tag list.
-- [ ] **S2.** A task matched by a single-tag tags-mode column: the explicit tag is not shown in the card's tag list.
+- [x] **S2.** A task matched by a single-tag tags-mode column: the explicit tag is not shown in the card's tag list.
 - [ ] **S3.** A task matched by a multi-tag tags-mode column: all explicit tags are stripped from the card's tag list.
 - [ ] **S4.** A task with both column tags and non-column tags: only the column tags are stripped; other tags remain visible.
 - [ ] **S5.** A task with some but not all of a tags-mode column's tags (partial match, goes to Uncategorized): none of those tags are stripped; they all remain visible.
 
 ### Column Header Display
 
-- [ ] **H1.** A tags-mode column shows its `matchTags` beneath the label in smaller/less prominent text.
+- [x] **H1.** A tags-mode column shows its `matchTags` beneath the label in smaller/less prominent text.
 - [x] **H2.** A name-mode column does **not** show a tag subtitle.
 - [ ] **H3.** A tags-mode column with multiple tags shows all of them in the subtitle.
 
@@ -372,43 +376,43 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Settings UI
 
-- [ ] **UI1.** The settings modal shows a per-column editor list instead of a comma-separated text field.
-- [ ] **UI2.** Each column row has: label input, match mode selector, tags input (conditional), and color input.
-- [ ] **UI3.** Selecting "Match by explicit tags" reveals the tags input field. Selecting "Match by column name" hides it.
-- [ ] **UI4.** Adding a new column defaults to name mode.
-- [ ] **UI5.** Removing a column works — tasks that were in it become Uncategorized on next reparse.
-- [ ] **UI6.** Canceling the settings dialog discards all changes (no task files modified, no settings changed).
-- [ ] **UI7.** Uncategorized appears as the first row in the editor. It has label and color inputs but no match mode, remove button, or drag handle.
-- [ ] **UI8.** Done appears as the last row in the editor. It has label and color inputs but no match mode, remove button, or drag handle.
-- [ ] **UI9.** Uncategorized and Done rows are visually distinct from custom column rows.
-- [ ] **UI10.** Custom columns can be dragged to reorder, but cannot be dragged above Uncategorized or below Done.
+- [x] **UI1.** The settings modal shows a per-column editor list instead of a comma-separated text field.
+- [x] **UI2.** Each column row has: label input, match mode selector, tags input (conditional), and color input.
+- [x] **UI3.** Selecting "Match by explicit tags" reveals the tags input field. Selecting "Match by column name" hides it.
+- [x] **UI4.** Adding a new column defaults to name mode.
+- [x] **UI5.** Removing a column works — tasks that were in it become Uncategorized on next reparse.
+- [x] **UI6.** Canceling the settings dialog discards all changes (no task files modified, no settings changed).
+- [x] **UI7.** Uncategorized appears as the first row in the editor. It has label and visibility inputs but no match mode, remove button, or drag handle.
+- [x] **UI8.** Done appears as the last row in the editor. It has label and visibility inputs but no match mode, remove button, or drag handle.
+- [x] **UI9.** Uncategorized and Done rows are visually distinct from custom column rows.
+- [x] **UI10.** Custom columns can be dragged to reorder, but cannot be dragged above Uncategorized or below Done.
 
 ### Settings Validation
 
 - [ ] **V1.** Two tags-mode columns with identical `matchTags` (same tags, any order): validation error, save blocked.
-- [ ] **V2.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress"]`: validation error, save blocked (equivalent match rules).
-- [ ] **V3.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress", "high"]`: no validation error (multi-tag column requires more than just the label-derived tag).
+- [x] **V2.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress"]`: validation error, save blocked (equivalent match rules).
+- [x] **V3.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress", "high"]`: no validation error (multi-tag column requires more than just the label-derived tag).
 - [ ] **V4.** Two name-mode columns that normalize to the same label-derived tags: validation error, save blocked.
-- [ ] **V5.** A tags-mode column with empty `matchTags`: validation error, save blocked.
+- [x] **V5.** A tags-mode column with empty `matchTags`: validation error, save blocked.
 - [ ] **V6.** Two tags-mode columns with partial overlap but neither is a subset (e.g., `["a", "b"]` and `["a", "c"]`): no validation error.
 - [ ] **V7.** One tags-mode column's `matchTags` is a subset of another's (e.g., `["a"]` and `["a", "b"]`): no validation error. Column order determines which wins.
 - [ ] **V8.** An empty column label: validation error, save blocked.
 
 ### Settings Change — "Update Existing Task Tags"
 
-- [ ] **SC1.** Change a column from name mode to tags mode with "Update existing task tags" checked. Save. Tasks previously in that column now have the new explicit tags and still appear in the column.
-- [ ] **SC2.** Same as SC1 but with "Update existing task tags" unchecked. Save. Tasks previously in that column become Uncategorized (old tags remain, new tags not added).
-- [ ] **SC3.** Change a tags-mode column's `matchTags` from `["old-tag"]` to `["new-tag"]` with update checked. Save. Tasks have `#old-tag` removed and `#new-tag` added.
-- [ ] **SC4.** Change a tags-mode column's `matchTags` with update unchecked. Save. Task source files are not modified. Tasks with old tags become Uncategorized.
+- [x] **SC1.** Change a column from name mode to tags mode with "Update existing task tags" checked. Save. Tasks previously in that column now have the new explicit tags and still appear in the column.
+- [x] **SC2.** Same as SC1 but with "Update existing task tags" unchecked. Save. Tasks previously in that column become Uncategorized (old tags remain, new tags not added).
+- [x] **SC3.** Change a tags-mode column's `matchTags` from `["old-tag"]` to `["new-tag"]` with update checked. Save. Tasks have `#old-tag` removed and `#new-tag` added.
+- [x] **SC4.** Change a tags-mode column's `matchTags` with update unchecked. Save. Task source files are not modified. Tasks with old tags become Uncategorized.
 - [ ] **SC5.** Change a name-mode column's label (which changes its derived tag) with update checked. Save. Tasks have old label-derived tag replaced with new one.
-- [ ] **SC6.** The "Update existing task tags" checkbox only appears for columns whose match configuration has actually changed. Unchanged columns don't show it.
+- [x] **SC6.** The "Update existing task tags" checkbox only appears for columns whose match configuration has actually changed. Unchanged columns don't show it.
 - [ ] **SC7.** Make changes, then cancel the settings dialog. No task files are modified.
-- [ ] **SC8.** Change multiple columns simultaneously with different update-checkbox states. Each column's tasks are updated (or not) independently.
+- [x] **SC8.** Change multiple columns simultaneously with different update-checkbox states. Each column's tasks are updated (or not) independently.
 
 ### Rename Behavior
 
 - [ ] **R1.** Rename a name-mode column's label. The column retains its color.
-- [ ] **R2.** Rename a tags-mode column's label. The `matchTags` are preserved — tasks still match by the explicit tags, not the new label.
+- [x] **R2.** Rename a tags-mode column's label. The `matchTags` are preserved — tasks still match by the explicit tags, not the new label.
 - [ ] **R3.** Rename a column. Its collapsed/expanded state is preserved.
 
 ### Stable Column Identity

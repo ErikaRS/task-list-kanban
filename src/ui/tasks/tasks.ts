@@ -1,6 +1,6 @@
 import type { TFile, Vault } from "obsidian";
 import { isTrackedTaskString, Task } from "./task";
-import type { ColumnPlacementLookupTable, ColumnPlacementTagTable } from "../columns/columns";
+import type { ColumnDefinition, ColumnPlacementTagTable } from "../columns/columns";
 import { get, type Readable } from "svelte/store";
 
 export type Metadata = {
@@ -17,7 +17,7 @@ export async function updateMapsFromFile({
 	tasksByTaskId,
 	metadataByTaskId,
 	vault,
-	columnPlacementLookupTableStore,
+	columnDefinitionsStore,
 	columnPlacementTagTableStore,
 	consolidateTags,
 	doneStatusMarkers,
@@ -29,7 +29,7 @@ export async function updateMapsFromFile({
 	metadataByTaskId: Map<string, Metadata>;
 	taskIdsByFileHandle: Map<TFile, Set<string>>;
 	vault: Vault;
-	columnPlacementLookupTableStore: Readable<ColumnPlacementLookupTable>;
+	columnDefinitionsStore: Readable<ColumnDefinition[]>;
 	columnPlacementTagTableStore: Readable<ColumnPlacementTagTable>;
 	consolidateTags: boolean;
 	doneStatusMarkers: string;
@@ -43,7 +43,7 @@ export async function updateMapsFromFile({
 
 		const contents = await vault.read(fileHandle);
 		const rows = contents.split("\n");
-		const columnPlacementLookupTable = get(columnPlacementLookupTableStore);
+		const columnDefinitions = get(columnDefinitionsStore);
 		const columnPlacementTagTable = get(columnPlacementTagTableStore);
 
 		for (let i = 0; i < rows.length; i++) {
@@ -57,7 +57,7 @@ export async function updateMapsFromFile({
 					row,
 					fileHandle,
 					i,
-					columnPlacementLookupTable,
+					columnDefinitions,
 					columnPlacementTagTable,
 					consolidateTags,
 					doneStatusMarkers,

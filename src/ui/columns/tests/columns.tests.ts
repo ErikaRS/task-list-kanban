@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { get } from "svelte/store";
-import { createCollapsedColumnsStore, createColumnStores, resolveDefaultColumnName } from "../columns";
+import { createCollapsedColumnsStore, createColumnStores, resolveDefaultColumnName, type ColumnTag } from "../columns";
 import { createSettingsStore, defaultSettings } from "../../settings/settings_store";
 import { migrateColumnDefinitions } from "../definitions";
 
@@ -101,7 +101,7 @@ describe("createColumnStores reserved key filtering", () => {
 		const { columnTagTable, columnPlacementTagTable } = createColumnStores(settingsStore);
 
 		const labels = Object.values(get(columnTagTable));
-		const placementTags = Object.values(get(columnPlacementTagTable));
+		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
 		expect(labels).toContain("Done");
 		expect(placementTags).toContain("backlog");
 		expect(placementTags).toContain("review");
@@ -112,7 +112,7 @@ describe("createColumnStores reserved key filtering", () => {
 		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["Uncategorised", "Todo"]) });
 		const { columnPlacementTagTable } = createColumnStores(settingsStore);
 
-		const placementTags = Object.values(get(columnPlacementTagTable));
+		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
 		expect(placementTags).toContain("uncategorised");
 		expect(placementTags).toContain("todo");
 	});
@@ -122,7 +122,7 @@ describe("createColumnStores reserved key filtering", () => {
 		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["done", "Todo"]) });
 		const { columnPlacementTagTable } = createColumnStores(settingsStore);
 
-		const placementTags = Object.values(get(columnPlacementTagTable));
+		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
 		expect(placementTags).toContain("done");
 		expect(placementTags).toContain("todo");
 	});
@@ -132,7 +132,7 @@ describe("createColumnStores reserved key filtering", () => {
 		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["DONE", "Todo"]) });
 		const { columnPlacementTagTable } = createColumnStores(settingsStore);
 
-		const placementTags = Object.values(get(columnPlacementTagTable));
+		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
 		expect(placementTags).toContain("d-o-n-e");
 		expect(placementTags).toContain("todo");
 	});
@@ -153,8 +153,24 @@ describe("createColumnStores reserved key filtering", () => {
 		const { columnTagTable, columnPlacementTagTable } = createColumnStores(settingsStore);
 
 		expect(Object.keys(get(columnTagTable))).toHaveLength(3);
-		expect(Object.values(get(columnPlacementTagTable))).toEqual(
+		expect(Object.values(get(columnPlacementTagTable)).flat()).toEqual(
 			expect.arrayContaining(["backlog", "in-progress", "review"]),
 		);
+	});
+
+	it("stores explicit match tags separately from labels", () => {
+		const columnId = "col-a" as ColumnTag;
+		const settingsStore = createSettingsStore();
+		settingsStore.set({
+			...defaultSettings,
+			columns: [
+				{ id: columnId, label: "Doing", matchMode: "tags", matchTags: ["status/now"] },
+			],
+		});
+		const { columnTagTable, columnPlacementTagTable, columnMatchTagTable } = createColumnStores(settingsStore);
+
+		expect(get(columnTagTable)[columnId]).toBe("Doing");
+		expect(get(columnPlacementTagTable)[columnId]).toEqual(["status/now"]);
+		expect(get(columnMatchTagTable)[columnId]).toEqual(["status/now"]);
 	});
 });

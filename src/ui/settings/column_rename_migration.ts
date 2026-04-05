@@ -1,6 +1,8 @@
 import type { TFile, Vault } from "obsidian";
 import { createColumnData, type ColumnDefinition } from "../columns/columns";
+import { columnRuleSignature, matchesColumnDefinition } from "../columns/definitions";
 import type { SettingValues } from "./settings_store";
+import { getTagsFromContent } from "src/parsing/tags/tags";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import {
 	Task,
@@ -10,53 +12,51 @@ import {
 	isTrackedTaskString,
 } from "../tasks/task";
 
-export interface RenamedNameModeColumn {
+export interface ChangedColumnMatchRule {
 	id: string;
 	oldColumn: ColumnDefinition;
 	newColumn: ColumnDefinition;
 }
 
-export function getRenamedNameModeColumns(
+export function getChangedColumnMatchRules(
 	oldSettings: SettingValues,
 	newSettings: SettingValues,
-): RenamedNameModeColumn[] {
+): ChangedColumnMatchRule[] {
 	const oldColumnsById = new Map(oldSettings.columns.map((column) => [column.id, column]));
 
 	return newSettings.columns.flatMap((newColumn) => {
 		const oldColumn = oldColumnsById.get(newColumn.id);
 		if (!oldColumn) return [];
-		if (oldColumn.matchMode !== "name" || newColumn.matchMode !== "name") return [];
-		if (oldColumn.label === newColumn.label) return [];
+		if (columnRuleSignature(oldColumn) === columnRuleSignature(newColumn)) return [];
 
 		return [{ id: newColumn.id, oldColumn, newColumn }];
 	});
 }
 
-export async function applyRenamedColumnTagUpdates({
+export async function applyChangedColumnTagUpdates({
 	vault,
 	oldSettings,
 	newSettings,
 	boardFolderPath,
-	renameChoices,
+	updateChoices,
 }: {
 	vault: Vault;
 	oldSettings: SettingValues;
 	newSettings: SettingValues;
 	boardFolderPath: string | null;
-	renameChoices: Record<string, boolean>;
+	updateChoices: Record<string, boolean>;
 }): Promise<void> {
-	const renamedColumns = getRenamedNameModeColumns(oldSettings, newSettings).filter(
-		({ id }) => renameChoices[id] !== false,
+	const changedColumns = getChangedColumnMatchRules(oldSettings, newSettings).filter(
+		({ id }) => updateChoices[id] !== false,
 	);
 
-	if (renamedColumns.length === 0) {
+	if (changedColumns.length === 0) {
 		return;
 	}
 
-	const oldColumnData = createColumnData(oldSettings.columns);
 	const newColumnData = createColumnData(newSettings.columns);
 	const oldSettingsScope = resolveScopeSettings(oldSettings, boardFolderPath);
-	const targetColumnIds = new Set(renamedColumns.map(({ id }) => id));
+	const targetColumnIds = new Set(changedColumns.map(({ id }) => id));
 	const files = vault
 		.getMarkdownFiles()
 		.filter((file) =>
@@ -69,22 +69,22 @@ export async function applyRenamedColumnTagUpdates({
 		);
 
 	for (const file of files) {
-		await updateFileForRenamedColumns(
+		await updateFileForChangedColumns(
 			vault,
 			file,
 			targetColumnIds,
-			oldColumnData.columnPlacementLookupTable,
+			oldSettings.columns,
 			newColumnData.columnPlacementTagTable,
 			oldSettings,
 		);
 	}
 }
 
-async function updateFileForRenamedColumns(
+async function updateFileForChangedColumns(
 	vault: Vault,
 	file: TFile,
 	targetColumnIds: Set<string>,
-	oldPlacementLookupTable: ReturnType<typeof createColumnData>["columnPlacementLookupTable"],
+	oldColumnDefinitions: ColumnDefinition[],
 	newPlacementTagTable: ReturnType<typeof createColumnData>["columnPlacementTagTable"],
 	settings: SettingValues,
 ) {
@@ -98,19 +98,23 @@ async function updateFileForRenamedColumns(
 			continue;
 		}
 
+		const matchedColumn = oldColumnDefinitions.find((column) =>
+			matchesColumnDefinition(column, getTagsFromContent(row)),
+		);
 		const task = new Task(
 			row,
 			file,
 			i,
-			oldPlacementLookupTable,
+			oldColumnDefinitions,
 			newPlacementTagTable,
 			settings.consolidateTags ?? false,
 			settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 			settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 			settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
 		);
+		const targetColumnId = task.column ?? matchedColumn?.id;
 
-		if (!task.column || task.column === "archived" || task.done || !targetColumnIds.has(task.column)) {
+		if (!targetColumnId || targetColumnId === "archived" || !targetColumnIds.has(targetColumnId)) {
 			continue;
 		}
 
