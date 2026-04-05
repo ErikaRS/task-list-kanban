@@ -3,22 +3,23 @@ import type { SettingValues } from "../settings/settings_store";
 import {
 	type ColumnDefinition,
 	type ColumnTag,
+	getColumnHeaderTags,
+	getColumnWriteTags,
 	RESERVED_COLUMN_KEYS,
-	getColumnPlacementTag,
 	parseColumnSpec,
 } from "./definitions";
 
 export type DefaultColumns = "uncategorised" | "done";
 export type ColumnTagTable = Record<ColumnTag, string>;
 export type ColumnColourTable = Record<ColumnTag, string>;
-export type ColumnPlacementTagTable = Record<ColumnTag, string>;
-export type ColumnPlacementLookupTable = Record<string, ColumnTag>;
+export type ColumnPlacementTagTable = Record<ColumnTag, string[]>;
+export type ColumnMatchTagTable = Record<ColumnTag, string[]>;
 
 export {
 	type ColumnDefinition,
 	type ColumnTag,
+	getColumnWriteTags,
 	RESERVED_COLUMN_KEYS,
-	getColumnPlacementTag,
 	parseColumnSpec,
 } from "./definitions";
 
@@ -29,24 +30,21 @@ export const createColumnStores = (
 	columnTagTable: Readable<ColumnTagTable>;
 	columnColourTable: Readable<ColumnColourTable>;
 	columnPlacementTagTable: Readable<ColumnPlacementTagTable>;
-	columnPlacementLookupTable: Readable<ColumnPlacementLookupTable>;
+	columnMatchTagTable: Readable<ColumnMatchTagTable>;
 } => {
 	const columnDefinitions = derived([settingsStore], ([settings]) => settings.columns ?? []);
-
-	const columnTagTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnTagTable);
-
-	const columnColourTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnColourTable);
-
-	const columnPlacementTagTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnPlacementTagTable);
-
-	const columnPlacementLookupTable = derived([columnDefinitions], ([columns]) => createColumnData(columns).columnPlacementLookupTable);
+	const columnData = derived([columnDefinitions], ([columns]) => createColumnData(columns));
+	const columnTagTable = derived([columnData], ([data]) => data.columnTagTable);
+	const columnColourTable = derived([columnData], ([data]) => data.columnColourTable);
+	const columnPlacementTagTable = derived([columnData], ([data]) => data.columnPlacementTagTable);
+	const columnMatchTagTable = derived([columnData], ([data]) => data.columnMatchTagTable);
 
 	return {
 		columnDefinitions,
 		columnTagTable,
 		columnColourTable,
 		columnPlacementTagTable,
-		columnPlacementLookupTable,
+		columnMatchTagTable,
 	};
 };
 
@@ -91,12 +89,12 @@ export function createColumnData(columns: ColumnDefinition[]): {
 	columnTagTable: ColumnTagTable;
 	columnColourTable: ColumnColourTable;
 	columnPlacementTagTable: ColumnPlacementTagTable;
-	columnPlacementLookupTable: ColumnPlacementLookupTable;
+	columnMatchTagTable: ColumnMatchTagTable;
 } {
 	const columnTagTable: ColumnTagTable = {};
 	const columnColourTable: ColumnColourTable = {};
 	const columnPlacementTagTable: ColumnPlacementTagTable = {};
-	const columnPlacementLookupTable: ColumnPlacementLookupTable = {};
+	const columnMatchTagTable: ColumnMatchTagTable = {};
 
 	for (const column of columns) {
 		if (RESERVED_COLUMN_KEYS.has(column.id)) continue;
@@ -104,15 +102,14 @@ export function createColumnData(columns: ColumnDefinition[]): {
 		if (column.color) {
 			columnColourTable[column.id] = column.color;
 		}
-		const placementTag = getColumnPlacementTag(column);
-		columnPlacementTagTable[column.id] = placementTag;
-		columnPlacementLookupTable[placementTag] = column.id;
+		columnPlacementTagTable[column.id] = getColumnWriteTags(column);
+		columnMatchTagTable[column.id] = getColumnHeaderTags(column);
 	}
 
 	return {
 		columnTagTable,
 		columnColourTable,
 		columnPlacementTagTable,
-		columnPlacementLookupTable,
+		columnMatchTagTable,
 	};
 }

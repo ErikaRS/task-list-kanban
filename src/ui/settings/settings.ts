@@ -1,4 +1,5 @@
 import { App, Modal, Setting, TFile } from "obsidian";
+import CompactTagSelect from "../components/select/compact_tag_select.svelte";
 import type { SettingValues } from "./settings_store";
 import {
 	VisibilityOption,
@@ -7,15 +8,17 @@ import {
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
-import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
+import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import { kebab } from "src/parsing/kebab/kebab";
+import { getTagsFromContent } from "src/parsing/tags/tags";
 import {
 	RESERVED_COLUMN_KEYS,
 	type ColumnDefinition,
 } from "../columns/columns";
-import { createColumnId } from "../columns/definitions";
+import { columnRuleSignature, createColumnId } from "../columns/definitions";
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
+import { getColumnValidationError } from "./column_validation";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -25,14 +28,17 @@ export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
 	private readonly originalSettings: SettingValues;
 	private scrollWrapper!: HTMLDivElement;
-	private dirtyBanner: HTMLElement | null = null;
 	private validationError: string | null = null;
-	private validationBanner: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
 	private columnsEditorEl: HTMLDivElement | null = null;
+	private headerDirtyPill: HTMLElement | null = null;
+	private headerValidationPill: HTMLElement | null = null;
+	private availableColumnTags: string[] = [];
+	private mountedColumnControls: Array<() => void> = [];
 	private readonly updateExistingTaskTagsByColumnId = new Map<string, boolean>();
 	private draggedColumnId: string | null = null;
 	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
+	private focusTagEditorColumnId: string | null = null;
 
 	constructor(
 		app: App,
@@ -53,30 +59,7 @@ export class SettingsModal extends Modal {
 	}
 
 	private validateColumns() {
-		const errors: string[] = [];
-		const seenDerivedTags = new Map<string, string>();
-
-		for (const column of this.settings.columns ?? []) {
-			const label = column.label.trim();
-			if (label.length === 0) {
-				errors.push("Column labels cannot be empty.");
-				continue;
-			}
-
-			const derivedTag = kebab(label);
-			if (RESERVED_COLUMN_KEYS.has(derivedTag)) {
-				errors.push(`Column name "${label}" conflicts with a built-in column.`);
-			}
-
-			const existingLabel = seenDerivedTags.get(derivedTag);
-			if (existingLabel) {
-				errors.push(`Columns "${existingLabel}" and "${label}" match the same tag.`);
-			} else {
-				seenDerivedTags.set(derivedTag, label);
-			}
-		}
-
-		this.validationError = errors.length > 0 ? errors[0]! : null;
+		this.validationError = getColumnValidationError(this.settings.columns ?? []);
 		this.updateValidationBanner();
 	}
 
@@ -92,8 +75,7 @@ export class SettingsModal extends Modal {
 	private shouldShowRetagOption(column: ColumnDefinition): boolean {
 		const originalColumn = this.getOriginalColumn(column.id);
 		if (!originalColumn) return false;
-		if (originalColumn.matchMode !== "name" || column.matchMode !== "name") return false;
-		return originalColumn.label !== column.label;
+		return columnRuleSignature(originalColumn) !== columnRuleSignature(column);
 	}
 
 	private shouldUpdateExistingTaskTags(columnId: string): boolean {
@@ -146,17 +128,56 @@ export class SettingsModal extends Modal {
 		});
 	}
 
+	private async refreshAvailableColumnTags() {
+		const files = this.app.vault.getMarkdownFiles().filter((file) =>
+			shouldIncludeFilePath(
+				file.path,
+				this.getScopeFilter(),
+				this.settings.excludePaths ?? [],
+				this.boardFolderPath,
+			),
+		);
+		const tags = new Set<string>();
+		const ignoredStatusMarkers = this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS;
+
+		for (const file of files) {
+			const contents = await this.app.vault.cachedRead(file);
+			for (const row of contents.split("\n")) {
+				if (!row || !isTrackedTaskString(row, ignoredStatusMarkers)) continue;
+				for (const tag of getTagsFromContent(row)) {
+					if (tag === "archived") continue;
+					tags.add(tag);
+				}
+			}
+		}
+
+		const nextTags = [...tags].sort((a, b) => a.localeCompare(b));
+		if (JSON.stringify(nextTags) === JSON.stringify(this.availableColumnTags)) {
+			return;
+		}
+
+		this.availableColumnTags = nextTags;
+		if (this.columnsEditorEl) {
+			this.renderColumnsEditor();
+		}
+	}
+
 	private renderColumnsEditor() {
 		if (!this.columnsEditorEl) {
 			return;
 		}
 
+		for (const destroy of this.mountedColumnControls) {
+			destroy();
+		}
+		this.mountedColumnControls = [];
 		this.columnsEditorEl.empty();
 
 		const section = this.columnsEditorEl.createDiv({ cls: "column-editor-section" });
-		section.createEl("h2", { text: "Columns" });
-		section.createEl("p", {
-			text: "Edit each board column directly. Labels control display and current tag matching.",
+		const sectionIntro = section.createDiv({ cls: "column-editor-intro" });
+		sectionIntro.createEl("h2", { text: "Columns" });
+		sectionIntro.createEl("p", {
+			text: "Edit each board column directly. Labels control display; match mode controls how tasks land in each column.",
 			cls: "setting-item-description",
 		});
 
@@ -204,6 +225,18 @@ export class SettingsModal extends Modal {
 		const controls = section.createDiv({ cls: "column-editor-controls" });
 		const addButton = controls.createEl("button", { text: "Add column" });
 		addButton.addEventListener("click", () => this.addColumn());
+
+		if (this.focusTagEditorColumnId) {
+			const targetColumnId = this.focusTagEditorColumnId;
+			this.focusTagEditorColumnId = null;
+			window.requestAnimationFrame(() => {
+				const targetInput = section.querySelector<HTMLInputElement>(
+					`[data-column-id="${targetColumnId}"] .column-editor-field-tag input`,
+				);
+				targetInput?.focus();
+				targetInput?.click();
+			});
+		}
 	}
 
 	private renderBookendRow(
@@ -220,9 +253,9 @@ export class SettingsModal extends Modal {
 		const row = container.createDiv({ cls: "column-editor-row is-bookend" });
 		row.createDiv({ cls: "column-editor-handle-spacer" });
 
-		const fields = row.createDiv({ cls: "column-editor-fields" });
+		const fields = row.createDiv({ cls: "column-editor-fields column-editor-fields-inline" });
 
-		const labelField = fields.createDiv({ cls: "column-editor-field" });
+		const labelField = fields.createDiv({ cls: "column-editor-field column-editor-field-label" });
 		const labelInput = labelField.createEl("input", {
 			type: "text",
 			value: options.label,
@@ -233,7 +266,7 @@ export class SettingsModal extends Modal {
 			options.onLabelChange(labelInput.value);
 		});
 
-		const visibilityField = fields.createDiv({ cls: "column-editor-field" });
+		const visibilityField = fields.createDiv({ cls: "column-editor-field column-editor-field-visibility" });
 		const visibilityLabel = visibilityField.createDiv({ cls: "column-editor-inline-label", text: "Visibility" });
 		const visibilitySelect = visibilityField.createEl("select");
 		visibilitySelect.addClass("dropdown");
@@ -259,6 +292,7 @@ export class SettingsModal extends Modal {
 
 	private renderCustomColumnRow(container: HTMLDivElement, column: ColumnDefinition) {
 		const row = container.createDiv({ cls: "column-editor-row" });
+		row.dataset.columnId = column.id;
 		const dragHandle = row.createEl("button", {
 			text: "⋮⋮",
 			cls: "column-editor-handle clickable-icon",
@@ -310,16 +344,107 @@ export class SettingsModal extends Modal {
 			this.reorderColumns(draggedColumnId, column.id, position);
 		});
 
-		const fields = row.createDiv({ cls: "column-editor-fields" });
-		const renameOption = row.createDiv({ cls: "column-editor-rename-option" });
+		const content = row.createDiv({ cls: "column-editor-row-content" });
+		const fields = content.createDiv({ cls: "column-editor-fields column-editor-fields-inline" });
 
-		const labelField = fields.createDiv({ cls: "column-editor-field" });
+		const labelField = fields.createDiv({ cls: "column-editor-field column-editor-field-label" });
 		const labelInput = labelField.createEl("input", { type: "text", value: column.label });
 		labelInput.addClass("setting-input");
 		labelInput.setAttribute("aria-label", "Column label");
+
+		const matchModeField = fields.createDiv({ cls: "column-editor-field column-editor-field-match" });
+		matchModeField.createDiv({ cls: "column-editor-inline-label", text: "Match by" });
+		const matchModeSelect = matchModeField.createEl("select");
+		matchModeSelect.addClass("dropdown");
+		matchModeSelect.createEl("option", {
+			value: "name",
+			text: "Name",
+		});
+		matchModeSelect.createEl("option", {
+			value: "tags",
+			text: "Tag",
+		});
+		matchModeSelect.value = column.matchMode;
+		matchModeSelect.addEventListener("change", () => {
+			column.matchMode = matchModeSelect.value === "tags" ? "tags" : "name";
+			if (column.matchMode === "name") {
+				column.matchTags = [];
+			} else {
+				this.focusTagEditorColumnId = column.id;
+			}
+			this.renderColumnsEditor();
+			this.touchSettings();
+		});
+
+		if (column.matchMode === "tags") {
+			const tagsField = fields.createDiv({ cls: "column-editor-field column-editor-field-tag" });
+			const tagPicker = tagsField.createDiv({ cls: "column-editor-tag-select-host" });
+			const tagSelect = new CompactTagSelect({
+				target: tagPicker,
+				props: {
+					items: this.availableColumnTags,
+					value: [...column.matchTags.slice(0, 1)],
+					maxSelected: 1,
+					placeholder: "",
+					ariaLabel: `${column.label} match tag`,
+				},
+			});
+			const onChange = tagSelect.$on("change", (event) => {
+				column.matchTags = event.detail;
+				updateRenameOption();
+				this.touchSettings();
+			});
+			this.mountedColumnControls.push(() => {
+				onChange();
+				tagSelect.$destroy();
+			});
+		}
+
+		const colorField = fields.createDiv({ cls: "column-editor-field column-editor-field-color" });
+		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
+		const colorSwatchButton = colorField.createEl("button", {
+			cls: "column-editor-color-swatch",
+		});
+		colorSwatchButton.type = "button";
+		colorSwatchButton.setAttribute("aria-label", `Pick color for ${column.label}`);
+		const colorPickerInput = colorField.createEl("input", {
+			type: "color",
+			value: /^#[0-9a-fA-F]{6}$/.test(column.color ?? "") ? column.color : "#000000",
+		});
+		colorPickerInput.addClass("column-editor-color-picker");
+		const updateColorSwatch = () => {
+			const colorValue = column.color?.trim();
+			const hasValidColor = !!colorValue && /^#[0-9a-fA-F]{6}$/.test(colorValue);
+			colorSwatchButton.toggleClass("has-color", hasValidColor);
+			colorSwatchButton.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
+			colorPickerInput.value = hasValidColor ? colorValue! : "#000000";
+		};
+		const colorInput = colorField.createEl("input", {
+			type: "text",
+			value: column.color ?? "",
+			placeholder: "#RRGGBB",
+		});
+		colorInput.addClass("setting-input");
+		colorInput.setAttribute("aria-label", `${column.label} color`);
+		colorInput.addEventListener("input", () => {
+			column.color = colorInput.value.trim() || undefined;
+			updateColorSwatch();
+			this.touchSettings();
+		});
+		colorSwatchButton.addEventListener("click", () => {
+			colorPickerInput.click();
+		});
+		colorPickerInput.addEventListener("input", () => {
+			column.color = colorPickerInput.value;
+			colorInput.value = colorPickerInput.value;
+			updateColorSwatch();
+			this.touchSettings();
+		});
+		updateColorSwatch();
+		const renameOption = fields.createDiv({ cls: "column-editor-rename-option" });
 		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
 		const renameLabel = renameOption.createEl("label", {
-			text: "Update existing task tags",
+			text: "Retag existing tasks",
 		});
 		const updateRenameOption = () => {
 			const show = this.shouldShowRetagOption(column);
@@ -334,26 +459,13 @@ export class SettingsModal extends Modal {
 			updateRenameOption();
 			this.touchSettings();
 		});
-
-		const colorField = fields.createDiv({ cls: "column-editor-field column-editor-field-color" });
-		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
-		const colorInput = colorField.createEl("input", {
-			type: "text",
-			value: column.color ?? "",
-			placeholder: "#RRGGBB",
-		});
-		colorInput.addClass("setting-input");
-		colorInput.setAttribute("aria-label", `${column.label} color`);
-		colorInput.addEventListener("input", () => {
-			column.color = colorInput.value.trim() || undefined;
-			this.touchSettings();
-		});
 		renameCheckbox.addEventListener("change", () => {
 			this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
 			this.touchSettings();
 		});
 
-		const removeButton = row.createEl("button", { text: "✕", cls: "clickable-icon" });
+		const removeRail = row.createDiv({ cls: "column-editor-remove-rail" });
+		const removeButton = removeRail.createEl("button", { text: "✕", cls: "clickable-icon" });
 		removeButton.setAttribute("aria-label", `Remove ${column.label} column`);
 		removeButton.addEventListener("click", () => {
 			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
@@ -364,32 +476,19 @@ export class SettingsModal extends Modal {
 	}
 
 	private updateValidationBanner() {
-		if (this.validationError) {
-			if (!this.validationBanner) {
-				this.validationBanner = this.scrollWrapper.createDiv({ cls: "settings-dirty-banner" });
-				this.scrollWrapper.insertBefore(this.validationBanner, this.scrollWrapper.firstChild);
-			}
-			this.validationBanner.setText(this.validationError);
-			if (this.saveBtn) this.saveBtn.disabled = true;
-		} else {
-			if (this.validationBanner) {
-				this.validationBanner.remove();
-				this.validationBanner = null;
-			}
-			if (this.saveBtn) this.saveBtn.disabled = false;
+		if (this.headerValidationPill) {
+			this.headerValidationPill.setText(this.validationError ?? "");
+			this.headerValidationPill.toggleClass("is-visible", !!this.validationError);
+			this.headerValidationPill.title = this.validationError ?? "";
 		}
+		if (this.saveBtn) this.saveBtn.disabled = !!this.validationError;
 	}
 
 	private updateDirtyBanner() {
-		if (this.isDirty()) {
-			if (this.dirtyBanner) return; // already showing
-			this.dirtyBanner = this.scrollWrapper.createDiv({ cls: "settings-dirty-banner" });
-			this.scrollWrapper.insertBefore(this.dirtyBanner, this.scrollWrapper.firstChild);
-			this.dirtyBanner.createSpan({ text: "You have unsaved changes." });
-		} else {
-			if (!this.dirtyBanner) return; // already hidden
-			this.dirtyBanner.remove();
-			this.dirtyBanner = null;
+		if (this.headerDirtyPill) {
+			const isDirty = this.isDirty();
+			this.headerDirtyPill.setText(isDirty ? "Unsaved changes" : "");
+			this.headerDirtyPill.toggleClass("is-visible", isDirty);
 		}
 	}
 
@@ -400,11 +499,16 @@ export class SettingsModal extends Modal {
 		this.contentEl.addClass("task-list-kanban-settings-modal");
 
 		this.scrollWrapper = this.contentEl.createDiv({ cls: "settings-scroll-wrapper" });
-		this.scrollWrapper.createEl("h1", { text: "Settings" });
+		const header = this.scrollWrapper.createDiv({ cls: "settings-header" });
+		header.createEl("h1", { text: "Settings" });
+		const headerStatus = header.createDiv({ cls: "settings-header-status" });
+		this.headerValidationPill = headerStatus.createDiv({ cls: "settings-status-pill settings-status-pill-validation" });
+		this.headerDirtyPill = headerStatus.createDiv({ cls: "settings-status-pill settings-status-pill-dirty" });
 
 		this.columnsEditorEl = this.scrollWrapper.createDiv();
 		this.renderColumnsEditor();
 		this.validateColumns();
+		void this.refreshAvailableColumnTags();
 
 		new Setting(this.scrollWrapper)
 			.setName("Column width")
@@ -900,6 +1004,10 @@ export class SettingsModal extends Modal {
 	}
 
 	onClose() {
+		for (const destroy of this.mountedColumnControls) {
+			destroy();
+		}
+		this.mountedColumnControls = [];
 		this.contentEl.empty();
 	}
 

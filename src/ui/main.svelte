@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		type ColumnTag,
+		type ColumnMatchTagTable,
 		type ColumnTagTable,
 		type ColumnColourTable,
 		type DefaultColumns,
@@ -23,6 +24,7 @@
 	export let openSettings: () => Promise<void>;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
+	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let settingsStore: Writable<SettingValues>;
 	export let requestSave: () => void;
 
@@ -651,6 +653,7 @@
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}
+							{columnMatchTagTableStore}
 							{showFilepath}
 							{consolidateTags}
 							{isVerticalFlow}

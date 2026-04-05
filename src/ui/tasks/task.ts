@@ -1,13 +1,13 @@
 import sha256 from "crypto-js/sha256";
 import type { Brand } from "src/brand";
 import type {
-	ColumnPlacementLookupTable,
 	ColumnPlacementTagTable,
+	ColumnDefinition,
 	ColumnTag,
 	DefaultColumns,
 } from "../columns/columns";
 import { getTagsFromContent, isValidTag } from "src/parsing/tags/tags";
-import { kebab } from "src/parsing/kebab/kebab";
+import { isPlacementTag, matchesColumnDefinition } from "../columns/definitions";
 
 /**
  * A string containing characters that mark tasks as completed.
@@ -204,7 +204,7 @@ export class Task {
 		rawContent: TaskString,
 		fileHandle: { path: string },
 		readonly rowIndex: number,
-		private readonly columnPlacementLookupTable: ColumnPlacementLookupTable,
+		columnDefinitions: ColumnDefinition[],
 		private readonly columnPlacementTagTable: ColumnPlacementTagTable,
 		private readonly consolidateTags: boolean,
 		private readonly doneStatusMarkers: string = DEFAULT_DONE_STATUS_MARKERS,
@@ -237,13 +237,25 @@ export class Task {
 		this._done = isStatusMatch(this._displayStatus, this.doneStatusMarkers);
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
+		const matchedColumn = columnDefinitions.find((column) => matchesColumnDefinition(column, tags));
 
 		for (const tag of tags) {
-			const kebabTag = kebab<ColumnTag>(tag);
-			const mappedColumn = this.columnPlacementLookupTable[kebabTag];
-			if (mappedColumn || tag === "done") {
+			if (tag === "done") {
 				if (!this._column) {
-					this._column = mappedColumn ?? ("done" as DefaultColumns);
+					this._column = "done" as DefaultColumns;
+				}
+				tags.delete(tag);
+				if (!consolidateTags) {
+					this.content = this.content
+						.replaceAll(`#${tag}`, "")
+						.trim();
+				}
+				continue;
+			}
+
+			if (matchedColumn && isPlacementTag(matchedColumn, tag)) {
+				if (!this._column) {
+					this._column = matchedColumn.id;
 				}
 				tags.delete(tag);
 				if (!consolidateTags) {
@@ -321,28 +333,50 @@ export class Task {
 	readonly blockLink: string | undefined;
 	readonly tags: ReadonlySet<string>;
 
+	private getPlacementTagsForColumn(column: ColumnTag): string[] {
+		return (this.columnPlacementTagTable[column] ?? []).filter((tag) => isValidTag(tag));
+	}
+
+	private getCurrentPlacementTags(): string[] {
+		if (!this.column || this.column === "archived" || this.column === "done" || this.column === "uncategorised") {
+			return [];
+		}
+
+		return this.getPlacementTagsForColumn(this.column as ColumnTag);
+	}
+
+	private stripPlacementTags(value: string, placementTags: string[]): string {
+		return placementTags.reduce((nextValue, tag) => nextValue.replaceAll(`#${tag}`, "").trim(), value);
+	}
+
 	serialise(): string {
 		if (this._deleted) {
 			return "";
 		}
 
+		const placementTags = this.getCurrentPlacementTags();
+		const serialisedContent = placementTags.length > 0
+			? this.stripPlacementTags(this.content.trim(), placementTags)
+			: this.content.trim();
+		const serialisedTags = this.consolidateTags
+			? Array.from(this.tags).filter((tag) => !placementTags.includes(tag))
+			: [];
+
 		return [
 			this.indentation,
 			`- [${this._displayStatus}] `,
-			this.content.trim(),
-			this.consolidateTags && this.tags.size > 0
-				? ` ${Array.from(this.tags)
+			serialisedContent,
+			this.consolidateTags && serialisedTags.length > 0
+				? ` ${serialisedTags
 					.map((tag) => `#${tag}`)
 					.join(" ")}`
 				: "",
 			this.column
-				? ` #${this.column === "archived"
-					? this.column
-					: (() => {
-						const mapped = this.columnPlacementTagTable[this.column as ColumnTag];
-						return mapped && isValidTag(mapped) ? mapped : this.column;
-					})()
-				}`
+				? this.column === "archived"
+					? ` #${this.column}`
+					: placementTags.length > 0
+						? ` ${placementTags.map((tag) => `#${tag}`).join(" ")}`
+						: ` #${this.column}`
 				: "",
 			this.blockLink ? ` ^${this.blockLink}` : "",
 		]

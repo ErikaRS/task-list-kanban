@@ -2,7 +2,7 @@ import { TFile, Vault, type EventRef, Workspace } from "obsidian";
 import { updateMapsFromFile, type Metadata } from "./tasks";
 import { Task, DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS } from "./task";
 import { get, writable, type Readable, type Writable } from "svelte/store";
-import type { ColumnPlacementLookupTable, ColumnPlacementTagTable } from "../columns/columns";
+import type { ColumnDefinition, ColumnPlacementTagTable } from "../columns/columns";
 import { createTaskActions, type TaskActions } from "./actions";
 import type { SettingValues } from "../settings/settings_store";
 import { shouldIncludeFilePath } from "./scope";
@@ -20,7 +20,7 @@ export function createTasksStore(
 	vault: Vault,
 	workspace: Workspace,
 	registerEvent: (eventRef: EventRef) => void,
-	columnPlacementLookupTableStore: Readable<ColumnPlacementLookupTable>,
+	columnDefinitionsStore: Readable<ColumnDefinition[]>,
 	columnPlacementTagTableStore: Readable<ColumnPlacementTagTable>,
 	getFilenameFilter: () => string[] | null,
 	getExcludeFilter: () => string[] | null,
@@ -68,7 +68,7 @@ export function createTasksStore(
 			metadataByTaskId,
 			taskIdsByFileHandle,
 			vault,
-			columnPlacementLookupTableStore,
+			columnDefinitionsStore,
 			columnPlacementTagTableStore,
 			...getMarkerSettings(get(settingsStore)),
 		}).then(() => {
@@ -137,7 +137,7 @@ export function createTasksStore(
 		getFilenameFilter,
 		getExcludeFilter,
 		getBoardFolderPath,
-		getPlacementTagForColumn: (column) => get(columnPlacementTagTableStore)[column] ?? column,
+		getPlacementTagsForColumn: (column) => get(columnPlacementTagTableStore)[column] ?? [column],
 		getDefaultTaskFile: () => get(settingsStore).defaultTaskFile || null,
 		getLastUsedTaskFile: () => get(settingsStore).lastUsedTaskFile || null,
 		setLastUsedTaskFile: (path: string) => {
