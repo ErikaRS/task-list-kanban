@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Menu, setIcon, type App, TFile } from "obsidian";
 	import {
+		type ColumnMatchTagTable,
 		type ColumnTag,
 		type DefaultColumns,
 		type ColumnTagTable,
@@ -34,6 +35,7 @@
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
+	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let isVerticalFlow: boolean = false;
@@ -64,11 +66,13 @@
 		return getColumnTitle(column, $columnTagTableStore);
 	})();
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
+	$: columnMatchTags = isColumnTag(column, columnTagTableStore) ? ($columnMatchTagTableStore[column] ?? []) : [];
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
 	$: isVerticalCollapsed = isCollapsed && isVerticalFlow;
 	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
+	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 
 	$: sortedTasks = [...tasks].sort((a, b) => {
 		if (a.path === b.path) {
@@ -297,7 +301,12 @@
 					aria-expanded={!isCollapsed}
 					aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
 				>{collapseIcon}</button>
-				<h2 id="column-title-{column}">{columnTitle}</h2>
+				<div class="column-title-group">
+					<h2 id="column-title-{column}">{columnTitle}</h2>
+					{#if showColumnMatchTags}
+						<div class="column-match-tags">{columnMatchTags.map((tag) => `#${tag}`).join(" ")}</div>
+					{/if}
+				</div>
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 				<div class="header-menu">
 					<!-- Done / Select segmented toggle -->
@@ -551,10 +560,17 @@
 
 		.header {
 			display: flex;
-			align-items: center;
+			align-items: flex-start;
 			min-height: 24px;
 			flex-shrink: 0;
 			gap: var(--size-2-2);
+
+			.column-title-group {
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
 
 			h2 {
 				font-size: var(--font-ui-larger);
@@ -565,10 +581,20 @@
 				white-space: nowrap;
 			}
 
+			.column-match-tags {
+				font-size: var(--font-ui-smaller);
+				color: var(--text-muted);
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
 			.task-count {
 				font-size: var(--font-ui-smaller);
 				color: var(--text-muted);
 				white-space: nowrap;
+				align-self: flex-start;
+				padding-top: 1px;
 			}
 
 			.header-menu {

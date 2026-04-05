@@ -16,12 +16,13 @@ import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
 import {
 	createColumnStores,
+	type ColumnDefinition,
 	type ColumnTagTable,
 	type ColumnColourTable,
-	type ColumnPlacementLookupTable,
 	type ColumnPlacementTagTable,
+	type ColumnMatchTagTable,
 } from "./columns/columns";
-import { applyRenamedColumnTagUpdates } from "./settings/column_rename_migration";
+import { applyChangedColumnTagUpdates } from "./settings/column_rename_migration";
 
 export const KANBAN_VIEW_NAME = "kanban-view";
 
@@ -29,10 +30,11 @@ export class KanbanView extends TextFileView {
 	private readonly settingsStore: Writable<SettingValues>;
 	private readonly destroySettingsStore: () => void;
 
+	private readonly columnDefinitionsStore: Readable<ColumnDefinition[]>;
 	private readonly columnTagTableStore: Readable<ColumnTagTable>;
 	private readonly columnColourTableStore: Readable<ColumnColourTable>;
 	private readonly columnPlacementTagTableStore: Readable<ColumnPlacementTagTable>;
-	private readonly columnPlacementLookupTableStore: Readable<ColumnPlacementLookupTable>;
+	private readonly columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 
 	private filenameFilter: string[] | null = null;
 	private excludeFilter: string[] | null = null;
@@ -76,19 +78,20 @@ export class KanbanView extends TextFileView {
 			this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
 		});
 
-		const { columnTagTable, columnColourTable, columnPlacementTagTable, columnPlacementLookupTable } = createColumnStores(
+		const { columnDefinitions, columnTagTable, columnColourTable, columnPlacementTagTable, columnMatchTagTable } = createColumnStores(
 			this.settingsStore
 		);
+		this.columnDefinitionsStore = columnDefinitions;
 		this.columnTagTableStore = columnTagTable;
 		this.columnColourTableStore = columnColourTable;
 		this.columnPlacementTagTableStore = columnPlacementTagTable;
-		this.columnPlacementLookupTableStore = columnPlacementLookupTable;
+		this.columnMatchTagTableStore = columnMatchTagTable;
 
 		const { tasksStore, taskActions, initialise } = createTasksStore(
 			this.app.vault,
 			this.app.workspace,
 			this.registerEvent.bind(this),
-			this.columnPlacementLookupTableStore,
+			this.columnDefinitionsStore,
 			this.columnPlacementTagTableStore,
 			() => this.filenameFilter,
 			() => this.excludeFilter,
@@ -108,16 +111,16 @@ export class KanbanView extends TextFileView {
 	) {
 		const previousSettings = structuredClone(get(this.settingsStore));
 		try {
-			await applyRenamedColumnTagUpdates({
+			await applyChangedColumnTagUpdates({
 				vault: this.app.vault,
 				oldSettings: previousSettings,
 				newSettings,
 				boardFolderPath: this.file?.parent?.path ?? null,
-				renameChoices: options.updateExistingTaskTagsByColumnId,
+				updateChoices: options.updateExistingTaskTagsByColumnId,
 			});
 		} catch (error) {
-			console.error("Failed to update renamed column task tags", error);
-			new Notice("Failed to update existing task tags for renamed columns.");
+			console.error("Failed to update changed column task tags", error);
+			new Notice("Failed to update existing task tags for changed columns.");
 			return;
 		}
 
@@ -187,6 +190,7 @@ ${parsed.body}
 				taskActions: this.taskActions,
 				columnTagTableStore: this.columnTagTableStore,
 				columnColourTableStore: this.columnColourTableStore,
+				columnMatchTagTableStore: this.columnMatchTagTableStore,
 				openSettings: () => this.openSettingsModal(),
 				settingsStore: this.settingsStore,
 				requestSave: () => this.requestSave(),

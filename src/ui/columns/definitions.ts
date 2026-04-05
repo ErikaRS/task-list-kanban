@@ -59,17 +59,58 @@ export function createColumnId(label: string, usedIds: Set<string>): ColumnTag {
 }
 
 export function normalizeMatchTags(tags: string[]): string[] {
-	return tags
+	const normalized = tags
 		.map((tag) => tag.trim().replace(/^#/, ""))
 		.filter((tag) => tag.length > 0);
+
+	return [...new Set(normalized)];
 }
 
-export function getColumnPlacementTag(column: ColumnDefinition): string {
-	if (column.matchMode === "tags" && column.matchTags.length > 0) {
-		return column.matchTags[0]!;
+export function getNameModeWriteTag(column: ColumnDefinition): string {
+	return kebab(column.label);
+}
+
+export function usesTagMatching(column: ColumnDefinition): boolean {
+	return column.matchMode === "tags";
+}
+
+export function getColumnWriteTags(column: ColumnDefinition): string[] {
+	return usesTagMatching(column)
+		? column.matchTags
+		: [getNameModeWriteTag(column)];
+}
+
+export function columnRuleSignature(column: ColumnDefinition): string {
+	return usesTagMatching(column)
+		? `tags:${[...getColumnWriteTags(column)].sort().join(",")}`
+		: `name:${getNameModeWriteTag(column)}`;
+}
+
+export function matchesColumnDefinition(column: ColumnDefinition, taskTags: Set<string>): boolean {
+	if (usesTagMatching(column)) {
+		const explicitTags = getColumnWriteTags(column);
+		return explicitTags.length > 0 && explicitTags.every((tag) => taskTags.has(tag));
 	}
 
-	return kebab(column.label);
+	const derivedTag = getNameModeWriteTag(column);
+	for (const tag of taskTags) {
+		if (kebab(tag) === derivedTag) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
+	if (usesTagMatching(column)) {
+		return getColumnWriteTags(column).includes(tag);
+	}
+	return kebab(tag) === getNameModeWriteTag(column);
+}
+
+export function getColumnHeaderTags(column: ColumnDefinition): string[] {
+	return usesTagMatching(column) ? column.matchTags : [];
 }
 
 export function migrateColumnDefinitions(
@@ -124,7 +165,7 @@ export function migrateCollapsedColumns(
 
 	const placementTagToId = new Map<string, ColumnTag>();
 	for (const column of columns) {
-		placementTagToId.set(getColumnPlacementTag(column), column.id);
+		placementTagToId.set(getNameModeWriteTag(column), column.id);
 	}
 
 	const migrated = new Set<string>();
