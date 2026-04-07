@@ -5,6 +5,7 @@ import {
 	VisibilityOption,
 	ScopeOption,
 	FlowDirection,
+	ColumnOrderMode,
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
@@ -541,6 +542,20 @@ export class SettingsModal extends Modal {
 						this.settings.flowDirection = validatedValue.success
 							? validatedValue.data
 							: defaultSettings.flowDirection;
+						this.updateDirtyBanner();
+					});
+			});
+
+		new Setting(this.scrollWrapper)
+			.setName("Column order")
+			.setDesc("File order keeps tasks in source file order. Manual lets you drag tasks to reorder them within a column.")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption(ColumnOrderMode.File, "File order")
+					.addOption(ColumnOrderMode.Manual, "Manual")
+					.setValue(this.settings.columnOrderMode ?? ColumnOrderMode.File)
+					.onChange((value) => {
+						this.settings.columnOrderMode = (value === ColumnOrderMode.Manual ? ColumnOrderMode.Manual : ColumnOrderMode.File);
 						this.updateDirtyBanner();
 					});
 			});

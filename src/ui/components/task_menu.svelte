@@ -4,12 +4,18 @@
 	import type { Task } from "../tasks/task";
 	import type { TaskActions } from "../tasks/actions";
 	import IconButton from "./icon_button.svelte";
+	import { stableTaskKey, moveTaskUp, moveTaskDown } from "../tasks/manual_order";
 	import type { Readable } from "svelte/store";
 
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let doneColumnName: string | undefined = undefined;
+	export let isManualMode: boolean = false;
+	export let manualOrder: string[] = [];
+	export let onReorder: (newOrder: string[]) => void = () => {};
+
+	$: isDefaultColumn = task.column === 'uncategorised' || task.done;
 
 	function showMenu(e: MouseEvent) {
 		const menu = new Menu();
@@ -28,6 +34,35 @@
 				taskActions.viewFile(task.id),
 			);
 		});
+
+		if (isManualMode && !isDefaultColumn) {
+			menu.addSeparator();
+
+			const taskKey = stableTaskKey(task);
+			const currentIndex = manualOrder.indexOf(taskKey);
+			const canMoveUp = currentIndex > 0;
+			const canMoveDown = currentIndex >= 0 && currentIndex < manualOrder.length - 1;
+
+			menu.addItem((i) => {
+				i.setTitle(`Move up`).onClick(() => {
+					const newOrder = moveTaskUp(manualOrder, taskKey);
+					onReorder(newOrder);
+				});
+				if (!canMoveUp) {
+					i.setDisabled(true);
+				}
+			});
+
+			menu.addItem((i) => {
+				i.setTitle(`Move down`).onClick(() => {
+					const newOrder = moveTaskDown(manualOrder, taskKey);
+					onReorder(newOrder);
+				});
+				if (!canMoveDown) {
+					i.setDisabled(true);
+				}
+			});
+		}
 
 		menu.addSeparator();
 

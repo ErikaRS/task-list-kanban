@@ -123,6 +123,34 @@ Examples:
 
 **Tag consolidation**: Enable "Consolidate tags" in settings to move all non-column tags to the task footer for cleaner display.
 
+### Manual Task Reordering
+
+**Column Order Mode**: Toggle between two ordering modes in settings:
+
+- **File order** (default) — Tasks appear in the order they appear in their source files
+- **Manual order** — Tasks appear in the order you arrange them on the kanban
+
+**Reordering tasks within a column**:
+1. Enable **Manual** column order mode in settings
+2. Drag any task card within the column — drop zones appear as you drag
+3. Drop the task at your desired position to reorder it
+4. The new order persists automatically to the kanban file
+
+**Reordering tasks between columns**:
+1. In **Manual** mode, drag a task from one column to another
+2. Drop zones appear in both the source and destination columns
+3. Drop at your desired position in the destination column to move and reorder in one action
+4. Both columns' orders are updated automatically
+
+**Menu-based reordering** (alternative to dragging):
+- Right-click any task in Manual mode to access **Move up** and **Move down** commands
+- These buttons let you reorder one step at a time without dragging
+- Useful for keyboard navigation or accessibility
+
+**Order initialization**:
+- When you first enable Manual mode, each column is automatically populated with all current tasks in their file order
+- This ensures menu commands work immediately without needing to drag first
+
 ### Advanced Task Management
 
 **Bulk operations**: Each column header has a **Done / Select** toggle:

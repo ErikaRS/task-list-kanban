@@ -27,6 +27,11 @@ export enum FlowDirection {
 	BottomToTop = "btt",
 }
 
+export enum ColumnOrderMode {
+	File = "file",
+	Manual = "manual",
+}
+
 export interface ContentValue {
 	text: string;
 }
@@ -109,6 +114,7 @@ const settingsObject = z.object({
 	excludePaths: z.array(z.string()).default([]).optional(),
 	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
 	doneColumnName: z.string().default("Done").optional(),
+	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.File).optional(),
 });
 
 export interface SettingValues {
@@ -137,6 +143,7 @@ export interface SettingValues {
 	excludePaths?: string[];
 	uncategorizedColumnName?: string;
 	doneColumnName?: string;
+	columnOrderMode?: ColumnOrderMode;
 }
 
 export const defaultSettings: SettingValues = {
@@ -162,6 +169,7 @@ export const defaultSettings: SettingValues = {
 	excludePaths: [],
 	uncategorizedColumnName: "Uncategorized",
 	doneColumnName: "Done",
+	columnOrderMode: ColumnOrderMode.File,
 };
 
 export const createSettingsStore = () =>

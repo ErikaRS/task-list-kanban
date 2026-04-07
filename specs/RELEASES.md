@@ -7,7 +7,7 @@ Thematic grouping of open issues for future releases.
 **Focus:** Enhancing task creation, editing, and movement capabilities
 
 - [#1](https://github.com/ErikaRS/task-list-kanban/issues/1) - Sub-tasks in the body of the card
-- [#5](https://github.com/ErikaRS/task-list-kanban/issues/5) - Move cards up and down within a Kanban list
+- ✅ [#5](https://github.com/ErikaRS/task-list-kanban/issues/5) - Move cards up and down within a Kanban list (IMPLEMENTED: SPEC_0020)
 - [#12](https://github.com/ErikaRS/task-list-kanban/issues/12) - Display check box for quick completing of tasks
 - [#62](https://github.com/ErikaRS/task-list-kanban/issues/62) - Task Completion Checkbox
 - [#36](https://github.com/ErikaRS/task-list-kanban/issues/36) - Duplicate note

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ColumnTag, ColumnTagTable, DefaultColumns } from "../columns/columns";
-	import { isDraggingStore } from "../dnd/store";
+	import { isDraggingStore, isReorderingStore } from "../dnd/store";
+	import { stableTaskKey } from "../tasks/manual_order";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import TaskMenu from "./task_menu.svelte";
@@ -21,6 +22,10 @@
 	export let onToggleSelection: () => void = () => {};
 	export let selectedTaskIds: string[] = [];
 	export let doneColumnName: string | undefined = undefined;
+	export let isManualMode: boolean = false;
+	export let sortedTasks: Task[] = [];
+	export let manualOrder: string[] = [];
+	export let onReorder: (newOrder: string[]) => void = () => {};
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -48,6 +53,7 @@
 	let isEditing = false;
 	let isDragging = false;
 
+
 	function handleDragStart(e: DragEvent) {
 		handleContentBlur();
 		isDragging = true;
@@ -58,7 +64,14 @@
 				? selectedTaskIds
 				: [task.id];
 
-		isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds: taskIds });
+		// In manual mode with single task, enable reordering (drop zones appear in column)
+		// Also set isDraggingStore so cross-column moves still work
+		if (isManualMode && taskIds.length === 1) {
+			isReorderingStore.set({ taskId: task.id, fromColumn: displayColumn });
+			isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds: taskIds });
+		} else {
+			isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds: taskIds });
+		}
 
 		if (e.dataTransfer) {
 			e.dataTransfer.setData("text/plain", task.id);
@@ -91,6 +104,7 @@
 	function handleDragEnd() {
 		isDragging = false;
 		isDraggingStore.set(null);
+		isReorderingStore.set(null);
 	}
 
 	let textAreaEl: HTMLTextAreaElement | undefined;
@@ -383,7 +397,16 @@
 			{/if}
 		</div>
 		<div class="task-row-right">
-			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
+			<TaskMenu
+			{task}
+			{taskActions}
+			{columnTagTableStore}
+			{doneColumnName}
+			{isManualMode}
+			{sortedTasks}
+			{manualOrder}
+			{onReorder}
+		/>
 		</div>
 	</div>
 
