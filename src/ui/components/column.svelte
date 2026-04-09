@@ -13,7 +13,7 @@
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "./task.svelte";
 	import IconButton from "./icon_button.svelte";
-	import { isDraggingStore } from "../dnd/store";
+	import { isDraggingStore, isReorderingStore } from "../dnd/store";
 	import {
 		selectionModeStore,
 		isInSelectionMode,
@@ -26,12 +26,15 @@
 		getSelectedTaskCount,
 		clearColumnSelections,
 	} from "../selection/task_selection_store";
+	import { ColumnOrderMode } from "../settings/settings_store";
+	import { stableTaskKey, applyManualOrder, reorderAfterDrop } from "../tasks/manual_order";
 	import type { Readable } from "svelte/store";
 
 	export let app: App;
 	export let column: ColumnTag | DefaultColumns;
 	export let hideOnEmpty: boolean = false;
 	export let tasks: Task[];
+	export let allTasks: Task[] = [];
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
@@ -45,6 +48,11 @@
 	export let onToggleCollapse: () => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	export let columnOrderMode: ColumnOrderMode = ColumnOrderMode.File;
+	export let manualOrder: string[] = [];
+	export let allManualOrders: Record<string, string[]> = {};
+	export let onReorder: (newOrder: string[]) => void = () => {};
+	export let onCrossColumnReorder: (sourceColumn: ColumnTag | DefaultColumns, sourceNewOrder: string[], destColumn: ColumnTag | DefaultColumns, destNewOrder: string[]) => void = () => {};
 
 	function getColumnTitle(
 		column: ColumnTag | DefaultColumns,
@@ -74,13 +82,19 @@
 	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 
-	$: sortedTasks = [...tasks].sort((a, b) => {
-		if (a.path === b.path) {
-			return a.rowIndex - b.rowIndex;
-		} else {
-			return a.path.localeCompare(b.path);
+	$: sortedTasks = (() => {
+		if (columnOrderMode === ColumnOrderMode.Manual && manualOrder.length > 0) {
+			return applyManualOrder(tasks, manualOrder);
 		}
-	});
+		// File order (default): sort by path, then rowIndex
+		return [...tasks].sort((a, b) => {
+			if (a.path === b.path) {
+				return a.rowIndex - b.rowIndex;
+			} else {
+				return a.path.localeCompare(b.path);
+			}
+		});
+	})();
 
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
@@ -167,12 +181,35 @@
 	}
 
 	let isDraggedOver = false;
+	let reorderDropIndex: number | null = null;
 
 	$: draggingData = $isDraggingStore;
+	$: reorderingData = $isReorderingStore;
+	$: isDefaultColumn = column === 'uncategorised' || column === 'done';
 	$: canDrop = !!draggingData && draggingData.fromColumn !== column;
+	$: canReorder = !!reorderingData && reorderingData.fromColumn === column && columnOrderMode === ColumnOrderMode.Manual && !isDefaultColumn;
+	$: canReorderCrossColumn = !!reorderingData && reorderingData.fromColumn !== column && columnOrderMode === ColumnOrderMode.Manual && !isDefaultColumn;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
+
+		// Reorder within column (same column)
+		if (canReorder) {
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = "move";
+			}
+			return;
+		}
+
+		// Cross-column reorder (manual mode, different column - show drop zones)
+		if (canReorderCrossColumn) {
+			if (e.dataTransfer) {
+				e.dataTransfer.dropEffect = "move";
+			}
+			return;
+		}
+
+		// Traditional cross-column move (not manual mode)
 		if (!canDrop) {
 			if (e.dataTransfer) {
 				e.dataTransfer.dropEffect = "none";
@@ -188,17 +225,69 @@
 
 	function handleDragLeave(e: DragEvent) {
 		isDraggedOver = false;
+		reorderDropIndex = null;
 	}
 
 	async function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		isDraggedOver = false;
-		if (!canDrop || !draggingData) {
+
+		// Handle reorder within column (same column)
+		if (canReorder && reorderingData && reorderDropIndex !== null) {
+			const draggedKey = stableTaskKey(sortedTasks.find(t => t.id === reorderingData.taskId)!);
+			const newOrder = reorderAfterDrop(manualOrder, draggedKey, reorderDropIndex);
+			onReorder(newOrder);
+			reorderDropIndex = null;
 			return;
 		}
 
-		// Prefer the IDs from the drag store (supports multi-drag);
-		// fall back to the single ID from dataTransfer for robustness.
+		// Handle cross-column reorder with position (manual mode, different column)
+		if (canReorderCrossColumn && reorderingData && reorderDropIndex !== null) {
+			const sourceColumn = reorderingData.fromColumn;
+			const draggedTaskId = reorderingData.taskId;
+
+			// Find the dragged task in allTasks
+			const draggedTask = allTasks.find(t => t.id === draggedTaskId);
+			if (!draggedTask) {
+				console.error('Could not find dragged task:', draggedTaskId);
+				reorderDropIndex = null;
+				return;
+			}
+
+			// Get the source column's manual order
+			const sourceOrder = allManualOrders[sourceColumn as string] ?? [];
+
+			// Remove task from source order
+			const draggedKey = stableTaskKey(draggedTask);
+			const sourceNewOrder = sourceOrder.filter(k => k !== draggedKey);
+
+			// Insert task at drop index in destination order
+			const destNewOrder = reorderAfterDrop(manualOrder, draggedKey, reorderDropIndex);
+
+			// Move the task to destination column
+			switch (column) {
+				case "uncategorised":
+					break;
+				case "done":
+					await taskActions.markDone(draggedTaskId);
+					break;
+				default:
+					await taskActions.changeColumn(draggedTaskId, column);
+					break;
+			}
+
+			// Update both column orders
+			onCrossColumnReorder(sourceColumn, sourceNewOrder, column, destNewOrder);
+			reorderDropIndex = null;
+			return;
+		}
+
+		// Handle traditional cross-column move (not manual mode)
+		if (!canDrop || !draggingData) {
+			reorderDropIndex = null;
+			return;
+		}
+
 		const droppedIds =
 			draggingData.draggedTaskIds.length > 0
 				? draggingData.draggedTaskIds
@@ -207,7 +296,10 @@
 						return id ? [id] : [];
 					})();
 
-		if (droppedIds.length === 0) return;
+		if (droppedIds.length === 0) {
+			reorderDropIndex = null;
+			return;
+		}
 
 		for (const id of droppedIds) {
 			switch (column) {
@@ -224,6 +316,7 @@
 
 		// Clear selections for the source column after a successful drop
 		clearColumnSelections(droppedIds);
+		reorderDropIndex = null;
 	}
 
 	let buttonEl: HTMLSpanElement | undefined;
@@ -352,9 +445,31 @@
 		{#if !isVerticalFlow}
 			<div class="divide"></div>
 		{/if}
-		<div class="tasks-wrapper">
+		<div
+			class="tasks-wrapper"
+			role="region"
+			aria-label="Task list for {columnTitle}"
+			on:dragover={handleDragOver}
+			on:dragleave={handleDragLeave}
+			on:drop={handleDrop}
+		>
 			<div class="tasks">
-				{#each sortedTasks as task}
+				{#if canReorder || canReorderCrossColumn}
+					<!-- Drop zone at top -->
+					<div
+						class="drop-zone"
+						class:active={reorderDropIndex === 0}
+						role="region"
+						aria-label="Drop zone at top of {columnTitle}"
+						on:dragover={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							reorderDropIndex = 0;
+						}}
+					></div>
+				{/if}
+
+				{#each sortedTasks as task, idx}
 					<TaskComponent
 						{app}
 						{task}
@@ -368,7 +483,26 @@
 						onToggleSelection={() => toggleTaskSelection(task.id)}
 						selectedTaskIds={selectedIds}
 						{doneColumnName}
+						isManualMode={columnOrderMode === ColumnOrderMode.Manual}
+						{sortedTasks}
+						{manualOrder}
+						{onReorder}
 					/>
+
+					{#if canReorder || canReorderCrossColumn}
+						<!-- Drop zone after each task -->
+						<div
+							class="drop-zone"
+							class:active={reorderDropIndex === idx + 1}
+							role="region"
+							aria-label="Drop zone after task {idx + 1} in {columnTitle}"
+							on:dragover={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								reorderDropIndex = idx + 1;
+							}}
+						></div>
+					{/if}
 				{/each}
 			</div>
 			{#if pendingNewTask}
@@ -696,6 +830,22 @@
 				display: flex;
 				flex-direction: column;
 				gap: var(--size-4-2);
+
+				.drop-zone {
+					height: 20px;
+					background-color: transparent;
+					border-radius: 4px;
+					transition: all 150ms ease;
+					pointer-events: auto;
+					margin: -10px 0;
+
+					&.active {
+						height: 20px;
+						background-color: var(--color-accent);
+						box-shadow: 0 0 6px var(--color-accent);
+						margin: -10px 0;
+					}
+				}
 			}
 
 			.new-task-input {

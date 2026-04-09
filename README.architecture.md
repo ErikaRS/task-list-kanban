@@ -61,3 +61,26 @@ Obsidian Files → File System Events → Task Parsing → Reactive Stores → S
 - **Brand Types**: Type-safe string validation for markers and identifiers
 - **Reactive Stores**: Svelte-based state management for UI consistency
 - **Command Pattern**: Task actions encapsulate operations for undo/redo support
+
+### Filtering & Ordering Architecture
+
+**Core Principle**: Filtering is view-level only; manual ordering is persistent and never affected by filters.
+
+**Data Pipeline** (`main.svelte`):
+```
+$tasksStore (all tasks, unfiltered)
+  ├─ allTasksByColumn ← used by sync block (preserves full order across filters)
+  │
+  ├─ Filter pipeline: filteredByText → filteredByTag → filteredByFile → tasksByColumn
+  │   └─ tasksByColumn ← displayed to user (respects filter)
+  │
+  └─ Manual order sync block:
+     └─ Reads allTasksByColumn (complete list)
+     └─ Prunes only truly deleted/moved tasks
+     └─ Never modifies order when a filter hides tasks
+```
+
+**Separation of Concerns**:
+- **allTasksByColumn**: Feeds the sync block; enables persistent manual order across filter changes
+- **tasksByColumn**: Feeds the display; shows filtered results while respecting manual order
+- Hidden tasks maintain their position in `kanban_order` YAML, so filtering is reversible without data loss

@@ -10,10 +10,11 @@ import {
 	ScopeOption,
 	type SettingValues,
 } from "./settings/settings_store";
-import { get, type Readable, type Writable } from "svelte/store";
+import { get, writable, type Readable, type Writable } from "svelte/store";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
+import type { ManualOrderStore } from "./tasks/manual_order";
 import {
 	createColumnStores,
 	type ColumnDefinition,
@@ -29,6 +30,8 @@ export const KANBAN_VIEW_NAME = "kanban-view";
 export class KanbanView extends TextFileView {
 	private readonly settingsStore: Writable<SettingValues>;
 	private readonly destroySettingsStore: () => void;
+
+	private readonly manualOrderStore: Writable<ManualOrderStore>;
 
 	private readonly columnDefinitionsStore: Readable<ColumnDefinition[]>;
 	private readonly columnTagTableStore: Readable<ColumnTagTable>;
@@ -51,6 +54,8 @@ export class KanbanView extends TextFileView {
 		super(leaf);
 
 		this.settingsStore = createSettingsStore();
+		this.manualOrderStore = writable<ManualOrderStore>({});
+
 		this.destroySettingsStore = this.settingsStore.subscribe((settings) => {
 			this.boardFolderPath = this.file?.parent?.path ?? null;
 
@@ -152,14 +157,15 @@ export class KanbanView extends TextFileView {
 	}
 
 	getViewData(): string {
-		const parsed = matter<{ kanban_plugin: string }>(this.data + "\n");
+		const parsed = matter<{ kanban_plugin: string; kanban_order: string }>(this.data + "\n");
 		parsed.attributes["kanban_plugin"] = toSettingsString(
 			get(this.settingsStore)
 		);
+		parsed.attributes["kanban_order"] = JSON.stringify(get(this.manualOrderStore));
 
 		return `---
 ${Object.entries(parsed.attributes)
-	.map(([key, value]) => `${key}: '${value}'`)
+	.map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
 	.join("\n")}
 ---
 ${parsed.body}
@@ -169,12 +175,25 @@ ${parsed.body}
 	setViewData(data: string, clear?: boolean): void {
 		this.data = data;
 		this.settingsStore.set(this.getInitialSettings(data));
+		this.manualOrderStore.set(this.getInitialManualOrder(data));
 		this.initialiseTasksStore();
 	}
 
 	private getInitialSettings(data: string): SettingValues {
 		const parsed = matter<{ kanban_plugin?: string }>(data + "\n");
 		return parseSettingsString(parsed.attributes.kanban_plugin ?? "");
+	}
+
+	private getInitialManualOrder(data: string): ManualOrderStore {
+		const parsed = matter<{ kanban_order?: string }>(data + "\n");
+		try {
+			if (parsed.attributes.kanban_order) {
+				return JSON.parse(parsed.attributes.kanban_order);
+			}
+		} catch {
+			// Silently ignore invalid JSON
+		}
+		return {};
 	}
 
 	clear(): void {
@@ -193,6 +212,7 @@ ${parsed.body}
 				columnMatchTagTableStore: this.columnMatchTagTableStore,
 				openSettings: () => this.openSettingsModal(),
 				settingsStore: this.settingsStore,
+				manualOrderStore: this.manualOrderStore,
 				requestSave: () => this.requestSave(),
 			},
 		});

@@ -13,10 +13,13 @@
 	import IconButton from "./components/icon_button.svelte";
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
+import { get } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
+	import { type SettingValues, VisibilityOption, FlowDirection, ColumnOrderMode } from "./settings/settings_store";
 	import { onMount } from "svelte";
 	import type { App } from "obsidian";
+	import type { ManualOrderStore } from "./tasks/manual_order";
+import { stableTaskKey, initializeColumnOrder } from "./tasks/manual_order";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -26,6 +29,7 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let settingsStore: Writable<SettingValues>;
+	export let manualOrderStore: Writable<ManualOrderStore>;
 	export let requestSave: () => void;
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
@@ -44,6 +48,43 @@
 		});
 		requestSave();
 	}
+
+	function handleReorder(column: ColumnTag | DefaultColumns, newOrder: string[]) {
+		manualOrderStore.update(store => ({ ...store, [column]: newOrder }));
+		requestSave();
+	}
+
+	function handleCrossColumnReorder(
+		sourceColumn: ColumnTag | DefaultColumns,
+		sourceNewOrder: string[],
+		destColumn: ColumnTag | DefaultColumns,
+		destNewOrder: string[]
+	) {
+		manualOrderStore.update(store => ({
+			...store,
+			[sourceColumn]: sourceNewOrder,
+			[destColumn]: destNewOrder,
+		}));
+		requestSave();
+	}
+
+	// Initialize manual order when columnOrderMode is set to Manual
+	let previousColumnOrderMode = ColumnOrderMode.File;
+	$: if ($settingsStore.columnOrderMode === ColumnOrderMode.Manual && previousColumnOrderMode === ColumnOrderMode.File) {
+		const tasksStore$ = get(tasksStore);
+		const settings$ = get(settingsStore);
+
+		manualOrderStore.update(store => {
+			const newStore = { ...store };
+			for (const col of settings$.columns.map(c => c.id)) {
+				const columnTasks = tasksStore$.filter(task => task.column === col);
+				newStore[col] = initializeColumnOrder(columnTasks, newStore[col] ?? []);
+			}
+			return newStore;
+		});
+		requestSave();
+	}
+	previousColumnOrderMode = $settingsStore.columnOrderMode;
 
 	$: tags = $tasksStore.reduce((acc, curr) => {
 		for (const tag of curr.tags) {
@@ -369,6 +410,57 @@
 
 	$: tasksByColumn = groupByColumnTag(filteredByFile);
 
+	// Group all unfiltered tasks by column for sync block
+	// (filtering must not modify the persistent manual order)
+	$: allTasksByColumn = groupByColumnTag($tasksStore);
+
+	// Sync manual order with actual task positions; exclude default columns
+	$: if ($settingsStore.columnOrderMode === ColumnOrderMode.Manual) {
+		const configuredColumnIds = columns; // only user-configured columns, not defaults
+
+		// Compute current valid keys for configured columns only
+		const currentKeysByColumn: Record<string, string[]> = {};
+		for (const col of configuredColumnIds) {
+			currentKeysByColumn[col] = (allTasksByColumn[col] ?? []).map(stableTaskKey);
+		}
+
+		const currentStore = get(manualOrderStore);
+		let changed = false;
+		const newStore: ManualOrderStore = {};
+
+		// Copy over only configured column entries (drops uncategorised/done entries)
+		for (const col of configuredColumnIds) {
+			const validKeySet = new Set(currentKeysByColumn[col]);
+			const currentOrder = currentStore[col] ?? [];
+
+			// Remove stale keys (task no longer in this column)
+			const pruned = currentOrder.filter(k => validKeySet.has(k));
+
+			// Append missing keys (new or moved-in tasks)
+			const orderedSet = new Set(pruned);
+			const toAdd = (currentKeysByColumn[col] ?? []).filter(k => !orderedSet.has(k));
+
+			const newOrder = [...pruned, ...toAdd];
+
+			if (newOrder.length !== currentOrder.length ||
+				newOrder.some((k, i) => k !== currentOrder[i])) {
+				changed = true;
+			}
+
+			newStore[col] = newOrder;
+		}
+
+		// Detect if default column entries existed (need cleanup)
+		if (currentStore['uncategorised'] || currentStore['done']) {
+			changed = true;
+		}
+
+		if (changed) {
+			manualOrderStore.set(newStore);
+			requestSave();
+		}
+	}
+
 	$: totalTaskCount = $tasksStore.filter(t => t.column !== "archived").length;
 	$: filteredTaskCount = filteredByFile.filter(t => t.column !== "archived").length;
 	$: isFiltered = filterText.trim() !== "" || selectedTags.length > 0 || fileFilter.trim() !== "";
@@ -650,6 +742,7 @@
 							{column}
 							hideOnEmpty={false}
 							tasks={tasksByColumn[column] ?? []}
+							allTasks={$tasksStore}
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}
@@ -663,6 +756,11 @@
 							onToggleCollapse={() => toggleColumnCollapse(column)}
 							{uncategorizedColumnName}
 							{doneColumnName}
+							columnOrderMode={$settingsStore.columnOrderMode}
+							manualOrder={$manualOrderStore[column as string] ?? []}
+							allManualOrders={$manualOrderStore}
+							onReorder={(newOrder) => handleReorder(column, newOrder)}
+							onCrossColumnReorder={handleCrossColumnReorder}
 						/>
 					{/each}
 				</div>

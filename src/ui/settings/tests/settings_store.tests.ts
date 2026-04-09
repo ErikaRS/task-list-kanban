@@ -5,6 +5,7 @@ import {
 	defaultSettings,
 	FlowDirection,
 	ScopeOption,
+	ColumnOrderMode,
 	type SavedFilter,
 } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
@@ -80,6 +81,39 @@ describe("Invalid field resilience", () => {
 		const parsed = parseSettingsString(settingsJson);
 		expect(parsed.columnWidth).toBe(300);
 		expect(parsed.columns.map(c => c.label)).toEqual(["MyColumn"]);
+	});
+
+	it("columnOrderMode defaults to 'file' when absent from parsed JSON", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo"],
+			scope: "folder",
+		});
+
+		const parsed = parseSettingsString(settingsJson);
+		expect(parsed.columnOrderMode).toBe(ColumnOrderMode.File);
+	});
+
+	it("columnOrderMode 'manual' round-trips through parse/stringify/parse", () => {
+		const settings = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Manual,
+		};
+
+		const serialized = toSettingsString(settings);
+		const parsed = parseSettingsString(serialized);
+
+		expect(parsed.columnOrderMode).toBe(ColumnOrderMode.Manual);
+	});
+
+	it("columnOrderMode falls back to 'file' on invalid value", () => {
+		const settingsJson = JSON.stringify({
+			columns: ["Todo"],
+			scope: "folder",
+			columnOrderMode: "invalid_order_mode",
+		});
+
+		const parsed = parseSettingsString(settingsJson);
+		expect(parsed.columnOrderMode).toBe(ColumnOrderMode.File);
 	});
 });
 
