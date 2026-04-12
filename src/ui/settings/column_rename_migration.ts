@@ -1,6 +1,6 @@
 import type { TFile, Vault } from "obsidian";
 import { createColumnData, type ColumnDefinition } from "../columns/columns";
-import { columnRuleSignature, matchesColumnDefinition } from "../columns/definitions";
+import { columnRuleSignature, resolveMatchedColumnDefinition } from "../columns/definitions";
 import type { SettingValues } from "./settings_store";
 import { getTagsFromContent } from "src/parsing/tags/tags";
 import { shouldIncludeFilePath } from "../tasks/scope";
@@ -98,8 +98,9 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
-		const matchedColumn = oldColumnDefinitions.find((column) =>
-			matchesColumnDefinition(column, getTagsFromContent(row)),
+		const matchedColumn = resolveMatchedColumnDefinition(
+			oldColumnDefinitions,
+			getTagsFromContent(row),
 		);
 		const task = new Task(
 			row,

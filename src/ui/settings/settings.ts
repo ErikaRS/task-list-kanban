@@ -362,7 +362,7 @@ export class SettingsModal extends Modal {
 		});
 		matchModeSelect.createEl("option", {
 			value: "tags",
-			text: "Tag",
+			text: "Tags",
 		});
 		matchModeSelect.value = column.matchMode;
 		matchModeSelect.addEventListener("change", () => {
@@ -383,10 +383,10 @@ export class SettingsModal extends Modal {
 				target: tagPicker,
 				props: {
 					items: this.availableColumnTags,
-					value: [...column.matchTags.slice(0, 1)],
-					maxSelected: 1,
+					value: [...column.matchTags],
+					maxSelected: 0,
 					placeholder: "",
-					ariaLabel: `${column.label} match tag`,
+					ariaLabel: `${column.label} match tags`,
 				},
 			});
 			const onChange = tagSelect.$on("change", (event) => {

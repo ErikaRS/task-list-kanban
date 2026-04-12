@@ -122,6 +122,102 @@ describe("Task", () => {
 		expect(task?.serialise()).toBe(taskString);
 	});
 
+	it("matches a tags-mode column only when all explicit tags are present", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+		];
+		const placementTags = {
+			"active-work": ["project/alpha", "status/active"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #tag #project/alpha #status/active";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+		}
+
+		expect(task?.column).toBe("active-work");
+		expect(task?.content).toBe("Something #tag");
+		expect(task?.tags.size).toBe(1);
+		expect(task?.tags.has("tag")).toBe(true);
+	});
+
+	it("treats partial tags-mode matches as uncategorized and leaves tags visible", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+		];
+		const placementTags = {
+			"active-work": ["project/alpha", "status/active"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #tag #project/alpha";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+		}
+
+		expect(task?.column).toBeUndefined();
+		expect(task?.content).toBe("Something #tag #project/alpha");
+		expect(task?.tags.has("project/alpha")).toBe(true);
+		expect(task?.serialise()).toBe(taskString);
+	});
+
+	it("does not match a multi-tag column when only the second required tag is present", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+		];
+		const placementTags = {
+			"active-work": ["project/alpha", "status/active"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #tag #status/active";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+		}
+
+		expect(task?.column).toBeUndefined();
+		expect(task?.content).toBe("Something #tag #status/active");
+		expect(task?.tags.has("status/active")).toBe(true);
+		expect(task?.serialise()).toBe(taskString);
+	});
+
+	it("does not match a multi-tag column from the label-derived tag alone", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+		];
+		const placementTags = {
+			"active-work": ["project/alpha", "status/active"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #tag #active-work";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+		}
+
+		expect(task?.column).toBeUndefined();
+		expect(task?.content).toBe("Something #tag #active-work");
+		expect(task?.tags.has("active-work")).toBe(true);
+		expect(task?.serialise()).toBe(taskString);
+	});
+
 	it("writes all placement tags for a tags-mode column", () => {
 		const explicitColumns: ColumnDefinition[] = [
 			{
@@ -142,6 +238,172 @@ describe("Task", () => {
 		}
 
 		expect(task?.serialise()).toBe("- [ ] Something #tag #project/alpha #status/active");
+	});
+
+	it("removes all placement tags when moving out of a multi-tag column", () => {
+		const columns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+			{
+				id: "backlog" as ColumnTag,
+				label: "Backlog",
+				matchMode: "name",
+				matchTags: [],
+			},
+		];
+		const placementTags = createColumnData(columns).columnPlacementTagTable;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #tag #project/alpha #status/active";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, columns, placementTags, false, "xX", "-", "");
+			task.column = "backlog" as ColumnTag;
+		}
+
+		expect(task?.serialise()).toBe("- [ ] Something #tag #backlog");
+	});
+
+	it("prefers the most specific matching column when multiple columns match", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "a" as ColumnTag,
+				label: "A",
+				matchMode: "tags",
+				matchTags: ["A"],
+			},
+			{
+				id: "ab" as ColumnTag,
+				label: "A B",
+				matchMode: "tags",
+				matchTags: ["A", "B"],
+			},
+			{
+				id: "abc" as ColumnTag,
+				label: "A B C",
+				matchMode: "tags",
+				matchTags: ["A", "B", "C"],
+			},
+		];
+		const placementTags = {
+			a: ["A"],
+			ab: ["A", "B"],
+			abc: ["A", "B", "C"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #A #B #C #tag";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+		}
+
+		expect(task?.column).toBe("abc");
+		expect(task?.content).toBe("Something #tag");
+		expect(task?.tags.has("A")).toBe(false);
+		expect(task?.tags.has("B")).toBe(false);
+		expect(task?.tags.has("C")).toBe(false);
+	});
+
+	it("uses column order to break ties between equally specific matches", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "a" as ColumnTag,
+				label: "A",
+				matchMode: "tags",
+				matchTags: ["A", "B"],
+			},
+			{
+				id: "c" as ColumnTag,
+				label: "C",
+				matchMode: "tags",
+				matchTags: ["B", "C"],
+			},
+		];
+		const placementTags = {
+			a: ["A", "B"],
+			c: ["B", "C"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #A #B #C #tag";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+		}
+
+		expect(task?.column).toBe("a");
+		expect(task?.content).toBe("Something #C #tag");
+		expect(task?.tags.has("C")).toBe(true);
+		expect(task?.tags.has("A")).toBe(false);
+		expect(task?.tags.has("B")).toBe(false);
+	});
+
+	it("matches a multi-tag column regardless of tag order in task content", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+		];
+		const placementTags = {
+			"active-work": ["project/alpha", "status/active"],
+		} as const;
+		let orderedTask: Task | undefined;
+		let reversedTask: Task | undefined;
+		const orderedTaskString = "- [ ] Ordered #project/alpha #status/active";
+		const reversedTaskString = "- [ ] Reversed #status/active #project/alpha";
+		if (isTrackedTaskString(orderedTaskString)) {
+			orderedTask = new Task(
+				orderedTaskString,
+				{ path: "/" },
+				0,
+				explicitColumns,
+				placementTags,
+				false,
+				"xX",
+				"-",
+				"",
+			);
+		}
+		if (isTrackedTaskString(reversedTaskString)) {
+			reversedTask = new Task(
+				reversedTaskString,
+				{ path: "/" },
+				1,
+				explicitColumns,
+				placementTags,
+				false,
+				"xX",
+				"-",
+				"",
+			);
+		}
+
+		expect(orderedTask?.column).toBe("active-work");
+		expect(reversedTask?.column).toBe("active-work");
+	});
+
+	it("archives a multi-tag column by removing all placement tags and adding archived", () => {
+		const explicitColumns: ColumnDefinition[] = [
+			{
+				id: "active-work" as ColumnTag,
+				label: "Active Work",
+				matchMode: "tags",
+				matchTags: ["project/alpha", "status/active"],
+			},
+		];
+		const placementTags = {
+			"active-work": ["project/alpha", "status/active"],
+		} as const;
+		let task: Task | undefined;
+		const taskString = "- [ ] Something #tag #project/alpha #status/active";
+		if (isTrackedTaskString(taskString)) {
+			task = new Task(taskString, { path: "/" }, 0, explicitColumns, placementTags, false, "xX", "-", "");
+			task.archive();
+		}
+
+		expect(task?.serialise()).toBe("- [x] Something #tag #archived");
 	});
 
 	it("does not duplicate an explicit placement tag already present in task content", () => {

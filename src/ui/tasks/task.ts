@@ -7,7 +7,7 @@ import type {
 	DefaultColumns,
 } from "../columns/columns";
 import { getTagsFromContent, isValidTag } from "src/parsing/tags/tags";
-import { isPlacementTag, matchesColumnDefinition } from "../columns/definitions";
+import { isPlacementTag, resolveMatchedColumnDefinition } from "../columns/definitions";
 
 /**
  * A string containing characters that mark tasks as completed.
@@ -237,7 +237,7 @@ export class Task {
 		this._done = isStatusMatch(this._displayStatus, this.doneStatusMarkers);
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
-		const matchedColumn = columnDefinitions.find((column) => matchesColumnDefinition(column, tags));
+		const matchedColumn = resolveMatchedColumnDefinition(columnDefinitions, tags);
 
 		for (const tag of tags) {
 			if (tag === "done") {
@@ -246,9 +246,7 @@ export class Task {
 				}
 				tags.delete(tag);
 				if (!consolidateTags) {
-					this.content = this.content
-						.replaceAll(`#${tag}`, "")
-						.trim();
+					this.content = this.stripTagFromContent(this.content, tag);
 				}
 				continue;
 			}
@@ -259,13 +257,11 @@ export class Task {
 				}
 				tags.delete(tag);
 				if (!consolidateTags) {
-					this.content = this.content
-						.replaceAll(`#${tag}`, "")
-						.trim();
+					this.content = this.stripTagFromContent(this.content, tag);
 				}
 			}
 			if (consolidateTags) {
-				this.content = this.content.replaceAll(`#${tag}`, "").trim();
+				this.content = this.stripTagFromContent(this.content, tag);
 			}
 		}
 
@@ -345,8 +341,15 @@ export class Task {
 		return this.getPlacementTagsForColumn(this.column as ColumnTag);
 	}
 
+	private stripTagFromContent(value: string, tag: string): string {
+		return value
+			.replaceAll(` #${tag}`, "")
+			.replaceAll(`#${tag}`, "")
+			.trim();
+	}
+
 	private stripPlacementTags(value: string, placementTags: string[]): string {
-		return placementTags.reduce((nextValue, tag) => nextValue.replaceAll(`#${tag}`, "").trim(), value);
+		return placementTags.reduce((nextValue, tag) => this.stripTagFromContent(nextValue, tag), value);
 	}
 
 	serialise(): string {

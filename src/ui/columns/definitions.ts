@@ -102,6 +102,32 @@ export function matchesColumnDefinition(column: ColumnDefinition, taskTags: Set<
 	return false;
 }
 
+export function getColumnMatchSpecificity(column: ColumnDefinition): number {
+	return usesTagMatching(column) ? getColumnWriteTags(column).length : 1;
+}
+
+export function resolveMatchedColumnDefinition(
+	columns: ColumnDefinition[],
+	taskTags: Set<string>,
+): ColumnDefinition | undefined {
+	let matchedColumn: ColumnDefinition | undefined;
+	let matchedSpecificity = -1;
+
+	for (const column of columns) {
+		if (!matchesColumnDefinition(column, taskTags)) {
+			continue;
+		}
+
+		const specificity = getColumnMatchSpecificity(column);
+		if (!matchedColumn || specificity > matchedSpecificity) {
+			matchedColumn = column;
+			matchedSpecificity = specificity;
+		}
+	}
+
+	return matchedColumn;
+}
+
 export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
 	if (usesTagMatching(column)) {
 		return getColumnWriteTags(column).includes(tag);
