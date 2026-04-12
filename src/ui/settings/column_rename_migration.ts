@@ -98,10 +98,7 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
-		const matchedColumn = resolveMatchedColumnDefinition(
-			oldColumnDefinitions,
-			getTagsFromContent(row),
-		);
+		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, getTagsFromContent(row));
 		const task = new Task(
 			row,
 			file,

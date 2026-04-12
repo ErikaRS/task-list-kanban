@@ -427,7 +427,6 @@ describe("Task", () => {
 
 		expect(task?.serialise()).toBe(taskString);
 	});
-
 	it("parses a task string with a block link", () => {
 		let task: Task | undefined;
 		const taskString = "- [ ] Something #tag #column ^link-link";

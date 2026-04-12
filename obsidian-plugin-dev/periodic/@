@@ -1,0 +1,4 @@
+---
+kanban_plugin: '{"columns":["Backlog","Working","Review","Done"],"scope":"everywhere","showFilepath":true,"consolidateTags":false,"uncategorizedVisibility":"auto","doneVisibility":"always","doneStatusMarkers":"xX","cancelledStatusMarkers":"-","ignoredStatusMarkers":"","savedFilters":[],"lastContentFilter":"","lastTagFilter":[],"lastFileFilter":[],"columnWidth":300,"flowDirection":"ltr","collapsedColumns":["pending"],"defaultTaskFile":"tasks.md","lastUsedTaskFile":"","scopeFolders":[],"excludePaths":[],"uncategorizedColumnName":"Uncategorized","doneColumnName":"Done"}'
+---
+

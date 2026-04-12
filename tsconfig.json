@@ -15,5 +15,6 @@
 		"lib": ["DOM", "es2021"],
 		"noUncheckedIndexedAccess": true
 	},
-	"include": ["**/*.ts"]
+	"include": ["**/*.ts"],
+	"exclude": ["worktrees/**/*"]
 }

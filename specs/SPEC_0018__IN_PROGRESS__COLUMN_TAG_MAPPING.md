@@ -294,6 +294,8 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 7. Extend validation: identical `matchTags` sets blocked; subset relationships and partial overlaps are valid.
 8. Tests: AND matching, partial match → Uncategorized, tag order independence, write/remove all, archive, conflict resolution, subset validation.
 
+**Status note:** The data model, parser, and serialization logic now support multi-tag arrays internally, but the settings UI currently limits tags-mode columns to a single selected tag. The full end-to-end multi-tag workflow in this phase remains incomplete.
+
 **Deliverable:** Full multi-tag AND matching. Covers test cases: A1–A8, S3, S5, H3, C1–C2, U1–U5, V1, V3, V6–V7, AR3.
 
 ### Phase 6: Documentation and Final Audit

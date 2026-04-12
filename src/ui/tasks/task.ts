@@ -351,7 +351,6 @@ export class Task {
 	private stripPlacementTags(value: string, placementTags: string[]): string {
 		return placementTags.reduce((nextValue, tag) => this.stripTagFromContent(nextValue, tag), value);
 	}
-
 	serialise(): string {
 		if (this._deleted) {
 			return "";

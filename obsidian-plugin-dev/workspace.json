@@ -1,0 +1,443 @@
+{
+  "main": {
+    "id": "5bd4c5f0ae7873d7",
+    "type": "split",
+    "children": [
+      {
+        "id": "e2092ce21dc06f13",
+        "type": "split",
+        "children": [
+          {
+            "id": "d1d494ff71c7cdb0",
+            "type": "tabs",
+            "dimension": 67.974180734856,
+            "children": [
+              {
+                "id": "4085d46f54217aca",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "periodic/2025-Weeks 11-22.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "2025-Weeks 11-22"
+                }
+              },
+              {
+                "id": "63a082c7c2e202f4",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Task Backlog.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Task Backlog"
+                }
+              },
+              {
+                "id": "de990ddb3754d852",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "periodic/2025-05-02.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "2025-05-02"
+                }
+              },
+              {
+                "id": "e4adaff14383f28b",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Task Backlog.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Task Backlog"
+                }
+              },
+              {
+                "id": "3c789b5928a170b4",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Task Backlog.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Task Backlog"
+                }
+              }
+            ],
+            "currentTab": 4
+          },
+          {
+            "id": "e532cc16070a13f5",
+            "type": "tabs",
+            "dimension": 32.02581926514399,
+            "children": [
+              {
+                "id": "3ce60a46f238e1bc",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Open Threads.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Open Threads"
+                }
+              },
+              {
+                "id": "67169957d1d9545b",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "Skip level checkins.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Skip level checkins"
+                }
+              },
+              {
+                "id": "ccfdd3e58dcb31ae",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Worklog.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Worklog"
+                }
+              },
+              {
+                "id": "e9f146f8fc850112",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "Directs.md",
+                    "mode": "preview",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Directs"
+                }
+              },
+              {
+                "id": "d332fc77f74081df",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Task Archive.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Task Archive"
+                }
+              },
+              {
+                "id": "da3debe5297aa3dc",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "planner/Task Backlog.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "Task Backlog"
+                }
+              }
+            ],
+            "currentTab": 3
+          }
+        ],
+        "direction": "horizontal"
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "aab4b78ff7055922",
+    "type": "split",
+    "children": [
+      {
+        "id": "a53a7b89ec772b56",
+        "type": "tabs",
+        "dimension": 46.473871131405375,
+        "children": [
+          {
+            "id": "f948a9c423ecc83c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": true
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "70a251314bc19d97",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": true,
+                "explainSearch": true,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "6cabfb6bcedeb6a1",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          },
+          {
+            "id": "10a7447052b02fe8",
+            "type": "leaf",
+            "state": {
+              "type": "vertical-tabs",
+              "state": {},
+              "icon": "vertical-tabs",
+              "title": "Vertical tabs"
+            }
+          }
+        ],
+        "currentTab": 3
+      },
+      {
+        "id": "2b665ddcc8b77659",
+        "type": "tabs",
+        "dimension": 53.526128868594625,
+        "children": [
+          {
+            "id": "750eac7e795916a1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "planner/Task Backlog.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Task Backlog"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "right": {
+    "id": "25aa0ec29817f039",
+    "type": "split",
+    "children": [
+      {
+        "id": "2a2306ae86520b65",
+        "type": "tabs",
+        "dimension": 73.48560079443894,
+        "children": [
+          {
+            "id": "58947a8b87e336c5",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "1be802cf812c90e3",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "a5035eb37a71faf4",
+            "type": "leaf",
+            "state": {
+              "type": "planner-timeline",
+              "state": {},
+              "icon": "calendar-with-checkmark",
+              "title": "Timeline"
+            }
+          }
+        ],
+        "currentTab": 2
+      },
+      {
+        "id": "b0ba4209c01ed333",
+        "type": "tabs",
+        "dimension": 26.514399205561066,
+        "children": [
+          {
+            "id": "e3474227d6940267",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "planner/Task Backlog.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Task Backlog"
+            }
+          },
+          {
+            "id": "1516754686f2a95d",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "people/Diego Comas.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Diego Comas"
+            }
+          },
+          {
+            "id": "6ad51f6c320c3d3a",
+            "type": "leaf",
+            "state": {
+              "type": "timer-view",
+              "state": {},
+              "icon": "timer",
+              "title": "Timer"
+            }
+          }
+        ],
+        "currentTab": 2
+      }
+    ],
+    "direction": "horizontal",
+    "width": 256.5
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "random-note:Open random note": false,
+      "workspaces:Manage workspace layouts": false,
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "table-editor-obsidian:Advanced Tables Toolbar": false,
+      "markdown-importer:Open format converter": false,
+      "omnisearch:Omnisearch": false,
+      "daily-notes:Open today's daily note": false,
+      "obsidian42-text-transporter:Text Transporter": false,
+      "pomodoro-timer:Toggle timer panel": false,
+      "obsidian-day-planner:Open Timeline": false,
+      "obsidian-day-planner:Open Multi-Day View": false,
+      "obsidian-excalidraw-plugin:New drawing": false
+    }
+  },
+  "active": "3c789b5928a170b4",
+  "lastOpenFiles": [
+    "periodic/2025-05-02.md",
+    "planner/Task Backlog.md",
+    "periodic/2025-Weeks 11-22.md",
+    "people/Enrique Gonzalez.md",
+    "people/Kevin Chen.md",
+    "people/Lewis Metcalf.md",
+    "periodic/2025-05-01.md",
+    "people/Grace Shih.md",
+    "people/Karl Clement.md",
+    "people/Aravind Ramaraji.md",
+    "meetings/EPD AMA.md",
+    "periodic/2025-04-30.md",
+    "Useful Business info.md",
+    "people/Peter Guy.md",
+    "people/Tyler Bruno.md",
+    "people/Taylor Sperry.md",
+    "people/Audrey Lorberfeld.md",
+    "people/Derek Feriancek.md",
+    "people/Diego Comas.md",
+    "people/Adi Ranjan.md",
+    "meetings/EPD execution sync.md",
+    "people/Thorsten Ball.md",
+    "periodic/2025-04-29.md",
+    "notes/DX Survey Results.md",
+    "images/Pasted image 20250429162042.png",
+    "images/Pasted image 20250429162025.png",
+    "images/Pasted image 20250429162012.png",
+    "images/Pasted image 20250429161959.png",
+    "images/Pasted image 20250429161928.png",
+    "images/Pasted image 20250429161917.png",
+    "images/Pasted image 20250429161901.png",
+    "images/Pasted image 20250429161831.png",
+    "images/Pasted image 20250429161820.png",
+    "images/Pasted image 20250429161802.png",
+    "images/benchmark-report-sourcegraph-02-2025.pdf",
+    "people/Madison Clark.md",
+    "meetings/Exec Team Meeting.md",
+    "periodic/2025-Weeks-11-22",
+    "images/Product Advisory Report.pdf",
+    "Untitled.canvas",
+    "customers"
+  ]
+}

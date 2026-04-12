@@ -1,0 +1,11 @@
+/* Set font everywhere
+:root {
+  --default-font: 'Virgil', sans-serif !important;
+}*/
+
+
+/*
+.markdown-source-view .cm-editor .cm-scroller {
+  font-family: 'Virgil', sans-serif !important;
+}
+*/
