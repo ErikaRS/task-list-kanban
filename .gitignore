@@ -17,6 +17,7 @@ main.js
 
 # obsidian
 data.json
+obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

@@ -190,3 +190,13 @@ When ready to make a new deployment:
 5. Go to the [releases page](https://github.com/ErikaRS/task-list-kanban/releases)
 6. Edit the draft created by `github-actions` for that tag, paste in your release notes, and publish
 7. Do not create a release draft manually (`gh release create` or UI), or you may end up with duplicate drafts and missing assets
+
+### Manual Testing Deploy
+
+For local Obsidian testing, `tools/deploy_for_manual_test.sh` now deploys to the repo's vendored test vault by default:
+
+```bash
+./tools/deploy_for_manual_test.sh
+```
+
+This copies the built plugin into `obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can still pass an explicit target directory as an argument if you want to deploy somewhere else.

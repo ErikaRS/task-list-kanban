@@ -1,0 +1,2 @@
+- [x] Does this show up or does it get properly filtered? #This week
+- [ ] TODO #soonish

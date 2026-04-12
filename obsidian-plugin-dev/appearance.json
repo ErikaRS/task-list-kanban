@@ -1,0 +1,16 @@
+{
+  "accentColor": "#7713c9",
+  "theme": "system",
+  "enabledCssSnippets": [
+    "S - Checkboxes",
+    "Font",
+    "e-matrix",
+    "MCL Multi Column",
+    "MCL Gallery Cards",
+    "MCL Wide Views",
+    "sidenote-callout"
+  ],
+  "cssTheme": "",
+  "showViewHeader": true,
+  "showRibbon": true
+}
