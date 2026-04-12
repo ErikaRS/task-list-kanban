@@ -56,6 +56,9 @@
 
 **Tracking Guidelines:**
 - Mark tasks with ✅ as they're completed
+- Only check off test cases after they have been explicitly verified by the stated test method (for example by running the relevant automated test, or by performing the manual validation steps and confirming the result)
+- Do not check off a test case based only on implementation progress, code inspection, or expectation that it should pass
+- If a behavior appears implemented but has not yet been exercised, leave the test case unchecked until verification happens
 - Add phase status after title: `✅ COMPLETE`, `🚧 IN PROGRESS`, or leave blank if not started
 - Link to commits using short hash: `[99a67b6](full-commit-url)`
 - Link to PRs using number: `[#51](full-pr-url)`
