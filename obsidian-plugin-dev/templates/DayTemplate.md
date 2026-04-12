@@ -1,12 +1,12 @@
 # Day planner
 - [ ] Good day! #Later
-	- [x] Adi
-	- [ ] Diego #Later
-	- [ ] Eric #Later
-	- [ ] Grace 
-	- [ ] Matt #Later
-	- [ ] Peter #Today
-	- [ ] Thorsten #Today
+	- [x] Alice
+	- [ ] Bob #Later
+	- [ ] Carol #Later
+	- [ ] Dave 
+	- [ ] Eve #Later
+	- [ ] Frank #Today
+	- [ ] Grace #Today
 
 ## Top 1 next
 
