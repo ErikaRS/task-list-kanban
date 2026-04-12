@@ -55,7 +55,7 @@
                 }
               }
             ],
-            "currentTab": 1
+            "currentTab": 2
           },
           {
             "id": "b672f997538ed1c3",
@@ -70,8 +70,8 @@
                   "state": {
                     "file": "periodic/Kanban-1761679356942.md"
                   },
-                  "icon": "lucide-ghost",
-                  "title": "kanban-view"
+                  "icon": "kanban-square",
+                  "title": "Kanban-1761679356942"
                 }
               }
             ]
@@ -239,9 +239,9 @@
   },
   "active": "08d2136051d11382",
   "lastOpenFiles": [
-    "tasks/Even more tasks.md",
-    "periodic/Kanban-1761679356942.md",
     "periodic/2025-10-21.md",
+    "periodic/Kanban-1761679356942.md",
+    "tasks/Even more tasks.md",
     "periodic/Kanban-1771182407942.md",
     "periodic/A test file with a very very very long name.md",
     "periodic/Kanban-repro.md",
