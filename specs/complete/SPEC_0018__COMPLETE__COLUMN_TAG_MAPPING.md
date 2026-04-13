@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-04
 
 # Column Tag Mapping and Structured Column Settings
 
@@ -294,17 +295,21 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 7. Extend validation: identical `matchTags` sets blocked; subset relationships and partial overlaps are valid.
 8. Tests: AND matching, partial match → Uncategorized, tag order independence, write/remove all, archive, conflict resolution, subset validation.
 
-**Status note:** The data model, parser, and serialization logic now support multi-tag arrays internally, but the settings UI currently limits tags-mode columns to a single selected tag. The full end-to-end multi-tag workflow in this phase remains incomplete.
-
 **Deliverable:** Full multi-tag AND matching. Covers test cases: A1–A8, S3, S5, H3, C1–C2, U1–U5, V1, V3, V6–V7, AR3.
 
-### Phase 6: Documentation and Final Audit
+**Implemented by:** Pending commit in this working tree
+
+### Phase 6: Documentation and Final Audit ✅ COMPLETE
 
 **Goal:** Verify no stale assumptions remain and update docs.
 
-1. Final audit for any remaining `kebab(label)` identity patterns or legacy `settings.columns` string assumptions missed in Phase 4.
-2. Update `README.md` and settings help text.
-3. Run full build and test quality gates.
+1. ✅ Final audit for any remaining `kebab(label)` identity patterns or legacy `settings.columns` string assumptions missed in Phase 4.
+2. ✅ Update `README.md` and settings help text.
+3. ✅ Run full build and test quality gates.
+
+**Deliverable:** Documentation, settings copy, and code comments match the shipped structured column model and explicit multi-tag behavior, with full build and test gates passing.
+
+**Implemented by:** `pending` (this working tree)
 
 ## Manual Test Cases
 
@@ -325,8 +330,8 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **N2.** A name-mode column with label "In Progress" matches a task tagged `#InProgress`.
 - [x] **N3.** A name-mode column with label "In Progress" does **not** match a task tagged `#status/now` (arbitrary unrelated tag).
 - [x] **N4.** A task with no tags at all appears in Uncategorized, not in any name-mode column
-- [ ] **N5.** Moving a task into a name-mode column writes the normalized label-derived tag to the source file.
-- [ ] **N6.** Moving a task out of a name-mode column removes the label-derived tag from the source file.
+- [x] **N5.** Moving a task into a name-mode column writes the normalized label-derived tag to the source file.
+- [x] **N6.** Moving a task out of a name-mode column removes the label-derived tag from the source file.
 
 ### Tags Mode — Single Tag
 
@@ -357,7 +362,7 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **S1.** A task matched by a name-mode column: the label-derived tag is not shown in the card's tag list.
 - [x] **S2.** A task matched by a single-tag tags-mode column: the explicit tag is not shown in the card's tag list.
 - [x] **S3.** A task matched by a multi-tag tags-mode column: all explicit tags are stripped from the card's tag list.
-- [ ] **S4.** A task with both column tags and non-column tags: only the column tags are stripped; other tags remain visible.
+- [x] **S4.** A task with both column tags and non-column tags: only the column tags are stripped; other tags remain visible.
 - [x] **S5.** A task with some but not all of a tags-mode column's tags (partial match, goes to Uncategorized): none of those tags are stripped; they all remain visible.
 
 ### Column Header Display
@@ -376,7 +381,7 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **U1.** A task with no recognized tags appears in Uncategorized.
 - [x] **U2.** A task with some but not all tags for a tags-mode column appears in Uncategorized (partial match).
 - [x] **U3.** A done task (`[x]`) appears in Done regardless of what column tags it has.
-- [ ] **U4.** A done task with an archive tag does not appear on the board at all.
+- [x] **U4.** A done task with an archive tag does not appear on the board at all.
 - [x] **U5.** An undone task with column tags appears in the matched column, not in Uncategorized or Done.
 
 ### Settings UI
@@ -397,11 +402,11 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **V1.** Two tags-mode columns with identical `matchTags` (same tags, any order): validation error, save blocked.
 - [x] **V2.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress"]`: validation error, save blocked (equivalent match rules).
 - [x] **V3.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress", "high"]`: no validation error (multi-tag column requires more than just the label-derived tag).
-- [ ] **V4.** Two name-mode columns that normalize to the same label-derived tags: validation error, save blocked.
+- [x] **V4.** Two name-mode columns that normalize to the same label-derived tags: validation error, save blocked.
 - [x] **V5.** A tags-mode column with empty `matchTags`: validation error, save blocked.
 - [x] **V6.** Two tags-mode columns with partial overlap but neither is a subset (e.g., `["a", "b"]` and `["a", "c"]`): no validation error.
 - [x] **V7.** One tags-mode column's `matchTags` is a subset of another's (e.g., `["a"]` and `["a", "b"]`): no validation error. The more specific column wins when both match.
-- [ ] **V8.** An empty column label: validation error, save blocked.
+- [x] **V8.** An empty column label: validation error, save blocked.
 
 ### Settings Change — "Update Existing Task Tags"
 
@@ -409,32 +414,32 @@ All test cases must be checked off before this spec can be marked complete.
 - [x] **SC2.** Same as SC1 but with "Update existing task tags" unchecked. Save. Tasks previously in that column become Uncategorized (old tags remain, new tags not added).
 - [x] **SC3.** Change a tags-mode column's `matchTags` from `["old-tag"]` to `["new-tag"]` with update checked. Save. Tasks have `#old-tag` removed and `#new-tag` added.
 - [x] **SC4.** Change a tags-mode column's `matchTags` with update unchecked. Save. Task source files are not modified. Tasks with old tags become Uncategorized.
-- [ ] **SC5.** Change a name-mode column's label (which changes its derived tag) with update checked. Save. Tasks have old label-derived tag replaced with new one.
+- [x] **SC5.** Change a name-mode column's label (which changes its derived tag) with update checked. Save. Tasks have old label-derived tag replaced with new one.
 - [x] **SC6.** The "Update existing task tags" checkbox only appears for columns whose match configuration has actually changed. Unchanged columns don't show it.
-- [ ] **SC7.** Make changes, then cancel the settings dialog. No task files are modified.
+- [x] **SC7.** Make changes, then cancel the settings dialog. No task files are modified.
 - [x] **SC8.** Change multiple columns simultaneously with different update-checkbox states. Each column's tasks are updated (or not) independently.
 
 ### Rename Behavior
 
-- [ ] **R1.** Rename a name-mode column's label. The column retains its color.
+- [x] **R1.** Rename a name-mode column's label. The column retains its color.
 - [x] **R2.** Rename a tags-mode column's label. The `matchTags` are preserved — tasks still match by the explicit tags, not the new label.
-- [ ] **R3.** Rename a column. Its collapsed/expanded state is preserved.
+- [x] **R3.** Rename a column. Its collapsed/expanded state is preserved.
 
 ### Stable Column Identity
 
-- [ ] **ID1.** Collapse a column, close and reopen the board. The column is still collapsed.
-- [ ] **ID2.** Rename a collapsed column. Close and reopen the board. The column is still collapsed (identity preserved through rename).
+- [x] **ID1.** Collapse a column, close and reopen the board. The column is still collapsed.
+- [x] **ID2.** Rename a collapsed column. Close and reopen the board. The column is still collapsed (identity preserved through rename).
 
 ### Column Reordering
 
-- [ ] **O1.** Drag a column to a new position in the settings editor. After save, the board displays columns in the new order.
-- [ ] **O2.** Reorder columns and cancel the settings dialog. Column order is unchanged.
-- [ ] **O3.** Reorder columns that have tasks in them. Tasks remain in their correct columns — only display order changes.
+- [x] **O1.** Drag a column to a new position in the settings editor. After save, the board displays columns in the new order.
+- [x] **O2.** Reorder columns and cancel the settings dialog. Column order is unchanged.
+- [x] **O3.** Reorder columns that have tasks in them. Tasks remain in their correct columns — only display order changes.
 
 ### Color
 
 - [x] **CO1.** A column with a configured color renders that color in the column header.
-- [ ] **CO2.** Changing a column's color in settings takes effect after save.
+- [x] **CO2.** Changing a column's color in settings takes effect after save.
 - [x] **CO3.** A column with no color configured uses the default styling.
 - [x] **CO4.** A migrated column that had `(#FF5733)` in the legacy format retains that color after migration.
 

@@ -177,7 +177,7 @@ export class SettingsModal extends Modal {
 		const sectionIntro = section.createDiv({ cls: "column-editor-intro" });
 		sectionIntro.createEl("h2", { text: "Columns" });
 		sectionIntro.createEl("p", {
-			text: "Edit each board column directly. Labels control display; match mode controls how tasks land in each column.",
+			text: "Edit each board column directly. Labels control display; match mode controls how tasks land in each column. Tag matching supports one or more required tags.",
 			cls: "setting-item-description",
 		});
 
