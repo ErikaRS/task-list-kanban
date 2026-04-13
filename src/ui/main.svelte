@@ -17,6 +17,7 @@
 	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
 	import { onMount } from "svelte";
 	import type { App } from "obsidian";
+	import { getBoardTaskCount } from "./board_counts";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -369,8 +370,8 @@
 
 	$: tasksByColumn = groupByColumnTag(filteredByFile);
 
-	$: totalTaskCount = $tasksStore.filter(t => t.column !== "archived").length;
-	$: filteredTaskCount = filteredByFile.filter(t => t.column !== "archived").length;
+	$: totalTaskCount = getBoardTaskCount($tasksStore);
+	$: filteredTaskCount = getBoardTaskCount(filteredByFile);
 	$: isFiltered = filterText.trim() !== "" || selectedTags.length > 0 || fileFilter.trim() !== "";
 
 	$: ({
