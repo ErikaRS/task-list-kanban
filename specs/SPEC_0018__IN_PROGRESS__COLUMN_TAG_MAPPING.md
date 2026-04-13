@@ -162,7 +162,12 @@ When a task's tags satisfy a column's match rule:
 - All matching placement tags for that column are removed from visible task content the same way current column tags are handled
 - Non-column tags remain regular task tags
 
-If a task satisfies the match rules for multiple different columns, the parser should use the **first matching column** in column definition order. Column order is a more stable tiebreaker than tag position in task text, since AND-matched columns may have tags scattered throughout the task.
+If a task satisfies the match rules for multiple different columns, the parser should choose the **most specific matching column**. Specificity is the number of required placement tags in the match rule:
+
+- **Name mode** has specificity `1` (it requires one derived placement tag)
+- **Tags mode** has specificity equal to `matchTags.length`
+
+If multiple matching columns have the same specificity, the parser should use the one that comes **first in column definition order**. Column order is a stable tiebreaker and should only be used after specificity, rather than relying on tag position in task text.
 
 A task that has some but not all of a column's `matchTags` does **not** match that column. Those tags remain visible as regular task tags. The task is placed in the Uncategorized column, same as any task that does not fully satisfy any column's match rule.
 
@@ -185,7 +190,7 @@ The settings UI must prevent configurations where two columns would always match
 The following configurations are **valid** and should not trigger errors:
 
 - **Partial tag overlap** between tags-mode columns. For example, `matchTags = ["project/alpha", "status/active"]` and `matchTags = ["project/alpha", "status/blocked"]` share `project/alpha` but require different additional tags.
-- **Subset relationships** between tags-mode columns. For example, column A with `matchTags = ["status/active"]` and column B with `matchTags = ["status/active", "high"]`. A task with both tags matches both columns, but column definition order determines placement. This is a legitimate use case for progressive filtering.
+- **Subset relationships** between tags-mode columns. For example, column A with `matchTags = ["status/active"]` and column B with `matchTags = ["status/active", "high"]`. A task with both tags matches both columns, but the more specific column wins because it requires more tags. If two overlapping columns are equally specific, column definition order determines placement. This is a legitimate use case for progressive filtering.
 
 Validation should be inline and should block saving until errors are resolved.
 
@@ -276,7 +281,7 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 
 **Implemented by:** `0f7e189` (`feat(columns): support explicit tag mapping in settings`)
 
-### Phase 5: Multi-Tag AND Matching
+### Phase 5: Multi-Tag AND Matching ✅ COMPLETE
 
 **Goal:** Tags-mode columns can require multiple tags, all of which must be present (AND semantics).
 
@@ -285,7 +290,7 @@ Each phase delivers end-to-end functionality that can be tested and shipped inde
 3. Update task serialization to write **all** tags on move-in, remove **all** on move-out and archive.
 4. Partial matches go to Uncategorized — those tags remain visible, not stripped.
 5. Column header subtitle shows all tags. Tag stripping removes all matched tags.
-6. Multi-column conflict resolution uses column definition order.
+6. Multi-column conflict resolution prefers the most specific matching column; equal-specificity ties use column definition order.
 7. Extend validation: identical `matchTags` sets blocked; subset relationships and partial overlaps are valid.
 8. Tests: AND matching, partial match → Uncategorized, tag order independence, write/remove all, archive, conflict resolution, subset validation.
 
@@ -332,44 +337,44 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Tags Mode — Multiple Tags (AND)
 
-- [ ] **A1.** A column with `matchTags = ["project/alpha", "status/active"]` matches a task that has both `#project/alpha` and `#status/active`.
-- [ ] **A2.** The same column does **not** match a task with only `#project/alpha` (missing second tag). Task appears in Uncategorized.
-- [ ] **A3.** The same column does **not** match a task with only `#status/active` (missing first tag). Task appears in Uncategorized.
-- [ ] **A4.** The same column does **not** match a task with `#active-work` (label-derived tag, but name matching is off).
-- [ ] **A5.** Moving a task into this column writes **both** `#project/alpha` and `#status/active` to the source file.
-- [ ] **A6.** Moving a task out of this column removes **both** `#project/alpha` and `#status/active` from the source file.
-- [ ] **A7.** A task with both required tags plus additional non-column tags: the task matches the column, both column tags are stripped from display, and the extra tags remain visible.
-- [ ] **A8.** A task with `#status/active #project/alpha` matches the same column as a task with `#project/alpha #status/active` — tag order in the task text does not affect matching.
+- [x] **A1.** A column with `matchTags = ["project/alpha", "status/active"]` matches a task that has both `#project/alpha` and `#status/active`.
+- [x] **A2.** The same column does **not** match a task with only `#project/alpha` (missing second tag). Task appears in Uncategorized.
+- [x] **A3.** The same column does **not** match a task with only `#status/active` (missing first tag). Task appears in Uncategorized.
+- [x] **A4.** The same column does **not** match a task with `#active-work` (label-derived tag, but name matching is off).
+- [x] **A5.** Moving a task into this column writes **both** `#project/alpha` and `#status/active` to the source file.
+- [x] **A6.** Moving a task out of this column removes **both** `#project/alpha` and `#status/active` from the source file.
+- [x] **A7.** A task with both required tags plus additional non-column tags: the task matches the column, both column tags are stripped from display, and the extra tags remain visible.
+- [x] **A8.** A task with `#status/active #project/alpha` matches the same column as a task with `#project/alpha #status/active` — tag order in the task text does not affect matching.
 
 ### Archiving
 
 - [x] **AR1.** Archive a task from a name-mode column. The label-derived tag is removed and the archive tag is added.
 - [x] **AR2.** Archive a task from a single-tag tags-mode column. The explicit tag is removed and the archive tag is added.
-- [ ] **AR3.** Archive a task from a multi-tag tags-mode column. **All** `matchTags` are removed and the archive tag is added.
+- [x] **AR3.** Archive a task from a multi-tag tags-mode column. **All** `matchTags` are removed and the archive tag is added.
 
 ### Tag Stripping from Display
 
 - [x] **S1.** A task matched by a name-mode column: the label-derived tag is not shown in the card's tag list.
 - [x] **S2.** A task matched by a single-tag tags-mode column: the explicit tag is not shown in the card's tag list.
-- [ ] **S3.** A task matched by a multi-tag tags-mode column: all explicit tags are stripped from the card's tag list.
+- [x] **S3.** A task matched by a multi-tag tags-mode column: all explicit tags are stripped from the card's tag list.
 - [ ] **S4.** A task with both column tags and non-column tags: only the column tags are stripped; other tags remain visible.
-- [ ] **S5.** A task with some but not all of a tags-mode column's tags (partial match, goes to Uncategorized): none of those tags are stripped; they all remain visible.
+- [x] **S5.** A task with some but not all of a tags-mode column's tags (partial match, goes to Uncategorized): none of those tags are stripped; they all remain visible.
 
 ### Column Header Display
 
 - [x] **H1.** A tags-mode column shows its `matchTags` beneath the label in smaller/less prominent text.
 - [x] **H2.** A name-mode column does **not** show a tag subtitle.
-- [ ] **H3.** A tags-mode column with multiple tags shows all of them in the subtitle.
+- [x] **H3.** A tags-mode column with multiple tags shows all of them in the subtitle.
 
 ### Multi-Column Conflict Resolution
 
-- [ ] **C1.** A task satisfies two columns' match rules. It appears in the column that comes first in column definition order.
-- [ ] **C2.** Reordering the columns in settings changes which column wins the conflict.
+- [x] **C1.** A task satisfies two columns' match rules where one requires more placement tags than the other. It appears in the more specific column.
+- [x] **C2.** A task satisfies two columns' match rules with equal specificity. It appears in the column that comes first in column definition order, and reordering the columns changes which column wins the tie.
 
 ### Uncategorized and Done
 
 - [x] **U1.** A task with no recognized tags appears in Uncategorized.
-- [ ] **U2.** A task with some but not all tags for a tags-mode column appears in Uncategorized (partial match).
+- [x] **U2.** A task with some but not all tags for a tags-mode column appears in Uncategorized (partial match).
 - [x] **U3.** A done task (`[x]`) appears in Done regardless of what column tags it has.
 - [ ] **U4.** A done task with an archive tag does not appear on the board at all.
 - [x] **U5.** An undone task with column tags appears in the matched column, not in Uncategorized or Done.
@@ -389,13 +394,13 @@ All test cases must be checked off before this spec can be marked complete.
 
 ### Settings Validation
 
-- [ ] **V1.** Two tags-mode columns with identical `matchTags` (same tags, any order): validation error, save blocked.
+- [x] **V1.** Two tags-mode columns with identical `matchTags` (same tags, any order): validation error, save blocked.
 - [x] **V2.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress"]`: validation error, save blocked (equivalent match rules).
 - [x] **V3.** A name-mode column "In Progress" and a tags-mode column with `matchTags = ["in-progress", "high"]`: no validation error (multi-tag column requires more than just the label-derived tag).
 - [ ] **V4.** Two name-mode columns that normalize to the same label-derived tags: validation error, save blocked.
 - [x] **V5.** A tags-mode column with empty `matchTags`: validation error, save blocked.
-- [ ] **V6.** Two tags-mode columns with partial overlap but neither is a subset (e.g., `["a", "b"]` and `["a", "c"]`): no validation error.
-- [ ] **V7.** One tags-mode column's `matchTags` is a subset of another's (e.g., `["a"]` and `["a", "b"]`): no validation error. Column order determines which wins.
+- [x] **V6.** Two tags-mode columns with partial overlap but neither is a subset (e.g., `["a", "b"]` and `["a", "c"]`): no validation error.
+- [x] **V7.** One tags-mode column's `matchTags` is a subset of another's (e.g., `["a"]` and `["a", "b"]`): no validation error. The more specific column wins when both match.
 - [ ] **V8.** An empty column label: validation error, save blocked.
 
 ### Settings Change — "Update Existing Task Tags"

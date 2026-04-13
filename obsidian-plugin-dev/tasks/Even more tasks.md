@@ -9,3 +9,4 @@
 - [x] Let's test marking as done from a tag column
 - [ ] Lalala #01-later #UnrelatedTag
 - [ ] Dadada #UnrelatedTag #soon
+- [x] To be archived #archived
