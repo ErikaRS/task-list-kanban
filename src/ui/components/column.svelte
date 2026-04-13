@@ -335,30 +335,32 @@
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 				<div class="header-menu">
 					<!-- Done / Select segmented toggle -->
-					<div
-						class="mode-toggle"
-						role="toolbar"
-						aria-label="Column interaction mode"
-					>
-						<button
-							class="mode-btn"
-							class:active={!isSelectMode}
-							aria-pressed={!isSelectMode}
-							aria-label="Done mode: click tasks to mark complete"
-							on:click={() => {
-								if (isSelectMode) toggleSelectionMode(column);
-							}}
-						>Done</button>
-						<button
-							class="mode-btn"
-							class:active={isSelectMode}
-							aria-pressed={isSelectMode}
-							aria-label="Select mode: click tasks to select for bulk actions"
-							on:click={() => {
-								if (!isSelectMode) toggleSelectionMode(column);
-							}}
-						>Select</button>
-					</div>
+					{#if !isCollapsed}
+						<div
+							class="mode-toggle"
+							role="toolbar"
+							aria-label="Column interaction mode"
+						>
+							<button
+								class="mode-btn"
+								class:active={!isSelectMode}
+								aria-pressed={!isSelectMode}
+								aria-label="Done mode: click tasks to mark complete"
+								on:click={() => {
+									if (isSelectMode) toggleSelectionMode(column);
+								}}
+							>Done</button>
+							<button
+								class="mode-btn"
+								class:active={isSelectMode}
+								aria-pressed={isSelectMode}
+								aria-label="Select mode: click tasks to select for bulk actions"
+								on:click={() => {
+									if (!isSelectMode) toggleSelectionMode(column);
+								}}
+							>Select</button>
+						</div>
+					{/if}
 					{#if showContextMenu}
 						<IconButton
 							icon="lucide-more-vertical"
@@ -489,7 +491,17 @@
 					}
 
 					.header-menu {
+						display: flex;
+						margin-left: 0;
+					}
+
+					.mode-toggle {
 						display: none;
+					}
+
+					:global(.header-menu button) {
+						width: 20px;
+						height: 20px;
 					}
 
 					.collapse-btn {
@@ -513,6 +525,10 @@
 				margin-bottom: 0;
 
 				.header-menu {
+					display: flex;
+				}
+
+				.mode-toggle {
 					display: none;
 				}
 			}
