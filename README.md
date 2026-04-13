@@ -53,7 +53,9 @@ Access settings via the settings icon in the top right corner of your kanban.
 
 **Renaming columns**: For standard name-based columns, renaming changes the derived placement tag. When you rename an existing column, settings can optionally update existing task tags to match the new name.
 
-**Tag Mapping**: Column names are case-insensitive and ignore spaces when matching tags.
+**Explicit tag mapping**: In the **Columns** settings editor, each custom column can either match by its name or by one or more explicit tags. Explicit tag matching uses AND semantics, so a column configured with `status/active` and `project/alpha` only matches tasks that contain both tags.
+
+**Tag Mapping**: Name-based columns are case-insensitive and ignore spaces when matching tags.
 - "In Progress" matches tags like `#InProgress`, `#in-progress`, and `#In-Progress`.
 - Nested tags like `#Parent/Child` are preserved and will map to a column named "Parent/Child".
 

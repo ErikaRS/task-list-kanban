@@ -4,7 +4,7 @@ import { taskSelectionStore } from "./task_selection_store";
 
 /**
  * Store for tracking which columns are in selection mode.
- * Key: column tag or default column
+ * Key: stable column id or built-in default column key
  * Value: true if in selection mode, false or undefined if in mark-done mode
  */
 export const selectionModeStore = writable<
