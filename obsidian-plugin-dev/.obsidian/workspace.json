@@ -53,9 +53,23 @@
                   "icon": "lucide-file",
                   "title": "2025-10-21"
                 }
+              },
+              {
+                "id": "077a4aa9b7f85c69",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "periodic/2025-05-01.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "2025-05-01"
+                }
               }
             ],
-            "currentTab": 1
+            "currentTab": 3
           },
           {
             "id": "b672f997538ed1c3",
@@ -239,9 +253,10 @@
   },
   "active": "08d2136051d11382",
   "lastOpenFiles": [
-    "tasks/Even more tasks.md",
+    "periodic/2025-05-01.md",
     "periodic/Kanban-1761679356942.md",
     "periodic/2025-10-21.md",
+    "tasks/Even more tasks.md",
     "periodic/Kanban-1771182407942.md",
     "periodic/A test file with a very very very long name.md",
     "periodic/Kanban-repro.md",
@@ -250,7 +265,6 @@
     "periodic/@",
     "periodic/tasks.md",
     "periodic/Kanban-1774741379127.md",
-    "periodic/2025-05-01.md",
     "periodic/2025-10-27.md",
     "Untitled Kanban.md",
     "periodic/2025-05-02.md",

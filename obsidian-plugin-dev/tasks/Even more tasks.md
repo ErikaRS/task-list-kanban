@@ -1,12 +1,12 @@
 - [ ] Foo bar baz qux la la la #in-progress 
 - [x] Testing is fun
 - [ ] This is how we do it #next-week
-- [ ] asdf #soon
+- [ ] asdf #soonish
 - [ ] [[Tasks]] #this-week
 - [ ] Slash name column #review
 - [ ] Another one #review #UnrelatedTag
 - [x] Let's test marking as done
 - [x] Let's test marking as done from a tag column
 - [ ] Lalala #01-later #UnrelatedTag
-- [ ] Dadada #UnrelatedTag #soon
+- [ ] Dadada #UnrelatedTag #soonish
 - [x] To be archived #archived
