@@ -201,4 +201,4 @@ For local Obsidian testing, `tools/deploy_for_manual_test.sh` now deploys to the
 ./tools/deploy_for_manual_test.sh
 ```
 
-This copies the built plugin into `obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can still pass an explicit target directory as an argument if you want to deploy somewhere else.
+This copies the built plugin into `test-vaults/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can still pass an explicit target directory as an argument if you want to deploy somewhere else.

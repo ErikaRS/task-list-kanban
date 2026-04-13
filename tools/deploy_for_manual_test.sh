@@ -3,7 +3,7 @@
 # Get script directory and project root
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$SCRIPT_DIR/.."
-DEFAULT_TARGET_DIR="$PROJECT_ROOT/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban"
+DEFAULT_TARGET_DIR="$PROJECT_ROOT/test-vaults/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban"
 
 # Determine target directory
 if [ -n "$1" ]; then
