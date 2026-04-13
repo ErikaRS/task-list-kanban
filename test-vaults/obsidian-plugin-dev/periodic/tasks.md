@@ -1,6 +1,7 @@
+# Cross-File Repetition Coverage
 
-- [ ] Look! It works! #next-week
-- [b] La la la #in-progress 
-- [ ] This is a task that's added without text yay! #this-week
-- [ ] Have you ever ever ever in your long legged life #this-week
-- [x] Another test #archived
+- [ ] Next week task from periodic/tasks #next-week
+- [b] Cancelled task using the custom cancelled marker #in-progress
+- [ ] This-week task from periodic/tasks #this-week
+- [ ] Second this-week task from periodic/tasks #this-week
+- [x] Archived task from periodic/tasks #archived

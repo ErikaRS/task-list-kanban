@@ -1,16 +1,18 @@
-- [ ] Foo bar baz qux la la la #in-progress 
-- [x] Testing is fun #archived
-- [ ] This is how we do it #next-week
-- [ ] asdf #soonish
-- [ ] [[Tasks]] #this-week
-- [x] Slash name column
-- [ ] Another one #review #UnrelatedTag
-- [x] Let's test marking as done #archived
-- [x] Let's test marking as done from a tag column #archived
-- [ ] Lalala #01-later #UnrelatedTag
-- [ ] Dadada #UnrelatedTag #soonish
-- [x] To be archived #archived
-- [ ] Foo bar #01-later
-- [x] elements
-- [ ] fairies #review
-- [ ] golden #review
+# Tasks Folder Coverage
+
+- [ ] In-progress task from the dedicated tasks folder #in-progress
+- [x] Archived sample from the tasks folder #archived
+- [ ] Next week task from the tasks folder #next-week
+- [ ] Soonish task from the tasks folder #soonish
+- [ ] This-week task with a wikilink [[Tasks]] #this-week
+- [ ] Review task with an unrelated footer tag #review #UnrelatedTag
+- [x] Archived task that used to be moved by hand #archived
+- [x] Archived task from a tag-mapped flow #archived
+- [ ] Later task with an unrelated footer tag #01-later #UnrelatedTag
+- [ ] Soonish task with an unrelated footer tag #UnrelatedTag #soonish
+- [x] Another archived task from the tasks folder #archived
+- [ ] Later task with foo in the content #01-later
+- [ ] Review backlog task from the tasks folder #review
+- [ ] Long-name column task from the tasks folder #this-is-a-very-very-very-very-long-column-name
+- [ ] Review queue item one #review
+- [ ] Review queue item two #review
