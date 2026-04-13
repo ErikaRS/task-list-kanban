@@ -274,6 +274,31 @@
 	$: if (pendingNewTask && newTaskTextAreaEl) {
 		newTaskTextAreaEl.focus();
 	}
+
+	function handleAddNewClick(e: MouseEvent) {
+		if (!isColumnTag(column, columnTagTableStore)) {
+			return;
+		}
+
+		taskActions.pickFileForNewTask(column, e, (file) => {
+			pendingNewTask = file;
+		});
+	}
+
+	function handleChooseTaskFileClick(e: MouseEvent) {
+		if (!isColumnTag(column, columnTagTableStore)) {
+			return;
+		}
+
+		taskActions.pickFileForNewTask(
+			column,
+			e,
+			(file) => {
+				pendingNewTask = file;
+			},
+			true,
+		);
+	}
 </script>
 
 {#if !hideOnEmpty || tasks.length}
@@ -382,46 +407,30 @@
 				</div>
 			{/if}
 			{#if isColumnTag(column, columnTagTableStore)}
-				<button
-					class="add-new-btn"
-					aria-label="Add new task to {columnTitle}"
-					disabled={!!pendingNewTask}
-					on:click={(e) => {
-						if (isColumnTag(column, columnTagTableStore)) {
-							taskActions.pickFileForNewTask(column, e, (file) => {
-								pendingNewTask = file;
-							});
-						}
-					}}
-				>
-					<span bind:this={buttonEl}></span>
-					Add new
-				</button>
+				<div class="add-new-controls">
+					<button
+						class="add-new-btn"
+						aria-label="Add new task to {columnTitle}"
+						disabled={!!pendingNewTask}
+						on:click={handleAddNewClick}
+					>
+						<span bind:this={buttonEl}></span>
+						Add new
+					</button>
+					<IconButton
+						class="add-new-picker-btn"
+						icon="lucide-chevron-down"
+						aria-label="Choose file for new task in {columnTitle}"
+						disabled={!!pendingNewTask}
+						on:click={handleChooseTaskFileClick}
+					/>
+				</div>
 				{#if targetTaskFile}
 					<div class="file-indicator">
 						<span class="file-indicator-arrow">→</span>
 						<span class="file-indicator-name" title={targetTaskFile.path}>{targetTaskFile.name}</span>
 						{#if targetFileIsDefault}
 							<span class="file-indicator-label">(default)</span>
-						{:else}
-							<span
-								class="file-indicator-change"
-								role="button"
-								tabindex="0"
-								on:click={(e) => {
-									if (isColumnTag(column, columnTagTableStore)) {
-										taskActions.pickFileForNewTask(column, e, (file) => {
-											pendingNewTask = file;
-										}, true);
-									}
-								}}
-								on:keydown={(e) => {
-									if (e.key === 'Enter' || e.key === ' ') {
-										e.preventDefault();
-										e.currentTarget.click();
-									}
-								}}
-							>(change)</span>
 						{/if}
 					</div>
 				{/if}
@@ -717,11 +726,51 @@
 				align-items: center;
 				align-self: flex-start;
 				cursor: pointer;
-				margin-top: var(--size-4-2);
+				border: 0;
+				border-radius: 0;
+				box-shadow: none;
+				margin: 0;
 
 				span {
 					height: 18px;
 				}
+			}
+
+			.add-new-controls {
+				display: inline-flex;
+				align-items: center;
+				align-self: flex-start;
+				margin-top: var(--size-4-2);
+				border: var(--border-width) solid var(--background-modifier-border);
+				border-radius: var(--radius-m);
+				overflow: hidden;
+				background-color: var(--interactive-normal);
+				box-shadow: var(--input-shadow);
+			}
+
+			:global(.add-new-picker-btn) {
+				flex-shrink: 0;
+				border: 0;
+				border-left: var(--border-width) solid var(--background-modifier-border);
+				border-radius: 0;
+				box-shadow: none;
+				margin: 0;
+				background-color: transparent;
+			}
+
+			.add-new-btn,
+			:global(.add-new-picker-btn) {
+				background-color: transparent;
+			}
+
+			.add-new-btn:hover:not(:disabled),
+			:global(.add-new-picker-btn:hover:not(:disabled)) {
+				background-color: var(--interactive-hover);
+			}
+
+			.add-new-btn:active:not(:disabled),
+			:global(.add-new-picker-btn:active:not(:disabled)) {
+				background-color: var(--interactive-accent-hover);
 			}
 
 			.file-indicator {
@@ -744,16 +793,6 @@
 
 				.file-indicator-label {
 					white-space: nowrap;
-				}
-
-				.file-indicator-change {
-					color: var(--text-accent);
-					cursor: pointer;
-					white-space: nowrap;
-
-					&:hover {
-						text-decoration: underline;
-					}
 				}
 			}
 		}
