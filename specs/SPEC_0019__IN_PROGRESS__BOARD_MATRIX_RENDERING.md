@@ -10,7 +10,9 @@ This spec defines a rendering architecture for showing the task board as a flow-
 - manual ordering within grouped cells
 - flow-direction-specific presentation without changing task/group/order semantics
 
-It does not define property parsing rules, property schemas, or group/sort settings themselves. Those belong in dependent feature specs.
+It does not define property parsing rules, property schemas, group/sort settings, or user-facing grouping behavior. Those belong in dependent feature specs.
+
+This spec can be implemented either before or after the first phases of `SPEC 0020`. Property parsing, property display, and column-local property sorting do not require the matrix renderer. The matrix becomes the prerequisite when implementing grouping/swimlane presentation and grouped-cell ordering.
 
 ---
 
@@ -83,12 +85,11 @@ The matrix is derived in this order:
 
 1. Start from filtered tasks.
 2. Partition tasks by primary axis bucket.
-3. Derive secondary axis buckets from grouping state.
+3. Resolve secondary axis buckets from a supplied secondary-axis provider.
+   - Ungrouped mode uses a built-in default provider with one `__default__` bucket.
+   - Grouping specs can later supply file/property group buckets without changing the matrix shape.
 4. Materialize every `(primary, secondary)` cell, including empty cells.
-5. Apply in-cell ordering:
-   - file order
-   - property sort
-   - manual order
+5. Apply the supplied in-cell ordering function.
 
 The output of this pipeline is independent of flow direction.
 
@@ -207,21 +208,17 @@ When grouping is off:
 
 This removes the need for a separate ungrouped data path.
 
-### Grouped Mode
+### Non-Default Secondary Axes
 
-When grouping is on:
+When a later grouping feature supplies a non-default secondary axis:
 
 - `secondaryAxis` contains all group buckets in sorted order
 - every primary bucket renders every secondary bucket
 - empty cells are materialized even when they contain no tasks
 
-The first end-to-end grouping case for validating the matrix should be `group by file`:
+This spec should validate non-default secondary axes with a small test-only partitioner or fixture data, not with user-facing grouping settings. Real `group by file` behavior belongs to `SPEC 0021`.
 
-- it exists for every task already
-- it does not depend on property-schema parsing
-- it exercises secondary-axis derivation and empty-cell materialization immediately
-
-Property-based grouping cases such as `priority` or `due` should be treated as follow-on validation once the property pipeline is available.
+`SPEC 0021` should use `group by file` as its first end-to-end grouped-board validation because it exercises the matrix independently of property parsing.
 
 ### Ordering
 
@@ -280,7 +277,7 @@ src/
 2. [ ] Derive the matrix from the current ungrouped board state using a single default secondary bucket
 3. [ ] Add unit tests for:
    - ungrouped matrix derivation
-   - grouped-by-file matrix derivation
+   - non-default secondary-axis derivation using a test fixture/provider
    - empty-cell materialization
    - primary/secondary bucket ordering
 
@@ -292,7 +289,7 @@ src/
 1. [ ] Implement `board_matrix_horizontal.svelte`
 2. [ ] Move horizontal board-specific CSS/layout concerns into the renderer
 3. [ ] Keep visible behavior aligned with the existing horizontal board
-4. [ ] Validate the renderer first with ungrouped mode and `group by file` before layering on property-based grouping
+4. [ ] Validate the renderer first with ungrouped mode and fixture-driven non-default secondary buckets before layering on user-facing grouping
 
 **Deliverable:** Horizontal flows render from `BoardMatrix` rather than ad hoc column/group structures.
 
@@ -327,6 +324,6 @@ The architecture should unify semantics, not force identical markup. Horizontal 
 
 Feature specs that depend on board presentation should be revised to consume `BoardMatrix` rather than inventing their own layout model.
 
-In particular, the current task properties / grouping design should be revised after this spec is settled, since it currently mixes grouping semantics with a specific renderer shape.
+In particular, grouping specs should consume the matrix contract rather than define their own renderer shape.
 
-The preferred first integration target is `group by file`, because it validates matrix behavior independently of property parsing and schema selection.
+The preferred first integration target for a grouping feature is `group by file`, but that belongs to `SPEC 0021`, not this renderer architecture spec.

@@ -11,6 +11,14 @@ This spec depends on:
 
 It defines grouping and swimlane behavior on top of the shared board matrix and parsed property model.
 
+Dependency sequencing:
+
+- `Group by file` depends on `SPEC 0019`, but not on `SPEC 0020`.
+- `Group by property` depends on `SPEC 0019` plus property parsing/key metadata from `SPEC 0020`.
+- Grouped manual ordering depends on `SPEC 0019`, `SPEC 0020`'s stable task identity/manual order foundation, and this spec's grouped-cell semantics.
+
+This means `SPEC 0020` may be implemented before `SPEC 0019`, while this spec should wait for at least the matrix contract from `SPEC 0019`.
+
 ---
 
 ## Feature Request Summary
@@ -191,17 +199,28 @@ src/
 
 ## Implementation Plan
 
-### Phase 1: Grouping Semantics
-**Goal:** Add grouping state and derive matrix secondary-axis buckets.
+### Phase 1: Group By File
+**Goal:** Add grouping state and derive matrix secondary-axis buckets for files first.
 
 1. [ ] Add `groupSource` to settings
 2. [ ] Implement `GroupSource` and `GroupBucket`
-3. [ ] Derive group buckets from all visible tasks
-4. [ ] Validate first with `group by file`
+3. [ ] Derive file group buckets from all visible tasks
+4. [ ] Feed file buckets into the matrix secondary axis
+5. [ ] Validate empty-cell materialization with `group by file`
 
-**Deliverable:** The matrix can be grouped by file or property.
+**Deliverable:** The matrix can be grouped by file without depending on property parsing.
 
-### Phase 2: Horizontal Swimlanes
+### Phase 2: Property Grouping
+**Goal:** Add grouping by parsed property keys after `SPEC 0020` property parsing is available.
+
+1. [ ] Populate property group choices from parsed property metadata
+2. [ ] Derive property group buckets from all visible tasks
+3. [ ] Sort property buckets with the typed comparator from `SPEC 0020`
+4. [ ] Preserve null/missing-property buckets last
+
+**Deliverable:** The matrix can be grouped by file or by a parsed property.
+
+### Phase 3: Horizontal Swimlanes
 **Goal:** Render grouped horizontal flows as swimlane-style rows.
 
 1. [ ] Feed group buckets into the horizontal matrix renderer
@@ -210,7 +229,7 @@ src/
 
 **Deliverable:** Horizontal grouped boards render as swimlane-style rows.
 
-### Phase 3: Vertical Grouped Presentation
+### Phase 4: Vertical Grouped Presentation
 **Goal:** Render the same grouping semantics in vertical flows.
 
 1. [ ] Feed the same group buckets into the vertical matrix renderer
@@ -219,7 +238,7 @@ src/
 
 **Deliverable:** Grouping works in all flow directions.
 
-### Phase 4: Grouped Manual Ordering
+### Phase 5: Grouped Manual Ordering
 **Goal:** Extend manual ordering from columns to grouped cells.
 
 1. [ ] Extend `ManualOrderStore` to nested grouped-cell storage

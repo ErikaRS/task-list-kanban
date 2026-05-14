@@ -11,6 +11,27 @@ This spec was split out from the earlier combined task-properties / grouping des
 
 This spec is intentionally limited to property parsing, property display, property-based sorting, and manual ordering within a column.
 
+## Implementation Order
+
+This spec can be implemented before `SPEC 0019`.
+
+The current code already has a column-local rendering and ordering boundary:
+
+- `Task` / `tasks.ts` parse source lines before rendering.
+- `settings_store.ts` and `settings.ts` already own board settings.
+- `column.svelte` receives one column's tasks and currently applies file-order sorting locally.
+- `task.svelte` owns card display.
+
+Because of that, phases 1-3 can land on the existing renderer without waiting for the board matrix:
+
+1. Parse properties onto `Task`.
+2. Sort the tasks passed to each current column by a configured property.
+3. Render a property strip on current task cards.
+
+Phase 4, column-local manual ordering, can also land before `SPEC 0019` if it stays strictly column-scoped. It should avoid matrix-cell terminology and should store order by column id only. `SPEC 0021` later extends the same stable task identity model from column-local order to grouped-cell order.
+
+The only reason to do `SPEC 0019` first is implementation ergonomics: if the renderer refactor is imminent, it may reduce short-lived edits in `column.svelte`. It is not an architectural dependency for properties, property sort, property display, or ungrouped manual ordering.
+
 ---
 
 ## Feature Request Summary
