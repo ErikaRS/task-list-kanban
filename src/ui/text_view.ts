@@ -59,12 +59,12 @@ export class KanbanView extends TextFileView {
 					this.filenameFilter = null;
 					break;
 				case ScopeOption.Folder: {
-					this.filenameFilter = this.boardFolderPath ? [this.boardFolderPath] : null;
+					this.filenameFilter = this.boardFolderPath !== null ? [this.boardFolderPath] : null;
 					break;
 				}
 				case ScopeOption.SelectedFolders: {
 					const selected = settings.scopeFolders ?? [];
-					this.filenameFilter = this.boardFolderPath
+					this.filenameFilter = this.boardFolderPath !== null
 						? [this.boardFolderPath, ...selected.filter((f) => f !== this.boardFolderPath)]
 						: selected;
 					break;

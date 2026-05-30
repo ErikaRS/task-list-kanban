@@ -16,6 +16,8 @@ describe("shouldIncludeFilePath", () => {
 		["projects/active/todo.md", ["projects", "projects/active"], undefined, undefined, true],
 		["work/todo.md", [], undefined, undefined, false],
 		["todo.md", [], undefined, undefined, false],
+		["todo.md", [""], undefined, undefined, true],
+		["work/todo.md", [""], undefined, undefined, true],
 	])("applies include filters for %s", (path, includeFilter, excludeFilter, boardFolderPath, expected) => {
 		expect(shouldIncludeFilePath(path, includeFilter, excludeFilter, boardFolderPath)).toBe(expected);
 	});
@@ -37,6 +39,7 @@ describe("shouldIncludeFilePath with excludeFilter", () => {
 		["notes/todo.md", ["projects"], ["templates"], undefined, false],
 		["templates/daily.md", null, ["templates/"], undefined, false],
 		["templates/daily.md", null, ["/templates"], undefined, false],
+		["todo.md", null, [""], null, false],
 	])("applies exclude filters for %s", (path, includeFilter, excludeFilter, boardFolderPath, expected) => {
 		expect(shouldIncludeFilePath(path, includeFilter, excludeFilter, boardFolderPath)).toBe(expected);
 	});
@@ -57,6 +60,7 @@ describe("shouldIncludeFilePath with board folder override", () => {
 		["projects/active", null, ["projects"], boardFolder, true],
 		["myboard/todo.md", null, ["myboard"], "myboard", true],
 		["myboard/templates/daily.md", null, ["myboard/templates"], "myboard", false],
+		["todo.md", null, [""], "", true],
 	])("applies board folder protection for %s", (path, includeFilter, excludeFilter, boardFolderPath, expected) => {
 		expect(shouldIncludeFilePath(path, includeFilter, excludeFilter, boardFolderPath)).toBe(expected);
 	});

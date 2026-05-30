@@ -4,6 +4,10 @@ function normalizePath(path: string): string {
 
 function pathMatchesFilter(filePath: string, filterPath: string): boolean {
 	const normalized = normalizePath(filterPath);
+	// If the folder filter is root (""), it matches all files
+	if (normalized === "") {
+		return true;
+	}
 	return filePath === normalized || filePath.startsWith(`${normalized}/`);
 }
 
@@ -23,7 +27,7 @@ export function shouldIncludeFilePath(
 	}
 
 	if (excludeFilter && excludeFilter.length > 0) {
-		const normalizedBoard = boardFolderPath ? normalizePath(boardFolderPath) : null;
+		const normalizedBoard = boardFolderPath !== null && boardFolderPath !== undefined ? normalizePath(boardFolderPath) : null;
 
 		const isExcluded = excludeFilter.some((excludePath) => {
 			if (!pathMatchesFilter(filePath, excludePath)) {
@@ -32,14 +36,16 @@ export function shouldIncludeFilePath(
 
 			// Board folder override: if the exclude path is at or above the
 			// board folder level, files in the board folder are protected.
-			if (normalizedBoard) {
+			if (normalizedBoard !== null) {
 				const normalizedExclude = normalizePath(excludePath);
 				const excludeCoversBoard =
+					normalizedExclude === "" || // root exclude covers everything
 					normalizedBoard === normalizedExclude ||
 					normalizedBoard.startsWith(`${normalizedExclude}/`);
 
 				if (excludeCoversBoard) {
 					const fileInBoardFolder =
+						normalizedBoard === "" || // if board is at root, every file is inside the board folder
 						filePath === normalizedBoard ||
 						filePath.startsWith(`${normalizedBoard}/`);
 					if (fileInBoardFolder) {
