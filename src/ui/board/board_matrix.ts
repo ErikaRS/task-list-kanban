@@ -42,27 +42,22 @@ export function deriveBoardMatrix(
 
 	for (const task of tasks) {
 		if (task.done || task.column === "done") {
-			tasksByPrimary["done"]?.push(task);
+			tasksByPrimary["done"]!.push(task);
 		} else if (task.column === "archived") {
 			// ignored
 		} else if (task.column) {
 			if (!tasksByPrimary[task.column]) {
 				tasksByPrimary[task.column] = [];
 			}
-			tasksByPrimary[task.column]?.push(task);
+			tasksByPrimary[task.column]!.push(task);
 		} else {
-			tasksByPrimary["uncategorised"]?.push(task);
+			tasksByPrimary["uncategorised"]!.push(task);
 		}
 	}
 
 	// Apply file-order sorting inside each primary bucket
-	for (const primaryId of Object.keys(tasksByPrimary)) {
-		tasksByPrimary[primaryId]?.sort((a, b) => {
-			if (a.path === b.path) {
-				return a.rowIndex - b.rowIndex;
-			}
-			return a.path.localeCompare(b.path);
-		});
+	for (const bucketTasks of Object.values(tasksByPrimary)) {
+		sortTasksByFile(bucketTasks);
 	}
 
 	const collapsedColumns = new Set(settings.collapsedColumns ?? []);
@@ -70,12 +65,12 @@ export function deriveBoardMatrix(
 	const uncategorizedVisibility = settings.uncategorizedVisibility ?? VisibilityOption.Auto;
 	const showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
-		(uncategorizedVisibility === VisibilityOption.Auto && (tasksByPrimary["uncategorised"]?.length ?? 0) > 0);
+		(uncategorizedVisibility === VisibilityOption.Auto && tasksByPrimary["uncategorised"]!.length > 0);
 
 	const doneVisibility = settings.doneVisibility ?? VisibilityOption.AlwaysShow;
 	const showDoneColumn =
 		doneVisibility === VisibilityOption.AlwaysShow ||
-		(doneVisibility === VisibilityOption.Auto && (tasksByPrimary["done"]?.length ?? 0) > 0);
+		(doneVisibility === VisibilityOption.Auto && tasksByPrimary["done"]!.length > 0);
 
 	const allColumns: string[] = [];
 	if (showUncategorizedColumn) allColumns.push("uncategorised");
@@ -152,4 +147,13 @@ export function deriveBoardMatrix(
 		secondaryAxis,
 		cells,
 	};
+}
+
+function sortTasksByFile(tasks: Task[]) {
+	tasks.sort((a, b) => {
+		if (a.path === b.path) {
+			return a.rowIndex - b.rowIndex;
+		}
+		return a.path.localeCompare(b.path);
+	});
 }

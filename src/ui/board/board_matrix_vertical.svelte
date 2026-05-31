@@ -25,11 +25,13 @@
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
 
-	$: getTasksForColumn = (pId: string) => {
-		const columnCells = matrix.cells[pId];
-		if (!columnCells) return [];
-		return Object.values(columnCells).flatMap((cell) => cell.tasks);
-	};
+	$: tasksByColumn = Object.fromEntries(
+		matrix.primaryAxis.map(p => [
+			p.id,
+			Object.values(matrix.cells[p.id] || {}).flatMap(cell => cell.tasks)
+		])
+	);
+	$: showSwimlaneHeaders = matrix.secondaryAxis.length > 1;
 </script>
 
 <div class="matrix-vertical">
@@ -45,7 +47,7 @@
 			<div class="header-wrapper">
 				<ColumnHeader
 					column={pBucket.id}
-					tasks={getTasksForColumn(pBucket.id)}
+					tasks={tasksByColumn[pBucket.id] || []}
 					{taskActions}
 					{columnTagTableStore}
 					{columnColourTableStore}
@@ -61,7 +63,7 @@
 			{#if !pBucket.collapsed}
 				<div class="cells-container">
 					{#each matrix.secondaryAxis as sBucket (sBucket.id)}
-						{#if matrix.secondaryAxis.length > 1}
+						{#if showSwimlaneHeaders}
 							<div class="swimlane-header">
 								{sBucket.label}
 							</div>
