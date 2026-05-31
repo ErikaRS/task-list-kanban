@@ -41,11 +41,11 @@
 	$: tasks = cell.tasks;
 	$: columnTitle = primaryAxisLabel;
 
-	$: sortedTasks = [...tasks]; // Sorting should be pre-applied in matrix derivation, but we'll do it if necessary. Actually derivation applies it.
+	$: isColTag = isColumnTag(column, columnTagTableStore);
 
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
-	$: columnTaskIds = sortedTasks.map((t) => t.id);
+	$: columnTaskIds = tasks.map((t) => t.id);
 	$: selectedIds = columnTaskIds.filter((id) =>
 		isTaskSelected(id, $taskSelectionStore),
 	);
@@ -131,7 +131,7 @@
 		const file = pendingNewTask;
 		pendingNewTask = null;
 
-		if (!content || !file || !isColumnTag(column, columnTagTableStore)) {
+		if (!content || !file || !isColTag) {
 			return;
 		}
 
@@ -154,7 +154,7 @@
 	}
 
 	function handleAddNewClick(e: MouseEvent) {
-		if (!isColumnTag(column, columnTagTableStore)) {
+		if (!isColTag) {
 			return;
 		}
 
@@ -164,7 +164,7 @@
 	}
 
 	function handleChooseTaskFileClick(e: MouseEvent) {
-		if (!isColumnTag(column, columnTagTableStore)) {
+		if (!isColTag) {
 			return;
 		}
 
@@ -194,7 +194,7 @@
 	aria-label="Tasks for {columnTitle}"
 >
 	<div class="tasks">
-		{#each sortedTasks as task}
+		{#each tasks as task}
 			<TaskComponent
 				{app}
 				{task}
@@ -221,7 +221,7 @@
 			></textarea>
 		</div>
 	{/if}
-	{#if isColumnTag(column, columnTagTableStore)}
+	{#if isColTag}
 		<div class="add-new-controls">
 			<button
 				class="add-new-btn"
