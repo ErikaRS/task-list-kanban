@@ -258,12 +258,15 @@
 						overflow: visible;
 						text-overflow: unset;
 						flex: 0 0 auto;
+						line-height: normal;
 					}
 				}
 
 				.task-count {
 					order: 3;
 					writing-mode: horizontal-tb;
+					align-self: center;
+					line-height: normal;
 				}
 
 				.header-menu {
@@ -324,6 +327,7 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
+			line-height: 28px;
 		}
 
 		.column-match-tags {
@@ -339,7 +343,7 @@
 			color: var(--text-muted);
 			white-space: nowrap;
 			align-self: flex-start;
-			padding-top: 1px;
+			line-height: 28px;
 		}
 
 		.header-menu {
@@ -348,6 +352,7 @@
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-1);
+			height: 28px;
 		}
 
 		.collapse-btn {

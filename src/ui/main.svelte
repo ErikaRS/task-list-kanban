@@ -9,6 +9,8 @@
 	} from "./columns/columns";
 	import type { Task } from "./tasks/task";
 	import Column from "./components/column.svelte";
+	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
+	import { deriveBoardMatrix } from "./board/board_matrix";
 	import SelectTag from "./components/select/select_tag.svelte";
 	import IconButton from "./components/icon_button.svelte";
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
@@ -417,6 +419,11 @@
 		flowDirection === FlowDirection.TopToBottom ||
 		flowDirection === FlowDirection.BottomToTop;
 
+	$: activeMatrix = deriveBoardMatrix(filteredByFile, $settingsStore.columns, {
+		...$settingsStore,
+		collapsedColumns: Array.from($collapsedColumnsStore)
+	});
+
 	function toggleSidebar() {
 		$settingsStore.filtersSidebarExpanded = !filtersSidebarExpanded;
 		requestSave();
@@ -642,29 +649,48 @@
 			</div>
 			
 			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
-				<div>
-					{#each orderedColumns as column (column)}
-						<Column
-							{app}
-							{column}
-							hideOnEmpty={false}
-							tasks={tasksByColumn[column] ?? []}
-							{taskActions}
-							{columnTagTableStore}
-							{columnColourTableStore}
-							{columnMatchTagTableStore}
-							{showFilepath}
-							{consolidateTags}
-							{isVerticalFlow}
-							{targetTaskFile}
-							{targetFileIsDefault}
-							isCollapsed={$collapsedColumnsStore.has(column)}
-							onToggleCollapse={() => toggleColumnCollapse(column)}
-							{uncategorizedColumnName}
-							{doneColumnName}
-						/>
-					{/each}
-				</div>
+				{#if !isVerticalFlow}
+					<BoardMatrixHorizontal
+						{app}
+						matrix={activeMatrix}
+						{taskActions}
+						{columnTagTableStore}
+						{columnColourTableStore}
+						{columnMatchTagTableStore}
+						{showFilepath}
+						{consolidateTags}
+						{targetTaskFile}
+						{targetFileIsDefault}
+						onToggleCollapse={toggleColumnCollapse}
+						{uncategorizedColumnName}
+						{doneColumnName}
+						columnWidth="{columnWidth}px"
+					/>
+				{:else}
+					<div>
+						{#each orderedColumns as column (column)}
+							<Column
+								{app}
+								{column}
+								hideOnEmpty={false}
+								tasks={tasksByColumn[column] ?? []}
+								{taskActions}
+								{columnTagTableStore}
+								{columnColourTableStore}
+								{columnMatchTagTableStore}
+								{showFilepath}
+								{consolidateTags}
+								{isVerticalFlow}
+								{targetTaskFile}
+								{targetFileIsDefault}
+								isCollapsed={$collapsedColumnsStore.has(column)}
+								onToggleCollapse={() => toggleColumnCollapse(column)}
+								{uncategorizedColumnName}
+								{doneColumnName}
+							/>
+						{/each}
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
