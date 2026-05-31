@@ -8,7 +8,7 @@
 		createCollapsedColumnsStore,
 	} from "./columns/columns";
 	import type { Task } from "./tasks/task";
-	import Column from "./components/column.svelte";
+	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
 	import { deriveBoardMatrix } from "./board/board_matrix";
 	import SelectTag from "./components/select/select_tag.svelte";
@@ -667,29 +667,21 @@
 						columnWidth="{columnWidth}px"
 					/>
 				{:else}
-					<div>
-						{#each orderedColumns as column (column)}
-							<Column
-								{app}
-								{column}
-								hideOnEmpty={false}
-								tasks={tasksByColumn[column] ?? []}
-								{taskActions}
-								{columnTagTableStore}
-								{columnColourTableStore}
-								{columnMatchTagTableStore}
-								{showFilepath}
-								{consolidateTags}
-								{isVerticalFlow}
-								{targetTaskFile}
-								{targetFileIsDefault}
-								isCollapsed={$collapsedColumnsStore.has(column)}
-								onToggleCollapse={() => toggleColumnCollapse(column)}
-								{uncategorizedColumnName}
-								{doneColumnName}
-							/>
-						{/each}
-					</div>
+					<BoardMatrixVertical
+						{app}
+						matrix={activeMatrix}
+						{taskActions}
+						{columnTagTableStore}
+						{columnColourTableStore}
+						{columnMatchTagTableStore}
+						{showFilepath}
+						{consolidateTags}
+						{targetTaskFile}
+						{targetFileIsDefault}
+						onToggleCollapse={toggleColumnCollapse}
+						{uncategorizedColumnName}
+						{doneColumnName}
+					/>
 				{/if}
 			</div>
 		</div>
@@ -968,18 +960,9 @@
 			overflow-y: auto;
 			padding-bottom: var(--size-4-3);
 
-			> div {
-				display: flex;
-				gap: var(--size-4-3);
-			}
-
 			&.vertical-flow {
 				overflow-x: hidden;
 				overflow-y: scroll;
-
-				> div {
-					flex-direction: column;
-				}
 			}
 		}
 	}

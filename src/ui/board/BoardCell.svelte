@@ -182,6 +182,7 @@
 <!-- The cell is hidden if the column/row is collapsed (unless vertical flow, though horizontal flow is default) -->
 <div 
 	class="tasks-wrapper"
+	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
 	class:vertical-collapsed={isCollapsed && isVerticalFlow}
 	class:drop-active={!!draggingData}
@@ -264,6 +265,24 @@
 		
 		&.vertical-collapsed {
 			display: none;
+		}
+
+		&.vertical-flow {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+			gap: var(--size-4-2);
+
+			.tasks {
+				flex-direction: row;
+				flex-wrap: wrap;
+				align-items: flex-start;
+
+				:global(.task) {
+					width: min(var(--column-width, 300px), 100%);
+					flex-shrink: 0;
+				}
+			}
 		}
 
 		&.drop-active {
