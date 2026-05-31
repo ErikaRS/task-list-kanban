@@ -48,7 +48,12 @@
 
 	<!-- 2. Render Column Headers across the top row -->
 	{#each matrix.primaryAxis as pBucket, index (pBucket.id)}
-		<div class="header-wrapper" style:grid-column={index + 1} style:grid-row="1">
+		<div
+			class="header-wrapper"
+			class:collapsed={pBucket.collapsed}
+			style:grid-column={index + 1}
+			style:grid-row={pBucket.collapsed ? "1 / -1" : "1"}
+		>
 			<ColumnHeader
 				column={pBucket.id}
 				tasks={matrix.cells[pBucket.id]["__default__"].tasks}
@@ -100,7 +105,8 @@
 		display: grid;
 		grid-template-rows: max-content 1fr;
 		/* columns defined dynamically */
-		gap: var(--size-4-3);
+		column-gap: var(--size-4-3);
+		row-gap: 0;
 		align-items: start;
 		padding-bottom: var(--size-4-3);
 	}
@@ -124,6 +130,11 @@
 		z-index: 1;
 		padding: var(--size-4-3);
 		padding-bottom: 0; /* Let the divide handle spacing */
+
+		&.collapsed {
+			height: 100%;
+			padding-bottom: var(--size-4-3);
+		}
 	}
 
 	.cell-wrapper {
@@ -133,16 +144,14 @@
 		flex-direction: column;
 
 		&.collapsed {
-			.divide {
-				display: none;
-			}
+			display: none;
 		}
 
 		.divide {
 			width: calc(100% + calc(2 * var(--size-4-3)));
 			border-bottom: var(--border-width) solid
 				var(--column-color, var(--background-modifier-border));
-			margin: var(--size-4-3) calc(-1 * var(--size-4-3));
+			margin: var(--size-4-1) calc(-1 * var(--size-4-3)) var(--size-4-2) calc(-1 * var(--size-4-3));
 		}
 	}
 </style>
