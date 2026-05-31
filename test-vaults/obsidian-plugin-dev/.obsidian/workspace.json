@@ -137,7 +137,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "tag:#01-Later",
+                "query": "tag:#this-is-a-very-very-very-very-long-column-name",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -265,13 +265,17 @@
       "bases:Create new base": false
     }
   },
-  "active": "cbb9d66716614c8b",
+  "active": "08d2136051d11382",
   "lastOpenFiles": [
+    "periodic/2025-05-02.md",
     "periodic/Kanban-1761679356942.md",
     "periodic/2025-10-27.md",
-    "tasks/Even more tasks.md",
-    "periodic/2025-05-01.md",
     "periodic/2025-10-21.md",
+    "root todo.md",
+    "Kanban-1780186219895.md",
+    "Untitled 1.md",
+    "periodic/2025-05-01.md",
+    "tasks/Even more tasks.md",
     "periodic/Kanban-1771182407942.md",
     "periodic/A test file with a very very very long name.md",
     "periodic/Kanban-repro.md",
@@ -281,10 +285,8 @@
     "periodic/tasks.md",
     "periodic/Kanban-1774741379127.md",
     "Untitled Kanban.md",
-    "periodic/2025-05-02.md",
     "periodic/subfolder/2025-05-02.md",
     "periodic/subfolder/2025-05-01.md",
-    "Untitled 1.md",
     "tasks",
     "periodic/2025-05-21.md",
     "reload.md",

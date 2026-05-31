@@ -8,11 +8,14 @@
 - [ ] Review task with an unrelated footer tag #review #UnrelatedTag
 - [x] Archived task that used to be moved by hand #archived
 - [x] Archived task from a tag-mapped flow #archived
-- [ ] Later task with an unrelated footer tag #01-later #UnrelatedTag
+- [ ] Later task with an unrelated footer tag #UnrelatedTag #later
 - [ ] Soonish task with an unrelated footer tag #UnrelatedTag #soonish
 - [x] Another archived task from the tasks folder #archived
-- [ ] Later task with foo in the content #01-later
+- [ ] Later task with foo in the content #later
 - [ ] Review backlog task from the tasks folder #review
 - [ ] Long-name column task from the tasks folder #this-is-a-very-very-very-very-long-column-name
 - [ ] Review queue item one #review
 - [ ] Review queue item two #review
+
+- [ ] Adding manually #cat #01-later
+- [ ] Yes another test task #review
