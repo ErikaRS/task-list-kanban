@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, setIcon, type App, TFile } from "obsidian";
+	import { setIcon, type App, TFile } from "obsidian";
 	import {
 		type ColumnMatchTagTable,
 		type ColumnTag,
@@ -12,18 +12,17 @@
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "./task.svelte";
+	import ColumnHeader from "./ColumnHeader.svelte";
 	import IconButton from "./icon_button.svelte";
 	import { isDraggingStore } from "../dnd/store";
 	import {
 		selectionModeStore,
 		isInSelectionMode,
-		toggleSelectionMode,
 	} from "../selection/selection_mode_store";
 	import {
 		taskSelectionStore,
 		toggleTaskSelection,
 		isTaskSelected,
-		getSelectedTaskCount,
 		clearColumnSelections,
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
@@ -47,15 +46,15 @@
 	export let doneColumnName: string | undefined = undefined;
 
 	function getColumnTitle(
-		column: ColumnTag | DefaultColumns,
+		col: ColumnTag | DefaultColumns,
 		columnTagTable: ColumnTagTable,
 	) {
-		switch (column) {
+		switch (col) {
 			case "done":
 			case "uncategorised":
-				return resolveDefaultColumnName(column, uncategorizedColumnName, doneColumnName);
+				return resolveDefaultColumnName(col, uncategorizedColumnName, doneColumnName);
 			default:
-				return columnTagTable[column];
+				return columnTagTable[col];
 		}
 	}
 
@@ -66,13 +65,8 @@
 		return getColumnTitle(column, $columnTagTableStore);
 	})();
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
-	$: columnMatchTags = isColumnTag(column, columnTagTableStore) ? ($columnMatchTagTableStore[column] ?? []) : [];
-	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
-	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
 	$: isVerticalCollapsed = isCollapsed && isVerticalFlow;
-	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
-	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 
 	$: sortedTasks = [...tasks].sort((a, b) => {
 		if (a.path === b.path) {
@@ -85,86 +79,9 @@
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
 	$: columnTaskIds = sortedTasks.map((t) => t.id);
-	$: selectedCount = getSelectedTaskCount(columnTaskIds, $taskSelectionStore);
 	$: selectedIds = columnTaskIds.filter((id) =>
 		isTaskSelected(id, $taskSelectionStore),
 	);
-
-	function showMenu(e: MouseEvent) {
-		const menu = new Menu();
-
-		if (isSelectMode && selectedCount > 0) {
-			// Bulk actions for selected tasks
-			if (column !== "done") {
-				menu.addItem((i) => {
-					i.setTitle(`Move ${selectedCount} selected to ${resolveDefaultColumnName("done", uncategorizedColumnName, doneColumnName)}`).onClick(
-						async () => {
-							for (const id of selectedIds) {
-								await taskActions.markDone(id);
-							}
-							clearColumnSelections(columnTaskIds);
-						},
-					);
-				});
-			}
-
-			// Move to column options
-			for (const [tag, label] of Object.entries($columnTagTableStore)) {
-				const tagAsColumn = tag as ColumnTag;
-				if (tagAsColumn === column) continue;
-				menu.addItem((i) => {
-					i.setTitle(`Move ${selectedCount} selected to ${label}`).onClick(
-						async () => {
-							for (const id of selectedIds) {
-								await taskActions.changeColumn(id, tagAsColumn);
-							}
-							clearColumnSelections(columnTaskIds);
-						},
-					);
-				});
-			}
-
-			menu.addSeparator();
-
-			const selectedTasks = selectedIds.map(id => sortedTasks.find(t => t.id === id)).filter(Boolean) as Task[];
-			const allCancelled = selectedTasks.length > 0 && selectedTasks.every(t => t.isCancelled);
-
-			if (allCancelled) {
-				menu.addItem((i) => {
-					i.setTitle(`Restore ${selectedCount} selected`).onClick(async () => {
-						await taskActions.restoreTasks(selectedIds);
-						clearColumnSelections(columnTaskIds);
-					});
-				});
-			} else {
-				menu.addItem((i) => {
-					i.setTitle(`Cancel ${selectedCount} selected`).onClick(async () => {
-						await taskActions.cancelTasks(selectedIds);
-						clearColumnSelections(columnTaskIds);
-					});
-				});
-			}
-
-			menu.addSeparator();
-
-			menu.addItem((i) => {
-				i.setTitle(`Archive ${selectedCount} selected`).onClick(async () => {
-					await taskActions.archiveTasks(selectedIds);
-					clearColumnSelections(columnTaskIds);
-				});
-			});
-		}
-
-		if (column === "done") {
-			menu.addItem((i) => {
-				i.setTitle(`Archive all`).onClick(() =>
-					taskActions.archiveTasks(tasks.map(({ id }) => id)),
-				);
-			});
-		}
-
-		menu.showAtMouseEvent(e);
-	}
 
 	let isDraggedOver = false;
 
@@ -233,9 +150,6 @@
 			setIcon(buttonEl, "lucide-plus");
 		}
 	}
-
-	// Whether to show the context menu button
-	$: showContextMenu = column === "done" || (isSelectMode && selectedCount > 0);
 
 	// Inline task creation
 	let pendingNewTask: TFile | null = null;
@@ -318,64 +232,19 @@
 		on:dragleave={handleDragLeave}
 		on:drop={handleDrop}
 	>
-		<div class="column-header" class:row-header={isVerticalFlow}>
-			<div class="header">
-				<button
-					class="collapse-btn"
-					on:click={onToggleCollapse}
-					aria-expanded={!isCollapsed}
-					aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
-				>{collapseIcon}</button>
-				<div class="column-title-group">
-					<h2 id="column-title-{column}">{columnTitle}</h2>
-					{#if showColumnMatchTags}
-						<div class="column-match-tags">{columnMatchTags.map((tag) => `#${tag}`).join(" ")}</div>
-					{/if}
-				</div>
-				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
-				<div class="header-menu">
-					<!-- Done / Select segmented toggle -->
-					{#if !isCollapsed}
-						<div
-							class="mode-toggle"
-							role="toolbar"
-							aria-label="Column interaction mode"
-						>
-							<button
-								class="mode-btn"
-								class:active={!isSelectMode}
-								aria-pressed={!isSelectMode}
-								aria-label="Done mode: click tasks to mark complete"
-								on:click={() => {
-									if (isSelectMode) toggleSelectionMode(column);
-								}}
-							>Done</button>
-							<button
-								class="mode-btn"
-								class:active={isSelectMode}
-								aria-pressed={isSelectMode}
-								aria-label="Select mode: click tasks to select for bulk actions"
-								on:click={() => {
-									if (!isSelectMode) toggleSelectionMode(column);
-								}}
-							>Select</button>
-						</div>
-					{/if}
-					{#if showContextMenu}
-						<IconButton
-							icon="lucide-more-vertical"
-							on:click={showMenu}
-							aria-label="Column options for {columnTitle}"
-						/>
-					{/if}
-				</div>
-			</div>
-			{#if isSelectMode && selectedCount > 0}
-				<div class="selection-info" aria-live="polite">
-					{selectedCount} selected
-				</div>
-			{/if}
-		</div>
+		<ColumnHeader
+			{column}
+			{tasks}
+			{taskActions}
+			{columnTagTableStore}
+			{columnColourTableStore}
+			{columnMatchTagTableStore}
+			{isVerticalFlow}
+			{isCollapsed}
+			{onToggleCollapse}
+			{uncategorizedColumnName}
+			{doneColumnName}
+		/>
 		{#if !isVerticalFlow}
 			<div class="divide"></div>
 		{/if}
@@ -467,48 +336,6 @@
 			.tasks-wrapper {
 				display: none;
 			}
-
-			.column-header {
-				.header {
-					flex-direction: column;
-					align-items: center;
-					min-height: unset;
-					gap: var(--size-4-2);
-
-					h2 {
-						writing-mode: vertical-rl;
-						text-orientation: mixed;
-						white-space: nowrap;
-						overflow: visible;
-						text-overflow: unset;
-						order: 2;
-						flex: 0 0 auto;
-					}
-
-					.task-count {
-						order: 3;
-						writing-mode: horizontal-tb;
-					}
-
-					.header-menu {
-						display: flex;
-						margin-left: 0;
-					}
-
-					.mode-toggle {
-						display: none;
-					}
-
-					:global(.header-menu button) {
-						width: 20px;
-						height: 20px;
-					}
-
-					.collapse-btn {
-						order: 1;
-					}
-				}
-			}
 		}
 
 		&.vertical-flow.vertical-collapsed {
@@ -519,18 +346,6 @@
 			.divide,
 			.tasks-wrapper {
 				display: none;
-			}
-
-			.column-header.row-header {
-				margin-bottom: 0;
-
-				.header-menu {
-					display: flex;
-				}
-
-				.mode-toggle {
-					display: none;
-				}
 			}
 		}
 
@@ -556,19 +371,6 @@
 			}
 		}
 
-		.column-header {
-			&.row-header {
-				display: flex;
-				align-items: center;
-				gap: var(--size-4-2);
-				margin-bottom: var(--size-4-2);
-
-				.header {
-					margin-right: 0;
-				}
-			}
-		}
-
 		&.drop-active {
 			.tasks-wrapper {
 				.tasks {
@@ -581,128 +383,6 @@
 					border-color: var(--color-base-70);
 				}
 			}
-		}
-
-		.header {
-			display: flex;
-			align-items: flex-start;
-			min-height: 24px;
-			flex-shrink: 0;
-			gap: var(--size-2-2);
-
-			.column-title-group {
-				min-width: 0;
-				display: flex;
-				flex-direction: column;
-				gap: 2px;
-			}
-
-			h2 {
-				font-size: var(--font-ui-larger);
-				font-weight: var(--font-bold);
-				margin: 0;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.column-match-tags {
-				font-size: var(--font-ui-smaller);
-				color: var(--text-muted);
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.task-count {
-				font-size: var(--font-ui-smaller);
-				color: var(--text-muted);
-				white-space: nowrap;
-				align-self: flex-start;
-				padding-top: 1px;
-			}
-
-			.header-menu {
-				margin-left: auto;
-				flex-shrink: 0;
-				display: flex;
-				align-items: center;
-				gap: var(--size-2-1);
-			}
-
-			.collapse-btn {
-				background: transparent;
-				border: none;
-				cursor: pointer;
-				color: var(--text-muted);
-				padding: 0;
-				width: 28px;
-				height: 28px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border-radius: var(--radius-s);
-				font-size: var(--font-ui-smaller);
-				line-height: 1;
-				flex-shrink: 0;
-				transition: color 0.15s ease, background 0.15s ease;
-
-				&:hover {
-					color: var(--text-normal);
-					background: var(--background-modifier-hover);
-				}
-
-				&:focus-visible {
-					outline: 2px solid var(--background-modifier-border-focus);
-					outline-offset: 2px;
-				}
-			}
-		}
-
-		.mode-toggle {
-			display: flex;
-			align-items: center;
-			background: color-mix(in srgb, var(--column-color, var(--background-modifier-border)) 20%, var(--background-secondary));
-			border-radius: var(--radius-s);
-			padding: 2px;
-			gap: 0;
-
-			.mode-btn {
-				font-size: var(--font-ui-smaller);
-				padding: 2px 7px;
-				border: none;
-				background: transparent;
-				color: var(--text-muted);
-				border-radius: calc(var(--radius-s) - 2px);
-				cursor: pointer;
-				transition: background 0.15s ease, color 0.15s ease;
-				white-space: nowrap;
-				box-shadow: none;
-				line-height: 1.4;
-
-				&:hover {
-					background: transparent;
-					color: var(--text-normal);
-					box-shadow: none;
-				}
-
-				&.active {
-					background: color-mix(in srgb, var(--column-color, var(--background-modifier-border)) 60%, var(--background-secondary));
-					color: var(--text-normal);
-					font-weight: var(--font-medium);
-				}
-
-				&:focus-visible {
-					outline: 2px solid var(--background-modifier-border-focus);
-					outline-offset: 1px;
-				}
-			}
-		}
-
-		.selection-info {
-			font-size: var(--font-ui-smaller);
-			color: var(--text-muted);
-			margin-top: var(--size-2-1);
 		}
 
 		.divide {

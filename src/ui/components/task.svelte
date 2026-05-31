@@ -109,6 +109,16 @@
 	]);
 
 	function eventHasInteractiveTarget(e?: Event): boolean {
+		// Fallback: If clicked within the primary checkbox area (first 28px from the left),
+		// treat it as an interactive target to prevent entering edit mode.
+		if (e instanceof MouseEvent && previewContainerEl) {
+			const rect = previewContainerEl.getBoundingClientRect();
+			const relativeX = e.clientX - rect.left;
+			if (relativeX >= 0 && relativeX < 28) {
+				return true;
+			}
+		}
+
 		const path = e?.composedPath() || [];
 		const currentTarget = e?.currentTarget;
 		for (const element of path) {
@@ -337,13 +347,13 @@
 		<div class="task-row-left">
 			{#if isSelectionMode}
 				<!-- Selection checkbox (square icons) -->
-					<button
-						class="icon-button select-task"
-						class:is-selected={isSelected}
-						role="checkbox"
-						aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
-						aria-checked={isSelected}
-						title={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
+				<button
+					class="icon-button select-task"
+					class:is-selected={isSelected}
+					role="checkbox"
+					aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
+					aria-checked={isSelected}
+					title={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
 					on:click={onToggleSelection}
 					on:keydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
@@ -357,6 +367,30 @@
 						name={isSelected ? "lucide-check-square" : "lucide-square"}
 						size={18}
 						opacity={isSelected ? 1 : 0.5}
+					/>
+				</button>
+			{:else}
+				<!-- Done checkbox (circle icons) -->
+				<button
+					class="icon-button toggle-done-task"
+					class:is-done={task.done}
+					role="checkbox"
+					aria-label={task.done ? "Mark as incomplete" : "Mark as complete"}
+					aria-checked={task.done}
+					title={task.done ? "Mark as incomplete" : "Mark as complete"}
+					on:click={() => void taskActions.toggleDone(task.id)}
+					on:keydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							void taskActions.toggleDone(task.id);
+						}
+					}}
+					tabindex="0"
+				>
+					<Icon
+						name={task.done ? "lucide-check-circle" : "lucide-circle"}
+						size={18}
+						opacity={task.done ? 1 : 0.5}
 					/>
 				</button>
 			{/if}
@@ -440,15 +474,18 @@
 		// Task row
 			.task-row {
 				padding: var(--size-4-2);
-				padding-inline-start: calc(var(--size-4-2) + 8px);
 				display: flex;
-				gap: var(--size-4-1);
+				gap: 10px;
 				align-items: flex-start;
 
 				.task-row-left {
 					display: flex;
 					align-items: center;
+					justify-content: center;
 					flex-shrink: 0;
+					width: 20px;
+					height: 20px;
+					margin-top: 2px;
 				}
 
 			.task-row-content {
@@ -464,7 +501,7 @@
 				.content-preview {
 					min-height: 1.5rem;
 
-					&:focus-within {
+					&:focus {
 						box-shadow: 0 0 0 3px
 							var(--background-modifier-border-focus);
 					}
@@ -475,22 +512,6 @@
 					display: flex;
 					align-items: center;
 					flex-shrink: 0;
-				}
-			}
-
-			&.is-selection-mode {
-				.task-row {
-					.task-row-left {
-						width: 0;
-						flex: 0 0 0;
-						overflow: visible;
-						z-index: 1;
-					}
-				}
-
-				.select-task {
-					// Keep text position fixed while moving the icon into the native checkbox lane.
-					transform: translateX(calc(var(--size-4-2) * -1));
 				}
 			}
 
@@ -589,9 +610,36 @@
 		.task-tags {
 			display: flex;
 			flex-wrap: wrap;
-			gap: var(--size-4-1) var(--size-2-1);
-			padding: var(--size-4-2) var(--size-2-2);
-			padding-top: 0;
+			gap: 6px;
+			padding: 0 var(--size-4-2) var(--size-4-2) var(--size-4-2);
+			margin-top: -4px;
+
+			span {
+				background-color: var(--background-secondary);
+				color: var(--text-muted);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: var(--radius-s);
+				padding: 2px 6px;
+				font-size: var(--font-ui-smaller);
+				line-height: 1.2;
+				display: inline-flex;
+				align-items: center;
+				transition: color 0.15s ease, border-color 0.15s ease;
+
+				&:hover {
+					color: var(--text-normal);
+					border-color: var(--text-muted);
+				}
+
+				:global(.cm-formatting-hashtag) {
+					color: var(--text-accent) !important;
+					font-weight: var(--font-medium);
+					margin-right: 1px;
+				}
+				:global(.cm-hashtag-end) {
+					color: inherit !important;
+				}
+			}
 		}
 	}
 
@@ -613,21 +661,24 @@
 	}
 
 	:global(.task .task-row-content .content-preview > ul) {
-		padding-left: var(--size-4-4, 16px);
+		padding-left: 0 !important;
+		margin: 0 !important;
+		list-style: none !important;
 	}
 
 	:global(.task-row-content .content-preview .task-list-item) {
 		min-width: 0;
 		word-break: break-word;
+		padding-left: 0 !important;
+		list-style-type: none !important;
 	}
 
 	:global(.task-row-content input.task-nested-checkbox) {
 		pointer-events: none;
 	}
 
-	:global(.task-row-content .content-preview .task-list-item > input[type="checkbox"]) {
-		margin-right: var(--size-2-2);
-		transform: translateY(2px);
+	:global(.task-row-content .content-preview .task-list-item > input[type="checkbox"].task-primary-checkbox) {
+		display: none !important;
 	}
 
 	:global(.task-row-content .content-preview .task-list-item > *:not(input[type="checkbox"])) {
