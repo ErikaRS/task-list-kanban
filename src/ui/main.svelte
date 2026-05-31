@@ -395,12 +395,10 @@
 
 	$: showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
-		$collapsedColumnsStore.has("uncategorised") ||
 		(uncategorizedVisibility === VisibilityOption.Auto && tasksByColumn["uncategorised"]?.length > 0);
 
 	$: showDoneColumn =
 		doneVisibility === VisibilityOption.AlwaysShow ||
-		$collapsedColumnsStore.has("done") ||
 		(doneVisibility === VisibilityOption.Auto && tasksByColumn["done"]?.length > 0);
 
 	// Build ordered list of all visible columns, reversed for RTL and BTT
