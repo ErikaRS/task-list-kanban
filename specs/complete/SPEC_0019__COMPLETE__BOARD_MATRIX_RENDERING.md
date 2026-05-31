@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-05
 
 # SPEC 0019 — Board Matrix Rendering Architecture
 
@@ -279,13 +280,13 @@ src/
 
 **Deliverable:** A highly reusable column header component, preparing the codebase for clean 2D matrix rendering.
 
-### Phase 1: Matrix Derivation
+### Phase 1: Matrix Derivation ✅ COMPLETE
 **Goal:** Introduce a flow-agnostic board matrix without changing visible behavior.
 
-1. [ ] Create `board_matrix.ts` with `BoardMatrix`, `AxisBucket`, and `BoardCell` types
-2. [ ] Derive the matrix from the current ungrouped board state using a single default secondary bucket (`__default__`)
-3. [ ] Ensure matrix materializes empty cell elements explicitly to guarantee DOM grid alignment
-4. [ ] Add unit tests for:
+1. ✅ Create `board_matrix.ts` with `BoardMatrix`, `AxisBucket`, and `BoardCell` types
+2. ✅ Derive the matrix from the current ungrouped board state using a single default secondary bucket (`__default__`)
+3. ✅ Ensure matrix materializes empty cell elements explicitly to guarantee DOM grid alignment
+4. ✅ Add unit tests for:
    - ungrouped matrix derivation
    - non-default secondary-axis derivation using a test fixture/provider
    - empty-cell materialization
@@ -293,24 +294,24 @@ src/
 
 **Deliverable:** The board can compute a matrix view model even before new renderers are introduced.
 
-### Phase 2: Horizontal Renderer
+### Phase 2: Horizontal Renderer ✅ COMPLETE
 **Goal:** Render the existing horizontal board from `BoardMatrix`.
 
-1. [ ] Implement `board_matrix_horizontal.svelte` using a CSS Grid layout
-2. [ ] Apply `columnWidth` from settings as the grid column track size, allowing horizontal container scroll if width exceeds viewport
-3. [ ] Implement `BoardCell.svelte` as the drag-and-drop event listener target for clean swimlane drop zones
-4. [ ] Keep visible behavior aligned with the existing horizontal board
-5. [ ] Validate the renderer first with ungrouped mode and fixture-driven non-default secondary buckets before layering on user-facing grouping
+1. ✅ Implement `board_matrix_horizontal.svelte` using a CSS Grid layout
+2. ✅ Apply `columnWidth` from settings as the grid column track size, allowing horizontal container scroll if width exceeds viewport
+3. ✅ Implement `BoardCell.svelte` as the drag-and-drop event listener target for clean swimlane drop zones
+4. ✅ Keep visible behavior aligned with the existing horizontal board
+5. ✅ Validate the renderer first with ungrouped mode and fixture-driven non-default secondary buckets before layering on user-facing grouping
 
 **Deliverable:** Horizontal flows render from `BoardMatrix` rather than ad hoc column/group structures.
 
-### Phase 3: Vertical Renderer
+### Phase 3: Vertical Renderer ✅ COMPLETE
 **Goal:** Render vertical flows from the same matrix.
 
-1. [ ] Implement `board_matrix_vertical.svelte` using vertical flexbox column stack
-2. [ ] Render row/swimlane sections as repeated local headers inside each stacked primary bucket
-3. [ ] Verify switching flow directions changes presentation only
-4. [ ] Remove deprecated legacy `column.svelte` component
+1. ✅ Implement `board_matrix_vertical.svelte` using vertical flexbox column stack
+2. ✅ Render row/swimlane sections as repeated local headers inside each stacked primary bucket
+3. ✅ Verify switching flow directions changes presentation only
+4. ✅ Remove deprecated legacy `column.svelte` component
 
 **Deliverable:** All flow directions render from the same matrix model.
 
