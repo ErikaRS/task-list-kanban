@@ -12,3 +12,7 @@ At the start of each session, read:
 When writing code, you must not finish until all of these succeed:
 1. `npm run build` (Runs TypeCheck + Build)
 2. `npm test` (Runs Vitest)
+
+## ✍️ Attribution
+When creating commits with AI assistance, attribute the commit to the agent or
+agents that actually contributed to the change.
