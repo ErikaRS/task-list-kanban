@@ -487,6 +487,34 @@ describe("Task marking as done", () => {
 	});
 });
 
+describe("Task serialiseForColumn", () => {
+	it("serialises a task for a destination column without mutating the task", () => {
+		const task = parseTask("- [ ] Task in column #column");
+
+		expect(task.serialiseForColumn("next" as ColumnTag)).toBe("- [ ] Task in column #next");
+		expect(task.column).toBe("column");
+		expect(task.done).toBe(false);
+		expect(task.serialise()).toBe("- [ ] Task in column #column");
+	});
+
+	it("serialises a task for uncategorised by removing placement tags", () => {
+		const task = parseTask("- [ ] Task in column #column");
+
+		expect(task.serialiseForColumn("uncategorised")).toBe("- [ ] Task in column");
+		expect(task.column).toBe("column");
+		expect(task.serialise()).toBe("- [ ] Task in column #column");
+	});
+
+	it("serialises a task for done without mutating the task", () => {
+		const task = parseTask("- [ ] Task in column #column");
+
+		expect(task.serialiseForColumn("done")).toBe("- [x] Task in column");
+		expect(task.column).toBe("column");
+		expect(task.done).toBe(false);
+		expect(task.displayStatus).toBe(" ");
+	});
+});
+
 describe("Task display status", () => {
 	it("exposes default unchecked status as a space", () => {
 		expect(parseTask("- [ ] Incomplete task #column").displayStatus).toBe(" ");

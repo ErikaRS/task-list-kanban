@@ -4,6 +4,7 @@ type DraggingData = {
 	fromColumn: string | undefined;
 	fromSecondaryId: string;
 	draggedTaskIds: string[];
+	taskSecondaryIds: Record<string, string>;
 };
 
 export const isDraggingStore = writable<DraggingData | null>(null);

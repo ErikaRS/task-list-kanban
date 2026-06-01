@@ -119,6 +119,7 @@
 					<BoardCell
 						{app}
 						cell={matrix.cells[pBucket.id][sBucket.id]}
+						primaryTasks={tasksByPrimary[pBucket.id] ?? []}
 						secondaryAxisBucket={sBucket}
 						primaryAxisLabel={pBucket.label}
 						{taskActions}
@@ -194,6 +195,7 @@
 		padding: 0 var(--size-4-3) var(--size-4-3) var(--size-4-3);
 		display: flex;
 		flex-direction: column;
+		align-self: stretch;
 
 		&.collapsed {
 			display: none;

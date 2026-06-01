@@ -21,6 +21,7 @@
 	export let isSelected: boolean = false;
 	export let onToggleSelection: () => void = () => {};
 	export let selectedTaskIds: string[] = [];
+	export let taskSecondaryIds: Record<string, string> = {};
 	export let doneColumnName: string | undefined = undefined;
 
 	function handleContentBlur() {
@@ -63,6 +64,7 @@
 			fromColumn: displayColumn,
 			fromSecondaryId: displaySecondaryId,
 			draggedTaskIds: taskIds,
+			taskSecondaryIds,
 		});
 
 		if (e.dataTransfer) {

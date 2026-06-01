@@ -386,6 +386,30 @@ export class Task {
 			.trimEnd();
 	}
 
+	serialiseForColumn(column: ColumnTag | DefaultColumns): string {
+		const originalColumn = this._column;
+		const originalDone = this._done;
+		const originalDisplayStatus = this._displayStatus;
+
+		if (column === "done") {
+			this.done = true;
+		} else if (column === "uncategorised") {
+			this._column = undefined;
+			this._done = false;
+			this._displayStatus = " ";
+		} else {
+			this.column = column;
+		}
+
+		try {
+			return this.serialise();
+		} finally {
+			this._column = originalColumn;
+			this._done = originalDone;
+			this._displayStatus = originalDisplayStatus;
+		}
+	}
+
 	archive() {
 		if (!this._done) {
 			this._displayStatus = "x";

@@ -8,7 +8,7 @@ import {
 } from "obsidian";
 import type { Task } from "./task";
 import type { Metadata } from "./tasks";
-import type { ColumnTag } from "../columns/columns";
+import type { ColumnTag, DefaultColumns } from "../columns/columns";
 import { shouldIncludeFilePath } from "./scope";
 import { createDuplicateLine } from "./duplicate";
 
@@ -23,6 +23,11 @@ export type TaskActions = {
 	restoreTasks: (ids: string[]) => Promise<void>;
 	deleteTask: (ids: string) => Promise<void>;
 	duplicateTask: (id: string) => Promise<void>;
+	moveTasksToFile: (
+		ids: string[],
+		destinationFile: TFile,
+		destinationColumn: ColumnTag | DefaultColumns,
+	) => Promise<void>;
 	pickFileForNewTask: (
 		column: ColumnTag,
 		e: MouseEvent,
@@ -157,6 +162,48 @@ export function createTaskActions({
 			const newLine = createDuplicateLine(originalLine);
 			rows.splice(rowIndex + 1, 0, newLine);
 			await vault.modify(fileHandle, rows.join("\n"));
+		},
+
+		async moveTasksToFile(ids, destinationFile, destinationColumn) {
+			const moves = ids
+				.map((id) => {
+					const task = tasksByTaskId.get(id);
+					const metadata = metadataByTaskId.get(id);
+					return task && metadata ? { task, metadata } : null;
+				})
+				.filter((move): move is { task: Task; metadata: Metadata } => !!move)
+				.filter((move) => move.metadata.fileHandle.path !== destinationFile.path);
+
+			if (moves.length === 0) {
+				return;
+			}
+
+			const destinationRows = (await vault.read(destinationFile)).split("\n");
+			for (const { task } of moves) {
+				destinationRows.push(
+					taskIsInColumn(task, destinationColumn)
+						? task.serialise()
+						: task.serialiseForColumn(destinationColumn),
+				);
+			}
+			await vault.modify(destinationFile, destinationRows.join("\n"));
+
+			const movesBySourceFile = new Map<TFile, Metadata[]>();
+			for (const { metadata } of moves) {
+				const sourceMoves = movesBySourceFile.get(metadata.fileHandle) ?? [];
+				sourceMoves.push(metadata);
+				movesBySourceFile.set(metadata.fileHandle, sourceMoves);
+			}
+
+			for (const [sourceFile, sourceMoves] of movesBySourceFile) {
+				const sourceRows = (await vault.read(sourceFile)).split("\n");
+				for (const { rowIndex } of sourceMoves.sort((a, b) => b.rowIndex - a.rowIndex)) {
+					if (rowIndex < sourceRows.length) {
+						sourceRows.splice(rowIndex, 1);
+					}
+				}
+				await vault.modify(sourceFile, sourceRows.join("\n"));
+			}
 		},
 
 		async viewFile(id, event) {
@@ -342,4 +389,16 @@ async function updateRow(
 	}
 	const newFile = rows.join("\n");
 	await vault.modify(fileHandle, newFile);
+}
+
+function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean {
+	if (column === "done") {
+		return task.done || task.column === "done";
+	}
+
+	if (column === "uncategorised") {
+		return !task.done && !task.column;
+	}
+
+	return task.column === column;
 }

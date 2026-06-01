@@ -6,6 +6,7 @@
 		isColumnTag,
 	} from "../columns/columns";
 	import type { TaskActions } from "../tasks/actions";
+	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
 	import IconButton from "../components/icon_button.svelte";
 	import { isDraggingStore } from "../dnd/store";
@@ -23,6 +24,7 @@
 
 	export let app: App;
 	export let cell: BoardCell;
+	export let primaryTasks: Task[] = [];
 	export let secondaryAxisBucket: AxisBucket<SecondaryBucketId>;
 	export let primaryAxisLabel: string;
 	export let taskActions: TaskActions;
@@ -60,18 +62,33 @@
 
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
-	$: columnTaskIds = tasks.map((t) => t.id);
+	$: columnTaskIds = primaryTasks.map((t) => t.id);
 	$: selectedIds = columnTaskIds.filter((id) =>
 		isTaskSelected(id, $taskSelectionStore),
+	);
+	$: taskSecondaryIds = Object.fromEntries(
+		primaryTasks.map((task) => [task.id, task.path]),
 	);
 
 	let isDraggedOver = false;
 
 	$: draggingData = $isDraggingStore;
-	$: canDrop =
+	$: hasSelectedTaskOutsideTargetFile =
+		!!draggingData &&
+		!!fileGroupTargetFile &&
+		draggingData.draggedTaskIds.some(
+			(id) => draggingData?.taskSecondaryIds[id] !== fileGroupTargetFile.path,
+		);
+	$: isSameSwimlaneColumnDrop =
 		!!draggingData &&
 		draggingData.fromColumn !== column &&
 		draggingData.fromSecondaryId === cell.secondaryId;
+	$: isFileSwimlaneDrop =
+		!!draggingData &&
+		!!fileGroupTargetFile &&
+		(draggingData.fromSecondaryId !== cell.secondaryId ||
+			hasSelectedTaskOutsideTargetFile);
+	$: canDrop = isSameSwimlaneColumnDrop || isFileSwimlaneDrop;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -109,17 +126,25 @@
 
 		if (droppedIds.length === 0) return;
 
-		for (const id of droppedIds) {
-			switch (column) {
-				case "uncategorised":
-					break;
-				case "done":
-					await taskActions.markDone(id);
-					break;
-				default:
-					await taskActions.changeColumn(id, column);
-					break;
+		if (isFileSwimlaneDrop && fileGroupTargetFile) {
+			const droppedIdsBySourceSwimlane = groupIdsBySecondaryId(
+				droppedIds,
+				draggingData.taskSecondaryIds,
+			);
+
+			for (const [sourceFilePath, ids] of droppedIdsBySourceSwimlane) {
+				if (sourceFilePath === fileGroupTargetFile.path) {
+					await applyColumnChange(ids);
+				} else {
+					await taskActions.moveTasksToFile(
+						ids,
+						fileGroupTargetFile,
+						column,
+					);
+				}
 			}
+		} else {
+			await applyColumnChange(droppedIds);
 		}
 
 		clearColumnSelections(droppedIds);
@@ -200,6 +225,35 @@
 			true,
 		);
 	}
+
+	function groupIdsBySecondaryId(
+		taskIds: string[],
+		taskSecondaryIds: Record<string, string>,
+	): Map<string, string[]> {
+		const grouped = new Map<string, string[]>();
+		for (const id of taskIds) {
+			const secondaryId = taskSecondaryIds[id] ?? "";
+			const ids = grouped.get(secondaryId) ?? [];
+			ids.push(id);
+			grouped.set(secondaryId, ids);
+		}
+		return grouped;
+	}
+
+	async function applyColumnChange(taskIds: string[]) {
+		for (const id of taskIds) {
+			switch (column) {
+				case "uncategorised":
+					break;
+				case "done":
+					await taskActions.markDone(id);
+					break;
+				default:
+					await taskActions.changeColumn(id, column);
+					break;
+			}
+		}
+	}
 </script>
 
 <!-- The cell is hidden if the column/row is collapsed (unless vertical flow, though horizontal flow is default) -->
@@ -216,35 +270,6 @@
 	role="region"
 	aria-label="Tasks for {columnTitle}"
 >
-	<div class="tasks">
-		{#each tasks as task}
-			<TaskComponent
-				{app}
-					{task}
-					{taskActions}
-					{columnTagTableStore}
-					{showFilepath}
-					{consolidateTags}
-					displayColumn={column}
-					displaySecondaryId={cell.secondaryId}
-					isSelectionMode={isSelectMode}
-				isSelected={isTaskSelected(task.id, $taskSelectionStore)}
-				onToggleSelection={() => toggleTaskSelection(task.id)}
-				selectedTaskIds={selectedIds}
-				{doneColumnName}
-			/>
-		{/each}
-	</div>
-	{#if pendingNewTask}
-		<div class="new-task-input">
-			<textarea
-				bind:this={newTaskTextAreaEl}
-				on:blur={handleNewTaskSave}
-				on:keydown={handleNewTaskKeydown}
-				placeholder="Task name..."
-			></textarea>
-		</div>
-	{/if}
 	{#if isColTag}
 		<div class="add-new-controls">
 			<button
@@ -263,21 +288,54 @@
 				disabled={!!pendingNewTask}
 				on:click={handleChooseTaskFileClick}
 			/>
+		</div>
+		{#if effectiveTargetTaskFile}
+			<div class="file-indicator">
+				<span class="file-indicator-arrow">→</span>
+				<span class="file-indicator-name" title={effectiveTargetTaskFile.path}>{effectiveTargetTaskFile.name}</span>
+				{#if effectiveTargetFileIsDefault}
+					<span class="file-indicator-label">(default)</span>
+				{/if}
 			</div>
-			{#if effectiveTargetTaskFile}
-				<div class="file-indicator">
-					<span class="file-indicator-arrow">→</span>
-					<span class="file-indicator-name" title={effectiveTargetTaskFile.path}>{effectiveTargetTaskFile.name}</span>
-					{#if effectiveTargetFileIsDefault}
-						<span class="file-indicator-label">(default)</span>
-					{/if}
-				</div>
-			{/if}
+		{/if}
 	{/if}
+	{#if pendingNewTask}
+		<div class="new-task-input">
+			<textarea
+				bind:this={newTaskTextAreaEl}
+				on:blur={handleNewTaskSave}
+				on:keydown={handleNewTaskKeydown}
+				placeholder="Task name..."
+			></textarea>
+		</div>
+	{/if}
+	<div class="tasks">
+		{#each tasks as task}
+			<TaskComponent
+				{app}
+					{task}
+					{taskActions}
+					{columnTagTableStore}
+					{showFilepath}
+					{consolidateTags}
+					displayColumn={column}
+					displaySecondaryId={cell.secondaryId}
+					isSelectionMode={isSelectMode}
+				isSelected={isTaskSelected(task.id, $taskSelectionStore)}
+				onToggleSelection={() => toggleTaskSelection(task.id)}
+				selectedTaskIds={selectedIds}
+				{taskSecondaryIds}
+				{doneColumnName}
+			/>
+		{/each}
+	</div>
 </div>
 
 <style lang="scss">
 	.tasks-wrapper {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
 		min-height: 50px;
 		border: var(--border-width) dashed transparent;
 		border-radius: var(--radius-m);
@@ -323,6 +381,7 @@
 			display: flex;
 			flex-direction: column;
 			gap: var(--size-4-2);
+			padding-top: var(--size-4-2);
 		}
 
 		.new-task-input {
@@ -358,7 +417,6 @@
 			display: inline-flex;
 			align-items: center;
 			align-self: flex-start;
-			margin-top: var(--size-4-2);
 			border: var(--border-width) solid var(--background-modifier-border);
 			border-radius: var(--radius-m);
 			overflow: hidden;

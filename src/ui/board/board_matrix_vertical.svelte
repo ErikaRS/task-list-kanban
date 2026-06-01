@@ -75,6 +75,7 @@
 								<BoardCell
 									{app}
 									cell={matrix.cells[pBucket.id][sBucket.id]}
+									primaryTasks={tasksByPrimary[pBucket.id] ?? []}
 									secondaryAxisBucket={sBucket}
 									primaryAxisLabel={pBucket.label}
 									{taskActions}
