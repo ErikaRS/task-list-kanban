@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { setIcon, type App, TFile } from "obsidian";
-	import type { BoardCell } from "./board_matrix";
+	import type { AxisBucket, BoardCell, SecondaryBucketId } from "./board_matrix";
 	import {
 		type ColumnTagTable,
 		isColumnTag,
@@ -23,6 +23,7 @@
 
 	export let app: App;
 	export let cell: BoardCell;
+	export let secondaryAxisBucket: AxisBucket<SecondaryBucketId>;
 	export let primaryAxisLabel: string;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
@@ -32,7 +33,7 @@
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
-	
+
 	// The parent row or column handles collapse state for layout,
 	// but cell might hide its contents if collapsed.
 	export let isCollapsed: boolean = false;
@@ -40,6 +41,20 @@
 	$: column = cell.primaryId;
 	$: tasks = cell.tasks;
 	$: columnTitle = primaryAxisLabel;
+	$: fileGroupPath =
+		secondaryAxisBucket.meta?.source?.kind === "file" &&
+		typeof secondaryAxisBucket.meta.value === "string"
+			? secondaryAxisBucket.meta.value
+			: null;
+	$: fileGroupTargetFile = (() => {
+		if (!fileGroupPath) return null;
+		const file = app.vault.getAbstractFileByPath(fileGroupPath);
+		return file instanceof TFile ? file : null;
+	})();
+	$: effectiveTargetTaskFile = fileGroupTargetFile ?? targetTaskFile;
+	$: effectiveTargetFileIsDefault = fileGroupTargetFile
+		? false
+		: targetFileIsDefault;
 
 	$: isColTag = isColumnTag(column, columnTagTableStore);
 
@@ -53,7 +68,10 @@
 	let isDraggedOver = false;
 
 	$: draggingData = $isDraggingStore;
-	$: canDrop = !!draggingData && draggingData.fromColumn !== column;
+	$: canDrop =
+		!!draggingData &&
+		draggingData.fromColumn !== column &&
+		draggingData.fromSecondaryId === cell.secondaryId;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -158,6 +176,11 @@
 			return;
 		}
 
+		if (fileGroupTargetFile) {
+			pendingNewTask = fileGroupTargetFile;
+			return;
+		}
+
 		taskActions.pickFileForNewTask(column, e, (file) => {
 			pendingNewTask = file;
 		});
@@ -180,7 +203,7 @@
 </script>
 
 <!-- The cell is hidden if the column/row is collapsed (unless vertical flow, though horizontal flow is default) -->
-<div 
+<div
 	class="tasks-wrapper"
 	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
@@ -197,13 +220,14 @@
 		{#each tasks as task}
 			<TaskComponent
 				{app}
-				{task}
-				{taskActions}
-				{columnTagTableStore}
-				{showFilepath}
-				{consolidateTags}
-				displayColumn={column}
-				isSelectionMode={isSelectMode}
+					{task}
+					{taskActions}
+					{columnTagTableStore}
+					{showFilepath}
+					{consolidateTags}
+					displayColumn={column}
+					displaySecondaryId={cell.secondaryId}
+					isSelectionMode={isSelectMode}
 				isSelected={isTaskSelected(task.id, $taskSelectionStore)}
 				onToggleSelection={() => toggleTaskSelection(task.id)}
 				selectedTaskIds={selectedIds}
@@ -239,16 +263,16 @@
 				disabled={!!pendingNewTask}
 				on:click={handleChooseTaskFileClick}
 			/>
-		</div>
-		{#if targetTaskFile}
-			<div class="file-indicator">
-				<span class="file-indicator-arrow">→</span>
-				<span class="file-indicator-name" title={targetTaskFile.path}>{targetTaskFile.name}</span>
-				{#if targetFileIsDefault}
-					<span class="file-indicator-label">(default)</span>
-				{/if}
 			</div>
-		{/if}
+			{#if effectiveTargetTaskFile}
+				<div class="file-indicator">
+					<span class="file-indicator-arrow">→</span>
+					<span class="file-indicator-name" title={effectiveTargetTaskFile.path}>{effectiveTargetTaskFile.name}</span>
+					{#if effectiveTargetFileIsDefault}
+						<span class="file-indicator-label">(default)</span>
+					{/if}
+				</div>
+			{/if}
 	{/if}
 </div>
 
@@ -257,12 +281,12 @@
 		min-height: 50px;
 		border: var(--border-width) dashed transparent;
 		border-radius: var(--radius-m);
-		
+
 		/* The wrapper should be invisible if collapsed in horizontal mode */
 		&.collapsed {
 			display: none;
 		}
-		
+
 		&.vertical-collapsed {
 			display: none;
 		}

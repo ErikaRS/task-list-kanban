@@ -7,6 +7,7 @@ import {
 	migrateCollapsedColumns,
 	migrateColumnDefinitions,
 } from "../columns/definitions";
+import type { GroupSource } from "../tasks/task_grouping";
 
 export enum VisibilityOption {
 	Auto = "auto",
@@ -65,6 +66,10 @@ const savedFilterSchema = z.object({
 	file: fileValueSchema.optional(),
 });
 
+const groupSourceSchema = z
+	.object({ kind: z.enum(["none", "file"]) })
+	.catch({ kind: "none" as const });
+
 const columnDefinitionSchema = z.object({
 	id: z.string(),
 	label: z.string(),
@@ -109,6 +114,7 @@ const settingsObject = z.object({
 	excludePaths: z.array(z.string()).default([]).optional(),
 	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
 	doneColumnName: z.string().default("Done").optional(),
+	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
 });
 
 export interface SettingValues {
@@ -137,6 +143,7 @@ export interface SettingValues {
 	excludePaths?: string[];
 	uncategorizedColumnName?: string;
 	doneColumnName?: string;
+	groupSource?: GroupSource;
 }
 
 export const defaultSettings: SettingValues = {
@@ -162,6 +169,7 @@ export const defaultSettings: SettingValues = {
 	excludePaths: [],
 	uncategorizedColumnName: "Uncategorized",
 	doneColumnName: "Done",
+	groupSource: { kind: "none" },
 };
 
 export const createSettingsStore = () =>

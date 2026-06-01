@@ -1,16 +1,26 @@
 import type { Task } from "../tasks/task";
 import type { ColumnTag, DefaultColumns, ColumnDefinition } from "../columns/columns";
 import { VisibilityOption, FlowDirection, type SettingValues } from "../settings/settings_store";
+import {
+	deriveGroupBuckets,
+	taskBelongsToGroup,
+	type GroupBucket,
+} from "../tasks/task_grouping";
 
 export type PrimaryBucketId = ColumnTag | DefaultColumns;
 export type SecondaryBucketId = string;
 
-export interface AxisBucket {
-	id: string; // PrimaryBucketId or SecondaryBucketId
+export interface AxisBucket<TId extends string = string> {
+	id: TId;
 	label: string;
 	kind: "column" | "group";
 	collapsed: boolean;
-	meta?: any;
+	meta?: {
+		color?: string;
+		value?: string | null;
+		source?: GroupBucket["source"];
+		isDefault?: boolean;
+	};
 }
 
 export interface BoardCell {
@@ -21,8 +31,8 @@ export interface BoardCell {
 }
 
 export interface BoardMatrix {
-	primaryAxis: AxisBucket[];
-	secondaryAxis: AxisBucket[];
+	primaryAxis: AxisBucket<PrimaryBucketId>[];
+	secondaryAxis: AxisBucket<SecondaryBucketId>[];
 	cells: Record<string, Record<string, BoardCell>>;
 }
 
@@ -61,7 +71,7 @@ export function deriveBoardMatrix(
 	}
 
 	const collapsedColumns = new Set(settings.collapsedColumns ?? []);
-	
+
 	const uncategorizedVisibility = settings.uncategorizedVisibility ?? VisibilityOption.Auto;
 	const showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
@@ -88,15 +98,16 @@ export function deriveBoardMatrix(
 		allColumns.reverse();
 	}
 
-	const primaryAxis: AxisBucket[] = allColumns.map((id) => {
+	const primaryAxis: AxisBucket<PrimaryBucketId>[] = allColumns.map((id) => {
 		let label = id;
 		let color: string | undefined = undefined;
+		const colDef = columns.find(c => c.id === id);
+
 		if (id === "uncategorised") {
 			label = settings.uncategorizedColumnName || "Uncategorized";
 		} else if (id === "done") {
 			label = settings.doneColumnName || "Done";
 		} else {
-			const colDef = columns.find(c => c.id === id);
 			if (colDef) {
 				label = colDef.label;
 				color = colDef.color;
@@ -104,7 +115,7 @@ export function deriveBoardMatrix(
 		}
 
 		return {
-			id,
+			id: id as PrimaryBucketId,
 			label,
 			kind: "column",
 			collapsed: collapsedColumns.has(id),
@@ -112,26 +123,32 @@ export function deriveBoardMatrix(
 		};
 	});
 
-	// Phase 1 only supports ungrouped mode, meaning a single default secondary bucket
-	const DEFAULT_SECONDARY_ID = "__default__";
-	const secondaryAxis: AxisBucket[] = [
-		{
-			id: DEFAULT_SECONDARY_ID,
-			label: "Default",
-			kind: "group",
-			collapsed: false,
-		}
-	];
+	const groupSource = settings.groupSource ?? { kind: "none" };
+	const groupBuckets = deriveGroupBuckets(Object.values(tasksByPrimary).flat(), groupSource);
+	const secondaryAxis: AxisBucket<SecondaryBucketId>[] = groupBuckets.map((bucket) => ({
+		id: bucket.id,
+		label: bucket.label,
+		kind: "group",
+		collapsed: false,
+		meta: {
+			value: bucket.value,
+			source: bucket.source,
+			isDefault: bucket.isDefault,
+		},
+	}));
 
 	const cells: Record<string, Record<string, BoardCell>> = {};
 
 	for (const primaryBucket of primaryAxis) {
 		const pId = primaryBucket.id;
 		cells[pId] = {};
+		const cellTasksByPrimary = tasksByPrimary[pId] ?? [];
 
-		for (const secondaryBucket of secondaryAxis) {
-			const sId = secondaryBucket.id;
-			const cellTasks = tasksByPrimary[pId] ?? [];
+		for (const groupBucket of groupBuckets) {
+			const sId = groupBucket.id;
+			const cellTasks = cellTasksByPrimary.filter((task) =>
+				taskBelongsToGroup(task, groupBucket),
+			);
 
 			cells[pId]![sId] = {
 				primaryId: pId as PrimaryBucketId,

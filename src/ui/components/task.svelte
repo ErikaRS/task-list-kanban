@@ -16,6 +16,7 @@
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
 	export let displayColumn: ColumnTag | DefaultColumns;
+	export let displaySecondaryId: string;
 	export let isSelectionMode: boolean = false;
 	export let isSelected: boolean = false;
 	export let onToggleSelection: () => void = () => {};
@@ -58,7 +59,11 @@
 				? selectedTaskIds
 				: [task.id];
 
-		isDraggingStore.set({ fromColumn: displayColumn, draggedTaskIds: taskIds });
+		isDraggingStore.set({
+			fromColumn: displayColumn,
+			fromSecondaryId: displaySecondaryId,
+			draggedTaskIds: taskIds,
+		});
 
 		if (e.dataTransfer) {
 			e.dataTransfer.setData("text/plain", task.id);

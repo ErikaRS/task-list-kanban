@@ -25,13 +25,16 @@
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
 
-	$: tasksByColumn = Object.fromEntries(
-		matrix.primaryAxis.map(p => [
-			p.id,
-			Object.values(matrix.cells[p.id] || {}).flatMap(cell => cell.tasks)
-		])
+	$: tasksByPrimary = Object.fromEntries(
+		matrix.primaryAxis.map((bucket) => [
+			bucket.id,
+			Object.values(matrix.cells[bucket.id] || {}).flatMap((cell) => cell.tasks),
+		]),
 	);
-	$: showSwimlaneHeaders = matrix.secondaryAxis.length > 1;
+
+	$: showSwimlaneHeaders =
+		matrix.secondaryAxis.length > 1 ||
+		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0].meta?.isDefault);
 </script>
 
 <div class="matrix-vertical">
@@ -47,7 +50,7 @@
 			<div class="header-wrapper">
 				<ColumnHeader
 					column={pBucket.id}
-					tasks={tasksByColumn[pBucket.id] || []}
+					tasks={tasksByPrimary[pBucket.id] ?? []}
 					{taskActions}
 					{columnTagTableStore}
 					{columnColourTableStore}
@@ -69,12 +72,13 @@
 							</div>
 						{/if}
 						<div class="cell-wrapper">
-							<BoardCell
-								{app}
-								cell={matrix.cells[pBucket.id][sBucket.id]}
-								primaryAxisLabel={pBucket.label}
-								{taskActions}
-								{columnTagTableStore}
+								<BoardCell
+									{app}
+									cell={matrix.cells[pBucket.id][sBucket.id]}
+									secondaryAxisBucket={sBucket}
+									primaryAxisLabel={pBucket.label}
+									{taskActions}
+									{columnTagTableStore}
 								{showFilepath}
 								{consolidateTags}
 								isVerticalFlow={true}

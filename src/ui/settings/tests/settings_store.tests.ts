@@ -80,6 +80,18 @@ describe("Invalid field resilience", () => {
 		expect(parsed.columnWidth).toBe(300);
 		expect(parsed.columns.map((column) => column.label)).toEqual(["MyColumn"]);
 	});
+
+	it("recovers from invalid groupSource without losing other settings", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			groupSource: { kind: "property", key: "priority" },
+			showFilepath: false,
+		});
+
+		expect(parsed.groupSource).toEqual({ kind: "none" });
+		expect(parsed.columns.map((column) => column.label)).toEqual(["MyColumn"]);
+		expect(parsed.showFilepath).toBe(false);
+	});
 });
 
 describe("SavedFilter persistence", () => {

@@ -63,22 +63,22 @@
 		const aParts = a.split('/');
 		const bParts = b.split('/');
 		const minLength = Math.min(aParts.length, bParts.length);
-		
+
 		for (let i = 0; i < minLength; i++) {
 			// If one path ends here and the other continues, shorter (file) comes first
 			const aIsLast = (i === aParts.length - 1);
 			const bIsLast = (i === bParts.length - 1);
-			
+
 			if (aIsLast && !bIsLast) return -1;
 			if (bIsLast && !aIsLast) return 1;
-			
+
 			const aPart = aParts[i];
 			const bPart = bParts[i];
 			if (aPart === undefined || bPart === undefined) continue;
 			const comparison = aPart.localeCompare(bPart);
 			if (comparison !== 0) return comparison;
 		}
-		
+
 		return aParts.length - bParts.length;
 	});
 
@@ -193,7 +193,7 @@
 	function addFileFilter() {
 		const normalized = fileFilter.trim();
 		if (!normalized) return;
-		
+
 		const existingFilterIndex = savedFilters.findIndex(
 			(f) => f.file?.filepaths[0] === normalized
 		);
@@ -246,18 +246,18 @@
 
 	function confirmDelete() {
 		if (!filterToDelete) return;
-		
+
 		const filterId = filterToDelete.id;
 		const filterType = filterToDelete.type;
-		
-		const wasActive = filterType === 'content' 
+
+		const wasActive = filterType === 'content'
 			? activeContentFilterId === filterId
 			: filterType === 'tag'
 			? activeTagFilterId === filterId
 			: activeFileFilterId === filterId;
-		
+
 		$settingsStore.savedFilters = savedFilters.filter(f => f.id !== filterId);
-		
+
 		if (wasActive) {
 			if (filterType === 'content') {
 				activeContentFilterId = undefined;
@@ -267,7 +267,7 @@
 				activeFileFilterId = undefined;
 			}
 		}
-		
+
 		requestSave();
 		closeDeleteModal();
 	}
@@ -455,7 +455,7 @@
 			requestSave();
 		}
 	}
-		
+
 	async function handleOpenSettings() {
 		openSettings();
 	}
@@ -464,9 +464,9 @@
 <svelte:window on:mousemove={handleMouseMove} on:mouseup={stopResize} />
 
 <div class="main">
-	<button 
-		class="sidebar-toggle-btn" 
-		on:click={toggleSidebar} 
+	<button
+		class="sidebar-toggle-btn"
+		on:click={toggleSidebar}
 		aria-label={filtersSidebarExpanded ? "Hide filters" : "Show filters"}
 	>
 		<span class="toggle-icon">{filtersSidebarExpanded ? '◂' : '▸'}</span>
@@ -476,8 +476,8 @@
 	<div class="board-container" class:sidebar-expanded={filtersSidebarExpanded} style="--sidebar-width: {filtersSidebarWidth}px;">
 		{#if filtersSidebarExpanded}
 		<aside class="filters-sidebar">
-			<button 
-				class="resize-handle" 
+			<button
+				class="resize-handle"
 				on:mousedown={startResize}
 				aria-label="Resize sidebar"
 			></button>
@@ -490,14 +490,14 @@
 					<ul role="list">
 						{#each contentFilters as filter}
 							<li>
-								<button 
+								<button
 									class="delete-btn"
 									on:click={() => openDeleteModal(filter.id, filter.content?.text ?? "", 'content')}
 									aria-label="Delete filter: {filter.content?.text}"
 								>
 									×
 								</button>
-								<button 
+								<button
 									class:active={filter.id === activeContentFilterId}
 									on:click={() => loadContentFilter(filter.id, filter.content?.text ?? "")}
 									aria-label="Load saved filter: {filter.content?.text}"
@@ -529,16 +529,16 @@
 				{/if}
 			</div>
 			<div class="filter-actions">
-				<button 
-					class="filter-action-btn save-btn" 
+				<button
+					class="filter-action-btn save-btn"
 					disabled={filterText.trim() === "" || contentFilterExists}
 					on:click={addContentFilter}
 					aria-label="Save filter"
 				>
 					Save
 				</button>
-				<button 
-					class="filter-action-btn clear-btn" 
+				<button
+					class="filter-action-btn clear-btn"
 					disabled={filterText.trim() === ""}
 					on:click={clearContentFilter}
 					aria-label="Clear filter"
@@ -548,11 +548,11 @@
 			</div>
 		</div>
 		<div class="tag-filter">
-			<SelectTag 
-				tags={[...tags]} 
-				savedFilters={tagFilters} 
+			<SelectTag
+				tags={[...tags]}
+				savedFilters={tagFilters}
 				bind:value={selectedTags}
-				onLoadFilter={(filterId) => { 
+				onLoadFilter={(filterId) => {
 					if (activeTagFilterId === filterId) {
 						clearTagFilter();
 					} else {
@@ -575,14 +575,14 @@
 					<ul role="list">
 						{#each fileFilters as filter}
 							<li>
-								<button 
+								<button
 									class="delete-btn"
 									on:click={() => openDeleteModal(filter.id, filter.file?.filepaths[0] ?? "", 'file')}
 									aria-label="Delete filter: {filter.file?.filepaths[0]}"
 								>
 									×
 								</button>
-								<button 
+								<button
 									class:active={filter.id === activeFileFilterId}
 									on:click={() => loadFileFilter(filter.id, filter.file?.filepaths[0] ?? "")}
 									aria-label="Load saved filter: {filter.file?.filepaths[0]}"
@@ -614,16 +614,16 @@
 				{/if}
 			</div>
 			<div class="filter-actions">
-				<button 
-					class="filter-action-btn save-btn" 
+				<button
+					class="filter-action-btn save-btn"
 					disabled={fileFilter.trim() === "" || fileFilterExists}
 					on:click={addFileFilter}
 					aria-label="Save filter"
 				>
 					Save
 				</button>
-				<button 
-					class="filter-action-btn clear-btn" 
+				<button
+					class="filter-action-btn clear-btn"
 					disabled={fileFilter.trim() === ""}
 					on:click={clearFileFilter}
 					aria-label="Clear file filter"
@@ -645,9 +645,22 @@
 						Total: {totalTaskCount} tasks
 					{/if}
 				</span>
-				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
+				<div class="board-header-controls">
+					<select
+						class="dropdown group-by-select"
+						value={$settingsStore.groupSource?.kind ?? "none"}
+						on:change={(e) => {
+							$settingsStore.groupSource = { kind: e.currentTarget.value === "file" ? "file" : "none" };
+							requestSave();
+						}}
+					>
+						<option value="none">Group by: (none)</option>
+						<option value="file">Group by: File</option>
+					</select>
+					<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
+				</div>
 			</div>
-			
+
 			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
 				{#if !isVerticalFlow}
 					<BoardMatrixHorizontal
@@ -738,7 +751,7 @@
 			display: grid;
 			grid-template-columns: 1fr;
 			height: 100%;
-			
+
 			&.sidebar-expanded {
 				grid-template-columns: var(--sidebar-width, 280px) 1fr;
 			}
@@ -791,6 +804,17 @@
 			.board-task-count {
 				font-size: var(--font-ui-medium);
 				color: var(--text-muted);
+			}
+
+			.board-header-controls {
+				display: flex;
+				align-items: center;
+				gap: var(--size-4-2);
+
+				.group-by-select {
+					font-size: var(--font-ui-smaller);
+					padding: var(--size-2-1) var(--size-4-2);
+				}
 			}
 		}
 
