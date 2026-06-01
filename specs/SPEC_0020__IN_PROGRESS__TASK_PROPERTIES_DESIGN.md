@@ -6,31 +6,30 @@ Status: IN_PROGRESS
 
 This spec was split out from the earlier combined task-properties / grouping design.
 
-- [SPEC_0019__IN_PROGRESS__BOARD_MATRIX_RENDERING.md](/Users/erikars/Code/task-list-kanban/worktrees/spec-19-review/specs/SPEC_0019__IN_PROGRESS__BOARD_MATRIX_RENDERING.md) now owns board rendering architecture.
-- Grouping and swimlanes now belong in a dependent spec.
+- [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](complete/SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md) owns board rendering architecture.
+- [SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md](SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md) owns grouping and swimlanes.
 
 This spec is intentionally limited to property parsing, property display, property-based sorting, and manual ordering within a column.
 
 ## Implementation Order
 
-This spec can be implemented before `SPEC 0019`.
+`SPEC 0019` is now complete, so this spec should be implemented against the board matrix renderer instead of the removed legacy column renderer.
 
 The current code already has a column-local rendering and ordering boundary:
 
 - `Task` / `tasks.ts` parse source lines before rendering.
 - `settings_store.ts` and `settings.ts` already own board settings.
-- `column.svelte` receives one column's tasks and currently applies file-order sorting locally.
+- `board_matrix.ts` sorts tasks by file order before materializing matrix cells.
+- `BoardCell.svelte` receives one matrix cell's tasks and renders cell-local controls.
 - `task.svelte` owns card display.
 
-Because of that, phases 1-3 can land on the existing renderer without waiting for the board matrix:
+Because of that, phases 1-3 can land on the existing matrix renderer:
 
 1. Parse properties onto `Task`.
-2. Sort the tasks passed to each current column by a configured property.
+2. Sort the tasks passed to each current matrix cell by a configured property.
 3. Render a property strip on current task cards.
 
-Phase 4, column-local manual ordering, can also land before `SPEC 0019` if it stays strictly column-scoped. It should avoid matrix-cell terminology and should store order by column id only. `SPEC 0021` later extends the same stable task identity model from column-local order to grouped-cell order.
-
-The only reason to do `SPEC 0019` first is implementation ergonomics: if the renderer refactor is imminent, it may reduce short-lived edits in `column.svelte`. It is not an architectural dependency for properties, property sort, property display, or ungrouped manual ordering.
+Phase 4, column-local manual ordering, should apply within primary buckets in ungrouped mode. `SPEC 0021` later extends the same stable task identity model from column-local order to grouped-cell order.
 
 ---
 
@@ -316,7 +315,9 @@ src/
       settings.ts
     components/
       task.svelte
-      task_list.svelte
+    board/
+      BoardCell.svelte
+      board_matrix.ts
     text_view.ts
 ```
 

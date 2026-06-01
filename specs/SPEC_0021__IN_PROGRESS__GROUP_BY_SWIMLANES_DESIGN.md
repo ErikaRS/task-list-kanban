@@ -6,10 +6,17 @@ Status: IN_PROGRESS
 
 This spec depends on:
 
-- [SPEC_0019__IN_PROGRESS__BOARD_MATRIX_RENDERING.md](/Users/erikars/Code/task-list-kanban/worktrees/spec-19-review/specs/SPEC_0019__IN_PROGRESS__BOARD_MATRIX_RENDERING.md)
-- [SPEC_0020__IN_PROGRESS__TASK_PROPERTIES_DESIGN.md](/Users/erikars/Code/task-list-kanban/worktrees/spec-19-review/specs/SPEC_0020__IN_PROGRESS__TASK_PROPERTIES_DESIGN.md)
+- [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](complete/SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
+- [SPEC_0020__IN_PROGRESS__TASK_PROPERTIES_DESIGN.md](SPEC_0020__IN_PROGRESS__TASK_PROPERTIES_DESIGN.md)
 
 It defines grouping and swimlane behavior on top of the shared board matrix and parsed property model.
+
+Current implementation status, as of 2026-05:
+
+- File grouping is implemented with `groupSource: { kind: "file" }`.
+- Horizontal and vertical grouped presentations are implemented through the matrix renderers.
+- File swimlane drag is implemented for moving tasks between source files while preserving column placement.
+- Property grouping and grouped manual ordering remain future work.
 
 Dependency sequencing:
 
@@ -17,7 +24,7 @@ Dependency sequencing:
 - `Group by property` depends on `SPEC 0019` plus property parsing/key metadata from `SPEC 0020`.
 - Grouped manual ordering depends on `SPEC 0019`, `SPEC 0020`'s stable task identity/manual order foundation, and this spec's grouped-cell semantics.
 
-This means `SPEC 0020` may be implemented before `SPEC 0019`, while this spec should wait for at least the matrix contract from `SPEC 0019`.
+`SPEC 0019` is complete, so file grouping and grouped rendering can build directly on the matrix contract. Property grouping and grouped manual ordering still wait on the relevant `SPEC 0020` property/manual-order foundations.
 
 ---
 
@@ -33,9 +40,10 @@ GitHub issues reviewed for this spec:
 
 Scope notes:
 
-- This spec covers grouping by file or parsed property.
+- This spec covers grouping by file first, then by parsed property after property metadata exists.
 - This spec covers swimlane-style presentation through the board-matrix renderers.
-- This spec does not cover cross-group drag that edits the underlying property value.
+- This spec covers cross-file drag for file swimlanes.
+- This spec does not cover cross-group drag that edits an underlying parsed property value.
 - This spec does not cover collapsible swimlane sections.
 
 ---
@@ -57,8 +65,9 @@ Scope notes:
 
 ```typescript
 type GroupSource =
-  | { kind: "property"; key: string }
-  | { kind: "file" };
+  | { kind: "none" }
+  | { kind: "file" }
+  | { kind: "property"; key: string };
 ```
 
 Grouping populates the matrix secondary axis defined in `SPEC 0019`.
@@ -77,7 +86,8 @@ interface GroupBucket {
 Rules:
 
 - derived from all tasks in the current board scope
-- sorted by typed comparator with null last
+- file buckets are sorted by vault-relative path
+- future property buckets are sorted by typed comparator with null last
 - materialized even when a given primary bucket has no tasks in that group
 
 The preferred first validation case is `group by file`, because it exercises grouping independently of property parsing complexity.
@@ -115,13 +125,13 @@ This spec owns that extension because grouped ordering depends on grouping seman
 ```text
 Grouping
 Group by: [ (none) ▼ ]
-          (none) / By file / [parsed property keys]
+          (none) / By file / [future parsed property keys]
 ```
 
 Behavior:
 
 - `By file` available regardless of property schema
-- property-key choices depend on parsed property availability from `SPEC 0020`
+- property-key choices are future work and depend on parsed property availability from `SPEC 0020`
 - changing flow direction changes grouped presentation, not the grouping setting itself
 
 ---
@@ -140,10 +150,11 @@ This ensures:
 
 ### Empty Sections
 
-Empty grouped sections render header-only treatment:
+Empty grouped cells render compactly:
 
 - no card-sized placeholder
 - no fake drop-zone padding
+- a cell can still expose add/drop controls when the primary bucket supports them
 - compact empty-state behavior in both renderers
 
 ### Special Columns
@@ -157,6 +168,12 @@ When grouping is on and manual ordering is enabled:
 - ordering is stored per `(group bucket, primary bucket)` cell
 - switching between grouped and ungrouped views does not change task identity
 - grouped manual ordering extends, rather than replaces, the block-link identity model from `SPEC 0020`
+
+### File Swimlane Drag
+
+When grouping by file, dropping tasks into another file swimlane moves those tasks into the destination source file and applies the target primary bucket's column placement. Dropping within the same file swimlane but into another primary bucket applies only the column change.
+
+This behavior is implemented for file grouping only. Property swimlane drag that writes back a parsed property remains out of scope until property parsing/write-back semantics exist.
 
 ### Flow Direction
 
@@ -183,15 +200,15 @@ src/
       board_matrix.ts
       board_matrix_horizontal.svelte
       board_matrix_vertical.svelte
+      BoardCell.svelte
     tasks/
       task_grouping.ts
-      manual_order.ts
     settings/
       settings_store.ts
       settings.ts
     components/
-      column_header.svelte
-      task_list.svelte
+      ColumnHeader.svelte
+      task.svelte
     main.svelte
 ```
 
@@ -199,16 +216,18 @@ src/
 
 ## Implementation Plan
 
-### Phase 1: Group By File
+### Phase 1: Group By File ✅ COMPLETE
 **Goal:** Add grouping state and derive matrix secondary-axis buckets for files first.
 
-1. [ ] Add `groupSource` to settings
-2. [ ] Implement `GroupSource` and `GroupBucket`
-3. [ ] Derive file group buckets from all visible tasks
-4. [ ] Feed file buckets into the matrix secondary axis
-5. [ ] Validate empty-cell materialization with `group by file`
+1. ✅ Add `groupSource` to settings
+2. ✅ Implement `GroupSource` and `GroupBucket`
+3. ✅ Derive file group buckets from all visible tasks
+4. ✅ Feed file buckets into the matrix secondary axis
+5. ✅ Validate empty-cell materialization with `group by file`
 
 **Deliverable:** The matrix can be grouped by file without depending on property parsing.
+
+**Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [83a079b](https://github.com/ErikaRS/task-list-kanban/commit/83a079b)
 
 ### Phase 2: Property Grouping
 **Goal:** Add grouping by parsed property keys after `SPEC 0020` property parsing is available.
@@ -220,23 +239,41 @@ src/
 
 **Deliverable:** The matrix can be grouped by file or by a parsed property.
 
-### Phase 3: Horizontal Swimlanes
+### Phase 3: Horizontal Swimlanes ✅ COMPLETE
 **Goal:** Render grouped horizontal flows as swimlane-style rows.
 
-1. [ ] Feed group buckets into the horizontal matrix renderer
-2. [ ] Render board-wide row sections / dividers
-3. [ ] Preserve empty grouped sections compactly
+1. ✅ Feed group buckets into the horizontal matrix renderer
+2. ✅ Render board-wide swimlane rows with a compact vertical lane-label rail
+3. ✅ Preserve empty grouped cells compactly
+4. ✅ Keep primary column headers sticky during vertical scrolling
+5. ✅ Keep collapsed column headers aligned and sticky
 
 **Deliverable:** Horizontal grouped boards render as swimlane-style rows.
 
-### Phase 4: Vertical Grouped Presentation
+**Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [73df26b](https://github.com/ErikaRS/task-list-kanban/commit/73df26b), [6d4ede4](https://github.com/ErikaRS/task-list-kanban/commit/6d4ede4)
+
+### Phase 4: Vertical Grouped Presentation ✅ COMPLETE
 **Goal:** Render the same grouping semantics in vertical flows.
 
-1. [ ] Feed the same group buckets into the vertical matrix renderer
-2. [ ] Render repeated local group headers inside each stacked primary bucket
-3. [ ] Verify flow switches change presentation only
+1. ✅ Feed the same group buckets into the vertical matrix renderer
+2. ✅ Render repeated local group headers inside each stacked primary bucket
+3. ✅ Verify flow switches change presentation only
 
 **Deliverable:** Grouping works in all flow directions.
+
+**Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [83a079b](https://github.com/ErikaRS/task-list-kanban/commit/83a079b)
+
+### Phase 4.5: File Swimlane Drag ✅ COMPLETE
+**Goal:** User can move tasks between file swimlanes by drag and drop.
+
+1. ✅ Detect file-backed swimlane drop targets
+2. ✅ Move dropped tasks to the destination file when the source file differs
+3. ✅ Apply target column placement during the file move
+4. ✅ Keep same-file swimlane drops as normal column changes
+
+**Deliverable:** File swimlane drag moves tasks between files and columns.
+
+**Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [b2b0928](https://github.com/ErikaRS/task-list-kanban/commit/b2b0928)
 
 ### Phase 5: Grouped Manual Ordering
 **Goal:** Extend manual ordering from columns to grouped cells.
