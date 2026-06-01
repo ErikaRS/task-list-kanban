@@ -177,7 +177,8 @@ filtered tasks
   -> renderer selection in main.svelte
      -> board_matrix_horizontal.svelte
      -> board_matrix_vertical.svelte
-        -> board_cell.svelte / task_list.svelte
+        -> BoardCell.svelte
+           -> task.svelte
 ```
 
 Recommended responsibilities:
@@ -188,9 +189,11 @@ Recommended responsibilities:
   Render matrix for `LTR` / `RTL`.
 - `board_matrix_vertical.svelte`
   Render matrix for `TTB` / `BTT`.
-- `task_list.svelte`
-  Render the ordered tasks for a single cell.
-- `column_header.svelte`
+- `BoardCell.svelte`
+  Render cell-local controls and tasks for a single matrix cell.
+- `task.svelte`
+  Render an individual task card.
+- `ColumnHeader.svelte`
   Render a primary-axis bucket header where needed.
 
 The renderer selection point should be top-level. Child components should not branch on flow direction unless the component is explicitly renderer-specific.
