@@ -230,7 +230,8 @@
 	.column-header {
 		width: 100%;
 		--header-accent: var(--column-color, var(--background-modifier-border-hover));
-		--column-header-edge-padding: var(--size-4-4);
+		--column-header-x-padding: var(--column-header-x-padding-override, var(--size-4-4));
+		--column-header-y-padding: var(--column-header-y-padding-override, var(--size-4-4));
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-4-3);
@@ -238,10 +239,10 @@
 		&::before {
 			content: "";
 			display: block;
-			width: calc(100% + calc(2 * var(--column-header-edge-padding)));
+			width: calc(100% + calc(2 * var(--column-header-x-padding)));
 			height: 34px;
-			margin: calc(-1 * var(--column-header-edge-padding))
-				calc(-1 * var(--column-header-edge-padding)) 0;
+			margin: calc(-1 * var(--column-header-y-padding))
+				calc(-1 * var(--column-header-x-padding)) 0;
 			border-radius: 2px;
 			background: var(--header-accent);
 			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 10%, transparent);
@@ -259,6 +260,11 @@
 		}
 
 		&.collapsed {
+			position: sticky;
+			top: 0;
+			align-self: flex-start;
+			z-index: 1;
+
 			.header {
 				flex-direction: column;
 				align-items: center;

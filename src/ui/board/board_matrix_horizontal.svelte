@@ -159,13 +159,24 @@
 		top: 0;
 		z-index: 5;
 		padding: var(--size-4-4);
+		--column-header-x-padding-override: var(--size-4-4);
+		--column-header-y-padding-override: var(--size-4-4);
 		display: flex;
 		align-items: stretch;
 
 		&.collapsed {
+			position: sticky;
+			top: 0;
+			display: flex;
+			flex-direction: column;
+			align-self: start;
 			height: 100%;
-			padding: var(--size-4-3) var(--size-2-3);
+			min-height: 100%;
+			padding: 0 var(--size-2-3) var(--size-4-3);
+			--column-header-x-padding-override: var(--size-2-3);
+			--column-header-y-padding-override: 0px;
 			cursor: pointer;
+			z-index: 6;
 		}
 	}
 
