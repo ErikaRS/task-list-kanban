@@ -35,6 +35,7 @@
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
+	export let accentColor: string | undefined = undefined;
 
 	// The parent row or column handles collapse state for layout,
 	// but cell might hide its contents if collapsed.
@@ -326,6 +327,7 @@
 				selectedTaskIds={selectedIds}
 				{taskSecondaryIds}
 				{doneColumnName}
+				{accentColor}
 			/>
 		{/each}
 	</div>
@@ -336,9 +338,9 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		min-height: 50px;
-		border: var(--border-width) dashed transparent;
-		border-radius: var(--radius-m);
+		min-height: 100%;
+		border: var(--border-width) solid transparent;
+		border-radius: var(--radius-s);
 
 		/* The wrapper should be invisible if collapsed in horizontal mode */
 		&.collapsed {
@@ -374,20 +376,21 @@
 		}
 
 		&.drop-hover {
-			border-color: var(--color-base-70);
+			border-color: color-mix(in srgb, var(--column-color, var(--interactive-accent)) 75%, transparent);
+			background: color-mix(in srgb, var(--column-color, var(--interactive-accent)) 10%, transparent);
 		}
 
 		.tasks {
 			display: flex;
 			flex-direction: column;
-			gap: var(--size-4-2);
-			padding-top: var(--size-4-2);
+			gap: var(--size-4-3);
+			padding-top: var(--size-4-4);
 		}
 
 		.new-task-input {
-			margin-top: var(--size-4-2);
-			background-color: var(--background-secondary-alt);
-			border-radius: var(--radius-m);
+			margin-top: var(--size-4-3);
+			background-color: var(--background-primary);
+			border-radius: var(--radius-s);
 			border: var(--border-width) solid var(--background-modifier-border);
 			padding: var(--size-4-2);
 
@@ -407,6 +410,8 @@
 			border-radius: 0;
 			box-shadow: none;
 			margin: 0;
+			min-height: 32px;
+			font-weight: var(--font-medium);
 
 			span {
 				height: 18px;
@@ -418,7 +423,7 @@
 			align-items: center;
 			align-self: flex-start;
 			border: var(--border-width) solid var(--background-modifier-border);
-			border-radius: var(--radius-m);
+			border-radius: var(--radius-s);
 			overflow: hidden;
 			background-color: var(--interactive-normal);
 			box-shadow: var(--input-shadow);
@@ -453,7 +458,7 @@
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-1);
-			font-size: var(--font-ui-smaller);
+			font-size: var(--font-ui-small);
 			color: var(--text-muted);
 			margin-top: var(--size-2-1);
 

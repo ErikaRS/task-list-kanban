@@ -87,6 +87,7 @@
 								{targetFileIsDefault}
 								{doneColumnName}
 								isCollapsed={pBucket.collapsed}
+								accentColor={pBucket.meta?.color}
 							/>
 						</div>
 					{/each}
@@ -100,25 +101,26 @@
 	.matrix-vertical {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4-3);
+		gap: var(--size-4-4);
 		width: 100%;
-		padding-bottom: var(--size-4-3);
+		padding-bottom: var(--size-4-4);
 	}
 
 	.column-vertical {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		padding: var(--size-4-3);
+		padding: var(--size-4-4);
 		border-radius: var(--radius-m);
 		border: var(--border-width) solid var(--background-modifier-border);
-		background-color: var(--background-secondary);
+		background: color-mix(in srgb, var(--background-primary) 88%, var(--background-secondary));
 		transition: padding-bottom 250ms ease;
 		overflow: hidden;
+		box-shadow: var(--shadow-s);
 
 		&.collapsed {
 			cursor: pointer;
-			padding-bottom: var(--size-4-3);
+			padding-bottom: var(--size-4-4);
 		}
 	}
 
@@ -131,23 +133,25 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		margin-top: var(--size-4-2);
-		gap: var(--size-4-2);
+		margin-top: var(--size-4-4);
+		gap: 0;
+		border: var(--border-width) solid var(--background-modifier-border);
+		border-radius: var(--radius-s);
+		overflow: clip;
 	}
 
 	.swimlane-header {
-		font-size: var(--font-ui-smaller);
-		font-weight: var(--font-semibold);
-		color: var(--text-muted);
-		margin-top: var(--size-4-2);
-		margin-bottom: var(--size-4-1);
-		padding: var(--size-2-1) 0;
-		border-bottom: 1px solid var(--background-modifier-border);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		font-size: var(--font-ui-medium);
+		font-weight: var(--font-medium);
+		color: var(--text-normal);
+		padding: var(--size-4-3) var(--size-4-4);
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
+		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
 	}
 
 	.cell-wrapper {
 		width: 100%;
+		padding: var(--size-4-4);
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
 	}
 </style>

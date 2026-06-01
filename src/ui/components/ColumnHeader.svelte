@@ -176,7 +176,7 @@
 			aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
 		>{collapseIcon}</button>
 		<div class="column-title-group">
-			<h2 id="column-title-{column}">{columnTitle}</h2>
+			<h2 id="column-title-{column}" title={columnTitle}>{columnTitle}</h2>
 			{#if showColumnMatchTags}
 				<div class="column-match-tags">{columnMatchTags.map((tag) => `#${tag}`).join(" ")}</div>
 			{/if}
@@ -229,11 +229,28 @@
 <style lang="scss">
 	.column-header {
 		width: 100%;
+		--header-accent: var(--column-color, var(--background-modifier-border-hover));
+		--column-header-edge-padding: var(--size-4-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-4-3);
+
+		&::before {
+			content: "";
+			display: block;
+			width: calc(100% + calc(2 * var(--column-header-edge-padding)));
+			height: 34px;
+			margin: calc(-1 * var(--column-header-edge-padding))
+				calc(-1 * var(--column-header-edge-padding)) 0;
+			border-radius: 2px;
+			background: var(--header-accent);
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 10%, transparent);
+			flex: 0 0 auto;
+		}
 
 		&.row-header {
 			display: flex;
-			align-items: center;
-			gap: var(--size-4-2);
+			align-items: stretch;
 			margin-bottom: var(--size-4-2);
 
 			.header {
@@ -311,35 +328,38 @@
 		min-height: 24px;
 		width: 100%;
 		flex-shrink: 0;
-		gap: var(--size-2-2);
+		gap: var(--size-4-2);
 
 		.column-title-group {
 			min-width: 0;
 			display: flex;
 			flex-direction: column;
 			gap: 2px;
+			flex: 1 1 auto;
 		}
 
 		h2 {
-			font-size: var(--font-ui-larger);
+			font-size: var(--font-ui-large);
 			font-weight: var(--font-bold);
 			margin: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
-			line-height: 28px;
+			line-height: 1.2;
 		}
 
 		.column-match-tags {
-			font-size: var(--font-ui-smaller);
+			font-size: var(--font-ui-small);
 			color: var(--text-muted);
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
+			overflow: visible;
+			text-overflow: unset;
+			white-space: normal;
+			overflow-wrap: anywhere;
+			line-height: 1.3;
 		}
 
 		.task-count {
-			font-size: var(--font-ui-smaller);
+			font-size: var(--font-ui-small);
 			color: var(--text-muted);
 			white-space: nowrap;
 			align-self: flex-start;
@@ -361,7 +381,7 @@
 			cursor: pointer;
 			color: var(--text-muted);
 			padding: 0;
-			width: 28px;
+			width: 20px;
 			height: 28px;
 			display: flex;
 			align-items: center;
@@ -382,19 +402,22 @@
 				outline-offset: 2px;
 			}
 		}
+
 	}
 
 	.mode-toggle {
 		display: flex;
 		align-items: center;
-		background: color-mix(in srgb, var(--column-color, var(--background-modifier-border)) 20%, var(--background-secondary));
+		background: var(--background-primary);
+		border: var(--border-width) solid var(--background-modifier-border);
 		border-radius: var(--radius-s);
 		padding: 2px;
 		gap: 0;
+		box-shadow: var(--input-shadow);
 
 		.mode-btn {
-			font-size: var(--font-ui-smaller);
-			padding: 2px 7px;
+			font-size: var(--font-ui-small);
+			padding: 3px 9px;
 			border: none;
 			background: transparent;
 			color: var(--text-muted);
@@ -412,7 +435,7 @@
 			}
 
 			&.active {
-				background: color-mix(in srgb, var(--column-color, var(--background-modifier-border)) 60%, var(--background-secondary));
+				background: var(--interactive-normal);
 				color: var(--text-normal);
 				font-weight: var(--font-medium);
 			}

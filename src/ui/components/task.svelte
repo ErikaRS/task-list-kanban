@@ -23,6 +23,7 @@
 	export let selectedTaskIds: string[] = [];
 	export let taskSecondaryIds: Record<string, string> = {};
 	export let doneColumnName: string | undefined = undefined;
+	export let accentColor: string | undefined = undefined;
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -346,6 +347,7 @@
 		class:is-selection-mode={isSelectionMode}
 		role="group"
 		draggable={!isEditing}
+		style:--task-accent-color={accentColor}
 		on:dragstart={handleDragStart}
 		on:dragend={handleDragEnd}
 >
@@ -464,10 +466,29 @@
 
 <style lang="scss">
 	.task {
-		background-color: var(--background-secondary-alt);
-		border-radius: var(--radius-m);
+		--task-accent: var(--task-accent-color, var(--background-modifier-border-hover));
+		position: relative;
+		overflow: hidden;
+		background: var(--background-primary);
+		border-radius: var(--radius-s);
 		border: var(--border-width) solid var(--background-modifier-border);
 		cursor: grab;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+		transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+
+		&::before {
+			content: "";
+			position: absolute;
+			inset: 0 auto 0 0;
+			width: 10px;
+			background: var(--task-accent);
+		}
+
+		&:hover {
+			border-color: color-mix(in srgb, var(--text-muted) 45%, var(--background-modifier-border));
+			box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+			transform: translateY(-1px);
+		}
 
 		&.is-dragging {
 			opacity: 0.15;
@@ -475,12 +496,12 @@
 
 		&.is-selected {
 			border-color: var(--interactive-accent);
-			background-color: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-secondary-alt));
+			background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary));
 		}
 
 		// Task row
 			.task-row {
-				padding: var(--size-4-2);
+				padding: var(--size-4-3) var(--size-4-3) var(--size-4-3) calc(var(--size-4-3) + 10px);
 				display: flex;
 				gap: 10px;
 				align-items: flex-start;
@@ -492,7 +513,7 @@
 					flex-shrink: 0;
 					width: 20px;
 					height: 20px;
-					margin-top: 2px;
+					margin-top: 3px;
 				}
 
 			.task-row-content {
@@ -519,6 +540,7 @@
 					display: flex;
 					align-items: center;
 					flex-shrink: 0;
+					margin-top: -2px;
 				}
 			}
 
@@ -563,7 +585,7 @@
 		.task-footer {
 			border-top: var(--border-width) solid
 				var(--background-modifier-border);
-			padding: var(--size-4-2);
+			padding: var(--size-4-2) var(--size-4-3) var(--size-4-2) calc(var(--size-4-3) + 10px);
 			padding-top: var(--size-4-1);
 
 			.go-to-file-button {
@@ -618,7 +640,7 @@
 			display: flex;
 			flex-wrap: wrap;
 			gap: 6px;
-			padding: 0 var(--size-4-2) var(--size-4-2) var(--size-4-2);
+			padding: 0 var(--size-4-3) var(--size-4-3) calc(var(--size-4-3) + 10px);
 			margin-top: -4px;
 
 			span {

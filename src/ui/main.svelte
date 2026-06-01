@@ -791,14 +791,15 @@
 			flex-direction: column;
 			height: 100%;
 			overflow: hidden;
-			padding-left: var(--size-4-4);
+			padding: var(--size-4-3) var(--size-4-4) 0 var(--size-4-4);
+			background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
 		}
 
 		.board-header {
 			display: flex;
 			justify-content: flex-end;
 			align-items: center;
-			padding: var(--size-4-2) var(--size-4-4) var(--size-4-2) 0;
+			padding: 0 0 var(--size-4-3) 0;
 			gap: var(--size-4-3);
 
 			.board-task-count {
@@ -982,7 +983,7 @@
 			max-width: 100vw;
 			overflow-x: scroll;
 			overflow-y: auto;
-			padding-bottom: var(--size-4-3);
+			padding-bottom: var(--size-4-4);
 
 			&.vertical-flow {
 				overflow-x: hidden;
