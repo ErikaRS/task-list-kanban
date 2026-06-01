@@ -67,6 +67,18 @@ Access settings via the settings icon in the top right corner of your kanban.
 - **Top to bottom** - Columns stack vertically, with cards flowing horizontally within each column
 - **Bottom to top** - Columns stack vertically in reverse order
 
+### Grouping & Swimlanes
+
+To help you organize complex projects, you can group tasks on your board. You can select your grouping options via the dropdown in the top-right header of the kanban board (next to the settings icon).
+
+**Group by File**: Group all tasks on your board by their source markdown file.
+- **Swimlanes in Horizontal Flows**: In **Left to right** or **Right to left** flows, grouping presents tasks in board-wide horizontal **swimlane rows**. Column headers remain sticky at the top, and collapsed columns align perfectly.
+- **Section Headers in Vertical Flows**: In **Top to bottom** or **Bottom to top** flows, the same grouping is presented using repeated local file headers within each column stack.
+- **Compact Empty Cells**: Cells that contain no tasks are rendered compactly with add/drop controls, preventing excessive padding or empty card placeholders.
+- **File Swimlane Drag and Drop**: Move tasks between files by dragging cards across different swimlane rows or vertical sections:
+  - Dragging a task card into a different file swimlane/section moves the underlying task into that destination markdown file, while applying the destination column's status or tag changes.
+  - Dragging a task card within the same file swimlane/section to a different column only updates its column/tag.
+
 ### Folder Scope
 
 **This folder** (default): The kanban shows tasks from files in the same folder as the kanban file.
