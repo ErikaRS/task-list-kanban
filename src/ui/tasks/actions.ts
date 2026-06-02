@@ -28,6 +28,12 @@ export type TaskActions = {
 		destinationFile: TFile,
 		destinationColumn: ColumnTag | DefaultColumns,
 	) => Promise<void>;
+	updateSwimlaneTag: (
+		ids: string[],
+		newTag: string | null,
+		prefix: string,
+		excludedTags: string[],
+	) => Promise<void>;
 	pickFileForNewTask: (
 		column: ColumnTag,
 		e: MouseEvent,
@@ -144,6 +150,24 @@ export function createTaskActions({
 
 		async deleteTask(id) {
 			await updateRowWithTask(id, (task) => task.delete());
+		},
+
+		async updateSwimlaneTag(ids, newTag, prefix, excludedTags) {
+			for (const id of ids) {
+				await updateRowWithTask(id, (task) => {
+					let candidateTags = Array.from(task.tags).filter(t => !excludedTags.includes(t));
+					if (prefix) {
+						candidateTags = candidateTags.filter(t => t.toLowerCase().startsWith(prefix.toLowerCase()));
+					}
+					if (candidateTags.length > 0) {
+						candidateTags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+						const oldTag = candidateTags[0];
+						task.replaceTag(oldTag ?? null, newTag);
+					} else {
+						task.replaceTag(null, newTag);
+					}
+				});
+			}
 		},
 
 		async duplicateTask(id) {

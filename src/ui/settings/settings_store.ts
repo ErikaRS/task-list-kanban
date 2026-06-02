@@ -67,7 +67,7 @@ const savedFilterSchema = z.object({
 });
 
 const groupSourceSchema = z
-	.object({ kind: z.enum(["none", "file"]) })
+	.object({ kind: z.enum(["none", "file", "tag-prefix"]), prefix: z.string().optional() })
 	.catch({ kind: "none" as const });
 
 const columnDefinitionSchema = z.object({
@@ -112,6 +112,7 @@ const settingsObject = z.object({
 	lastUsedTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
 	excludePaths: z.array(z.string()).default([]).optional(),
+	excludedTags: z.array(z.string()).default([]).optional(),
 	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
 	doneColumnName: z.string().default("Done").optional(),
 	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
@@ -141,6 +142,7 @@ export interface SettingValues {
 	lastUsedTaskFile?: string;
 	scopeFolders?: string[];
 	excludePaths?: string[];
+	excludedTags?: string[];
 	uncategorizedColumnName?: string;
 	doneColumnName?: string;
 	groupSource?: GroupSource;
@@ -167,6 +169,7 @@ export const defaultSettings: SettingValues = {
 	lastUsedTaskFile: "",
 	scopeFolders: [],
 	excludePaths: [],
+	excludedTags: [],
 	uncategorizedColumnName: "Uncategorized",
 	doneColumnName: "Done",
 	groupSource: { kind: "none" },

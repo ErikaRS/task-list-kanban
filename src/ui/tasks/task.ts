@@ -327,7 +327,7 @@ export class Task {
 	}
 
 	readonly blockLink: string | undefined;
-	readonly tags: ReadonlySet<string>;
+	tags: Set<string>;
 
 	private getPlacementTagsForColumn(column: ColumnTag): string[] {
 		return (this.columnPlacementTagTable[column] ?? []).filter((tag) => isValidTag(tag));
@@ -346,6 +346,16 @@ export class Task {
 			.replaceAll(` #${tag}`, "")
 			.replaceAll(`#${tag}`, "")
 			.trim();
+	}
+
+	replaceTag(oldTag: string | null, newTag: string | null) {
+		if (oldTag) {
+			this.tags.delete(oldTag);
+			this.content = this.stripTagFromContent(this.content, oldTag);
+		}
+		if (newTag) {
+			this.tags.add(newTag);
+		}
 	}
 
 	private stripPlacementTags(value: string, placementTags: string[]): string {

@@ -19,6 +19,7 @@
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
+	export let excludedTags: string[] = [];
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault: boolean = false;
 	export let onToggleCollapse: (columnId: string) => void;
@@ -82,6 +83,7 @@
 									{columnTagTableStore}
 								{showFilepath}
 								{consolidateTags}
+								{excludedTags}
 								isVerticalFlow={true}
 								{targetTaskFile}
 								{targetFileIsDefault}

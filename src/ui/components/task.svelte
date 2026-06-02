@@ -15,6 +15,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
+	export let excludedTags: string[] = [];
 	export let displayColumn: ColumnTag | DefaultColumns;
 	export let displaySecondaryId: string;
 	export let isSelectionMode: boolean = false;
@@ -169,8 +170,16 @@
 	}
 
 	function renderTaskMarkdown() {
-		const contentWithBlockLink = (task.content + (task.blockLink ? ` ^${task.blockLink}` : ""))
+		let contentWithBlockLink = (task.content + (task.blockLink ? ` ^${task.blockLink}` : ""))
 			.replaceAll("<br />", "\n");
+
+		// Visually strip excluded tags from the content
+		for (const tag of excludedTags) {
+			const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const regex = new RegExp(`(?:^|\\s)#${escapeRegExp(tag)}(?:\\/[\\w\\-]+)*\\b`, 'gi');
+			contentWithBlockLink = contentWithBlockLink.replace(regex, '');
+		}
+		
 		const indentedContinuationLines = contentWithBlockLink.replaceAll("\n", "\n  ");
 		return `- [${task.displayStatus}] ${indentedContinuationLines}`;
 	}
@@ -337,7 +346,8 @@
 		e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
 	}
 
-	$: shouldconsolidateTags = consolidateTags && task.tags.size > 0;
+	$: visibleTags = Array.from(task.tags).filter(t => !excludedTags.includes(t));
+	$: shouldconsolidateTags = consolidateTags && visibleTags.length > 0;
 </script>
 
 	<div
@@ -452,7 +462,7 @@
 	{/if}
 	{#if shouldconsolidateTags}
 		<div class="task-tags">
-			{#each task.tags as tag}
+			{#each visibleTags as tag}
 				<span>
 					<!-- prettier-ignore -->
 					<span class="cm-formatting cm-formatting-hashtag cm-hashtag cm-hashtag-begin cm-list-1">#</span><span

@@ -124,7 +124,7 @@ export function deriveBoardMatrix(
 	});
 
 	const groupSource = settings.groupSource ?? { kind: "none" };
-	const groupBuckets = deriveGroupBuckets(Object.values(tasksByPrimary).flat(), groupSource);
+	const groupBuckets = deriveGroupBuckets(Object.values(tasksByPrimary).flat(), groupSource, settings.excludedTags);
 	const secondaryAxis: AxisBucket<SecondaryBucketId>[] = groupBuckets.map((bucket) => ({
 		id: bucket.id,
 		label: bucket.label,
@@ -147,7 +147,7 @@ export function deriveBoardMatrix(
 		for (const groupBucket of groupBuckets) {
 			const sId = groupBucket.id;
 			const cellTasks = cellTasksByPrimary.filter((task) =>
-				taskBelongsToGroup(task, groupBucket),
+				taskBelongsToGroup(task, groupBucket, settings.excludedTags),
 			);
 
 			cells[pId]![sId] = {

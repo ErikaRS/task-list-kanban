@@ -15,6 +15,7 @@ import { getTagsFromContent } from "src/parsing/tags/tags";
 import {
 	RESERVED_COLUMN_KEYS,
 	type ColumnDefinition,
+	getColumnWriteTags,
 } from "../columns/columns";
 import { columnRuleSignature, createColumnId, usesTagMatching } from "../columns/definitions";
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
@@ -852,6 +853,98 @@ export class SettingsModal extends Modal {
 
 		excludeListEl = excludeInputContainer.createDiv();
 		renderExcludeList();
+
+		const excludedTagsContainer = this.scrollWrapper.createDiv();
+		excludedTagsContainer.style.marginBottom = "12px";
+
+		new Setting(excludedTagsContainer)
+			.setName("Tag Exclusion List")
+			.setDesc(
+				"Tags to exclude from display in the kanban. They will still be preserved in the file."
+			);
+
+		const excludedTagsInputContainer = excludedTagsContainer.createDiv();
+		excludedTagsInputContainer.style.marginLeft = "16px";
+
+		const addExcludedTagRow = excludedTagsInputContainer.createDiv();
+		addExcludedTagRow.style.display = "flex";
+		addExcludedTagRow.style.gap = "8px";
+		addExcludedTagRow.style.marginBottom = "8px";
+
+		const excludedTagInput = addExcludedTagRow.createEl("input", {
+			type: "text",
+			placeholder: "e.g., status",
+		});
+		excludedTagInput.style.flexGrow = "1";
+		excludedTagInput.addClass("setting-input");
+		
+		let excludedTagsListEl: HTMLDivElement;
+
+		const renderExcludedTagsList = () => {
+			excludedTagsListEl.empty();
+			const tags = this.settings.excludedTags ?? [];
+			for (const tag of tags) {
+				const row = excludedTagsListEl.createDiv();
+				row.style.display = "flex";
+				row.style.justifyContent = "space-between";
+				row.style.alignItems = "center";
+				row.style.padding = "4px 8px";
+				row.style.borderBottom = "1px solid var(--background-modifier-border)";
+				
+				const label = row.createSpan();
+				label.setText(tag);
+				label.style.fontFamily = "var(--font-monospace)";
+				label.style.fontSize = "var(--font-ui-smaller)";
+
+				const removeBtn = row.createEl("button", { text: "Remove" });
+				removeBtn.style.padding = "2px 8px";
+				removeBtn.style.fontSize = "var(--font-ui-smaller)";
+				removeBtn.addEventListener("click", () => {
+					this.settings.excludedTags = (this.settings.excludedTags ?? []).filter((t) => t !== tag);
+					renderExcludedTagsList();
+					this.updateDirtyBanner();
+				});
+			}
+		};
+
+		const addExcludedTag = () => {
+			const raw = excludedTagInput.value.trim().replace(/^#/, "");
+			if (!raw) return;
+			const tags = this.settings.excludedTags ?? [];
+			if (tags.includes(raw)) return;
+			this.settings.excludedTags = [...tags, raw];
+			excludedTagInput.value = "";
+			renderExcludedTagsList();
+			this.updateDirtyBanner();
+		};
+
+		const addExcludedTagBtn = addExcludedTagRow.createEl("button", { text: "Add" });
+		addExcludedTagBtn.addEventListener("click", addExcludedTag);
+
+		excludedTagInput.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				addExcludedTag();
+			}
+		});
+
+		const excludeColumnTagsBtn = addExcludedTagRow.createEl("button", { text: "Exclude column tags" });
+		excludeColumnTagsBtn.title = "Automatically add all configured column placement tags to the exclusion list";
+		excludeColumnTagsBtn.addEventListener("click", () => {
+			const currentExcluded = new Set(this.settings.excludedTags ?? []);
+			for (const col of this.settings.columns ?? []) {
+				const tags = getColumnWriteTags(col);
+				for (const tag of tags) {
+					currentExcluded.add(tag);
+				}
+			}
+			this.settings.excludedTags = Array.from(currentExcluded);
+			renderExcludedTagsList();
+			this.updateDirtyBanner();
+		});
+
+		excludedTagsListEl = excludedTagsInputContainer.createDiv();
+		renderExcludedTagsList();
 
 		const defaultTaskFileSetting = new Setting(this.scrollWrapper)
 			.setName("Default task file")

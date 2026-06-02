@@ -650,13 +650,33 @@
 						class="dropdown group-by-select"
 						value={$settingsStore.groupSource?.kind ?? "none"}
 						on:change={(e) => {
-							$settingsStore.groupSource = { kind: e.currentTarget.value === "file" ? "file" : "none" };
+							const val = e.currentTarget.value;
+							if (val === "file") {
+								$settingsStore.groupSource = { kind: "file" };
+							} else if (val === "tag-prefix") {
+								$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
+							} else {
+								$settingsStore.groupSource = { kind: "none" };
+							}
 							requestSave();
 						}}
 					>
 						<option value="none">Group by: (none)</option>
 						<option value="file">Group by: File</option>
+						<option value="tag-prefix">Group by: Tag</option>
 					</select>
+					{#if $settingsStore.groupSource?.kind === "tag-prefix"}
+						<input
+							type="text"
+							placeholder="Prefix (e.g. Sprint-)"
+							value={$settingsStore.groupSource.prefix ?? ""}
+							on:change={(e) => {
+								$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
+								requestSave();
+							}}
+							style="width: 140px; font-size: var(--font-ui-small);"
+						/>
+					{/if}
 					<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 				</div>
 			</div>
@@ -672,6 +692,7 @@
 						{columnMatchTagTableStore}
 						{showFilepath}
 						{consolidateTags}
+						excludedTags={$settingsStore.excludedTags ?? []}
 						{targetTaskFile}
 						{targetFileIsDefault}
 						onToggleCollapse={toggleColumnCollapse}
@@ -689,6 +710,7 @@
 						{columnMatchTagTableStore}
 						{showFilepath}
 						{consolidateTags}
+						excludedTags={$settingsStore.excludedTags ?? []}
 						{targetTaskFile}
 						{targetFileIsDefault}
 						onToggleCollapse={toggleColumnCollapse}

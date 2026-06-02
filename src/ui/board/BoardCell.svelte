@@ -31,6 +31,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
 	export let consolidateTags: boolean;
+	export let excludedTags: string[] = [];
 	export let isVerticalFlow: boolean = false;
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault: boolean = false;
@@ -89,7 +90,11 @@
 		!!fileGroupTargetFile &&
 		(draggingData.fromSecondaryId !== cell.secondaryId ||
 			hasSelectedTaskOutsideTargetFile);
-	$: canDrop = isSameSwimlaneColumnDrop || isFileSwimlaneDrop;
+	$: isTagSwimlaneDrop =
+		!!draggingData &&
+		secondaryAxisBucket.source.kind === "tag-prefix" &&
+		draggingData.fromSecondaryId !== cell.secondaryId;
+	$: canDrop = isSameSwimlaneColumnDrop || isFileSwimlaneDrop || isTagSwimlaneDrop;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -144,6 +149,10 @@
 					);
 				}
 			}
+		} else if (isTagSwimlaneDrop) {
+			const prefix = secondaryAxisBucket.source.kind === "tag-prefix" ? (secondaryAxisBucket.source.prefix ?? "") : "";
+			await taskActions.updateSwimlaneTag(droppedIds, secondaryAxisBucket.value, prefix, excludedTags);
+			await applyColumnChange(droppedIds);
 		} else {
 			await applyColumnChange(droppedIds);
 		}
@@ -319,6 +328,7 @@
 					{columnTagTableStore}
 					{showFilepath}
 					{consolidateTags}
+					{excludedTags}
 					displayColumn={column}
 					displaySecondaryId={cell.secondaryId}
 					isSelectionMode={isSelectMode}

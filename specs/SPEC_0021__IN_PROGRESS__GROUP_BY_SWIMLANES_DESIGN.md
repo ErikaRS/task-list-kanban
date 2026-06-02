@@ -328,17 +328,17 @@ src/
 
 **Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [b2b0928](https://github.com/ErikaRS/task-list-kanban/commit/b2b0928)
 
-### Phase 4.6: Tag Prefix Grouping & Exclusions
+### Phase 4.6: Tag Prefix Grouping & Exclusions ✅ COMPLETE
 **Goal:** Group tasks by tag (with optional prefix) and hide specified tags.
 
-1. [ ] Add `tag-prefix` kind to `GroupSource` setting in `settings_store.ts`, with optional `prefix`.
-2. [ ] Extend `deriveGroupBuckets` in `task_grouping.ts` to support tag prefix grouping (and empty prefix general tag grouping), extracting labels and sorting with unassigned last.
-3. [ ] Update `taskBelongsToGroup` in `task_grouping.ts` for tag prefix grouping (with and without prefix).
-4. [ ] Implement tag prefix/general swimlane drag and drop: strip source tag and add new destination tag on drop.
-5. [ ] Add `excludedTags: string[]` to settings store and `settings.ts`.
-6. [ ] Implement filtering of `excludedTags` from task card tags and strip them from task content.
-7. [ ] Add "Exclude column tags" button to settings page to autopopulate `excludedTags`.
-8. [ ] Test: Verify tag prefix and empty prefix swimlanes display correctly, drag updates tags, and excluded tags are hidden.
+1. [x] Add `tag-prefix` kind to `GroupSource` setting in `settings_store.ts`, with optional `prefix`.
+2. [x] Extend `deriveGroupBuckets` in `task_grouping.ts` to support tag prefix grouping (and empty prefix general tag grouping), extracting labels and sorting with unassigned last.
+3. [x] Update `taskBelongsToGroup` in `task_grouping.ts` for tag prefix grouping (with and without prefix).
+4. [x] Implement tag prefix/general swimlane drag and drop: strip source tag and add new destination tag on drop.
+5. [x] Add `excludedTags: string[]` to settings store and `settings.ts`.
+6. [x] Implement filtering of `excludedTags` from task card tags and strip them from task content.
+7. [x] Add "Exclude column tags" button to settings page to autopopulate `excludedTags`.
+8. [x] Test: Verify tag prefix and empty prefix swimlanes display correctly, drag updates tags, and excluded tags are hidden.
 
 **Deliverable:** Kanban board supports tag prefix swimlanes with cross-swimlane drag, and tag exclusions.
 
