@@ -186,7 +186,8 @@
 						text-align: left;
 						padding: var(--size-2-1) var(--size-2-2);
 						background: transparent !important;
-						border: none;
+						border: none !important;
+						box-shadow: none !important;
 						cursor: pointer;
 						color: var(--text-normal);
 						white-space: nowrap;

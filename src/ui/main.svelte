@@ -696,40 +696,42 @@
 							</button>
 						{/if}
 					{/if}
-					{#if savedGroupings.length > 0}
-						<div class="saved-filters" style="margin-left: 8px;">
-							<details>
-								<summary>Saved groups</summary>
-								<ul role="list">
-									{#each savedGroupings as group}
-										<li>
-											<button class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</button>
-											<button class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)}>{group.name}</button>
-										</li>
-									{/each}
-								</ul>
-							</details>
-						</div>
-					{/if}
-					<select
-						class="dropdown group-by-select"
-						value={$settingsStore.groupSource?.kind ?? "none"}
-						on:change={(e) => {
-							const val = e.currentTarget.value;
-							if (val === "file") {
-								$settingsStore.groupSource = { kind: "file" };
-							} else if (val === "tag-prefix") {
-								$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
-							} else {
-								$settingsStore.groupSource = { kind: "none" };
-							}
-							requestSave();
-						}}
-					>
-						<option value="none">Group by: (none)</option>
-						<option value="file">Group by: File</option>
-						<option value="tag-prefix">Group by: Tag</option>
-					</select>
+					<div class="group-by-container" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+						{#if savedGroupings.length > 0}
+							<div class="saved-filters">
+								<details>
+									<summary>Saved groups</summary>
+									<ul role="list">
+										{#each savedGroupings as group}
+											<li>
+												<button class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</button>
+												<button class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)}>{group.name}</button>
+											</li>
+										{/each}
+									</ul>
+								</details>
+							</div>
+						{/if}
+						<select
+							class="dropdown group-by-select"
+							value={$settingsStore.groupSource?.kind ?? "none"}
+							on:change={(e) => {
+								const val = e.currentTarget.value;
+								if (val === "file") {
+									$settingsStore.groupSource = { kind: "file" };
+								} else if (val === "tag-prefix") {
+									$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
+								} else {
+									$settingsStore.groupSource = { kind: "none" };
+								}
+								requestSave();
+							}}
+						>
+							<option value="none">Group by: (none)</option>
+							<option value="file">Group by: File</option>
+							<option value="tag-prefix">Group by: Tag</option>
+						</select>
+					</div>
 					<span class="board-task-count" aria-live="polite" style="margin-left: 8px; margin-right: 8px;">
 						{#if isFiltered}
 							{filteredTaskCount} of {totalTaskCount} tasks
@@ -937,6 +939,9 @@
 							display: flex;
 							align-items: center;
 							border-radius: var(--radius-s);
+							background: var(--background-primary);
+							border: 1px solid var(--background-modifier-border);
+							box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 							transition: background 0.15s ease;
 		
 							&:hover {
@@ -947,7 +952,8 @@
 								text-align: left;
 								padding: var(--size-2-1) var(--size-2-2);
 								background: transparent !important;
-								border: none;
+								border: none !important;
+								box-shadow: none !important;
 								cursor: pointer;
 								color: var(--text-normal);
 								white-space: nowrap;
