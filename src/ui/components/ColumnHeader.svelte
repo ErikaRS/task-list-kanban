@@ -182,8 +182,24 @@
 			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 		{/if}
 		<div class="header-menu">
-			<!-- Done / Select segmented toggle -->
-			{#if !isCollapsed}
+			{#if showContextMenu}
+				<IconButton
+					icon="lucide-more-vertical"
+					on:click={showMenu}
+					aria-label="Column options for {columnTitle}"
+				/>
+			{/if}
+		</div>
+	</div>
+	{#if !isCollapsed}
+		<div class="column-meta">
+			{#if showColumnMatchTags}
+				<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
+					{columnMatchTags.map((tag) => `#${tag}`).join(" ")}
+				</div>
+			{/if}
+			<div class="column-meta-bottom">
+				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 				<div
 					class="mode-toggle"
 					role="toolbar"
@@ -208,24 +224,7 @@
 						}}
 					>Select</button>
 				</div>
-			{/if}
-			{#if showContextMenu}
-				<IconButton
-					icon="lucide-more-vertical"
-					on:click={showMenu}
-					aria-label="Column options for {columnTitle}"
-				/>
-			{/if}
-		</div>
-	</div>
-	{#if !isCollapsed}
-		<div class="column-meta">
-			{#if showColumnMatchTags}
-				<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
-					{columnMatchTags.map((tag) => `#${tag}`).join(" ")}
-				</div>
-			{/if}
-			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
+			</div>
 		</div>
 	{/if}
 	{#if isSelectMode && selectedCount > 0}
@@ -307,9 +306,7 @@
 					order: 4;
 				}
 
-				.mode-toggle {
-					display: none;
-				}
+
 
 				:global(.header-menu button) {
 					width: 20px;
@@ -330,9 +327,7 @@
 					display: flex;
 				}
 
-				.mode-toggle {
-					display: none;
-				}
+
 			}
 		}
 	}
@@ -458,11 +453,19 @@
 		width: 100%;
 		align-items: flex-start;
 
-		.task-count {
-			font-size: var(--font-ui-small);
-			color: var(--text-muted);
-			white-space: nowrap;
-			line-height: 1.3;
+		.column-meta-bottom {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			width: 100%;
+			gap: var(--size-4-2);
+
+			.task-count {
+				font-size: var(--font-ui-small);
+				color: var(--text-muted);
+				white-space: nowrap;
+				line-height: 1.3;
+			}
 		}
 	}
 

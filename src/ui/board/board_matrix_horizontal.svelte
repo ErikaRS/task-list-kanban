@@ -210,7 +210,7 @@
 	.cell-wrapper {
 		z-index: 1;
 		min-height: 188px;
-		padding: var(--size-4-5) var(--size-4-4);
+		padding: var(--size-4-2) var(--size-4-4);
 		display: flex;
 		flex-direction: column;
 		align-self: stretch;

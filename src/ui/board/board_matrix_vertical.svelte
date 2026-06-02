@@ -151,7 +151,7 @@
 
 	.cell-wrapper {
 		width: 100%;
-		padding: var(--size-4-4);
+		padding: var(--size-4-2) var(--size-4-4);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 	}
 </style>
