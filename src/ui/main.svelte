@@ -680,24 +680,26 @@
 			<div class="board-header">
 				<div class="board-header-controls">
 					{#if $settingsStore.groupSource?.kind === "tag-prefix" || savedGroupings.length > 0}
-						<div class="prefix-filter-container" style="display: flex; align-items: center; gap: 8px;">
-							{#if $settingsStore.groupSource?.kind === "tag-prefix"}
-								<input
-									type="text"
-									placeholder="Prefix (e.g. Sprint-)"
-									value={$settingsStore.groupSource.prefix ?? ""}
-									on:change={(e) => {
-										$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
-										requestSave();
-									}}
-									style="width: 140px; font-size: var(--font-ui-small);"
-								/>
-								{#if !activeSavedGroupingId}
-									<button class="filter-action-btn save-btn" style="padding: 4px 8px; font-size: var(--font-ui-smaller);" on:click={saveCurrentGrouping}>
-										Save
-									</button>
+						<div class="prefix-filter-container" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+							<div style="display: flex; align-items: center; gap: 8px;">
+								{#if $settingsStore.groupSource?.kind === "tag-prefix"}
+									<input
+										type="text"
+										placeholder="Prefix (e.g. Sprint-)"
+										value={$settingsStore.groupSource.prefix ?? ""}
+										on:change={(e) => {
+											$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
+											requestSave();
+										}}
+										style="width: 140px; font-size: var(--font-ui-small);"
+									/>
+									{#if !activeSavedGroupingId}
+										<button class="filter-action-btn save-btn" style="padding: 4px 8px; font-size: var(--font-ui-smaller);" on:click={saveCurrentGrouping}>
+											Save
+										</button>
+									{/if}
 								{/if}
-							{/if}
+							</div>
 							{#if savedGroupings.length > 0}
 								<div class="saved-filters" style="margin-left: 8px; margin-bottom: 0;">
 									<details style="position: relative;">
@@ -884,18 +886,19 @@
 		.board-header {
 			display: flex;
 			justify-content: flex-end;
-			align-items: center;
+			align-items: flex-start;
 			padding: 0 0 var(--size-4-3) 0;
 			gap: var(--size-4-3);
 
 			.board-task-count {
 				font-size: var(--font-ui-medium);
 				color: var(--text-muted);
+				margin-top: 4px; /* to align with input */
 			}
 
 			.board-header-controls {
 				display: flex;
-				align-items: center;
+				align-items: flex-start;
 				gap: var(--size-4-2);
 
 				.group-by-select {
