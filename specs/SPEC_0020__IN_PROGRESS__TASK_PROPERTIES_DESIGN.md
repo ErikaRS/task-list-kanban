@@ -84,12 +84,17 @@ Scope notes:
 
 A **property** is a named, typed value extracted from task text. Properties live alongside the task's textual content in raw markdown; they are parsed, not stored separately.
 
+In addition to custom schema-defined properties, the plugin also automatically parses the task's checkbox status into a built-in property named `status`. The status is exactly one character between the `[` and `]` in the task definition.
+
 ```text
 Task text:   "Fix login bug 📅 2024-01-20 ⏫"
-Properties:  { due: Date(2024-01-20), priority: 4 }
+Properties:  { status: " ", due: Date(2024-01-20), priority: 4 }
 
 Task text:   "Write docs [due:: 2024-01-20] [priority:: medium]"
-Properties:  { due: Date(2024-01-20), priority: "medium" }
+Properties:  { status: " ", due: Date(2024-01-20), priority: "medium" }
+
+Task text:   "- [/] Review PR [due:: 2024-01-20]"
+Properties:  { status: "/", due: Date(2024-01-20) }
 ```
 
 ### Schema Abstraction
@@ -117,12 +122,14 @@ export interface PropertyKeyMeta {
 }
 ```
 
+Regardless of the selected schema, the returned `TaskPropertyMap` must always include the `status` property. The `status` property has type `text` and its value is the exact character parsed between the task's `[` and `]` brackets.
+
 `knownKeys()` provides the base set for sort UI. For Dataview, sort choices should also include discovered inline keys present on currently parsed tasks.
 
 ### Schema Implementations
 
 #### `NoneSchema`
-Returns an empty property map.
+Returns a property map containing only the universal `status` property.
 
 #### `TasksPluginSchema`
 Parses Tasks-plugin emoji metadata:
@@ -149,7 +156,7 @@ Typing rules:
 - pure number -> `number`
 - otherwise -> `string`
 
-Common keys such as `due`, `priority`, `start`, and `scheduled` get canonical typing and labels.
+Common keys such as `status`, `due`, `priority`, `start`, and `scheduled` get canonical typing and labels.
 
 ### Ordering Modes
 
@@ -265,6 +272,12 @@ interface PluginData {
 - non-destructive: task content is not rewritten
 - parsed from the raw line before column-tag or block-link stripping
 - first occurrence wins for duplicate keys
+- **Status Property**: The checkbox character (exactly one character between the `[` and `]` of the task definition) is parsed and stored in the properties map under the key `status` (type `text`).
+  - Example: `- [ ] Task` results in `{ key: "status", rawValue: " ", value: " " }`
+  - Example: `- [x] Task` results in `{ key: "status", rawValue: "x", value: "x" }`
+  - Example: `- [-] Task` results in `{ key: "status", rawValue: "-", value: "-" }`
+  - Example: `- [/] Task` results in `{ key: "status", rawValue: "/", value: "/" }`
+  - This property is universal and populated for all schemas (including `None`).
 
 ### Property Display
 
@@ -330,13 +343,15 @@ src/
 
 1. [ ] Add `propertySchema` to `TaskParseContext`
 2. [ ] Create `src/parsing/properties/`
-3. [ ] Implement `TasksPluginSchema` with unit tests
-4. [ ] Implement `DataviewSchema` with unit tests
-5. [ ] Add `properties` to `Task`
-6. [ ] Thread schema selection from settings through parsing
-7. [ ] Add schema picker to Settings UI
+3. [ ] Implement universal `status` property parsing from task checkbox (`[<char>]`)
+4. [ ] Implement `NoneSchema` with unit tests (returns map with only `status`)
+5. [ ] Implement `TasksPluginSchema` with unit tests (includes emoji properties + `status`)
+6. [ ] Implement `DataviewSchema` with unit tests (includes inline fields + `status`)
+7. [ ] Add `properties` to `Task`
+8. [ ] Thread schema selection from settings through parsing
+9. [ ] Add schema picker to Settings UI
 
-**Deliverable:** `task.properties` is populated correctly for the selected schema.
+**Deliverable:** `task.properties` is populated correctly for the selected schema, including the universal `status` property.
 
 ### Phase 2: Property Sort
 **Goal:** Sort tasks within a column by the configured property.
