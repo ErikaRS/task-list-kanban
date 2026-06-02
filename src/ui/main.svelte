@@ -680,7 +680,7 @@
 			<div class="board-header">
 				<div class="board-header-controls">
 					{#if $settingsStore.groupSource?.kind === "tag-prefix" || savedGroupings.length > 0}
-						<div class="prefix-filter-container" style="position: relative; display: flex; align-items: center; gap: 8px;">
+						<div class="prefix-filter-container" style="display: flex; align-items: center; gap: 8px;">
 							{#if $settingsStore.groupSource?.kind === "tag-prefix"}
 								<input
 									type="text"
@@ -699,10 +699,10 @@
 								{/if}
 							{/if}
 							{#if savedGroupings.length > 0}
-								<div class="saved-filters" style="position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 10;">
-									<details>
+								<div class="saved-filters" style="margin-left: 8px; margin-bottom: 0;">
+									<details style="position: relative;">
 										<summary>Saved groups</summary>
-										<ul role="list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+										<ul role="list" style="position: absolute; top: 100%; left: 0; z-index: 100; min-width: max-content; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
 											{#each savedGroupings as group}
 												<li>
 													<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</span>
@@ -925,8 +925,13 @@
 
 				ul {
 					margin: 0;
-					padding: 0;
+					padding: var(--size-2-2) !important;
 					list-style: none;
+					background: var(--background-primary);
+					border: 1px solid var(--background-modifier-border);
+					border-radius: var(--radius-m);
+					box-shadow: var(--shadow-s);
+					z-index: 100;
 
 					li {
 						margin: 0;

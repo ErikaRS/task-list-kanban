@@ -63,9 +63,9 @@
 	</label>
 
 	<div class="saved-filters">
-		<details>
+		<details style="position: relative;">
 			<summary>Saved filters</summary>
-			<ul role="list">
+			<ul role="list" style="position: absolute; top: 100%; left: 0; z-index: 100; min-width: max-content;">
 				{#each savedFilterOptions as option}
 					<li>
 						{#if onDeleteClick}
@@ -175,8 +175,17 @@
 
 			ul {
 				margin: 0;
-				padding: 0;
+				padding: var(--size-2-2) !important;
 				list-style: none;
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: var(--radius-m);
+				box-shadow: var(--shadow-s);
+				z-index: 100;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				align-items: flex-start;
 
 				li {
 					margin: 0;
