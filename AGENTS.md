@@ -16,3 +16,6 @@ When writing code, you must not finish until all of these succeed:
 ## ✍️ Attribution
 When creating commits with AI assistance, attribute the commit to the agent or
 agents that actually contributed to the change.
+
+## 🛑 Committing Changes
+DO NOT commit any changes until the user has explicitly had a chance to review them and given you permission to commit. Always stop and ask the user to test/review your work before running `git commit`.
