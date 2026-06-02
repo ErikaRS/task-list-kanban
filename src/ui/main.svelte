@@ -696,22 +696,7 @@
 							</button>
 						{/if}
 					{/if}
-					<div class="group-by-container" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
-						{#if savedGroupings.length > 0}
-							<div class="saved-filters">
-								<details>
-									<summary>Saved groups</summary>
-									<ul role="list">
-										{#each savedGroupings as group}
-											<li>
-												<button class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</button>
-												<button class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)}>{group.name}</button>
-											</li>
-										{/each}
-									</ul>
-								</details>
-							</div>
-						{/if}
+					<div class="group-by-container" style="position: relative; display: flex; align-items: center; gap: 8px;">
 						<select
 							class="dropdown group-by-select"
 							value={$settingsStore.groupSource?.kind ?? "none"}
@@ -731,6 +716,21 @@
 							<option value="file">Group by: File</option>
 							<option value="tag-prefix">Group by: Tag</option>
 						</select>
+						{#if savedGroupings.length > 0}
+							<div class="saved-filters" style="position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 10;">
+								<details>
+									<summary>Saved groups</summary>
+									<ul role="list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+										{#each savedGroupings as group}
+											<li>
+												<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</span>
+												<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && loadSavedGrouping(group.id)}>{group.name}</span>
+											</li>
+										{/each}
+									</ul>
+								</details>
+							</div>
+						{/if}
 					</div>
 					<span class="board-task-count" aria-live="polite" style="margin-left: 8px; margin-right: 8px;">
 						{#if isFiltered}
@@ -902,6 +902,81 @@
 				}
 			}
 		}
+		
+		.saved-filters {
+			margin-top: 0;
+			margin-bottom: var(--size-4-2);
+			font-size: var(--font-ui-small);
+
+			details {
+				summary {
+					cursor: pointer;
+					color: var(--text-muted);
+					padding: var(--size-2-1) 0;
+					user-select: none;
+					transition: color 0.15s ease;
+
+					&:hover {
+						color: var(--text-normal);
+					}
+				}
+
+				ul {
+					margin: 0;
+					padding: 0;
+					list-style: none;
+
+					li {
+						margin: 0;
+						display: flex;
+						align-items: center;
+						border-radius: var(--radius-s);
+						background: var(--background-primary);
+						border: 1px solid var(--background-modifier-border);
+						box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+						transition: background 0.15s ease;
+	
+						&:hover {
+							background: var(--background-modifier-hover);
+						}
+	
+						span[role="button"] {
+							text-align: left;
+							padding: var(--size-2-1) var(--size-2-2);
+							background: transparent;
+							border: none;
+							cursor: pointer;
+							color: var(--text-normal);
+							white-space: nowrap;
+							transition: color 0.15s ease;
+	
+							&.active {
+								font-weight: 700;
+								color: var(--interactive-accent);
+							}
+	
+							&.delete-btn {
+								padding: var(--size-2-1) 0 var(--size-2-1) var(--size-2-2);
+								display: flex;
+								align-items: center;
+								justify-content: center;
+								font-size: 18px;
+								line-height: 1;
+								color: var(--text-muted);
+	
+								&:hover {
+									color: var(--color-red);
+								}
+							}
+							
+							&.filter-text {
+								padding-left: var(--size-2-1);
+							}
+						}
+					}
+				}
+			}
+		}
 
 		.controls {
 			display: flex;
@@ -909,83 +984,6 @@
 			gap: var(--size-4-5);
 			padding: var(--size-4-4);
 			padding-top: 50px;
-
-			.saved-filters {
-				margin-top: 0;
-				margin-bottom: var(--size-4-2);
-				font-size: var(--font-ui-small);
-				align-self: flex-start;
-
-				details {
-					summary {
-						cursor: pointer;
-						color: var(--text-muted);
-						padding: var(--size-2-1) 0;
-						user-select: none;
-						transition: color 0.15s ease;
-
-						&:hover {
-							color: var(--text-normal);
-						}
-					}
-
-					ul {
-						margin: 0;
-						padding: 0;
-						list-style: none;
-
-						li {
-							margin: 0;
-							display: flex;
-							align-items: center;
-							border-radius: var(--radius-s);
-							background: var(--background-primary);
-							border: 1px solid var(--background-modifier-border);
-							box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-							transition: background 0.15s ease;
-		
-							&:hover {
-								background: var(--background-modifier-hover);
-							}
-		
-							button {
-								text-align: left;
-								padding: var(--size-2-1) var(--size-2-2);
-								background: transparent !important;
-								border: none !important;
-								box-shadow: none !important;
-								cursor: pointer;
-								color: var(--text-normal);
-								white-space: nowrap;
-								transition: color 0.15s ease;
-		
-								&.active {
-									font-weight: 700;
-									color: var(--interactive-accent);
-								}
-		
-								&.delete-btn {
-									padding: var(--size-2-1) 0 var(--size-2-1) var(--size-2-2);
-									display: flex;
-									align-items: center;
-									justify-content: center;
-									font-size: 18px;
-									line-height: 1;
-									color: var(--text-muted);
-		
-									&:hover {
-										color: var(--color-red);
-									}
-								}
-								
-								&:not(.delete-btn) {
-									padding-left: var(--size-2-1);
-								}
-							}
-						}
-					}
-				}
-			}
 
 			.text-filter,
 			.file-filter {

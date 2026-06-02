@@ -69,22 +69,29 @@
 				{#each savedFilterOptions as option}
 					<li>
 						{#if onDeleteClick}
-							<button 
+							<span
+								role="button"
+								tabindex="0"
 								class="delete-btn"
 								on:click={() => onDeleteClick?.(option.filter.id, option.displayText)}
+								on:keydown={(e) => e.key === 'Enter' && onDeleteClick?.(option.filter.id, option.displayText)}
 								aria-label="Delete filter: {option.displayText}"
 							>
 								×
-							</button>
+							</span>
 						{/if}
-						<button 
+						<span
+							role="button"
+							tabindex="0"
+							class="filter-text"
 							class:active={option.filter.id === activeFilterId}
 							on:click={() => handleSavedFilterSelect(option)}
+							on:keydown={(e) => e.key === 'Enter' && handleSavedFilterSelect(option)}
 							aria-label="Load saved filter: {option.displayText}"
 							aria-pressed={option.filter.id === activeFilterId}
 						>
 							{option.displayText}
-						</button>
+						</span>
 					</li>
 				{/each}
 			</ul>
@@ -182,12 +189,11 @@
 						background: var(--background-modifier-hover);
 					}
 
-					button {
+					span[role="button"] {
 						text-align: left;
 						padding: var(--size-2-1) var(--size-2-2);
-						background: transparent !important;
-						border: none !important;
-						box-shadow: none !important;
+						background: transparent;
+						border: none;
 						cursor: pointer;
 						color: var(--text-normal);
 						white-space: nowrap;
@@ -212,7 +218,7 @@
 							}
 						}
 						
-						&:not(.delete-btn) {
+						&.filter-text {
 							padding-left: var(--size-2-1);
 						}
 					}
