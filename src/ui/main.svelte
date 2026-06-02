@@ -92,14 +92,54 @@
 		return sortedA.every((tag, i) => tag === sortedB[i]);
 	}
 
-	let activeContentFilterId: string | undefined = undefined;
-	let activeTagFilterId: string | undefined = undefined;
-	let activeFileFilterId: string | undefined = undefined;
+	$: savedFilters = $settingsStore.savedFilters ?? [];
+	$: savedGroupings = $settingsStore.savedGroupings ?? [];
+
+	let activeContentFilterId: string | undefined;
+	let activeTagFilterId: string | undefined;
+	let activeFileFilterId: string | undefined;
+	let activeSavedGroupingId: string | undefined;
+
+	$: {
+		const src = $settingsStore.groupSource;
+		const matching = savedGroupings.find(g => 
+			g.source.kind === src?.kind && 
+			(src?.kind !== "tag-prefix" || g.source.prefix === src.prefix)
+		);
+		activeSavedGroupingId = matching?.id;
+	}
+
+	function saveCurrentGrouping() {
+		const src = $settingsStore.groupSource;
+		if (!src || src.kind === "none") return;
+		
+		const name = src.kind === "tag-prefix" && src.prefix ? src.prefix : 
+			(src.kind === "tag-prefix" ? "Tags" : "Files");
+			
+		const newGrouping = {
+			id: crypto.randomUUID(),
+			name,
+			source: { ...src },
+		};
+		$settingsStore.savedGroupings = [...savedGroupings, newGrouping];
+		requestSave();
+	}
+
+	function loadSavedGrouping(id: string) {
+		const grouping = savedGroupings.find(g => g.id === id);
+		if (grouping) {
+			$settingsStore.groupSource = { ...grouping.source };
+			requestSave();
+		}
+	}
+	
+	function deleteSavedGrouping(id: string) {
+		$settingsStore.savedGroupings = savedGroupings.filter(g => g.id !== id);
+		requestSave();
+	}
 
 	let deleteModalOpen = false;
 	let filterToDelete: { id: string; text: string; type: 'content' | 'tag' | 'file' } | null = null;
-
-	$: savedFilters = $settingsStore.savedFilters ?? [];
 
 	$: activeContentFilterId = filterText.trim()
 		? savedFilters.find(f => f.content?.text === filterText.trim())?.id
@@ -676,6 +716,26 @@
 							}}
 							style="width: 140px; font-size: var(--font-ui-small);"
 						/>
+						{#if !activeSavedGroupingId}
+							<button class="filter-action-btn save-btn" style="padding: 4px 8px; font-size: var(--font-ui-smaller);" on:click={saveCurrentGrouping}>
+								Save
+							</button>
+						{/if}
+					{/if}
+					{#if savedGroupings.length > 0}
+						<div class="saved-filters" style="margin-left: 8px;">
+							<details>
+								<summary>Saved groups</summary>
+								<ul role="list">
+									{#each savedGroupings as group}
+										<li>
+											<button class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</button>
+											<button class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)}>{group.name}</button>
+										</li>
+									{/each}
+								</ul>
+							</details>
+						</div>
 					{/if}
 					<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 				</div>

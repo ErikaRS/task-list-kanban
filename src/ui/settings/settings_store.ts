@@ -9,6 +9,12 @@ import {
 } from "../columns/definitions";
 import type { GroupSource } from "../tasks/task_grouping";
 
+export interface SavedGrouping {
+	id: string;
+	name: string;
+	source: GroupSource;
+}
+
 export enum VisibilityOption {
 	Auto = "auto",
 	NeverShow = "never",
@@ -70,6 +76,12 @@ const groupSourceSchema = z
 	.object({ kind: z.enum(["none", "file", "tag-prefix"]), prefix: z.string().optional() })
 	.catch({ kind: "none" as const });
 
+const savedGroupingSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	source: groupSourceSchema,
+});
+
 const columnDefinitionSchema = z.object({
 	id: z.string(),
 	label: z.string(),
@@ -99,6 +111,7 @@ const settingsObject = z.object({
 	cancelledStatusMarkers: z.string().default(DEFAULT_CANCELLED_STATUS_MARKERS).optional(),
 	ignoredStatusMarkers: z.string().default(DEFAULT_IGNORED_STATUS_MARKERS).optional(),
 	savedFilters: z.array(savedFilterSchema).default([]).optional(),
+	savedGroupings: z.array(savedGroupingSchema).default([]).optional(),
 	lastContentFilter: z.string().optional(),
 	lastTagFilter: z.array(z.string()).optional(),
 	lastFileFilter: z.array(z.string()).optional(),
@@ -129,6 +142,7 @@ export interface SettingValues {
 	cancelledStatusMarkers?: string;
 	ignoredStatusMarkers?: string;
 	savedFilters?: SavedFilter[];
+	savedGroupings?: SavedGrouping[];
 	lastContentFilter?: string;
 	lastTagFilter?: string[];
 	lastFileFilter?: string[];
