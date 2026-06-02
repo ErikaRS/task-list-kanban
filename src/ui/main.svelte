@@ -679,59 +679,61 @@
 		<div class="board-content">
 			<div class="board-header">
 				<div class="board-header-controls">
-					{#if $settingsStore.groupSource?.kind === "tag-prefix"}
-						<input
-							type="text"
-							placeholder="Prefix (e.g. Sprint-)"
-							value={$settingsStore.groupSource.prefix ?? ""}
-							on:change={(e) => {
-								$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
-								requestSave();
-							}}
-							style="width: 140px; font-size: var(--font-ui-small);"
-						/>
-						{#if !activeSavedGroupingId}
-							<button class="filter-action-btn save-btn" style="padding: 4px 8px; font-size: var(--font-ui-smaller);" on:click={saveCurrentGrouping}>
-								Save
-							</button>
-						{/if}
+					{#if $settingsStore.groupSource?.kind === "tag-prefix" || savedGroupings.length > 0}
+						<div class="prefix-filter-container" style="position: relative; display: flex; align-items: center; gap: 8px;">
+							{#if $settingsStore.groupSource?.kind === "tag-prefix"}
+								<input
+									type="text"
+									placeholder="Prefix (e.g. Sprint-)"
+									value={$settingsStore.groupSource.prefix ?? ""}
+									on:change={(e) => {
+										$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
+										requestSave();
+									}}
+									style="width: 140px; font-size: var(--font-ui-small);"
+								/>
+								{#if !activeSavedGroupingId}
+									<button class="filter-action-btn save-btn" style="padding: 4px 8px; font-size: var(--font-ui-smaller);" on:click={saveCurrentGrouping}>
+										Save
+									</button>
+								{/if}
+							{/if}
+							{#if savedGroupings.length > 0}
+								<div class="saved-filters" style="position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 10;">
+									<details>
+										<summary>Saved groups</summary>
+										<ul role="list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+											{#each savedGroupings as group}
+												<li>
+													<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</span>
+													<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && loadSavedGrouping(group.id)}>{group.name}</span>
+												</li>
+											{/each}
+										</ul>
+									</details>
+								</div>
+							{/if}
+						</div>
 					{/if}
-					<div class="group-by-container" style="position: relative; display: flex; align-items: center; gap: 8px;">
-						<select
-							class="dropdown group-by-select"
-							value={$settingsStore.groupSource?.kind ?? "none"}
-							on:change={(e) => {
-								const val = e.currentTarget.value;
-								if (val === "file") {
-									$settingsStore.groupSource = { kind: "file" };
-								} else if (val === "tag-prefix") {
-									$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
-								} else {
-									$settingsStore.groupSource = { kind: "none" };
-								}
-								requestSave();
-							}}
-						>
-							<option value="none">Group by: (none)</option>
-							<option value="file">Group by: File</option>
-							<option value="tag-prefix">Group by: Tag</option>
-						</select>
-						{#if savedGroupings.length > 0}
-							<div class="saved-filters" style="position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 10;">
-								<details>
-									<summary>Saved groups</summary>
-									<ul role="list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
-										{#each savedGroupings as group}
-											<li>
-												<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</span>
-												<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && loadSavedGrouping(group.id)}>{group.name}</span>
-											</li>
-										{/each}
-									</ul>
-								</details>
-							</div>
-						{/if}
-					</div>
+					<select
+						class="dropdown group-by-select"
+						value={$settingsStore.groupSource?.kind ?? "none"}
+						on:change={(e) => {
+							const val = e.currentTarget.value;
+							if (val === "file") {
+								$settingsStore.groupSource = { kind: "file" };
+							} else if (val === "tag-prefix") {
+								$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
+							} else {
+								$settingsStore.groupSource = { kind: "none" };
+							}
+							requestSave();
+						}}
+					>
+						<option value="none">Group by: (none)</option>
+						<option value="file">Group by: File</option>
+						<option value="tag-prefix">Group by: Tag</option>
+					</select>
 					<span class="board-task-count" aria-live="polite" style="margin-left: 8px; margin-right: 8px;">
 						{#if isFiltered}
 							{filteredTaskCount} of {totalTaskCount} tasks
