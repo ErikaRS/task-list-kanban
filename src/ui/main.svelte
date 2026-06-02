@@ -687,17 +687,21 @@
 										type="text"
 										placeholder="Prefix (e.g. Sprint-)"
 										value={$settingsStore.groupSource.prefix ?? ""}
-										on:change={(e) => {
+										on:input={(e) => {
 											$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
+											activeSavedGroupingId = null;
 											requestSave();
 										}}
 										style="width: 140px; font-size: var(--font-ui-small);"
 									/>
-									{#if !activeSavedGroupingId}
-										<button class="filter-action-btn save-btn" style="padding: 4px 8px; font-size: var(--font-ui-smaller);" on:click={saveCurrentGrouping}>
-											Save
-										</button>
-									{/if}
+									<button 
+										class="filter-action-btn save-btn" 
+										style="padding: 4px 8px; font-size: var(--font-ui-smaller);" 
+										on:click={saveCurrentGrouping}
+										disabled={!!activeSavedGroupingId}
+									>
+										Save
+									</button>
 								{/if}
 							</div>
 							{#if savedGroupings.length > 0}
@@ -900,6 +904,7 @@
 				display: flex;
 				align-items: flex-start;
 				gap: var(--size-4-2);
+				min-height: 54px; /* prevent shifting when saved groups is toggled */
 
 				.group-by-select {
 					font-size: var(--font-ui-smaller);
