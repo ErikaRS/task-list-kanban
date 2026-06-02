@@ -72,7 +72,7 @@ Scope notes:
 type GroupSource =
   | { kind: "none" }
   | { kind: "file" }
-  | { kind: "tag-prefix"; prefix: string }
+  | { kind: "tag-prefix"; prefix?: string }
   | { kind: "property"; key: string };
 ```
 
@@ -93,15 +93,20 @@ Rules:
 
 - derived from all tasks in the current board scope
 - file buckets are sorted by vault-relative path
-- tag-prefix buckets are matched case-insensitively, sorted alphabetically by their label (the suffix after the prefix), with the "Unassigned" bucket always last
+- tag-prefix buckets (with or without a prefix) are matched case-insensitively, sorted alphabetically by their label, with the "Unassigned" bucket always last
 - future property buckets are sorted by typed comparator with null last
 - materialized even when a given primary bucket has no tasks in that group
 
 #### Tag Prefix Group Buckets Detail
-- **Matching**: For a `tag-prefix` group source with prefix `Project-`, tasks are matched by tags starting with `#Project-` (case-insensitive).
-- **Label & Value**: The bucket label is the suffix of the tag following the prefix (e.g. `#Project-Alpha` -> label is `Alpha`). Suffixes are displayed as-is (preserving case) but compared case-insensitively for sorting.
-- **Multiple Matches**: If a task has multiple tags starting with the prefix, it determines the bucket using the first matching tag.
-- **Unassigned Bucket**: Tasks that do not contain any tag matching the prefix are assigned to an unassigned bucket with ID `tag-prefix:unassigned` and label `Unassigned`.
+- **Matching with Prefix**: For a `tag-prefix` group source with prefix `Project-`, tasks are matched by tags starting with `#Project-` (case-insensitive).
+- **Matching without Prefix (Empty Prefix)**: If no prefix is specified (or is empty), the group source matches *all* tags present on tasks in the board scope, *except* for tags listed in the `excludedTags` setting.
+- **Label & Value**:
+  - *With Prefix*: The bucket label is the suffix of the tag following the prefix (e.g. `#Project-Alpha` -> label is `Alpha`). Suffixes are displayed as-is (preserving case) but compared case-insensitively for sorting.
+  - *Without Prefix*: The bucket label is the full tag name as-is (e.g. `#Active` -> label is `Active`).
+- **Multiple Matches**:
+  - *With Prefix*: If a task has multiple tags starting with the prefix, it determines the bucket using the first matching tag.
+  - *Without Prefix*: If a task has multiple non-excluded tags, it is mapped to the bucket of its first non-excluded tag by alphabetical order.
+- **Unassigned Bucket**: Tasks that do not contain any matching tag are assigned to an unassigned bucket with ID `tag-prefix:unassigned` and label `Unassigned`.
 
 ### Tag Exclusion List
 
@@ -146,10 +151,11 @@ This spec owns that extension because grouped ordering depends on grouping seman
 ```text
 Grouping & Swimlanes
 Group by:      [ (none) ▼ ]
-               (none) / By file / By tag prefix / [future parsed property keys]
+               (none) / By file / By tag / [future parsed property keys]
 
-  [if Group by == By tag prefix]
-  Tag prefix:  [ e.g., Project- ]
+  [if Group by == By tag]
+  Tag prefix:  [ e.g., Project- (Optional) ]
+               (Leave empty to group by all tags except excluded)
 
 Tag Exclusion List
 Excluded tags: [ Tag inputs or text box ]
@@ -205,11 +211,20 @@ When grouping by file, dropping tasks into another file swimlane moves those tas
 ### Tag Prefix Swimlane Drag
 
 When grouping by tag prefix, dropping tasks into another tag prefix swimlane moves those tasks into that destination group. This performs a tag write-back on the task:
-1. Identify any existing tag on the task starting with the prefix (case-insensitive) and remove it.
-2. Add the new tag matching the destination swimlane prefix + suffix (e.g. if the prefix is `Project-` and the destination swimlane is `Beta`, add the tag `#Project-Beta` to the task).
-3. If dragged to a different column as well, apply the column's status/tag changes simultaneously.
-4. Dropping within the same tag prefix swimlane but into another column applies only the column change.
-5. Dropping into the `Unassigned` swimlane removes any tags starting with the prefix from the task.
+
+- **With Prefix**:
+  1. Identify any existing tag on the task starting with the prefix (case-insensitive) and remove it.
+  2. Add the new tag matching the destination swimlane prefix + suffix (e.g. if the prefix is `Project-` and the destination swimlane is `Beta`, add the tag `#Project-Beta` to the task).
+  3. Dropping into the `Unassigned` swimlane removes any tags starting with the prefix from the task.
+
+- **Without Prefix (Empty Prefix)**:
+  1. Identify the tag corresponding to the source swimlane (e.g. if dragging from `Home` to `Errand`, identify `Home`) and remove it from the task.
+  2. Add the new tag corresponding to the destination swimlane (e.g. add `#Errand` to the task).
+  3. Dropping into the `Unassigned` swimlane removes all non-excluded tags from the task.
+
+In both cases:
+- If dragged to a different column as well, apply the column's status/tag changes simultaneously.
+- Dropping within the same tag prefix swimlane but into another column applies only the column change.
 
 This behavior is implemented for file and tag prefix grouping. Property swimlane drag that writes back a parsed property remains out of scope until property parsing/write-back semantics exist.
 
@@ -314,16 +329,16 @@ src/
 **Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [b2b0928](https://github.com/ErikaRS/task-list-kanban/commit/b2b0928)
 
 ### Phase 4.6: Tag Prefix Grouping & Exclusions
-**Goal:** Group tasks by tag prefix and hide specified tags.
+**Goal:** Group tasks by tag (with optional prefix) and hide specified tags.
 
-1. [ ] Add `tag-prefix` kind to `GroupSource` setting in `settings_store.ts`.
-2. [ ] Extend `deriveGroupBuckets` in `task_grouping.ts` to support tag prefix grouping, extracting suffix labels and sorting with unassigned last.
-3. [ ] Update `taskBelongsToGroup` in `task_grouping.ts` for tag prefix grouping.
-4. [ ] Implement tag prefix swimlane drag: strip old prefix tag, write back new prefix tag on drop.
+1. [ ] Add `tag-prefix` kind to `GroupSource` setting in `settings_store.ts`, with optional `prefix`.
+2. [ ] Extend `deriveGroupBuckets` in `task_grouping.ts` to support tag prefix grouping (and empty prefix general tag grouping), extracting labels and sorting with unassigned last.
+3. [ ] Update `taskBelongsToGroup` in `task_grouping.ts` for tag prefix grouping (with and without prefix).
+4. [ ] Implement tag prefix/general swimlane drag and drop: strip source tag and add new destination tag on drop.
 5. [ ] Add `excludedTags: string[]` to settings store and `settings.ts`.
 6. [ ] Implement filtering of `excludedTags` from task card tags and strip them from task content.
 7. [ ] Add "Exclude column tags" button to settings page to autopopulate `excludedTags`.
-8. [ ] Test: Verify tag prefix swimlanes display correctly, drag updates tags, and excluded tags are hidden.
+8. [ ] Test: Verify tag prefix and empty prefix swimlanes display correctly, drag updates tags, and excluded tags are hidden.
 
 **Deliverable:** Kanban board supports tag prefix swimlanes with cross-swimlane drag, and tag exclusions.
 
