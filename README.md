@@ -79,6 +79,14 @@ To help you organize complex projects, you can group tasks on your board. You ca
   - Dragging a task card into a different file swimlane/section moves the underlying task into that destination markdown file, while applying the destination column's status or tag changes.
   - Dragging a task card within the same file swimlane/section to a different column only updates its column/tag.
 
+**Group by Tag**: Group all tasks on your board by tags matching a configured tag prefix, or group by all tags if the prefix is left empty (excluding any tags in the exclusion list).
+- **Swimlanes & Stacks**: Just like file grouping, tag grouping supports both horizontal swimlane rows and vertical section headers based on active tags.
+- **Tag Swimlane Drag and Drop**: Dragging a task card into a different tag swimlane automatically updates the task's tags in the underlying markdown file:
+  - *With Prefix*: Replaces the matching prefix tag with the new destination tag. Dragging to the `Unassigned` swimlane removes the prefix tag.
+  - *Without Prefix*: Replaces the dragged tag with the new destination tag. Dragging to `Unassigned` removes all non-excluded tags from the task.
+- **Saved Groupings**: Save and manage frequently used tag grouping setups (tag prefix and exclusion lists) directly in the header (next to the Group By dropdown).
+- **Tag Exclusion List**: Add tags to the "Excluded tags" setting to filter them out of task cards and the consolidated tag footer. A settings button lets you automatically exclude all tags mapped to active columns.
+
 ### Folder Scope
 
 **This folder** (default): The kanban shows tasks from files in the same folder as the kanban file.
