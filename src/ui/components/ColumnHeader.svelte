@@ -177,11 +177,10 @@
 		>{collapseIcon}</button>
 		<div class="column-title-group">
 			<h2 id="column-title-{column}" title={columnTitle}>{columnTitle}</h2>
-			{#if showColumnMatchTags}
-				<div class="column-match-tags">{columnMatchTags.map((tag) => `#${tag}`).join(" ")}</div>
-			{/if}
 		</div>
-		<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
+		{#if isCollapsed}
+			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
+		{/if}
 		<div class="header-menu">
 			<!-- Done / Select segmented toggle -->
 			{#if !isCollapsed}
@@ -219,6 +218,16 @@
 			{/if}
 		</div>
 	</div>
+	{#if !isCollapsed}
+		<div class="column-meta">
+			{#if showColumnMatchTags}
+				<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
+					{columnMatchTags.map((tag) => `#${tag}`).join(" ")}
+				</div>
+			{/if}
+			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
+		</div>
+	{/if}
 	{#if isSelectMode && selectedCount > 0}
 		<div class="selection-info" aria-live="polite">
 			{selectedCount} selected
@@ -354,16 +363,6 @@
 			line-height: 1.2;
 		}
 
-		.column-match-tags {
-			font-size: var(--font-ui-small);
-			color: var(--text-muted);
-			overflow: visible;
-			text-overflow: unset;
-			white-space: normal;
-			overflow-wrap: anywhere;
-			line-height: 1.3;
-		}
-
 		.task-count {
 			font-size: var(--font-ui-small);
 			color: var(--text-muted);
@@ -414,16 +413,14 @@
 	.mode-toggle {
 		display: flex;
 		align-items: center;
-		background: var(--background-primary);
-		border: var(--border-width) solid var(--background-modifier-border);
+		background: var(--background-modifier-form-field, var(--background-secondary));
 		border-radius: var(--radius-s);
 		padding: 2px;
 		gap: 0;
-		box-shadow: var(--input-shadow);
 
 		.mode-btn {
-			font-size: var(--font-ui-small);
-			padding: 3px 9px;
+			font-size: var(--font-ui-smaller);
+			padding: 2px 6px;
 			border: none;
 			background: transparent;
 			color: var(--text-muted);
@@ -432,7 +429,7 @@
 			transition: background 0.15s ease, color 0.15s ease;
 			white-space: nowrap;
 			box-shadow: none;
-			line-height: 1.4;
+			line-height: 1.2;
 
 			&:hover {
 				background: transparent;
@@ -441,8 +438,9 @@
 			}
 
 			&.active {
-				background: var(--interactive-normal);
+				background: var(--background-primary);
 				color: var(--text-normal);
+				box-shadow: var(--input-shadow);
 				font-weight: var(--font-medium);
 			}
 
@@ -451,6 +449,31 @@
 				outline-offset: 1px;
 			}
 		}
+	}
+
+	.column-meta {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2-1);
+		width: 100%;
+		align-items: flex-start;
+
+		.task-count {
+			font-size: var(--font-ui-small);
+			color: var(--text-muted);
+			white-space: nowrap;
+			line-height: 1.3;
+		}
+	}
+
+	.column-match-tags {
+		font-size: var(--font-ui-small);
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		line-height: 1.3;
+		width: 100%;
 	}
 
 	.selection-info {
