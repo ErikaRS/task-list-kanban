@@ -175,22 +175,22 @@
 					margin: 0;
 					display: flex;
 					align-items: center;
-					gap: var(--size-2-1);
+					border-radius: var(--radius-s);
+					transition: background 0.15s ease;
+
+					&:hover {
+						background: var(--background-modifier-hover);
+					}
 
 					button {
 						text-align: left;
 						padding: var(--size-2-1) var(--size-2-2);
-						background: transparent;
+						background: transparent !important;
 						border: none;
 						cursor: pointer;
 						color: var(--text-normal);
-						border-radius: var(--radius-s);
 						white-space: nowrap;
-						transition: background 0.15s ease, color 0.15s ease;
-
-						&:hover {
-							background: var(--background-modifier-hover);
-						}
+						transition: color 0.15s ease;
 
 						&.active {
 							font-weight: 700;
@@ -198,9 +198,7 @@
 						}
 
 						&.delete-btn {
-							padding: 0;
-							width: 20px;
-							height: 20px;
+							padding: var(--size-2-1) 0 var(--size-2-1) var(--size-2-2);
 							display: flex;
 							align-items: center;
 							justify-content: center;
@@ -210,8 +208,11 @@
 
 							&:hover {
 								color: var(--color-red);
-								background: var(--background-modifier-error-hover);
 							}
+						}
+						
+						&:not(.delete-btn) {
+							padding-left: var(--size-2-1);
 						}
 					}
 				}

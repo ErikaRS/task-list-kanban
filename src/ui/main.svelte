@@ -678,33 +678,7 @@
 
 		<div class="board-content">
 			<div class="board-header">
-				<span class="board-task-count" aria-live="polite">
-					{#if isFiltered}
-						{filteredTaskCount} of {totalTaskCount} tasks
-					{:else}
-						Total: {totalTaskCount} tasks
-					{/if}
-				</span>
 				<div class="board-header-controls">
-					<select
-						class="dropdown group-by-select"
-						value={$settingsStore.groupSource?.kind ?? "none"}
-						on:change={(e) => {
-							const val = e.currentTarget.value;
-							if (val === "file") {
-								$settingsStore.groupSource = { kind: "file" };
-							} else if (val === "tag-prefix") {
-								$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
-							} else {
-								$settingsStore.groupSource = { kind: "none" };
-							}
-							requestSave();
-						}}
-					>
-						<option value="none">Group by: (none)</option>
-						<option value="file">Group by: File</option>
-						<option value="tag-prefix">Group by: Tag</option>
-					</select>
 					{#if $settingsStore.groupSource?.kind === "tag-prefix"}
 						<input
 							type="text"
@@ -737,6 +711,32 @@
 							</details>
 						</div>
 					{/if}
+					<select
+						class="dropdown group-by-select"
+						value={$settingsStore.groupSource?.kind ?? "none"}
+						on:change={(e) => {
+							const val = e.currentTarget.value;
+							if (val === "file") {
+								$settingsStore.groupSource = { kind: "file" };
+							} else if (val === "tag-prefix") {
+								$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
+							} else {
+								$settingsStore.groupSource = { kind: "none" };
+							}
+							requestSave();
+						}}
+					>
+						<option value="none">Group by: (none)</option>
+						<option value="file">Group by: File</option>
+						<option value="tag-prefix">Group by: Tag</option>
+					</select>
+					<span class="board-task-count" aria-live="polite" style="margin-left: 8px; margin-right: 8px;">
+						{#if isFiltered}
+							{filteredTaskCount} of {totalTaskCount} tasks
+						{:else}
+							Total: {totalTaskCount} tasks
+						{/if}
+					</span>
 					<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 				</div>
 			</div>
@@ -936,43 +936,44 @@
 							margin: 0;
 							display: flex;
 							align-items: center;
-							gap: var(--size-4-2);
-
+							border-radius: var(--radius-s);
+							transition: background 0.15s ease;
+		
+							&:hover {
+								background: var(--background-modifier-hover);
+							}
+		
 							button {
 								text-align: left;
 								padding: var(--size-2-1) var(--size-2-2);
-								background: transparent;
+								background: transparent !important;
 								border: none;
 								cursor: pointer;
 								color: var(--text-normal);
-								border-radius: var(--radius-s);
 								white-space: nowrap;
-								transition: background 0.15s ease, color 0.15s ease;
-
-								&:hover {
-									background: var(--background-modifier-hover);
-								}
-
+								transition: color 0.15s ease;
+		
 								&.active {
 									font-weight: 700;
 									color: var(--interactive-accent);
 								}
-
+		
 								&.delete-btn {
-									padding: 0;
-									width: 20px;
-									height: 20px;
+									padding: var(--size-2-1) 0 var(--size-2-1) var(--size-2-2);
 									display: flex;
 									align-items: center;
 									justify-content: center;
 									font-size: 18px;
 									line-height: 1;
 									color: var(--text-muted);
-
+		
 									&:hover {
 										color: var(--color-red);
-										background: var(--background-modifier-error-hover);
 									}
+								}
+								
+								&:not(.delete-btn) {
+									padding-left: var(--size-2-1);
 								}
 							}
 						}
