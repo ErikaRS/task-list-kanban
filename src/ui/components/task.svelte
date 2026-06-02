@@ -495,7 +495,7 @@
 			content: "";
 			position: absolute;
 			inset: 0 auto 0 0;
-			width: 10px;
+			width: 8px;
 			background: var(--task-accent);
 		}
 
@@ -516,9 +516,9 @@
 
 		// Task row
 			.task-row {
-				padding: var(--size-4-3) var(--size-4-3) var(--size-4-3) calc(var(--size-4-3) + 10px);
+				padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) calc(var(--size-4-2) + 8px);
 				display: flex;
-				gap: 10px;
+				gap: var(--size-2-3);
 				align-items: flex-start;
 
 				.task-row-left {
@@ -526,9 +526,9 @@
 					align-items: center;
 					justify-content: center;
 					flex-shrink: 0;
-					width: 20px;
-					height: 20px;
-					margin-top: 3px;
+					width: 18px;
+					height: 18px;
+					margin-top: 2px;
 				}
 
 			.task-row-content {
@@ -555,7 +555,7 @@
 					display: flex;
 					align-items: center;
 					flex-shrink: 0;
-					margin-top: -2px;
+					margin-top: -4px;
 				}
 			}
 
@@ -564,8 +564,8 @@
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			width: 24px;
-			height: 24px;
+			width: 22px;
+			height: 22px;
 			padding: 0;
 			border: none;
 			background: transparent;
@@ -600,8 +600,7 @@
 		.task-footer {
 			border-top: var(--border-width) solid
 				var(--background-modifier-border);
-			padding: var(--size-4-2) var(--size-4-3) var(--size-4-2) calc(var(--size-4-3) + 10px);
-			padding-top: var(--size-4-1);
+			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
 
 			.go-to-file-button {
 				display: flex;
@@ -646,7 +645,7 @@
 					white-space: normal;
 					flex: 1;
 					min-width: 0;
-					line-height: 1.3;
+					line-height: 1.2;
 				}
 			}
 		}
@@ -654,18 +653,18 @@
 		.task-tags {
 			display: flex;
 			flex-wrap: wrap;
-			gap: 6px;
-			padding: 0 var(--size-4-3) var(--size-4-3) calc(var(--size-4-3) + 10px);
-			margin-top: -4px;
+			gap: var(--size-2-1);
+			padding: 0 var(--size-4-2) var(--size-4-2) calc(var(--size-4-2) + 8px);
+			margin-top: calc(-1 * var(--size-2-2));
 
 			span {
 				background-color: var(--background-secondary);
 				color: var(--text-muted);
 				border: 1px solid var(--background-modifier-border);
 				border-radius: var(--radius-s);
-				padding: 2px 6px;
+				padding: 1px 5px;
 				font-size: var(--font-ui-smaller);
-				line-height: 1.2;
+				line-height: 1.1;
 				display: inline-flex;
 				align-items: center;
 				transition: color 0.15s ease, border-color 0.15s ease;

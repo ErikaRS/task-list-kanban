@@ -399,8 +399,8 @@
 		.tasks {
 			display: flex;
 			flex-direction: column;
-			gap: var(--size-4-3);
-			padding-top: var(--size-4-4);
+			gap: var(--size-4-2);
+			padding-top: var(--size-4-2);
 		}
 
 		.new-task-input {
@@ -426,11 +426,25 @@
 			border-radius: 0;
 			box-shadow: none;
 			margin: 0;
-			min-height: 32px;
+			min-height: 26px;
+			padding: 2px var(--size-4-2);
+			font-size: var(--font-ui-small);
 			font-weight: var(--font-medium);
+			line-height: 1.2;
 
 			span {
-				height: 18px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 15px;
+				height: 15px;
+				flex: 0 0 15px;
+			}
+
+			span :global(svg) {
+				width: 15px;
+				height: 15px;
+				display: block;
 			}
 		}
 
@@ -442,11 +456,13 @@
 			border-radius: var(--radius-s);
 			overflow: hidden;
 			background-color: var(--interactive-normal);
-			box-shadow: var(--input-shadow);
+			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 		}
 
 		:global(.add-new-picker-btn) {
 			flex-shrink: 0;
+			width: 28px;
+			height: 26px;
 			border: 0;
 			border-left: var(--border-width) solid var(--background-modifier-border);
 			border-radius: 0;

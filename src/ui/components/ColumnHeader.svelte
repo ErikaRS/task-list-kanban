@@ -193,12 +193,12 @@
 	</div>
 	{#if !isCollapsed}
 		<div class="column-meta">
-			{#if showColumnMatchTags}
-				<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
-					{columnMatchTags.map((tag) => `#${tag}`).join(" ")}
-				</div>
-			{/if}
-			<div class="column-meta-bottom">
+			<div class="column-meta-line">
+				{#if showColumnMatchTags}
+					<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
+						{columnMatchTags.map((tag) => `#${tag}`).join(" ")}
+					</div>
+				{/if}
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 				<div
 					class="mode-toggle"
@@ -242,13 +242,13 @@
 		--column-header-y-padding: var(--column-header-y-padding-override, var(--size-4-4));
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4-3);
+		gap: var(--size-2-3);
 
 		&::before {
 			content: "";
 			display: block;
 			width: calc(100% + calc(2 * var(--column-header-x-padding)));
-			height: 34px;
+			height: 12px;
 			margin: calc(-1 * var(--column-header-y-padding))
 				calc(-1 * var(--column-header-x-padding)) 0;
 			border-radius: 2px;
@@ -334,8 +334,8 @@
 
 	.header {
 		display: flex;
-		align-items: flex-start;
-		min-height: 24px;
+		align-items: center;
+		min-height: 22px;
 		width: 100%;
 		flex-shrink: 0;
 		gap: var(--size-4-2);
@@ -349,7 +349,7 @@
 		}
 
 		h2 {
-			font-size: var(--font-ui-large);
+			font-size: var(--font-ui-medium);
 			font-weight: var(--font-bold);
 			margin: 0;
 			overflow: hidden;
@@ -372,7 +372,7 @@
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-1);
-			height: 28px;
+			height: 24px;
 		}
 
 		.collapse-btn {
@@ -382,7 +382,7 @@
 			color: var(--text-muted);
 			padding: 0;
 			width: 20px;
-			height: 28px;
+			height: 24px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
@@ -412,10 +412,15 @@
 		border-radius: var(--radius-s);
 		padding: 2px;
 		gap: 0;
+		width: fit-content;
+		max-width: 100%;
+		flex: 0 0 auto;
 
 		.mode-btn {
 			font-size: var(--font-ui-smaller);
-			padding: 2px 6px;
+			padding: 1px 5px;
+			min-width: 0;
+			width: auto;
 			border: none;
 			background: transparent;
 			color: var(--text-muted);
@@ -453,18 +458,21 @@
 		width: 100%;
 		align-items: flex-start;
 
-		.column-meta-bottom {
+		.column-meta-line {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			width: 100%;
-			gap: var(--size-4-2);
+			gap: var(--size-2-3);
+			min-width: 0;
 
 			.task-count {
 				font-size: var(--font-ui-small);
 				color: var(--text-muted);
 				white-space: nowrap;
 				line-height: 1.3;
+				margin-left: auto;
+				flex: 0 0 auto;
 			}
 		}
 	}
@@ -476,7 +484,8 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		line-height: 1.3;
-		width: 100%;
+		min-width: 0;
+		flex: 1 1 auto;
 	}
 
 	.selection-info {
