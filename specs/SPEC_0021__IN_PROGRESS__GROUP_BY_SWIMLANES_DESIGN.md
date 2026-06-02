@@ -16,6 +16,7 @@ Current implementation status, as of 2026-05:
 - File grouping is implemented with `groupSource: { kind: "file" }`.
 - Horizontal and vertical grouped presentations are implemented through the matrix renderers.
 - File swimlane drag is implemented for moving tasks between source files while preserving column placement.
+- Tag prefix grouping (e.g. swimlanes based on `#Project-` tags) and tag exclusion list settings are planned/designed.
 - Property grouping and grouped manual ordering remain future work.
 
 Dependency sequencing:
@@ -37,12 +38,14 @@ GitHub issues reviewed for this spec:
   - Sorting infrastructure belongs to `SPEC 0020`; this spec covers grouping.
 - [#81](https://github.com/ErikaRS/task-list-kanban/issues/81) — FR: Add Horizontal Swimlanes to Kanban Board
   - This spec covers grouped swimlane-style layout, but not cross-group property editing or collapsible swimlanes.
+- [#136](https://github.com/ErikaRS/task-list-kanban/issues/136) — FR: Support group by Tag prefix
+  - This spec covers grouping by tag prefix, cross-swimlane drag for tag prefixes, and the accompanying tag exclusion list.
 
 Scope notes:
 
-- This spec covers grouping by file first, then by parsed property after property metadata exists.
+- This spec covers grouping by file first, then by tag prefix, and then by parsed property after property metadata exists.
 - This spec covers swimlane-style presentation through the board-matrix renderers.
-- This spec covers cross-file drag for file swimlanes.
+- This spec covers cross-file drag for file swimlanes and cross-tag drag for tag prefix swimlanes.
 - This spec does not cover cross-group drag that edits an underlying parsed property value.
 - This spec does not cover collapsible swimlane sections.
 
@@ -50,12 +53,14 @@ Scope notes:
 
 ## User Requirements
 
-1. The user can enable grouping by file or by a parsed property key.
+1. The user can enable grouping by file, by a tag prefix, or by a parsed property key.
 2. Grouping should use the same semantic group buckets regardless of flow direction.
 3. Every primary bucket should render every group bucket, including empty ones.
 4. Horizontal flows should present grouping as swimlane-like rows across the board.
 5. Vertical flows should present the same grouping semantics using repeated local section headers inside each stacked primary bucket.
 6. Grouping should compose with property sort and manual ordering.
+7. The user can configure a tag exclusion list to omit specific tags from task card displays and the consolidated tag footer.
+8. The user can automatically populate the tag exclusion list with all tags matching column names via a settings button.
 
 ---
 
@@ -67,6 +72,7 @@ Scope notes:
 type GroupSource =
   | { kind: "none" }
   | { kind: "file" }
+  | { kind: "tag-prefix"; prefix: string }
   | { kind: "property"; key: string };
 ```
 
@@ -87,8 +93,23 @@ Rules:
 
 - derived from all tasks in the current board scope
 - file buckets are sorted by vault-relative path
+- tag-prefix buckets are matched case-insensitively, sorted alphabetically by their label (the suffix after the prefix), with the "Unassigned" bucket always last
 - future property buckets are sorted by typed comparator with null last
 - materialized even when a given primary bucket has no tasks in that group
+
+#### Tag Prefix Group Buckets Detail
+- **Matching**: For a `tag-prefix` group source with prefix `Project-`, tasks are matched by tags starting with `#Project-` (case-insensitive).
+- **Label & Value**: The bucket label is the suffix of the tag following the prefix (e.g. `#Project-Alpha` -> label is `Alpha`). Suffixes are displayed as-is (preserving case) but compared case-insensitively for sorting.
+- **Multiple Matches**: If a task has multiple tags starting with the prefix, it determines the bucket using the first matching tag.
+- **Unassigned Bucket**: Tasks that do not contain any tag matching the prefix are assigned to an unassigned bucket with ID `tag-prefix:unassigned` and label `Unassigned`.
+
+### Tag Exclusion List
+
+To prevent tags that serve structural purposes (such as column mapping or swimlane grouping) from cluttering task cards, a tag exclusion list setting is supported:
+
+- **Setting**: `excludedTags: string[]` stores a list of tags (without the leading `#` character).
+- **Display**: Any tag in `excludedTags` is filtered out of `task.tags` and omitted from the consolidated tag footer. It is also stripped from card text content when `consolidateTags = true` or when matching the active column.
+- **Autopopulate Button**: A button in settings titled "Exclude column tags" automatically adds all tags currently mapped to columns in `settings.columns` to the `excludedTags` list.
 
 The preferred first validation case is `group by file`, because it exercises grouping independently of property parsing complexity.
 
@@ -123,15 +144,23 @@ This spec owns that extension because grouped ordering depends on grouping seman
 ## Settings UI
 
 ```text
-Grouping
-Group by: [ (none) ▼ ]
-          (none) / By file / [future parsed property keys]
+Grouping & Swimlanes
+Group by:      [ (none) ▼ ]
+               (none) / By file / By tag prefix / [future parsed property keys]
+
+  [if Group by == By tag prefix]
+  Tag prefix:  [ e.g., Project- ]
+
+Tag Exclusion List
+Excluded tags: [ Tag inputs or text box ]
+               [ Exclude column tags button ]
 ```
 
 Behavior:
 
-- `By file` available regardless of property schema
+- `By file` and `By tag prefix` are available regardless of property schema
 - property-key choices are future work and depend on parsed property availability from `SPEC 0020`
+- `Exclude column tags` button scans current column definitions and adds their match tags to the exclusion list
 - changing flow direction changes grouped presentation, not the grouping setting itself
 
 ---
@@ -173,7 +202,16 @@ When grouping is on and manual ordering is enabled:
 
 When grouping by file, dropping tasks into another file swimlane moves those tasks into the destination source file and applies the target primary bucket's column placement. Dropping within the same file swimlane but into another primary bucket applies only the column change.
 
-This behavior is implemented for file grouping only. Property swimlane drag that writes back a parsed property remains out of scope until property parsing/write-back semantics exist.
+### Tag Prefix Swimlane Drag
+
+When grouping by tag prefix, dropping tasks into another tag prefix swimlane moves those tasks into that destination group. This performs a tag write-back on the task:
+1. Identify any existing tag on the task starting with the prefix (case-insensitive) and remove it.
+2. Add the new tag matching the destination swimlane prefix + suffix (e.g. if the prefix is `Project-` and the destination swimlane is `Beta`, add the tag `#Project-Beta` to the task).
+3. If dragged to a different column as well, apply the column's status/tag changes simultaneously.
+4. Dropping within the same tag prefix swimlane but into another column applies only the column change.
+5. Dropping into the `Unassigned` swimlane removes any tags starting with the prefix from the task.
+
+This behavior is implemented for file and tag prefix grouping. Property swimlane drag that writes back a parsed property remains out of scope until property parsing/write-back semantics exist.
 
 ### Flow Direction
 
@@ -274,6 +312,20 @@ src/
 **Deliverable:** File swimlane drag moves tasks between files and columns.
 
 **Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [b2b0928](https://github.com/ErikaRS/task-list-kanban/commit/b2b0928)
+
+### Phase 4.6: Tag Prefix Grouping & Exclusions
+**Goal:** Group tasks by tag prefix and hide specified tags.
+
+1. [ ] Add `tag-prefix` kind to `GroupSource` setting in `settings_store.ts`.
+2. [ ] Extend `deriveGroupBuckets` in `task_grouping.ts` to support tag prefix grouping, extracting suffix labels and sorting with unassigned last.
+3. [ ] Update `taskBelongsToGroup` in `task_grouping.ts` for tag prefix grouping.
+4. [ ] Implement tag prefix swimlane drag: strip old prefix tag, write back new prefix tag on drop.
+5. [ ] Add `excludedTags: string[]` to settings store and `settings.ts`.
+6. [ ] Implement filtering of `excludedTags` from task card tags and strip them from task content.
+7. [ ] Add "Exclude column tags" button to settings page to autopopulate `excludedTags`.
+8. [ ] Test: Verify tag prefix swimlanes display correctly, drag updates tags, and excluded tags are hidden.
+
+**Deliverable:** Kanban board supports tag prefix swimlanes with cross-swimlane drag, and tag exclusions.
 
 ### Phase 5: Grouped Manual Ordering
 **Goal:** Extend manual ordering from columns to grouped cells.
