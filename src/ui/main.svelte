@@ -95,25 +95,56 @@
 
 	$: savedFilters = $settingsStore.savedFilters ?? [];
 	$: savedGroupings = $settingsStore.savedGroupings ?? [];
+	$: savedTagGroupings = savedGroupings.filter(g => g.source.kind === "tag-prefix");
 
 	let activeContentFilterId: string | undefined;
 	let activeTagFilterId: string | undefined;
 	let activeFileFilterId: string | undefined;
 	let activeSavedGroupingId: string | undefined;
+	let rememberedSavedTagGroupingId: string | undefined;
 
 	$: {
 		const src = $settingsStore.groupSource;
-		const matching = savedGroupings.find(g =>
-			g.source.kind === src?.kind &&
-			(src?.kind !== "tag-prefix" ||
-				normalizeTagPrefix(g.source.prefix) === normalizeTagPrefix(src.prefix))
-		);
+		const matching = src?.kind === "tag-prefix" ? savedTagGroupings.find(g =>
+			normalizeTagPrefix(g.source.prefix) === normalizeTagPrefix(src.prefix)
+		) : undefined;
 		activeSavedGroupingId = matching?.id;
+	}
+
+	function getRememberedSavedTagGrouping() {
+		return rememberedSavedTagGroupingId
+			? savedTagGroupings.find(g => g.id === rememberedSavedTagGroupingId)
+			: undefined;
+	}
+
+	function rememberCurrentTagGroupingIfSaved() {
+		if ($settingsStore.groupSource?.kind !== "tag-prefix") return;
+		rememberedSavedTagGroupingId = activeSavedGroupingId;
+	}
+
+	function createTagGroupSourceFromMemory() {
+		const remembered = getRememberedSavedTagGrouping();
+		return remembered
+			? { ...remembered.source }
+			: { kind: "tag-prefix" as const, prefix: "" };
+	}
+
+	$: if (rememberedSavedTagGroupingId && !savedTagGroupings.some(g => g.id === rememberedSavedTagGroupingId)) {
+		rememberedSavedTagGroupingId = undefined;
+	}
+
+	$: if (activeSavedGroupingId) {
+		const activeSavedTagGrouping = savedTagGroupings.find(
+			g => g.id === activeSavedGroupingId
+		);
+		if (activeSavedTagGrouping) {
+			rememberedSavedTagGroupingId = activeSavedTagGrouping.id;
+		}
 	}
 
 	function saveCurrentGrouping() {
 		const src = $settingsStore.groupSource;
-		if (!src || src.kind === "none") return;
+		if (!src || src.kind !== "tag-prefix") return;
 
 		// Don't create a duplicate entry for a grouping that is already saved.
 		if (activeSavedGroupingId) return;
@@ -127,6 +158,7 @@
 			source: { ...src },
 		};
 		$settingsStore.savedGroupings = [...savedGroupings, newGrouping];
+		rememberedSavedTagGroupingId = newGrouping.id;
 		requestSave();
 	}
 
@@ -140,6 +172,9 @@
 	
 	function deleteSavedGrouping(id: string) {
 		$settingsStore.savedGroupings = savedGroupings.filter(g => g.id !== id);
+		if (rememberedSavedTagGroupingId === id) {
+			rememberedSavedTagGroupingId = undefined;
+		}
 		requestSave();
 	}
 
@@ -707,36 +742,34 @@
 		<div class="board-content">
 			<div class="board-header">
 				<div class="board-header-controls">
-					{#if $settingsStore.groupSource?.kind === "tag-prefix" || savedGroupings.length > 0}
+					{#if $settingsStore.groupSource?.kind === "tag-prefix"}
 						<div class="grouping-controls">
 							<div class="grouping-prefix-row">
-								{#if $settingsStore.groupSource?.kind === "tag-prefix"}
-									<input
-										type="text"
-										class="grouping-prefix-input"
-										placeholder="Prefix (e.g. Sprint-)"
-										value={$settingsStore.groupSource.prefix ?? ""}
-										on:input={(e) => {
-											$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
-											activeSavedGroupingId = undefined;
-											requestSave();
-										}}
-									/>
-									<button
-										class="filter-action-btn save-btn grouping-save-btn"
-										on:click={saveCurrentGrouping}
-										disabled={!!activeSavedGroupingId}
-									>
-										Save
-									</button>
-								{/if}
+								<input
+									type="text"
+									class="grouping-prefix-input"
+									placeholder="Prefix (e.g. Sprint-)"
+									value={$settingsStore.groupSource.prefix ?? ""}
+									on:input={(e) => {
+										$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
+										activeSavedGroupingId = undefined;
+										requestSave();
+									}}
+								/>
+								<button
+									class="filter-action-btn save-btn grouping-save-btn"
+									on:click={saveCurrentGrouping}
+									disabled={!!activeSavedGroupingId}
+								>
+									Save
+								</button>
 							</div>
-							{#if savedGroupings.length > 0}
+							{#if savedTagGroupings.length > 0}
 								<div class="saved-filters saved-groups">
 									<details>
 										<summary>Saved groups</summary>
 										<ul role="list">
-											{#each savedGroupings as group}
+											{#each savedTagGroupings as group}
 												<li>
 													<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => onActivateKey(e, () => deleteSavedGrouping(group.id))} aria-label="Delete saved grouping">×</span>
 													<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => onActivateKey(e, () => loadSavedGrouping(group.id))}>{group.name}</span>
@@ -753,10 +786,13 @@
 						value={$settingsStore.groupSource?.kind ?? "none"}
 						on:change={(e) => {
 							const val = e.currentTarget.value;
+							rememberCurrentTagGroupingIfSaved();
 							if (val === "file") {
 								$settingsStore.groupSource = { kind: "file" };
 							} else if (val === "tag-prefix") {
-								$settingsStore.groupSource = { kind: "tag-prefix", prefix: $settingsStore.groupSource?.kind === "tag-prefix" ? $settingsStore.groupSource.prefix : "" };
+								$settingsStore.groupSource = $settingsStore.groupSource?.kind === "tag-prefix"
+									? { kind: "tag-prefix", prefix: $settingsStore.groupSource.prefix }
+									: createTagGroupSourceFromMemory();
 							} else {
 								$settingsStore.groupSource = { kind: "none" };
 							}
