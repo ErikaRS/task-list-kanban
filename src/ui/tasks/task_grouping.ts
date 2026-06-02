@@ -127,19 +127,63 @@ export function getTaskTagGroupValue(
 	source: Extract<GroupSource, { kind: "tag-prefix" }>,
 	excludedTags: string[] = [],
 ): string | null {
-	const prefix = normalizeTagPrefix(source.prefix);
-	const excludeSet = createNormalizedTagSet(excludedTags);
-	const candidateTags = Array.from(task.tags).filter((tag) => !isTagExcluded(tag, excludeSet));
+	return resolveTaskGroupTag(task, normalizeTagPrefix(source.prefix), createNormalizedTagSet(excludedTags));
+}
 
-	if (prefix) {
-		return candidateTags.find((tag) => {
-			if (!tag.toLowerCase().startsWith(prefix)) return false;
-			return tag.slice(prefix.length).length > 0;
-		}) ?? null;
-	}
+function resolveTaskGroupTag(task: Task, prefix: string, excludeSet: Set<string>): string | null {
+	const candidateTags = Array.from(task.tags)
+		.filter((tag) => !isTagExcluded(tag, excludeSet))
+		.filter((tag) => {
+			if (!prefix) return true;
+			return tag.toLowerCase().startsWith(prefix) && tag.slice(prefix.length).length > 0;
+		});
 
+	// Pick the alphabetically first matching tag so swimlane assignment is
+	// deterministic regardless of the order tags appear in the source line.
 	return candidateTags
 		.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))[0] ?? null;
+}
+
+/**
+ * Builds a function that maps a task to the id of the bucket it belongs to.
+ *
+ * The per-source setup (normalising the prefix, building the excluded-tag set
+ * and the value→bucket lookup) happens once here rather than once per
+ * (task × bucket) inside {@link taskBelongsToGroup}, keeping board derivation
+ * linear in the number of tasks.
+ */
+export function createGroupAssigner(
+	buckets: GroupBucket[],
+	source: GroupSource,
+	excludedTags: string[] = [],
+): (task: Task) => string | undefined {
+	const defaultBucketId = buckets.find((bucket) => bucket.isDefault)?.id;
+
+	if (source.kind === "tag-prefix") {
+		const prefix = normalizeTagPrefix(source.prefix);
+		const excludeSet = createNormalizedTagSet(excludedTags);
+		const idByValue = new Map<string, string>();
+		for (const bucket of buckets) {
+			if (!bucket.isDefault && bucket.value !== null) {
+				idByValue.set(bucket.value.toLowerCase(), bucket.id);
+			}
+		}
+		return (task) => {
+			const groupTag = resolveTaskGroupTag(task, prefix, excludeSet);
+			if (groupTag === null) return defaultBucketId;
+			return idByValue.get(groupTag.toLowerCase()) ?? defaultBucketId;
+		};
+	}
+
+	if (source.kind === "file") {
+		const idByPath = new Map<string, string>();
+		for (const bucket of buckets) {
+			if (bucket.value !== null) idByPath.set(bucket.value, bucket.id);
+		}
+		return (task) => idByPath.get(task.path) ?? defaultBucketId;
+	}
+
+	return () => defaultBucketId;
 }
 
 export function getFileGroupPath(bucket: GroupBucket): string | null {
@@ -160,7 +204,7 @@ function createTagPrefixUnassignedGroupBucketId(prefix: string): string {
 	return createTagPrefixGroupBucketId(prefix, "__unassigned__");
 }
 
-function normalizeTagPrefix(prefix: string | undefined): string {
+export function normalizeTagPrefix(prefix: string | undefined): string {
 	return prefix?.trim().replace(/^#/, "").toLowerCase() ?? "";
 }
 

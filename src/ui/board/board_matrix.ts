@@ -3,7 +3,7 @@ import type { ColumnTag, DefaultColumns, ColumnDefinition } from "../columns/col
 import { VisibilityOption, FlowDirection, type SettingValues } from "../settings/settings_store";
 import {
 	deriveGroupBuckets,
-	taskBelongsToGroup,
+	createGroupAssigner,
 	type GroupBucket,
 } from "../tasks/task_grouping";
 
@@ -125,6 +125,7 @@ export function deriveBoardMatrix(
 
 	const groupSource = settings.groupSource ?? { kind: "none" };
 	const groupBuckets = deriveGroupBuckets(Object.values(tasksByPrimary).flat(), groupSource, settings.excludedTags);
+	const assignTaskToBucket = createGroupAssigner(groupBuckets, groupSource, settings.excludedTags);
 	const secondaryAxis: AxisBucket<SecondaryBucketId>[] = groupBuckets.map((bucket) => ({
 		id: bucket.id,
 		label: bucket.label,
@@ -144,11 +145,21 @@ export function deriveBoardMatrix(
 		cells[pId] = {};
 		const cellTasksByPrimary = tasksByPrimary[pId] ?? [];
 
+		const cellTasksBySecondary = new Map<string, Task[]>();
+		for (const task of cellTasksByPrimary) {
+			const sId = assignTaskToBucket(task);
+			if (sId === undefined) continue;
+			let bucketTasks = cellTasksBySecondary.get(sId);
+			if (!bucketTasks) {
+				bucketTasks = [];
+				cellTasksBySecondary.set(sId, bucketTasks);
+			}
+			bucketTasks.push(task);
+		}
+
 		for (const groupBucket of groupBuckets) {
 			const sId = groupBucket.id;
-			const cellTasks = cellTasksByPrimary.filter((task) =>
-				taskBelongsToGroup(task, groupBucket, settings.excludedTags),
-			);
+			const cellTasks = cellTasksBySecondary.get(sId) ?? [];
 
 			cells[pId]![sId] = {
 				primaryId: pId as PrimaryBucketId,

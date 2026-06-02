@@ -11,6 +11,7 @@
 	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
 	import { deriveBoardMatrix } from "./board/board_matrix";
+	import { normalizeTagPrefix } from "./tasks/task_grouping";
 	import SelectTag from "./components/select/select_tag.svelte";
 	import IconButton from "./components/icon_button.svelte";
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
@@ -102,9 +103,10 @@
 
 	$: {
 		const src = $settingsStore.groupSource;
-		const matching = savedGroupings.find(g => 
-			g.source.kind === src?.kind && 
-			(src?.kind !== "tag-prefix" || g.source.prefix === src.prefix)
+		const matching = savedGroupings.find(g =>
+			g.source.kind === src?.kind &&
+			(src?.kind !== "tag-prefix" ||
+				normalizeTagPrefix(g.source.prefix) === normalizeTagPrefix(src.prefix))
 		);
 		activeSavedGroupingId = matching?.id;
 	}
@@ -112,10 +114,13 @@
 	function saveCurrentGrouping() {
 		const src = $settingsStore.groupSource;
 		if (!src || src.kind === "none") return;
-		
-		const name = src.kind === "tag-prefix" && src.prefix ? src.prefix : 
+
+		// Don't create a duplicate entry for a grouping that is already saved.
+		if (activeSavedGroupingId) return;
+
+		const name = src.kind === "tag-prefix" && src.prefix ? src.prefix :
 			(src.kind === "tag-prefix" ? "Tags" : "Files");
-			
+
 		const newGrouping = {
 			id: crypto.randomUUID(),
 			name,
@@ -136,6 +141,15 @@
 	function deleteSavedGrouping(id: string) {
 		$settingsStore.savedGroupings = savedGroupings.filter(g => g.id !== id);
 		requestSave();
+	}
+
+	// Activate a role="button" element on both Enter and Space, matching native
+	// button semantics (and preventing Space from scrolling the page).
+	function onActivateKey(e: KeyboardEvent, action: () => void) {
+		if (e.key === "Enter" || e.key === " ") {
+			e.preventDefault();
+			action();
+		}
 	}
 
 	let deleteModalOpen = false;
@@ -535,7 +549,7 @@
 									tabindex="0"
 									class="delete-btn"
 									on:click={() => openDeleteModal(filter.id, filter.content?.text ?? "", 'content')}
-									on:keydown={(e) => e.key === 'Enter' && openDeleteModal(filter.id, filter.content?.text ?? "", 'content')}
+									on:keydown={(e) => onActivateKey(e, () => openDeleteModal(filter.id, filter.content?.text ?? "", 'content'))}
 									aria-label="Delete filter: {filter.content?.text}"
 								>
 									×
@@ -546,7 +560,7 @@
 									class="filter-text"
 									class:active={filter.id === activeContentFilterId}
 									on:click={() => loadContentFilter(filter.id, filter.content?.text ?? "")}
-									on:keydown={(e) => e.key === 'Enter' && loadContentFilter(filter.id, filter.content?.text ?? "")}
+									on:keydown={(e) => onActivateKey(e, () => loadContentFilter(filter.id, filter.content?.text ?? ""))}
 									aria-label="Load saved filter: {filter.content?.text}"
 									aria-pressed={filter.id === activeContentFilterId}
 								>
@@ -627,7 +641,7 @@
 									tabindex="0"
 									class="delete-btn"
 									on:click={() => openDeleteModal(filter.id, filter.file?.filepaths[0] ?? "", 'file')}
-									on:keydown={(e) => e.key === 'Enter' && openDeleteModal(filter.id, filter.file?.filepaths[0] ?? "", 'file')}
+									on:keydown={(e) => onActivateKey(e, () => openDeleteModal(filter.id, filter.file?.filepaths[0] ?? "", 'file'))}
 									aria-label="Delete filter: {filter.file?.filepaths[0]}"
 								>
 									×
@@ -638,7 +652,7 @@
 									class="filter-text"
 									class:active={filter.id === activeFileFilterId}
 									on:click={() => loadFileFilter(filter.id, filter.file?.filepaths[0] ?? "")}
-									on:keydown={(e) => e.key === 'Enter' && loadFileFilter(filter.id, filter.file?.filepaths[0] ?? "")}
+									on:keydown={(e) => onActivateKey(e, () => loadFileFilter(filter.id, filter.file?.filepaths[0] ?? ""))}
 									aria-label="Load saved filter: {filter.file?.filepaths[0]}"
 									aria-pressed={filter.id === activeFileFilterId}
 								>
@@ -694,23 +708,22 @@
 			<div class="board-header">
 				<div class="board-header-controls">
 					{#if $settingsStore.groupSource?.kind === "tag-prefix" || savedGroupings.length > 0}
-						<div class="prefix-filter-container" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
-							<div style="display: flex; align-items: center; gap: 8px;">
+						<div class="grouping-controls">
+							<div class="grouping-prefix-row">
 								{#if $settingsStore.groupSource?.kind === "tag-prefix"}
 									<input
 										type="text"
+										class="grouping-prefix-input"
 										placeholder="Prefix (e.g. Sprint-)"
 										value={$settingsStore.groupSource.prefix ?? ""}
 										on:input={(e) => {
 											$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
-											activeSavedGroupingId = null;
+											activeSavedGroupingId = undefined;
 											requestSave();
 										}}
-										style="width: 140px; font-size: var(--font-ui-small);"
 									/>
-									<button 
-										class="filter-action-btn save-btn" 
-										style="padding: 4px 8px; font-size: var(--font-ui-smaller);" 
+									<button
+										class="filter-action-btn save-btn grouping-save-btn"
 										on:click={saveCurrentGrouping}
 										disabled={!!activeSavedGroupingId}
 									>
@@ -719,14 +732,14 @@
 								{/if}
 							</div>
 							{#if savedGroupings.length > 0}
-								<div class="saved-filters" style="margin-left: 8px; margin-bottom: 0;">
-									<details style="position: relative;">
+								<div class="saved-filters saved-groups">
+									<details>
 										<summary>Saved groups</summary>
-										<ul role="list" style="position: absolute; top: 100%; left: 0; z-index: 100; min-width: max-content; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+										<ul role="list">
 											{#each savedGroupings as group}
 												<li>
-													<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && deleteSavedGrouping(group.id)} aria-label="Delete saved grouping">×</span>
-													<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => e.key === 'Enter' && loadSavedGrouping(group.id)}>{group.name}</span>
+													<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => onActivateKey(e, () => deleteSavedGrouping(group.id))} aria-label="Delete saved grouping">×</span>
+													<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => onActivateKey(e, () => loadSavedGrouping(group.id))}>{group.name}</span>
 												</li>
 											{/each}
 										</ul>
@@ -754,7 +767,7 @@
 						<option value="file">Group by: File</option>
 						<option value="tag-prefix">Group by: Tag</option>
 					</select>
-					<span class="board-task-count" aria-live="polite" style="margin-left: 8px; margin-right: 8px;">
+					<span class="board-task-count" aria-live="polite">
 						{#if isFiltered}
 							{filteredTaskCount} of {totalTaskCount} tasks
 						{:else}
@@ -912,6 +925,8 @@
 				font-size: var(--font-ui-medium);
 				color: var(--text-muted);
 				margin-top: 4px; /* to align with input */
+					margin-left: var(--size-4-2);
+					margin-right: var(--size-4-2);
 			}
 
 			.board-header-controls {
@@ -923,6 +938,47 @@
 				.group-by-select {
 					font-size: var(--font-ui-smaller);
 					padding: var(--size-2-1) var(--size-4-2);
+				}
+			}
+
+			.grouping-controls {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: var(--size-2-2);
+			}
+
+			.grouping-prefix-row {
+				display: flex;
+				align-items: center;
+				gap: var(--size-4-2);
+
+				.grouping-prefix-input {
+					width: 140px;
+					font-size: var(--font-ui-small);
+				}
+
+				.grouping-save-btn {
+					padding: var(--size-2-1) var(--size-2-3);
+					font-size: var(--font-ui-smaller);
+				}
+			}
+
+			.saved-groups {
+				margin-left: var(--size-4-2);
+				margin-bottom: 0;
+
+				details {
+					position: relative;
+				}
+
+				ul {
+					position: absolute;
+					top: 100%;
+					left: 0;
+					z-index: 100;
+					min-width: max-content;
+					gap: var(--size-2-2);
 				}
 			}
 		}

@@ -22,15 +22,17 @@ describe("tag-prefix grouping", () => {
 		expect(buckets.at(-1)?.isDefault).toBe(true);
 	});
 
-	it("assigns tasks to their first matching prefixed tag", () => {
+	it("assigns multi-tag tasks deterministically to the alphabetically first prefixed tag", () => {
+		// Tags are intentionally listed out of order to prove assignment does not
+		// depend on the order they appear in the source line.
 		const task = parseTask("- [ ] Cross-project #Project-Beta #Project-Alpha");
 		const buckets = deriveGroupBuckets([task], { kind: "tag-prefix", prefix: "project-" });
 		const alphaBucket = buckets.find((bucket) => bucket.label === "Alpha")!;
 		const betaBucket = buckets.find((bucket) => bucket.label === "Beta")!;
 
-		expect(getTaskTagGroupValue(task, { kind: "tag-prefix", prefix: "project-" })).toBe("Project-Beta");
-		expect(taskBelongsToGroup(task, betaBucket)).toBe(true);
-		expect(taskBelongsToGroup(task, alphaBucket)).toBe(false);
+		expect(getTaskTagGroupValue(task, { kind: "tag-prefix", prefix: "project-" })).toBe("Project-Alpha");
+		expect(taskBelongsToGroup(task, alphaBucket)).toBe(true);
+		expect(taskBelongsToGroup(task, betaBucket)).toBe(false);
 	});
 
 	it("groups by all non-excluded tags when prefix is empty", () => {
@@ -51,5 +53,66 @@ describe("tag-prefix grouping", () => {
 		const task = parseTask("- [ ] Many tags #zeta #alpha #middle");
 
 		expect(getTaskTagGroupValue(task, { kind: "tag-prefix", prefix: "" })).toBe("alpha");
+	});
+
+	it("returns only the Unassigned bucket when no task matches the prefix", () => {
+		const tasks = [
+			parseTask("- [ ] No sprint here #tag"),
+			parseTask("- [ ] Also none #other"),
+		];
+
+		const buckets = deriveGroupBuckets(tasks, { kind: "tag-prefix", prefix: "Sprint-" });
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["Unassigned"]);
+		expect(buckets[0]?.isDefault).toBe(true);
+	});
+
+	// Mirrors the work performed by the `updateSwimlaneTag` action, which resolves
+	// the task's current group tag and then rewrites it onto the new swimlane.
+	describe("swimlane reassignment (updateSwimlaneTag path)", () => {
+		function moveTaskToSwimlane(
+			task: ReturnType<typeof parseTask>,
+			newTag: string | null,
+			prefix: string,
+			excludedTags: string[] = [],
+		) {
+			const oldTag = getTaskTagGroupValue(task, { kind: "tag-prefix", prefix }, excludedTags);
+			task.replaceTag(oldTag, newTag);
+		}
+
+		it("rewrites the prefixed tag when moving between swimlanes", () => {
+			const task = parseTask("- [ ] Ship it #Sprint-1 #column");
+			moveTaskToSwimlane(task, "Sprint-2", "Sprint-");
+
+			expect(task.tags.has("Sprint-1")).toBe(false);
+			expect(task.tags.has("Sprint-2")).toBe(true);
+			expect(task.serialise()).toBe("- [ ] Ship it #Sprint-2 #column");
+		});
+
+		it("adds a tag when moving an unassigned task into a swimlane", () => {
+			const task = parseTask("- [ ] Ship it #column");
+			moveTaskToSwimlane(task, "Sprint-2", "Sprint-");
+
+			expect(task.tags.has("Sprint-2")).toBe(true);
+			expect(task.serialise()).toBe("- [ ] Ship it #Sprint-2 #column");
+		});
+
+		it("removes the prefixed tag when moving into the Unassigned swimlane", () => {
+			const task = parseTask("- [ ] Ship it #Sprint-1 #column");
+			moveTaskToSwimlane(task, null, "Sprint-");
+
+			expect(task.tags.has("Sprint-1")).toBe(false);
+			expect(task.serialise()).toBe("- [ ] Ship it #column");
+		});
+
+		it("ignores excluded tags when resolving the tag to replace", () => {
+			const task = parseTask("- [ ] Ship it #Sprint-1 #status/active");
+			moveTaskToSwimlane(task, "Sprint-2", "Sprint-", ["status/active"]);
+
+			// The excluded tag is untouched; only the sprint tag is rewritten.
+			expect(task.tags.has("status/active")).toBe(true);
+			expect(task.tags.has("Sprint-2")).toBe(true);
+			expect(task.tags.has("Sprint-1")).toBe(false);
+		});
 	});
 });

@@ -265,7 +265,7 @@ export class Task {
 			}
 		}
 
-		this.tags = tags;
+		this._tags = tags;
 		this.blockLink = blockLink;
 
 		if (this._done) {
@@ -327,7 +327,10 @@ export class Task {
 	}
 
 	readonly blockLink: string | undefined;
-	tags: Set<string>;
+	private _tags: Set<string>;
+	get tags(): ReadonlySet<string> {
+		return this._tags;
+	}
 
 	private getPlacementTagsForColumn(column: ColumnTag): string[] {
 		return (this.columnPlacementTagTable[column] ?? []).filter((tag) => isValidTag(tag));
@@ -351,11 +354,11 @@ export class Task {
 
 	replaceTag(oldTag: string | null, newTag: string | null) {
 		if (oldTag) {
-			this.tags.delete(oldTag);
+			this._tags.delete(oldTag);
 			this.content = this.stripTagFromContent(this.content, oldTag);
 		}
 		if (newTag) {
-			this.tags.add(newTag);
+			this._tags.add(newTag);
 			const contentTags = Array.from(getTagsFromContent(this.content)).map((tag) => tag.toLowerCase());
 			if (!this.consolidateTags && !contentTags.includes(newTag.toLowerCase())) {
 				this.content = `${this.content.trim()} #${newTag}`.trim();
