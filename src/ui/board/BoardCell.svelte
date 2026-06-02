@@ -5,6 +5,7 @@
 		type ColumnTagTable,
 		isColumnTag,
 	} from "../columns/columns";
+	import { deriveCellCreationMetadata } from "./cell_creation";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
@@ -45,14 +46,10 @@
 	$: column = cell.primaryId;
 	$: tasks = cell.tasks;
 	$: columnTitle = primaryAxisLabel;
-	$: fileGroupPath =
-		secondaryAxisBucket.meta?.source?.kind === "file" &&
-		typeof secondaryAxisBucket.meta.value === "string"
-			? secondaryAxisBucket.meta.value
-			: null;
+	$: creationMetadata = deriveCellCreationMetadata(secondaryAxisBucket);
 	$: fileGroupTargetFile = (() => {
-		if (!fileGroupPath) return null;
-		const file = app.vault.getAbstractFileByPath(fileGroupPath);
+		if (!creationMetadata.targetFilePath) return null;
+		const file = app.vault.getAbstractFileByPath(creationMetadata.targetFilePath);
 		return file instanceof TFile ? file : null;
 	})();
 	$: effectiveTargetTaskFile = fileGroupTargetFile ?? targetTaskFile;
@@ -194,7 +191,12 @@
 			return;
 		}
 
-		await taskActions.createTask(file, content, column);
+		await taskActions.createTask(
+			file,
+			content,
+			column,
+			creationMetadata.additionalTags,
+		);
 	}
 
 	function handleNewTaskKeydown(e: KeyboardEvent) {

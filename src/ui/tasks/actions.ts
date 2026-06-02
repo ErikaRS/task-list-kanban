@@ -12,6 +12,7 @@ import type { ColumnTag, DefaultColumns } from "../columns/columns";
 import { shouldIncludeFilePath } from "./scope";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
+import { createTaskLine } from "./task_creation";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
@@ -45,6 +46,7 @@ export type TaskActions = {
 		file: TFile,
 		content: string,
 		column: ColumnTag,
+		additionalTags?: string[],
 	) => Promise<void>;
 	getTargetFile: () => TFile | null;
 };
@@ -374,12 +376,16 @@ export function createTaskActions({
 			createMenu(folder, undefined);
 		},
 
-		async createTask(file, content, column) {
+		async createTask(file, content, column, additionalTags = []) {
 			await updateRow(
 				vault,
 				file,
 				undefined,
-				`- [ ] ${content}${getPlacementTagsForColumn(column).map((tag) => ` #${tag}`).join("")}`,
+				createTaskLine(
+					content,
+					getPlacementTagsForColumn(column),
+					additionalTags,
+				),
 			);
 		},
 	};
