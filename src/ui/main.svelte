@@ -530,21 +530,28 @@
 					<ul role="list">
 						{#each contentFilters as filter}
 							<li>
-								<button
+								<span
+									role="button"
+									tabindex="0"
 									class="delete-btn"
 									on:click={() => openDeleteModal(filter.id, filter.content?.text ?? "", 'content')}
+									on:keydown={(e) => e.key === 'Enter' && openDeleteModal(filter.id, filter.content?.text ?? "", 'content')}
 									aria-label="Delete filter: {filter.content?.text}"
 								>
 									×
-								</button>
-								<button
+								</span>
+								<span
+									role="button"
+									tabindex="0"
+									class="filter-text"
 									class:active={filter.id === activeContentFilterId}
 									on:click={() => loadContentFilter(filter.id, filter.content?.text ?? "")}
+									on:keydown={(e) => e.key === 'Enter' && loadContentFilter(filter.id, filter.content?.text ?? "")}
 									aria-label="Load saved filter: {filter.content?.text}"
 									aria-pressed={filter.id === activeContentFilterId}
 								>
 									{filter.content?.text}
-								</button>
+								</span>
 							</li>
 						{/each}
 					</ul>
@@ -615,21 +622,28 @@
 					<ul role="list">
 						{#each fileFilters as filter}
 							<li>
-								<button
+								<span
+									role="button"
+									tabindex="0"
 									class="delete-btn"
 									on:click={() => openDeleteModal(filter.id, filter.file?.filepaths[0] ?? "", 'file')}
+									on:keydown={(e) => e.key === 'Enter' && openDeleteModal(filter.id, filter.file?.filepaths[0] ?? "", 'file')}
 									aria-label="Delete filter: {filter.file?.filepaths[0]}"
 								>
 									×
-								</button>
-								<button
+								</span>
+								<span
+									role="button"
+									tabindex="0"
+									class="filter-text"
 									class:active={filter.id === activeFileFilterId}
 									on:click={() => loadFileFilter(filter.id, filter.file?.filepaths[0] ?? "")}
+									on:keydown={(e) => e.key === 'Enter' && loadFileFilter(filter.id, filter.file?.filepaths[0] ?? "")}
 									aria-label="Load saved filter: {filter.file?.filepaths[0]}"
 									aria-pressed={filter.id === activeFileFilterId}
 								>
 									{filter.file?.filepaths[0]}
-								</button>
+								</span>
 							</li>
 						{/each}
 					</ul>
