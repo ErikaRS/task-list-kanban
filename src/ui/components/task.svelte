@@ -173,11 +173,8 @@
 		let contentWithBlockLink = (task.content + (task.blockLink ? ` ^${task.blockLink}` : ""))
 			.replaceAll("<br />", "\n");
 
-		// Visually strip excluded tags from the content
 		for (const tag of excludedTags) {
-			const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-			const regex = new RegExp(`(?:^|\\s)#${escapeRegExp(tag)}(?:\\/[\\w\\-]+)*\\b`, 'gi');
-			contentWithBlockLink = contentWithBlockLink.replace(regex, '');
+			contentWithBlockLink = stripTagFromRenderedContent(contentWithBlockLink, tag);
 		}
 		
 		const indentedContinuationLines = contentWithBlockLink.replaceAll("\n", "\n  ");
@@ -346,8 +343,16 @@
 		e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
 	}
 
-	$: visibleTags = Array.from(task.tags).filter(t => !excludedTags.includes(t));
+	$: excludedTagNames = excludedTags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase());
+	$: visibleTags = Array.from(task.tags).filter(t => !excludedTagNames.includes(t.toLowerCase()));
 	$: shouldconsolidateTags = consolidateTags && visibleTags.length > 0;
+
+	function stripTagFromRenderedContent(content: string, tag: string): string {
+		const normalizedTag = tag.trim().replace(/^#/, "");
+		if (!normalizedTag) return content;
+		const escapedTag = normalizedTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		return content.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_\/\\p{L}\\p{N}])`, "giu"), "$1").trim();
+	}
 </script>
 
 	<div

@@ -92,7 +92,7 @@
 			hasSelectedTaskOutsideTargetFile);
 	$: isTagSwimlaneDrop =
 		!!draggingData &&
-		secondaryAxisBucket.source.kind === "tag-prefix" &&
+		secondaryAxisBucket.meta?.source?.kind === "tag-prefix" &&
 		draggingData.fromSecondaryId !== cell.secondaryId;
 	$: canDrop = isSameSwimlaneColumnDrop || isFileSwimlaneDrop || isTagSwimlaneDrop;
 
@@ -150,8 +150,14 @@
 				}
 			}
 		} else if (isTagSwimlaneDrop) {
-			const prefix = secondaryAxisBucket.source.kind === "tag-prefix" ? (secondaryAxisBucket.source.prefix ?? "") : "";
-			await taskActions.updateSwimlaneTag(droppedIds, secondaryAxisBucket.value, prefix, excludedTags);
+			const source = secondaryAxisBucket.meta?.source;
+			const prefix = source?.kind === "tag-prefix" ? (source.prefix ?? "") : "";
+			await taskActions.updateSwimlaneTag(
+				droppedIds,
+				secondaryAxisBucket.meta?.value ?? null,
+				prefix,
+				excludedTags,
+			);
 			await applyColumnChange(droppedIds);
 		} else {
 			await applyColumnChange(droppedIds);

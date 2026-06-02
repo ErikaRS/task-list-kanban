@@ -342,9 +342,10 @@ export class Task {
 	}
 
 	private stripTagFromContent(value: string, tag: string): string {
+		const escapedTag = escapeRegExp(tag);
 		return value
-			.replaceAll(` #${tag}`, "")
-			.replaceAll(`#${tag}`, "")
+			.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_\/\\p{L}\\p{N}])`, "gu"), "$1")
+			.replace(/[ \t]{2,}/g, " ")
 			.trim();
 	}
 
@@ -355,6 +356,10 @@ export class Task {
 		}
 		if (newTag) {
 			this.tags.add(newTag);
+			const contentTags = Array.from(getTagsFromContent(this.content)).map((tag) => tag.toLowerCase());
+			if (!this.consolidateTags && !contentTags.includes(newTag.toLowerCase())) {
+				this.content = `${this.content.trim()} #${newTag}`.trim();
+			}
 		}
 	}
 
@@ -470,3 +475,7 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 // excludes backlinks by ensuring brackets don't contain nested brackets
 const taskStringRegex = /^(\s*)[-*+]\s\[([^\[\]]*)\]\s(.+)/;
 const blockLinkRegexp = /\s\^([a-zA-Z0-9-]+)$/;
+
+function escapeRegExp(input: string): string {
+	return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

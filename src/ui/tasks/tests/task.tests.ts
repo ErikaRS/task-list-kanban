@@ -54,6 +54,37 @@ describe("Task", () => {
 			task.column = "column" as ColumnTag;
 			expect(task.serialise()).toBe("- [ ] Something #tag #column ^link-link");
 		});
+
+		it("replaces a regular tag in unconsolidated task content", () => {
+			const task = parseTask("- [ ] Something #Project-Alpha #column");
+			task.replaceTag("Project-Alpha", "Project-Beta");
+
+			expect(task.tags.has("Project-Alpha")).toBe(false);
+			expect(task.tags.has("Project-Beta")).toBe(true);
+			expect(task.serialise()).toBe("- [ ] Something #Project-Beta #column");
+		});
+
+		it("serialises an added regular tag when task tags are not consolidated", () => {
+			const task = parseTask("- [ ] Something #column");
+			task.replaceTag(null, "Project-Beta");
+
+			expect(task.serialise()).toBe("- [ ] Something #Project-Beta #column");
+		});
+
+		it("replaces a regular tag before punctuation without stripping nested tags", () => {
+			const task = parseTask("- [ ] Something #Project-Alpha, see #Project-Alpha/child #column");
+			task.replaceTag("Project-Alpha", "Project-Beta");
+
+			expect(task.serialise()).toBe("- [ ] Something , see #Project-Alpha/child #Project-Beta #column");
+		});
+
+		it("replaces a consolidated tag without duplicating it in content", () => {
+			const task = parseTask("- [ ] Something #Project-Alpha #column", { consolidateTags: true });
+			task.replaceTag("Project-Alpha", "Project-Beta");
+
+			expect(task.content).toBe("Something");
+			expect(task.serialise()).toBe("- [ ] Something #Project-Beta #column");
+		});
 	});
 
 	describe("tag-mode columns", () => {

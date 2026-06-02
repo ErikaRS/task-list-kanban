@@ -2,10 +2,10 @@ import type { Task } from "./task";
 
 export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 
-export type GroupSource = 
-	| { kind: "none" } 
+export type GroupSource =
+	| { kind: "none" }
 	| { kind: "file" }
-	| { kind: "tag-prefix", prefix?: string };
+	| { kind: "tag-prefix"; prefix?: string };
 
 export interface GroupBucket {
 	id: string; // stable internal id
@@ -47,24 +47,26 @@ export function deriveGroupBuckets(
 	}
 
 	if (source.kind === "tag-prefix") {
-		const prefix = (source.prefix ?? "").toLowerCase();
-		const excludeSet = new Set(excludedTags);
+		const prefix = normalizeTagPrefix(source.prefix);
+		const excludeSet = createNormalizedTagSet(excludedTags);
 		const tagMap = new Map<string, string>();
 
 		for (const task of tasks) {
 			for (const tag of task.tags) {
-				if (excludeSet.has(tag)) continue;
+				if (isTagExcluded(tag, excludeSet)) continue;
 
 				if (prefix) {
 					if (tag.toLowerCase().startsWith(prefix)) {
 						const suffix = tag.slice(prefix.length);
-						if (!tagMap.has(suffix.toLowerCase())) {
-							tagMap.set(suffix.toLowerCase(), tag);
+						const key = suffix.toLowerCase();
+						if (suffix && !tagMap.has(key)) {
+							tagMap.set(key, tag);
 						}
 					}
 				} else {
-					if (!tagMap.has(tag.toLowerCase())) {
-						tagMap.set(tag.toLowerCase(), tag);
+					const key = tag.toLowerCase();
+					if (!tagMap.has(key)) {
+						tagMap.set(key, tag);
 					}
 				}
 			}
@@ -77,19 +79,19 @@ export function deriveGroupBuckets(
 		const buckets: GroupBucket[] = sortedFullTags.map((fullTag) => {
 			const label = prefix ? fullTag.slice(prefix.length) : fullTag;
 			return {
-				id: createTagPrefixGroupBucketId(prefix, label),
+				id: createTagPrefixGroupBucketId(prefix, label.toLowerCase()),
 				label: label,
 				value: fullTag,
-				source,
+				source: { kind: "tag-prefix", prefix },
 				isDefault: false,
 			};
 		});
 
 		buckets.push({
-			id: "tag-prefix:unassigned",
+			id: createTagPrefixUnassignedGroupBucketId(prefix),
 			label: "Unassigned",
 			value: null,
-			source,
+			source: { kind: "tag-prefix", prefix },
 			isDefault: true,
 		});
 
@@ -112,33 +114,32 @@ export function taskBelongsToGroup(task: Task, bucket: GroupBucket, excludedTags
 		case "file":
 			return bucket.value !== null && task.path === bucket.value;
 		case "tag-prefix": {
-			const prefix = (bucket.source.prefix ?? "").toLowerCase();
-			const excludeSet = new Set(excludedTags);
-
-			if (bucket.id === "tag-prefix:unassigned") {
-				if (prefix) {
-					return !Array.from(task.tags).some(t => t.toLowerCase().startsWith(prefix));
-				} else {
-					return !Array.from(task.tags).some(t => !excludeSet.has(t));
-				}
-			}
-
-			let candidateTags = Array.from(task.tags).filter(t => !excludeSet.has(t));
-			if (prefix) {
-				candidateTags = candidateTags.filter(t => t.toLowerCase().startsWith(prefix));
-			}
-
-			if (candidateTags.length === 0) return false;
-
-			candidateTags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-			const primaryTag = candidateTags[0]!;
-			const primaryLabel = prefix ? primaryTag.slice(prefix.length) : primaryTag;
-
-			return primaryLabel.toLowerCase() === bucket.label.toLowerCase();
+			const groupTag = getTaskTagGroupValue(task, bucket.source, excludedTags);
+			return bucket.isDefault ? groupTag === null : groupTag?.toLowerCase() === bucket.value?.toLowerCase();
 		}
 		case "none":
 			return true;
 	}
+}
+
+export function getTaskTagGroupValue(
+	task: Task,
+	source: Extract<GroupSource, { kind: "tag-prefix" }>,
+	excludedTags: string[] = [],
+): string | null {
+	const prefix = normalizeTagPrefix(source.prefix);
+	const excludeSet = createNormalizedTagSet(excludedTags);
+	const candidateTags = Array.from(task.tags).filter((tag) => !isTagExcluded(tag, excludeSet));
+
+	if (prefix) {
+		return candidateTags.find((tag) => {
+			if (!tag.toLowerCase().startsWith(prefix)) return false;
+			return tag.slice(prefix.length).length > 0;
+		}) ?? null;
+	}
+
+	return candidateTags
+		.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))[0] ?? null;
 }
 
 export function getFileGroupPath(bucket: GroupBucket): string | null {
@@ -153,4 +154,20 @@ function createFileGroupBucketId(path: string): string {
 
 function createTagPrefixGroupBucketId(prefix: string, label: string): string {
 	return `tag-prefix:${prefix}:${label}`;
+}
+
+function createTagPrefixUnassignedGroupBucketId(prefix: string): string {
+	return createTagPrefixGroupBucketId(prefix, "__unassigned__");
+}
+
+function normalizeTagPrefix(prefix: string | undefined): string {
+	return prefix?.trim().replace(/^#/, "").toLowerCase() ?? "";
+}
+
+function createNormalizedTagSet(tags: string[]): Set<string> {
+	return new Set(tags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase()).filter(Boolean));
+}
+
+function isTagExcluded(tag: string, excludeSet: Set<string>): boolean {
+	return excludeSet.has(tag.toLowerCase());
 }
