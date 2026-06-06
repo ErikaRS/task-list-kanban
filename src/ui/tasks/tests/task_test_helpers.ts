@@ -8,6 +8,8 @@ import {
 	isTrackedTaskString,
 	Task,
 } from "../task";
+import { NoneSchema } from "src/parsing/properties/none_schema";
+import type { PropertySchema } from "src/parsing/properties/property_schema";
 
 export function createNameModeColumns(labels: string[]): ColumnDefinition[] {
 	return labels.map((label) => ({
@@ -36,6 +38,7 @@ export interface TaskParseOptions {
 	doneStatusMarkers?: string;
 	cancelledStatusMarkers?: string;
 	ignoredStatusMarkers?: string;
+	propertySchema?: PropertySchema;
 	rowIndex?: number;
 }
 
@@ -52,12 +55,15 @@ export function parseTask(taskString: string, options: TaskParseOptions = {}): T
 		taskString as ConstructorParameters<typeof Task>[0],
 		{ path: "/" },
 		options.rowIndex ?? 0,
-		columns,
-		placementTags,
-		options.consolidateTags ?? false,
-		options.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
-		options.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
-		options.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		{
+			columnDefinitions: columns,
+			columnPlacementTagTable: placementTags,
+			consolidateTags: options.consolidateTags ?? false,
+			doneStatusMarkers: options.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+			cancelledStatusMarkers: options.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
+			ignoredStatusMarkers: options.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			propertySchema: options.propertySchema ?? new NoneSchema(),
+		}
 	);
 }
 

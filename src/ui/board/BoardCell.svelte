@@ -31,6 +31,7 @@
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
+	export let showProperties: boolean = false;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let isVerticalFlow: boolean = false;
@@ -335,6 +336,7 @@
 					{taskActions}
 					{columnTagTableStore}
 					{showFilepath}
+					{showProperties}
 					{consolidateTags}
 					{excludedTags}
 					displayColumn={column}

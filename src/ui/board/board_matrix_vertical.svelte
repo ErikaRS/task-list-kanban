@@ -18,6 +18,7 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let showFilepath: boolean;
+	export let showProperties: boolean = false;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let targetTaskFile: TFile | null = null;
@@ -82,6 +83,7 @@
 									{taskActions}
 									{columnTagTableStore}
 								{showFilepath}
+								{showProperties}
 								{consolidateTags}
 								{excludedTags}
 								isVerticalFlow={true}

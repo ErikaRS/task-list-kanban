@@ -9,6 +9,7 @@ import {
 } from "../settings/settings_store";
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
+import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import { kebab } from "src/parsing/kebab/kebab";
 import { getTagsFromContent } from "src/parsing/tags/tags";
@@ -546,6 +547,37 @@ export class SettingsModal extends Modal {
 						this.updateDirtyBanner();
 					});
 			});
+
+		new Setting(this.scrollWrapper).setHeading().setName("Task Properties");
+
+		new Setting(this.scrollWrapper)
+			.setName("Property schema")
+			.setDesc("Which format to use for extracting task properties.")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption(PropertySchemaOption.None, "None")
+					.addOption(PropertySchemaOption.TasksPlugin, "Tasks Plugin")
+					.addOption(PropertySchemaOption.Dataview, "Dataview")
+					.setValue(this.settings.propertySchema ?? PropertySchemaOption.None)
+					.onChange((value) => {
+						this.settings.propertySchema = value as PropertySchemaOption;
+						this.updateDirtyBanner();
+					});
+			});
+
+		new Setting(this.scrollWrapper)
+			.setName("Show properties on cards")
+			.setDesc("Display parsed property values below task text.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.settings.showProperties ?? false)
+					.onChange((value) => {
+						this.settings.showProperties = value;
+						this.updateDirtyBanner();
+					});
+			});
+
+		new Setting(this.scrollWrapper).setHeading().setName("Scope");
 
 		// Validation for default task file — shared between scope dropdown and text input
 		let defaultTaskFileInputEl: HTMLInputElement | null = null;

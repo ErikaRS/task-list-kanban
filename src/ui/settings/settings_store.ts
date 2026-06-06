@@ -8,6 +8,7 @@ import {
 	migrateColumnDefinitions,
 } from "../columns/definitions";
 import type { GroupSource } from "../tasks/task_grouping";
+import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 
 export interface SavedGrouping {
 	id: string;
@@ -130,6 +131,8 @@ const settingsObject = z.object({
 	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
 	doneColumnName: z.string().default("Done").optional(),
 	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
+	propertySchema: z.nativeEnum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
+	showProperties: z.boolean().default(false).optional(),
 });
 
 export interface SettingValues {
@@ -162,6 +165,8 @@ export interface SettingValues {
 	uncategorizedColumnName?: string;
 	doneColumnName?: string;
 	groupSource?: GroupSource;
+	propertySchema?: PropertySchemaOption;
+	showProperties?: boolean;
 }
 
 export const defaultSettings: SettingValues = {
@@ -190,6 +195,8 @@ export const defaultSettings: SettingValues = {
 	uncategorizedColumnName: "Uncategorized",
 	doneColumnName: "Done",
 	groupSource: { kind: "none" },
+	propertySchema: PropertySchemaOption.None,
+	showProperties: false,
 };
 
 export const createSettingsStore = () =>

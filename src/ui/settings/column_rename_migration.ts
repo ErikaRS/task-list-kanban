@@ -11,6 +11,7 @@ import {
 	DEFAULT_IGNORED_STATUS_MARKERS,
 	isTrackedTaskString,
 } from "../tasks/task";
+import { NoneSchema } from "../../parsing/properties/none_schema";
 
 export interface ChangedColumnMatchRule {
 	id: string;
@@ -103,12 +104,15 @@ async function updateFileForChangedColumns(
 			row,
 			file,
 			i,
-			oldColumnDefinitions,
-			newPlacementTagTable,
-			settings.consolidateTags ?? false,
-			settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
-			settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
-			settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			{
+				columnDefinitions: oldColumnDefinitions,
+				columnPlacementTagTable: newPlacementTagTable,
+				consolidateTags: settings.consolidateTags ?? false,
+				doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+				cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
+				ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+				propertySchema: new NoneSchema(),
+			}
 		);
 		const targetColumnId = task.column ?? matchedColumn?.id;
 

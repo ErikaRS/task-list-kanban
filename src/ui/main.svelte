@@ -476,6 +476,7 @@
 		flowDirection = FlowDirection.LeftToRight,
 		uncategorizedColumnName,
 		doneColumnName,
+		showProperties = false,
 	} = $settingsStore);
 
 	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
@@ -832,6 +833,7 @@
 						{uncategorizedColumnName}
 						{doneColumnName}
 						columnWidth="{columnWidth}px"
+						showProperties={$settingsStore.showProperties}
 					/>
 				{:else}
 					<BoardMatrixVertical
@@ -849,6 +851,7 @@
 						onToggleCollapse={toggleColumnCollapse}
 						{uncategorizedColumnName}
 						{doneColumnName}
+						showProperties={$settingsStore.showProperties}
 					/>
 				{/if}
 			</div>

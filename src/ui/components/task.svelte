@@ -14,6 +14,7 @@
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
+	export let showProperties: boolean;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let displayColumn: ColumnTag | DefaultColumns;
@@ -477,6 +478,11 @@
 			{/each}
 		</div>
 	{/if}
+	{#if showProperties && task.properties && task.properties.size > 0}
+		<div class="task-properties-temp">
+			<pre><code>{JSON.stringify(Array.from(task.properties.entries()), null, 2)}</code></pre>
+		</div>
+	{/if}
 </div>
 
 <style lang="scss">
@@ -682,6 +688,18 @@
 				:global(.cm-hashtag-end) {
 					color: inherit !important;
 				}
+			}
+		}
+
+		.task-properties-temp {
+			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
+			border-top: var(--border-width) solid var(--background-modifier-border);
+			background-color: var(--background-secondary-alt);
+			font-size: var(--font-ui-smaller);
+			overflow-x: auto;
+			
+			pre {
+				margin: 0;
 			}
 		}
 	}
