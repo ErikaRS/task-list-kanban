@@ -8,6 +8,7 @@ export * from "./none_schema";
 export * from "./tasks_schema";
 export * from "./dataview_schema";
 export * from "./value_parsers";
+export * from "./normalization";
 
 const SCHEMA_IMPLS: Record<PropertySchemaOption, PropertySchema> = {
 	[PropertySchemaOption.None]: new NoneSchema(),

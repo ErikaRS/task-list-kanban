@@ -6,16 +6,12 @@ import {
 	createPropertyMapWithStatus,
 	UNIVERSAL_STATUS_PROPERTY_KEY,
 } from "./property_schema";
+import { getPropertyAliases } from "./normalization";
 import { parseIsoDate, parseNumber } from "./value_parsers";
 
 const DATAVIEW_KEY_PATTERN = "[a-zA-Z0-9_-]+";
 const ENCLOSED_DATAVIEW_REGEX = /\[\s*([a-zA-Z0-9_-]+)\s*::\s*([^\]]*?)\s*\]|\(\s*([a-zA-Z0-9_-]+)\s*::\s*([^\)]*?)\s*\)/g;
 const BARE_DATAVIEW_MARKER_REGEX = new RegExp(`(^|\\s)(${DATAVIEW_KEY_PATTERN})\\s*::\\s*`, "g");
-
-const DATAVIEW_KEY_ALIASES = {
-	done: ["completion"],
-	repeat: ["recurrence"],
-} as const;
 
 type ParsedInlineField = {
 	index: number;
@@ -134,11 +130,11 @@ export class DataviewSchema implements PropertySchema {
 			{ key: "due", label: "Due", type: "date" },
 			{ key: "scheduled", label: "Scheduled", type: "date" },
 			{ key: "start", label: "Start", type: "date" },
-			{ key: "done", label: "Done", type: "date", aliases: [...DATAVIEW_KEY_ALIASES.done] },
+			{ key: "done", label: "Done", type: "date", aliases: getPropertyAliases("done") },
 			{ key: "completion", label: "Completion", type: "date" },
 			{ key: "created", label: "Created", type: "date" },
 			{ key: "priority", label: "Priority", type: "text" },
-			{ key: "repeat", label: "Repeat", type: "text", aliases: [...DATAVIEW_KEY_ALIASES.repeat] },
+			{ key: "repeat", label: "Repeat", type: "text", aliases: getPropertyAliases("repeat") },
 		];
 	}
 }

@@ -6,12 +6,8 @@ import {
 	createPropertyMapWithStatus,
 	UNIVERSAL_STATUS_PROPERTY_KEY,
 } from "./property_schema";
+import { getPropertyAliases } from "./normalization";
 import { DATE_ONLY_PATTERN, escapeRegExp, parseDateOnly } from "./value_parsers";
-
-const TASKS_KEY_ALIASES = {
-	done: ["completion"],
-	recurrence: ["repeat"],
-} as const;
 
 const DATE_FIELDS = [
 	{ key: "due", label: "Due", emojis: ["📅"] },
@@ -124,10 +120,10 @@ export class TasksPluginSchema implements PropertySchema {
 			{ key: "due", label: "Due", type: "date" },
 			{ key: "scheduled", label: "Scheduled", type: "date" },
 			{ key: "start", label: "Start", type: "date" },
-			{ key: "done", label: "Done", type: "date", aliases: [...TASKS_KEY_ALIASES.done] },
+			{ key: "done", label: "Done", type: "date", aliases: getPropertyAliases("done") },
 			{ key: "created", label: "Created", type: "date" },
 			{ key: "priority", label: "Priority", type: "priority" },
-			{ key: "recurrence", label: "Recurrence", type: "text", aliases: [...TASKS_KEY_ALIASES.recurrence] },
+			{ key: "recurrence", label: "Recurrence", type: "text", aliases: getPropertyAliases("recurrence") },
 		];
 	}
 }
