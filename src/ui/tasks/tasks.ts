@@ -23,6 +23,7 @@ export async function updateMapsFromFile({
 	doneStatusMarkers,
 	cancelledStatusMarkers,
 	ignoredStatusMarkers,
+	excludedTaskTags,
 }: {
 	fileHandle: TFile;
 	tasksByTaskId: Map<string, Task>;
@@ -35,6 +36,7 @@ export async function updateMapsFromFile({
 	doneStatusMarkers: string;
 	cancelledStatusMarkers: string;
 	ignoredStatusMarkers: string;
+	excludedTaskTags: Set<string>;
 }) {
 	try {
 		const previousTaskIds =
@@ -65,10 +67,16 @@ export async function updateMapsFromFile({
 					ignoredStatusMarkers
 				);
 
-				newTaskIds.add(task.id);
-				tasksByTaskId.set(task.id, task);
-				metadataByTaskId.set(task.id, { rowIndex: i, fileHandle });
-				previousTaskIds.delete(task.id);
+				const hasExcludedTag = Array.from(task.tags).some((tag) =>
+					excludedTaskTags.has(tag.trim().toLowerCase())
+				);
+
+				if (!hasExcludedTag) {
+					newTaskIds.add(task.id);
+					tasksByTaskId.set(task.id, task);
+					metadataByTaskId.set(task.id, { rowIndex: i, fileHandle });
+					previousTaskIds.delete(task.id);
+				}
 			}
 		}
 
