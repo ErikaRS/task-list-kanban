@@ -126,6 +126,7 @@ const settingsObject = z.object({
 	scopeFolders: z.array(z.string()).default([]).optional(),
 	excludePaths: z.array(z.string()).default([]).optional(),
 	excludedTags: z.array(z.string()).default([]).optional(),
+	excludedTaskTags: z.array(z.string()).default([]).optional(),
 	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
 	doneColumnName: z.string().default("Done").optional(),
 	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
@@ -157,6 +158,7 @@ export interface SettingValues {
 	scopeFolders?: string[];
 	excludePaths?: string[];
 	excludedTags?: string[];
+	excludedTaskTags?: string[];
 	uncategorizedColumnName?: string;
 	doneColumnName?: string;
 	groupSource?: GroupSource;
@@ -184,6 +186,7 @@ export const defaultSettings: SettingValues = {
 	scopeFolders: [],
 	excludePaths: [],
 	excludedTags: [],
+	excludedTaskTags: [],
 	uncategorizedColumnName: "Uncategorized",
 	doneColumnName: "Done",
 	groupSource: { kind: "none" },

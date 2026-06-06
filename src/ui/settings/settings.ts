@@ -20,6 +20,7 @@ import {
 import { columnRuleSignature, createColumnId, usesTagMatching } from "../columns/definitions";
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 import { getColumnValidationError } from "./column_validation";
+import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest } from "./suggest";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -733,6 +734,7 @@ export class SettingsModal extends Modal {
 			validateDefaultTaskFile();
 			this.updateDirtyBanner();
 		};
+		new FolderSuggest(this.app, folderInput, () => addFolder());
 
 		const addBtn = addFolderRow.createEl("button", { text: "Add" });
 		addBtn.addEventListener("click", addFolder);
@@ -840,6 +842,7 @@ export class SettingsModal extends Modal {
 			validateDefaultTaskFile();
 			this.updateDirtyBanner();
 		};
+		new PathSuggest(this.app, excludeInput, () => addExcludePath());
 
 		const addExcludeBtn = addExcludeRow.createEl("button", { text: "Add" });
 		addExcludeBtn.addEventListener("click", addExcludePath);
@@ -858,9 +861,9 @@ export class SettingsModal extends Modal {
 		excludedTagsContainer.style.marginBottom = "12px";
 
 		new Setting(excludedTagsContainer)
-			.setName("Tag Exclusion List")
+			.setName("Hidden Tags")
 			.setDesc(
-				"Tags to exclude from display in the kanban. They will still be preserved in the file."
+				"Tags to hide from display on task cards. The tasks themselves will still appear on the board."
 			);
 
 		const excludedTagsInputContainer = excludedTagsContainer.createDiv();
@@ -917,6 +920,7 @@ export class SettingsModal extends Modal {
 			renderExcludedTagsList();
 			this.updateDirtyBanner();
 		};
+		new TagSuggest(this.app, excludedTagInput, () => addExcludedTag());
 
 		const addExcludedTagBtn = addExcludedTagRow.createEl("button", { text: "Add" });
 		addExcludedTagBtn.addEventListener("click", addExcludedTag);
@@ -946,6 +950,84 @@ export class SettingsModal extends Modal {
 		excludedTagsListEl = excludedTagsInputContainer.createDiv();
 		renderExcludedTagsList();
 
+		const excludedTaskTagsContainer = this.scrollWrapper.createDiv();
+		excludedTaskTagsContainer.style.marginBottom = "12px";
+
+		new Setting(excludedTaskTagsContainer)
+			.setName("Excluded task tags")
+			.setDesc(
+				"Tasks containing these tags will be completely excluded from the board."
+			);
+
+		const excludedTaskTagsInputContainer = excludedTaskTagsContainer.createDiv();
+		excludedTaskTagsInputContainer.style.marginLeft = "16px";
+
+		const addExcludedTaskTagRow = excludedTaskTagsInputContainer.createDiv();
+		addExcludedTaskTagRow.style.display = "flex";
+		addExcludedTaskTagRow.style.gap = "8px";
+		addExcludedTaskTagRow.style.marginBottom = "8px";
+
+		const excludedTaskTagInput = addExcludedTaskTagRow.createEl("input", {
+			type: "text",
+			placeholder: "e.g., archived",
+		});
+		excludedTaskTagInput.style.flexGrow = "1";
+		excludedTaskTagInput.addClass("setting-input");
+		
+		let excludedTaskTagsListEl: HTMLDivElement;
+
+		const renderExcludedTaskTagsList = () => {
+			excludedTaskTagsListEl.empty();
+			const tags = this.settings.excludedTaskTags ?? [];
+			for (const tag of tags) {
+				const row = excludedTaskTagsListEl.createDiv();
+				row.style.display = "flex";
+				row.style.justifyContent = "space-between";
+				row.style.alignItems = "center";
+				row.style.padding = "4px 8px";
+				row.style.borderBottom = "1px solid var(--background-modifier-border)";
+				
+				const label = row.createSpan();
+				label.setText(tag);
+				label.style.fontFamily = "var(--font-monospace)";
+				label.style.fontSize = "var(--font-ui-smaller)";
+
+				const removeBtn = row.createEl("button", { text: "Remove" });
+				removeBtn.style.padding = "2px 8px";
+				removeBtn.style.fontSize = "var(--font-ui-smaller)";
+				removeBtn.addEventListener("click", () => {
+					this.settings.excludedTaskTags = (this.settings.excludedTaskTags ?? []).filter((t) => t !== tag);
+					renderExcludedTaskTagsList();
+					this.updateDirtyBanner();
+				});
+			}
+		};
+
+		const addExcludedTaskTag = () => {
+			const raw = excludedTaskTagInput.value.trim().replace(/^#/, "");
+			if (!raw) return;
+			const tags = this.settings.excludedTaskTags ?? [];
+			if (tags.includes(raw)) return;
+			this.settings.excludedTaskTags = [...tags, raw];
+			excludedTaskTagInput.value = "";
+			renderExcludedTaskTagsList();
+			this.updateDirtyBanner();
+		};
+		new TagSuggest(this.app, excludedTaskTagInput, () => addExcludedTaskTag());
+
+		const addExcludedTaskTagBtn = addExcludedTaskTagRow.createEl("button", { text: "Add" });
+		addExcludedTaskTagBtn.addEventListener("click", addExcludedTaskTag);
+
+		excludedTaskTagInput.addEventListener("keydown", (e: KeyboardEvent) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				addExcludedTaskTag();
+			}
+		});
+
+		excludedTaskTagsListEl = excludedTaskTagsInputContainer.createDiv();
+		renderExcludedTaskTagsList();
+
 		const defaultTaskFileSetting = new Setting(this.scrollWrapper)
 			.setName("Default task file")
 			.setDesc(
@@ -960,6 +1042,7 @@ export class SettingsModal extends Modal {
 					validateDefaultTaskFile();
 					this.updateDirtyBanner();
 				});
+				new FileSuggest(this.app, text.inputEl);
 			});
 		defaultTaskFileSetting.controlEl.style.flexDirection = "column";
 		defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
