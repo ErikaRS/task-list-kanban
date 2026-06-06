@@ -3,22 +3,92 @@ import {
 	PropertySchemaOption,
 	type TaskPropertyMap,
 	type PropertyKeyMeta,
+	createPropertyMapWithStatus,
 	UNIVERSAL_STATUS_PROPERTY_KEY,
-	parseUniversalStatus,
 } from "./property_schema";
+import { DATE_ONLY_PATTERN, escapeRegExp, parseDateOnly } from "./value_parsers";
 
-const TASKS_REGEX = {
-	due: /📅\s*(\d{4}-\d{2}-\d{2})/,
-	scheduled: /⏰\s*(\d{4}-\d{2}-\d{2})/,
-	start: /🛫\s*(\d{4}-\d{2}-\d{2})/,
-	done: /🏁\s*(\d{4}-\d{2}-\d{2})/,
-	priority: /(🔺|⏫|🔼|🔽|⏬)/,
-	recurrence: /🔁\s*([a-zA-Z0-9\s]+?)(?=\s*[📅⏰🛫🏁🔺⏫🔼🔽⏬]|$)/,
+const TASKS_KEY_ALIASES = {
+	done: ["completion"],
+	recurrence: ["repeat"],
+} as const;
+
+const DATE_FIELDS = [
+	{ key: "due", label: "Due", emojis: ["📅"] },
+	{ key: "scheduled", label: "Scheduled", emojis: ["⏳", "⏰"] },
+	{ key: "start", label: "Start", emojis: ["🛫"] },
+	{ key: "done", label: "Done", emojis: ["✅", "🏁"] },
+	{ key: "created", label: "Created", emojis: ["➕"] },
+] as const;
+
+const PRIORITY_VALUES = new Map<string, number>([
+	["🔺", 5],
+	["⏫", 4],
+	["🔼", 3],
+	["🔽", 2],
+	["⏬", 1],
+]);
+
+const METADATA_EMOJIS = [
+	...DATE_FIELDS.flatMap((field) => field.emojis),
+	...PRIORITY_VALUES.keys(),
+	"🔁",
+];
+
+type ParsedField = {
+	index: number;
+	endIndex: number;
+	key: string;
+	rawValue: string;
+	value: string | number | Date | null;
 };
 
-function parseDate(value: string): Date | null {
-	const parsed = new Date(value);
-	return isNaN(parsed.getTime()) ? null : parsed;
+function parseDateFields(rawLine: string): ParsedField[] {
+	return DATE_FIELDS.flatMap((field) =>
+		field.emojis.flatMap((emoji) => {
+			const regex = new RegExp(`${escapeRegExp(emoji)}\\s*(${DATE_ONLY_PATTERN})`, "gu");
+			return [...rawLine.matchAll(regex)].map((match) => ({
+				index: match.index ?? Number.MAX_SAFE_INTEGER,
+				endIndex: (match.index ?? 0) + match[0].length,
+				key: field.key,
+				rawValue: match[0],
+				value: match[1] ? parseDateOnly(match[1]) : null,
+			}));
+		})
+	);
+}
+
+function parsePriorityFields(rawLine: string): ParsedField[] {
+	const priorityPattern = Array.from(PRIORITY_VALUES.keys()).map(escapeRegExp).join("|");
+	const regex = new RegExp(priorityPattern, "gu");
+
+	return [...rawLine.matchAll(regex)].map((match) => ({
+		index: match.index ?? Number.MAX_SAFE_INTEGER,
+		endIndex: (match.index ?? 0) + match[0].length,
+		key: "priority",
+		rawValue: match[0],
+		value: PRIORITY_VALUES.get(match[0]) ?? null,
+	}));
+}
+
+function parseRecurrenceFields(rawLine: string): ParsedField[] {
+	const metadataPattern = METADATA_EMOJIS.map(escapeRegExp).join("|");
+	const regex = new RegExp(`🔁\\s*(.+?)(?=\\s*(?:${metadataPattern})(?:\\s*${DATE_ONLY_PATTERN})?|$)`, "gu");
+
+	return [...rawLine.matchAll(regex)]
+		.map((match) => {
+			const value = match[1]?.trim() ?? "";
+			const rawValue = match[0].trimEnd();
+			const index = match.index ?? Number.MAX_SAFE_INTEGER;
+			return {
+				index,
+				endIndex: index + rawValue.length,
+				key: "recurrence",
+				rawValue,
+				value,
+			};
+		})
+		.filter((field) => field.value !== "");
 }
 
 export class TasksPluginSchema implements PropertySchema {
@@ -26,62 +96,23 @@ export class TasksPluginSchema implements PropertySchema {
 	label = "Tasks Plugin";
 
 	parseProperties(rawLine: string): TaskPropertyMap {
-		const properties: TaskPropertyMap = new Map();
-		const statusProp = parseUniversalStatus(rawLine);
-		properties.set(UNIVERSAL_STATUS_PROPERTY_KEY, statusProp);
+		const properties = createPropertyMapWithStatus(rawLine);
+		const parsedFields = [
+			...parseDateFields(rawLine),
+			...parsePriorityFields(rawLine),
+			...parseRecurrenceFields(rawLine),
+		].sort((a, b) => a.index - b.index);
 
-		const dueMatch = rawLine.match(TASKS_REGEX.due);
-		if (dueMatch && dueMatch[1]) {
-			properties.set("due", {
-				key: "due",
-				rawValue: dueMatch[0],
-				value: parseDate(dueMatch[1]),
-			});
-		}
-
-		const scheduledMatch = rawLine.match(TASKS_REGEX.scheduled);
-		if (scheduledMatch && scheduledMatch[1]) {
-			properties.set("scheduled", {
-				key: "scheduled",
-				rawValue: scheduledMatch[0],
-				value: parseDate(scheduledMatch[1]),
-			});
-		}
-
-		const startMatch = rawLine.match(TASKS_REGEX.start);
-		if (startMatch && startMatch[1]) {
-			properties.set("start", {
-				key: "start",
-				rawValue: startMatch[0],
-				value: parseDate(startMatch[1]),
-			});
-		}
-
-		const doneMatch = rawLine.match(TASKS_REGEX.done);
-		if (doneMatch && doneMatch[1]) {
-			properties.set("done", {
-				key: "done",
-				rawValue: doneMatch[0],
-				value: parseDate(doneMatch[1]),
-			});
-		}
-
-		const priorityMatch = rawLine.match(TASKS_REGEX.priority);
-		if (priorityMatch && priorityMatch[1]) {
-			properties.set("priority", {
-				key: "priority",
-				rawValue: priorityMatch[0],
-				value: priorityMatch[1],
-			});
-		}
-
-		const recurrenceMatch = rawLine.match(TASKS_REGEX.recurrence);
-		if (recurrenceMatch && recurrenceMatch[1]) {
-			properties.set("recurrence", {
-				key: "recurrence",
-				rawValue: recurrenceMatch[0],
-				value: recurrenceMatch[1].trim(),
-			});
+		for (const field of parsedFields) {
+			if (!properties.has(field.key)) {
+				properties.set(field.key, {
+					key: field.key,
+					rawValue: field.rawValue,
+					value: field.value,
+					startIndex: field.index,
+					endIndex: field.endIndex,
+				});
+			}
 		}
 
 		return properties;
@@ -93,9 +124,10 @@ export class TasksPluginSchema implements PropertySchema {
 			{ key: "due", label: "Due", type: "date" },
 			{ key: "scheduled", label: "Scheduled", type: "date" },
 			{ key: "start", label: "Start", type: "date" },
-			{ key: "done", label: "Done", type: "date" },
+			{ key: "done", label: "Done", type: "date", aliases: [...TASKS_KEY_ALIASES.done] },
+			{ key: "created", label: "Created", type: "date" },
 			{ key: "priority", label: "Priority", type: "priority" },
-			{ key: "recurrence", label: "Recurrence", type: "text" },
+			{ key: "recurrence", label: "Recurrence", type: "text", aliases: [...TASKS_KEY_ALIASES.recurrence] },
 		];
 	}
 }

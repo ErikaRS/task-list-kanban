@@ -7,15 +7,14 @@ export * from "./property_schema";
 export * from "./none_schema";
 export * from "./tasks_schema";
 export * from "./dataview_schema";
+export * from "./value_parsers";
+
+const SCHEMA_IMPLS: Record<PropertySchemaOption, PropertySchema> = {
+	[PropertySchemaOption.None]: new NoneSchema(),
+	[PropertySchemaOption.TasksPlugin]: new TasksPluginSchema(),
+	[PropertySchemaOption.Dataview]: new DataviewSchema(),
+};
 
 export function getSchemaImpl(option: PropertySchemaOption): PropertySchema {
-	switch (option) {
-		case PropertySchemaOption.TasksPlugin:
-			return new TasksPluginSchema();
-		case PropertySchemaOption.Dataview:
-			return new DataviewSchema();
-		case PropertySchemaOption.None:
-		default:
-			return new NoneSchema();
-	}
+	return SCHEMA_IMPLS[option] ?? SCHEMA_IMPLS[PropertySchemaOption.None];
 }

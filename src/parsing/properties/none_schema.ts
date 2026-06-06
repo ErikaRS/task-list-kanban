@@ -3,8 +3,8 @@ import {
 	PropertySchemaOption,
 	type TaskPropertyMap,
 	type PropertyKeyMeta,
+	createPropertyMapWithStatus,
 	UNIVERSAL_STATUS_PROPERTY_KEY,
-	parseUniversalStatus,
 } from "./property_schema";
 
 export class NoneSchema implements PropertySchema {
@@ -12,10 +12,7 @@ export class NoneSchema implements PropertySchema {
 	label = "None";
 
 	parseProperties(rawLine: string): TaskPropertyMap {
-		const properties: TaskPropertyMap = new Map();
-		const statusProp = parseUniversalStatus(rawLine);
-		properties.set(UNIVERSAL_STATUS_PROPERTY_KEY, statusProp);
-		return properties;
+		return createPropertyMapWithStatus(rawLine);
 	}
 
 	knownKeys(): PropertyKeyMeta[] {
