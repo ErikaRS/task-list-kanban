@@ -16,7 +16,7 @@ import { createTaskLine } from "./task_creation";
 import {
 	buildOrderEntries,
 	computeDropPlan,
-	generateBlockLinkId,
+	ensureRowBlockLink,
 	removeEntry,
 	taskKey,
 	type ManualOrderStore,
@@ -139,8 +139,6 @@ export function createTaskActions({
 		);
 	}
 
-	const blockLinkRegexp = /\s\^([a-zA-Z0-9-]+)\s*$/;
-
 	/**
 	 * Assigns block links to the given tasks (those lacking one), batched so each
 	 * file is read and written exactly once. Returns a map of taskId → block link
@@ -184,20 +182,23 @@ export function createTaskActions({
 			// Collect block links already in the file so generated ids don't collide.
 			const existing = new Set<string>();
 			for (const row of rows) {
-				const match = row.match(blockLinkRegexp);
+				const match = row.match(/\s\^([a-zA-Z0-9-]+)\s*$/);
 				if (match?.[1]) existing.add(match[1]);
 			}
 
+			let changed = false;
 			for (const { task, metadata } of entries) {
 				const row = rows[metadata.rowIndex];
 				if (row == null) continue;
-				const blockLink = generateBlockLinkId(existing);
-				existing.add(blockLink);
-				rows[metadata.rowIndex] = `${row.trimEnd()} ^${blockLink}`;
-				resolved.set(task.id, blockLink);
+				const ensured = ensureRowBlockLink(row, existing);
+				rows[metadata.rowIndex] = ensured.row;
+				changed = changed || ensured.changed;
+				resolved.set(task.id, ensured.blockLink);
 			}
 
-			await vault.modify(fileHandle, rows.join("\n"));
+			if (changed) {
+				await vault.modify(fileHandle, rows.join("\n"));
+			}
 		}
 
 		return resolved;

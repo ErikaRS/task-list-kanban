@@ -26,6 +26,13 @@ export interface OrderableTask {
 	rowIndex: number;
 }
 
+export interface ManualOrderPruneTask {
+	done: boolean;
+	column: string | undefined;
+	path: string;
+	blockLink: string | undefined;
+}
+
 /** Builds a {@link ManualOrderKey} from a path and block link. */
 export function manualOrderKey(path: string, blockLink: string): ManualOrderKey {
 	return `${path}::${blockLink}`;
@@ -210,6 +217,31 @@ export function removeEntry(
 	return next.length === entries.length ? entries : next;
 }
 
+/**
+ * Builds the present-key map used to prune stale manual-order entries.
+ *
+ * This intentionally uses the full task set, not the currently filtered/rendered
+ * board matrix, so temporary content/tag/file filters cannot delete valid pins.
+ */
+export function collectPresentManualOrderKeys<T extends ManualOrderPruneTask>(
+	tasks: T[]
+): Record<string, Set<ManualOrderKey>> {
+	const presentKeysByColumn: Record<string, Set<ManualOrderKey>> = {};
+	for (const task of tasks) {
+		if (!task.blockLink || task.column === "archived") {
+			continue;
+		}
+
+		const columnTag = task.done || task.column === "done"
+			? "done"
+			: task.column ?? "uncategorised";
+		const keys = presentKeysByColumn[columnTag] ?? new Set<ManualOrderKey>();
+		keys.add(manualOrderKey(task.path, task.blockLink));
+		presentKeysByColumn[columnTag] = keys;
+	}
+	return presentKeysByColumn;
+}
+
 const BLOCK_LINK_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 /**
@@ -230,4 +262,32 @@ export function generateBlockLinkId(existing: Set<string>): string {
 	}
 	// Extremely unlikely fallback: append a timestamp to guarantee uniqueness.
 	return `t${Date.now().toString(36)}`;
+}
+
+const blockLinkRegexp = /\s\^([a-zA-Z0-9-]+)\s*$/;
+
+/**
+ * Ensures a source row has a trailing Obsidian block link.
+ *
+ * If the row already has one on disk, that link is reused. This protects fast
+ * repeated reorders where the in-memory task store has not yet observed the
+ * previous file write.
+ */
+export function ensureRowBlockLink(
+	row: string,
+	existing: Set<string>
+): { row: string; blockLink: string; changed: boolean } {
+	const existingMatch = row.match(blockLinkRegexp);
+	if (existingMatch?.[1]) {
+		existing.add(existingMatch[1]);
+		return { row, blockLink: existingMatch[1], changed: false };
+	}
+
+	const blockLink = generateBlockLinkId(existing);
+	existing.add(blockLink);
+	return {
+		row: `${row.trimEnd()} ^${blockLink}`,
+		blockLink,
+		changed: true,
+	};
 }

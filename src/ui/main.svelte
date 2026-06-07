@@ -25,6 +25,7 @@
 	import { onMount, onDestroy } from "svelte";
 	import type { App } from "obsidian";
 	import { getBoardTaskCount } from "./board_counts";
+	import { collectPresentManualOrderKeys } from "./tasks/manual_order";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -570,7 +571,7 @@
 	$: isGrouped = ($settingsStore.groupSource?.kind ?? "none") !== "none";
 	$: reorderEnabled = isManualOrder && !isGrouped;
 
-	// Prune stale manual-order entries when the visible task set changes (tasks
+	// Prune stale manual-order entries when the full task set changes (tasks
 	// deleted or moved out of a column). Display already ignores stale entries, so
 	// this is purely persistence cleanup — never load-bearing for rendering.
 	//
@@ -589,22 +590,11 @@
 		}
 		pruneTimer = setTimeout(() => {
 			pruneTimer = undefined;
-			const presentKeysByColumn: Record<string, Set<string>> = {};
-			for (const bucket of activeMatrix.primaryAxis) {
-				const keys = new Set<string>();
-				const cells = activeMatrix.cells[bucket.id] ?? {};
-				for (const cell of Object.values(cells)) {
-					for (const task of cell.tasks) {
-						if (task.blockLink) keys.add(`${task.path}::${task.blockLink}`);
-					}
-				}
-				presentKeysByColumn[bucket.id] = keys;
-			}
-			taskActions.pruneManualOrder(presentKeysByColumn);
+			taskActions.pruneManualOrder(collectPresentManualOrderKeys($tasksStore));
 		}, 500);
 	}
 
-	$: if (isManualOrder && activeMatrix) {
+	$: if (isManualOrder && $tasksStore) {
 		schedulePrune();
 	}
 

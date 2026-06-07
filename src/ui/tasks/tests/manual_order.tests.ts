@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
 	arrayMove,
 	buildOrderEntries,
+	collectPresentManualOrderKeys,
 	computeDisplayOrder,
 	computeDropPlan,
 	computePinnedIds,
+	ensureRowBlockLink,
 	generateBlockLinkId,
 	manualOrderKey,
 	pruneEntries,
@@ -184,11 +186,52 @@ describe("removeEntry", () => {
 	});
 });
 
+describe("collectPresentManualOrderKeys", () => {
+	it("collects present keys from the full task set by primary column", () => {
+		const present = collectPresentManualOrderKeys([
+			{ done: false, column: "todo", path: "a.md", blockLink: "aa" },
+			{ done: true, column: "todo", path: "b.md", blockLink: "bb" },
+			{ done: false, column: undefined, path: "c.md", blockLink: "cc" },
+			{ done: false, column: "archived", path: "d.md", blockLink: "dd" },
+			{ done: false, column: "todo", path: "e.md", blockLink: undefined },
+		]);
+
+		expect(present["todo"]).toEqual(new Set(["a.md::aa"]));
+		expect(present["done"]).toEqual(new Set(["b.md::bb"]));
+		expect(present["uncategorised"]).toEqual(new Set(["c.md::cc"]));
+		expect(present["archived"]).toBeUndefined();
+	});
+});
+
 describe("generateBlockLinkId", () => {
 	it("avoids ids already present in the file", () => {
 		const existing = new Set<string>();
 		const id = generateBlockLinkId(existing);
 		expect(id).toMatch(/^[a-z0-9]+$/);
 		expect(existing.has(id)).toBe(false);
+	});
+});
+
+describe("ensureRowBlockLink", () => {
+	it("reuses a block link already present on disk", () => {
+		const existing = new Set<string>();
+		const result = ensureRowBlockLink("- [ ] Task #todo ^already", existing);
+
+		expect(result).toEqual({
+			row: "- [ ] Task #todo ^already",
+			blockLink: "already",
+			changed: false,
+		});
+		expect(existing.has("already")).toBe(true);
+	});
+
+	it("appends a new block link only when the row has none", () => {
+		const existing = new Set<string>();
+		const result = ensureRowBlockLink("- [ ] Task #todo   ", existing);
+
+		expect(result.row).toMatch(/^- \[ \] Task #todo \^[a-z0-9]+$/);
+		expect(result.blockLink).toMatch(/^[a-z0-9]+$/);
+		expect(result.changed).toBe(true);
+		expect(existing.has(result.blockLink)).toBe(true);
 	});
 });
