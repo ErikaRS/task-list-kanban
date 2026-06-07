@@ -55,7 +55,7 @@
                 }
               }
             ],
-            "currentTab": 2
+            "currentTab": 1
           },
           {
             "id": "b672f997538ed1c3",
@@ -237,10 +237,10 @@
       "bases:Create new base": false
     }
   },
-  "active": "08d2136051d11382",
+  "active": "0b31da340fd79598",
   "lastOpenFiles": [
-    "periodic/2025-05-02.md",
     "periodic/Kanban-1761679356942.md",
+    "periodic/2025-05-02.md",
     "periodic/2025-05-01.md",
     "tasks/Even more tasks.md",
     "periodic/2025-10-21.md",

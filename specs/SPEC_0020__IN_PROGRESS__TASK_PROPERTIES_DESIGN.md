@@ -11,6 +11,11 @@ This spec was split out from the earlier combined task-properties / grouping des
 
 This spec is intentionally limited to property parsing, property display, property-based sorting, and manual ordering within a column.
 
+## Reference docs
+- [Combining Dataview and Tasks](https://publish.obsidian.md/tasks/Other+Plugins/Dataview)
+- [Dataview:Metadata on Tasks and Lists](https://blacksmithgu.github.io/obsidian-dataview/annotation/metadata-tasks/)
+- [Dataview Format](https://publish.obsidian.md/tasks/Reference/Task+Formats/Dataview+Format)
+
 ## Implementation Order
 
 `SPEC 0019` is now complete, so this spec should be implemented against the board matrix renderer instead of the removed legacy column renderer.
@@ -599,29 +604,29 @@ All Phase 4 test cases must be checked off before this spec can be marked comple
 
 ### Mode Entry
 
-- [ ] **ME1.** With `columnOrderMode = File order`, no drag handles or pin markers appear on cards.
-- [ ] **ME2.** Switch the board header sort control to `Manual`. Drag handles appear on every card; no pin markers appear yet (nothing is pinned).
-- [ ] **ME3.** On entering `Manual` mode, no block links are written to any source file (inspect a file before and after — content is unchanged).
-- [ ] **ME4.** In `Manual` mode the column initially renders in file order, identical to `File order` mode.
+- [x] **ME1.** With `columnOrderMode = File order`, no drag handles or pin markers appear on cards.
+- [x] **ME2.** Switch the board header sort control to `Manual`. Drag handles appear on every card; no pin markers appear yet (nothing is pinned).
+- [x] **ME3.** On entering `Manual` mode, no block links are written to any source file (inspect a file before and after — content is unchanged).
+- [x] **ME4.** In `Manual` mode the column initially renders in file order, identical to `File order` mode.
 
 ### Pinning via Drag
 
-- [ ] **P1.** Drag a task to the top of a column. Only that task receives a block link in its source file; no other task is modified.
-- [ ] **P2.** Drag a task to the 3rd position. That task and exactly the two tasks above it receive block links; tasks below are untouched.
-- [ ] **P3.** After P2, the three top tasks show a pin marker; all tasks below show a drag handle but no pin marker.
-- [ ] **P4.** Drag an already-pinned task to a new position within the existing pinned prefix. No new block link is written (existing ones are reused); only the store order changes.
-- [ ] **P5.** Drag a task to a position below an existing pin, extending the prefix. Only the newly covered, previously-unpinned tasks get block links.
+- [x] **P1.** Drag a task to the top of a column. Only that task receives a block link in its source file; no other task is modified.
+- [x] **P2.** Drag a task to the 3rd position. That task and exactly the two tasks above it receive block links; tasks below are untouched.
+- [x] **P3.** After P2, the three top tasks show a pin marker; all tasks below show a drag handle but no pin marker.
+- [x] **P4.** Drag an already-pinned task to a new position within the existing pinned prefix. No new block link is written (existing ones are reused); only the store order changes.
+- [x] **P5.** Drag a task to a position below an existing pin, extending the prefix. Only the newly covered, previously-unpinned tasks get block links.
 
 ### Prefix Invariant
 
-- [ ] **PI1.** After any drag, the pinned (marker-bearing) tasks are a contiguous block at the top of the column — no unpinned task ever appears above a pinned one.
-- [ ] **PI2.** Attempting to drop a task above the pinned prefix pins the intervening tasks as needed so the prefix stays contiguous (you cannot leave a gap).
-- [ ] **PI3.** With a pinned prefix present, a brand-new task added to the source file appears in the unpinned tail (in file order), never above a pinned task.
+- [X] **PI1.** After any drag, the pinned (marker-bearing) tasks are a contiguous block at the top of the column — no unpinned task ever appears above a pinned one.
+- [X] **PI2.** Attempting to drop a task above the pinned prefix pins the intervening tasks as needed so the prefix stays contiguous (you cannot leave a gap).
+- [x] **PI3.** With a pinned prefix present, a brand-new task added to the source file appears in the unpinned tail (in file order), never above a pinned task.
 
 ### Cross-File Writes
 
-- [ ] **CF1.** In a column aggregating tasks from multiple files, drag a task so the prefix spans two files. Both files receive block links; each is written exactly once.
-- [ ] **CF2.** After CF1, no unrelated lines in either file are reformatted or reordered.
+- [x] **CF1.** In a column aggregating tasks from multiple files, drag a task so the prefix spans two files. Both files receive block links; each is written exactly once.
+- [x] **CF2.** After CF1, no unrelated lines in either file are reformatted or reordered.
 
 ### Persistence & Re-entrancy
 
