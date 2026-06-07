@@ -8,13 +8,15 @@
 	import { Component, Keymap, MarkdownRenderer, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
 	import { onDestroy } from "svelte";
+	import { PropertyDisplayMode } from "../settings/settings_store";
+	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
 
 	export let app: App;
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
-	export let showProperties: boolean;
+	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let displayColumn: ColumnTag | DefaultColumns;
@@ -171,7 +173,14 @@
 	}
 
 	function renderTaskMarkdown() {
-		let contentWithBlockLink = (task.content + (task.blockLink ? ` ^${task.blockLink}` : ""))
+		// In Pretty mode, displayed properties are moved to the chip strip, so
+		// hide their raw text from the body (mirrors the consolidated-tag footer).
+		const body =
+			propertyDisplay === PropertyDisplayMode.Pretty && task.properties
+				? stripDisplayedPropertiesFromContent(task.content, task.properties)
+				: task.content;
+
+		let contentWithBlockLink = (body + (task.blockLink ? ` ^${task.blockLink}` : ""))
 			.replaceAll("<br />", "\n");
 
 		for (const tag of excludedTags) {
@@ -320,8 +329,8 @@
 		});
 	}
 
-	// Re-render when task content changes
-	$: if (task && !isEditing && previewContainerEl) {
+	// Re-render when task content or the property-display mode changes
+	$: if (task && propertyDisplay && !isEditing && previewContainerEl) {
 		void renderMarkdown(isSelectionMode);
 	}
 
@@ -446,6 +455,39 @@
 		</div>
 	</div>
 
+	{#if shouldconsolidateTags}
+		<div class="task-tags">
+			{#each visibleTags as tag}
+				<span>
+					<!-- prettier-ignore -->
+					<span class="cm-formatting cm-formatting-hashtag cm-hashtag cm-hashtag-begin cm-list-1">#</span><span
+						class="cm-hashtag cm-hashtag-end cm-list-1">{tag}</span
+					>
+				</span>
+			{/each}
+		</div>
+	{/if}
+	{#if propertyDisplay === PropertyDisplayMode.Debug && task.properties && task.properties.size > 0}
+		<div class="task-properties-debug">
+			<pre><code>{JSON.stringify(Array.from(task.properties.entries()), null, 2)}</code></pre>
+		</div>
+	{:else if propertyDisplay === PropertyDisplayMode.Pretty && task.properties}
+		{@const displayProperties = toDisplayProperties(task.properties)}
+		{#if displayProperties.length > 0}
+			<div class="task-properties">
+				{#each displayProperties as prop (prop.key)}
+					<span class="task-property">
+						{#if prop.icon}
+							<span class="task-property-icon" title={prop.label} aria-label={prop.label}>{prop.icon}</span>
+						{:else}
+							<span class="task-property-label">{prop.label}</span>
+						{/if}
+						<span class="task-property-value">{prop.value}</span>
+					</span>
+				{/each}
+			</div>
+		{/if}
+	{/if}
 	{#if showFilepath}
 		<div class="task-footer">
 			<button
@@ -464,23 +506,6 @@
 				<Icon name="lucide-arrow-up-right" size={18} opacity={0.5} />
 				<span class="file-path">{task.path}</span>
 			</button>
-		</div>
-	{/if}
-	{#if shouldconsolidateTags}
-		<div class="task-tags">
-			{#each visibleTags as tag}
-				<span>
-					<!-- prettier-ignore -->
-					<span class="cm-formatting cm-formatting-hashtag cm-hashtag cm-hashtag-begin cm-list-1">#</span><span
-						class="cm-hashtag cm-hashtag-end cm-list-1">{tag}</span
-					>
-				</span>
-			{/each}
-		</div>
-	{/if}
-	{#if showProperties && task.properties && task.properties.size > 0}
-		<div class="task-properties-temp">
-			<pre><code>{JSON.stringify(Array.from(task.properties.entries()), null, 2)}</code></pre>
 		</div>
 	{/if}
 </div>
@@ -691,16 +716,51 @@
 			}
 		}
 
-		.task-properties-temp {
+		.task-properties-debug {
 			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
 			border-top: var(--border-width) solid var(--background-modifier-border);
 			background-color: var(--background-secondary-alt);
 			font-size: var(--font-ui-smaller);
 			overflow-x: auto;
-			
+
 			pre {
 				margin: 0;
 			}
+		}
+
+		.task-properties {
+			display: flex;
+			flex-wrap: wrap;
+			gap: var(--size-2-2);
+			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
+			border-top: var(--border-width) solid var(--background-modifier-border);
+			font-size: var(--font-ui-smaller);
+		}
+
+		.task-property {
+			display: inline-flex;
+			align-items: baseline;
+			gap: var(--size-2-1);
+			padding: 0 var(--size-2-2);
+			border-radius: var(--radius-s);
+			background-color: var(--background-secondary-alt);
+			line-height: var(--line-height-tight);
+		}
+
+		.task-property-label {
+			color: var(--text-muted);
+			text-transform: uppercase;
+			font-size: var(--font-smallest);
+			letter-spacing: 0.02em;
+		}
+
+		.task-property-icon {
+			font-size: var(--font-ui-smaller);
+			line-height: 1;
+		}
+
+		.task-property-value {
+			color: var(--text-normal);
 		}
 	}
 

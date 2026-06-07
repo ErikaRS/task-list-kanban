@@ -18,7 +18,7 @@
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
+	import { type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
@@ -480,7 +480,7 @@
 		flowDirection = FlowDirection.LeftToRight,
 		uncategorizedColumnName,
 		doneColumnName,
-		showProperties = false,
+		propertyDisplay = PropertyDisplayMode.None,
 	} = $settingsStore);
 
 	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
@@ -910,7 +910,7 @@
 						{uncategorizedColumnName}
 						{doneColumnName}
 						columnWidth="{columnWidth}px"
-						showProperties={$settingsStore.showProperties}
+						{propertyDisplay}
 					/>
 				{:else}
 					<BoardMatrixVertical
@@ -928,7 +928,7 @@
 						onToggleCollapse={toggleColumnCollapse}
 						{uncategorizedColumnName}
 						{doneColumnName}
-						showProperties={$settingsStore.showProperties}
+						{propertyDisplay}
 					/>
 				{/if}
 			</div>

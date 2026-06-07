@@ -5,6 +5,7 @@ import {
 	VisibilityOption,
 	ScopeOption,
 	FlowDirection,
+	PropertyDisplayMode,
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
@@ -636,7 +637,7 @@ export class SettingsModal extends Modal {
 		const advancedTaskParsingSection = createSection(
 			"advanced-task-parsing",
 			"Advanced task parsing",
-			"Task status marker characters and parsed metadata display.",
+			"Task status marker characters.",
 		);
 
 		this.columnsEditorEl = columnsSection;
@@ -690,6 +691,23 @@ export class SettingsModal extends Modal {
 					.setValue(this.settings.propertySchema ?? PropertySchemaOption.None)
 					.onChange((value) => {
 						this.settings.propertySchema = value as PropertySchemaOption;
+						this.updateDirtyBanner();
+					});
+			});
+
+		new Setting(taskPropertiesSection)
+			.setName("Show properties")
+			.setDesc(
+				"How parsed property values are displayed below task text. \"Pretty\" shows formatted values; \"Debug (JSON)\" shows the raw parsed data."
+			)
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption(PropertyDisplayMode.None, "None")
+					.addOption(PropertyDisplayMode.Pretty, "Pretty")
+					.addOption(PropertyDisplayMode.Debug, "Debug (JSON)")
+					.setValue(this.settings.propertyDisplay ?? PropertyDisplayMode.None)
+					.onChange((value) => {
+						this.settings.propertyDisplay = value as PropertyDisplayMode;
 						this.updateDirtyBanner();
 					});
 			});
@@ -1293,18 +1311,6 @@ export class SettingsModal extends Modal {
 						this.updateDirtyBanner();
 					}
 				});
-			});
-
-		new Setting(advancedTaskParsingSection)
-			.setName("Debug: Show properties on cards")
-			.setDesc("Display parsed property values below task text.")
-			.addToggle((toggle) => {
-				toggle
-					.setValue(this.settings.showProperties ?? false)
-					.onChange((value) => {
-						this.settings.showProperties = value;
-						this.updateDirtyBanner();
-					});
 			});
 
 		// Button bar (after scroll wrapper, still inside contentEl)

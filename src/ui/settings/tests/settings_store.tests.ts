@@ -3,6 +3,7 @@ import {
 	defaultSettings,
 	FlowDirection,
 	parseSettingsString,
+	PropertyDisplayMode,
 	ScopeOption,
 	toSettingsString,
 	type SavedFilter,
@@ -156,6 +157,36 @@ describe("SavedFilter persistence", () => {
 		const parsed = parseSettingsString(JSON.stringify(defaultSettings));
 		expect(parsed.lastContentFilter).toBe("");
 		expect(parsed.lastTagFilter).toEqual([]);
+	});
+});
+
+describe("Property display configuration", () => {
+	it("defaults to None", () => {
+		expect(parseSettings({}).propertyDisplay).toBe(PropertyDisplayMode.None);
+	});
+
+	it("parses an explicit display mode", () => {
+		expect(parseSettings({ propertyDisplay: "pretty" }).propertyDisplay).toBe(
+			PropertyDisplayMode.Pretty
+		);
+	});
+
+	it("migrates the legacy showProperties=true to Debug", () => {
+		expect(parseSettings({ showProperties: true }).propertyDisplay).toBe(
+			PropertyDisplayMode.Debug
+		);
+	});
+
+	it("migrates the legacy showProperties=false to None", () => {
+		expect(parseSettings({ showProperties: false }).propertyDisplay).toBe(
+			PropertyDisplayMode.None
+		);
+	});
+
+	it("prefers an explicit propertyDisplay over legacy showProperties", () => {
+		expect(
+			parseSettings({ showProperties: true, propertyDisplay: "pretty" }).propertyDisplay
+		).toBe(PropertyDisplayMode.Pretty);
 	});
 });
 

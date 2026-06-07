@@ -10,6 +10,7 @@
 	import type { TaskActions } from "../tasks/actions";
 	import ColumnHeader from "../components/ColumnHeader.svelte";
 	import BoardCell from "./BoardCell.svelte";
+	import { PropertyDisplayMode } from "../settings/settings_store";
 
 	export let app: App;
 	export let matrix: BoardMatrix;
@@ -18,7 +19,7 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let showFilepath: boolean;
-	export let showProperties: boolean = false;
+	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let targetTaskFile: TFile | null = null;
@@ -113,7 +114,7 @@
 						{taskActions}
 						{columnTagTableStore}
 					{showFilepath}
-					{showProperties}
+					{propertyDisplay}
 					{consolidateTags}
 					{excludedTags}
 					isVerticalFlow={false}

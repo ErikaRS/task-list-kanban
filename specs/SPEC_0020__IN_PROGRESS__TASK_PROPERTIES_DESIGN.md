@@ -209,11 +209,18 @@ Property controls are split across two surfaces by their nature:
 New section in Settings: **Task Properties**
 
 ```text
-Property Schema: [ None ▼ ]
-Show properties: [ toggle ]
+Property Schema:  [ None ▼ ]
+Show properties:  [ None ▼ ]   (None / Pretty / Debug (JSON))
 ```
 
-The schema picker and `showProperties` toggle live here. Ordering is **not** configured here.
+The schema picker and `propertyDisplay` selector live here. `Show properties`
+is a tri-state display mode rather than a boolean toggle:
+
+- `None` — no property strip on cards.
+- `Pretty` — formatted property chips (dates as `Jan 20`, priorities as labels).
+- `Debug (JSON)` — raw parsed property map as a JSON dump (developer aid).
+
+Ordering is **not** configured here.
 
 ### Board header (sort control)
 
@@ -291,7 +298,7 @@ propertySchema:  PropertySchemaOption;
 columnOrderMode: ColumnOrderMode;
 sortProperty:    string | null;
 sortDirection:   "asc" | "desc";
-showProperties:  boolean;
+propertyDisplay: PropertyDisplayMode; // None | Pretty | Debug
 ```
 
 Manual order data is stored separately from display settings:
@@ -321,11 +328,24 @@ interface PluginData {
 
 ### Property Display
 
-When `showProperties = true`, recognized properties are shown below task content:
+`propertyDisplay` selects how parsed properties appear below task content:
 
-- dates as locale-short values such as `Jan 20`
-- priorities as labels such as `High`
-- text values as-is
+- `None` — nothing is rendered.
+- `Pretty` — recognized properties are shown as chips:
+  - dates as locale-short values such as `Jan 20`
+  - priorities as labels such as `High`
+  - text values as-is
+  - recognized Tasks-plugin properties use their Tasks emoji as the chip icon
+    (`📅` due, `⏳` scheduled, `🛫` start, `✅` done, `➕` created, `🔁` recurrence,
+    and the level emoji `🔺`…`⏬` for priority); unrecognized keys fall back to a
+    text label. Icons are keyed on the canonical property key, so Dataview dates
+    also get icons, while non-numeric Dataview priority text falls back to a label.
+  - the universal `status` property is omitted (the checkbox already conveys it)
+  - the raw text of each displayed property is hidden from the rendered task
+    body (it is shown only as a chip), mirroring how consolidated tags move to
+    the footer. The underlying markdown is not modified; the edit view still
+    shows the full source.
+- `Debug (JSON)` — the raw parsed property map is dumped as JSON for development.
 
 ### Property Sorting
 
@@ -407,11 +427,14 @@ src/
 ### Phase 3: Property Display
 **Goal:** Show parsed properties on cards when enabled.
 
-1. [ ] Add `showProperties` to settings
-2. [ ] Render property strip in `task.svelte`
-3. [ ] Format property values for display
+1. [x] Add `propertyDisplay` (None / Pretty / Debug) to settings, replacing the
+   debug-only `showProperties` toggle and migrating legacy values (`true` → Debug)
+2. [x] Render property strip in `task.svelte` (Pretty chips + Debug JSON)
+3. [x] Format property values for display (`display.ts`: dates, priority labels, text)
+4. [x] Move the display control out of "Advanced task parsing" into the
+   "Task properties" settings section, next to the schema picker
 
-**Deliverable:** Task cards can display parsed properties.
+**Deliverable:** Task cards can display parsed properties in Pretty or Debug form.
 
 ### Phase 4: Manual Ordering
 **Goal:** Persist manual drag ordering within a column.

@@ -31,6 +31,30 @@ const METADATA_EMOJIS = [
 	"🔁",
 ];
 
+const RECURRENCE_EMOJI = "🔁";
+
+/**
+ * Canonical Tasks-plugin icon for each property key whose icon is fixed
+ * (i.e. independent of the value). The primary emoji is used for display.
+ * Priority is excluded because its icon encodes the value — see
+ * {@link getTasksPriorityEmoji}.
+ */
+export const TASKS_PROPERTY_ICONS: Readonly<Record<string, string>> = {
+	...Object.fromEntries(DATE_FIELDS.map((field) => [field.key, field.emojis[0]])),
+	recurrence: RECURRENCE_EMOJI,
+};
+
+/**
+ * Maps a numeric Tasks-plugin priority weight back to its emoji
+ * (5 -> 🔺 … 1 -> ⏬). Returns undefined for unknown weights.
+ */
+export function getTasksPriorityEmoji(value: number): string | undefined {
+	for (const [emoji, weight] of PRIORITY_VALUES) {
+		if (weight === value) return emoji;
+	}
+	return undefined;
+}
+
 type ParsedField = {
 	index: number;
 	endIndex: number;
