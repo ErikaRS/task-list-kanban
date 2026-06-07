@@ -135,6 +135,53 @@ describe("deriveBoardMatrix", () => {
 		expect(sorted.map((t) => t.rowIndex)).toEqual([1, 2]);
 	});
 
+	it("applies manual order with a pinned prefix and file-order tail", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Manual,
+			manualOrder: {
+				"col-1": ["f::lc", "f::la"],
+			},
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		// File order is a, b, c, d. Pin c then a; b and d follow in file order.
+		const tasks = [
+			{ id: "a", column: "col-1", path: "f", rowIndex: 1, done: false, blockLink: "la", properties: new Map() } as unknown as Task,
+			{ id: "b", column: "col-1", path: "f", rowIndex: 2, done: false, blockLink: undefined, properties: new Map() } as unknown as Task,
+			{ id: "c", column: "col-1", path: "f", rowIndex: 3, done: false, blockLink: "lc", properties: new Map() } as unknown as Task,
+			{ id: "d", column: "col-1", path: "f", rowIndex: 4, done: false, blockLink: undefined, properties: new Map() } as unknown as Task,
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const ordered = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(ordered.map((t) => t.rowIndex)).toEqual([3, 1, 2, 4]);
+	});
+
+	it("renders file order in manual mode when nothing is pinned", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Manual,
+			manualOrder: {},
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			{ id: "x", column: "col-1", path: "f", rowIndex: 2, done: false, properties: new Map() } as unknown as Task,
+			{ id: "y", column: "col-1", path: "f", rowIndex: 1, done: false, properties: new Map() } as unknown as Task,
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const ordered = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(ordered.map((t) => t.rowIndex)).toEqual([1, 2]);
+	});
+
 	it("respects RTL flow direction", () => {
 		const settings: SettingValues = {
 			...defaultSettings,

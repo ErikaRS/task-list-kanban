@@ -72,9 +72,11 @@ Scope notes:
 6. Missing property values sort last.
 7. Alternatively, the user can manually drag tasks into a custom order that persists across sessions and file edits.
 8. The ordering mode (`file`, `property`, `manual`) is a board-level setting.
+9. In manual mode, tasks whose position is explicitly held are visibly marked as pinned; untouched tasks remain in file order.
+10. The user can unpin a task, returning it to its natural file order without losing its block link.
 
 ### General
-9. All of the above are configurable settings; no behaviour is inferred.
+11. All of the above are configurable settings; no behaviour is inferred.
 
 ---
 
@@ -195,6 +197,74 @@ Important distinction:
 
 When a task is first manually reordered and lacks a block link, the plugin auto-assigns one, then stores the order using `path + "::" + blockLink`.
 
+##### Lazy pinning and the prefix invariant
+
+Block links (and `ManualOrderStore` entries) are assigned **lazily**, never up front:
+
+- Entering `Manual` mode assigns nothing. Every task starts unpinned and the
+  column renders in file order.
+- A task becomes **pinned** only when a drag requires it. Pinned status is defined
+  solely by the presence of a `ManualOrderStore` entry; a task that has never been
+  pinned has neither an entry nor a block link.
+- A block link is necessary but not sufficient for pinning: an unpinned task may
+  still carry a block link (e.g. one left behind after unpinning, or added by
+  another tool). "Has a block link" ≠ "is pinned" — the store entry is the source
+  of truth.
+
+Display order is the store array first (pinned tasks, in stored order), then all
+unpinned tasks in file order. This implies the load-bearing invariant:
+
+> **Pinned tasks always form a contiguous prefix of the displayed column.**
+> An unpinned task can never appear above a pinned one.
+
+The invariant is what keeps the model expressible: because the tail is "whatever
+isn't pinned, in file order," there is no way to represent a pinned task sitting
+*below* an unpinned one. Every drag operation must preserve the prefix.
+
+This is also why a drag pins **the dropped task plus every task above its drop
+position** — that is the minimal set of pins that keeps the prefix contiguous.
+Tasks already pinned in that prefix are reused (no new block link); only tasks
+that lack one are written.
+
+**Cost.** Writes scale with the *drop index*, not the move distance: dropping at
+the top is one write; dropping at position _n_ assigns up to _n_ block links.
+Because a column aggregates tasks across files, those writes may touch several
+files, so block-link assignments are batched per file (one write per file) and
+the resulting refresh is reconciled once (see Re-entrancy).
+
+**Semantics.** `Manual` mode freezes only what you have dragged. The unpinned
+tail continues to follow live file order, so newly added or externally edited
+tasks land in the tail (never above a pinned task) rather than snapshotting the
+whole column.
+
+##### Pinned indicator
+
+Pinned tasks render a small **pin marker** on the card so manual ordering is
+visible rather than implicit. Use the existing icon set (a lucide `pin` glyph at
+card-control size) rather than an emoji, to stay visually consistent with other
+card controls:
+
+- shown only when `columnOrderMode = Manual` and the task is pinned (has a
+  `ManualOrderStore` entry).
+- distinct from the drag handle: the handle is the affordance to reorder; the pin
+  marker communicates "this task's position is explicitly held."
+- unpinned tasks in `Manual` mode show the drag handle but no pin marker,
+  signaling they are still floating in file order.
+
+##### Unpinning
+
+The pin marker is interactive: clicking it **unpins** the task.
+
+- the task's `ManualOrderStore` entry is removed; it rejoins the unpinned tail and
+  renders in its natural file order.
+- the **block link is not removed**. By the time a task is pinned it may carry a
+  block link relied on elsewhere (links, other plugins, Tasks dependencies), so
+  unpinning only drops the order entry, never the anchor in the file.
+- unpinning is always safe with respect to the prefix invariant: removing one
+  entry shrinks the pinned prefix by one and the task moves into the file-order
+  tail, so the remaining pinned tasks stay a contiguous prefix. No re-pinning or
+  compaction of the others is required.
+
 ---
 
 ## UI Surfaces
@@ -267,6 +337,9 @@ Behavior:
 - The direction toggle (`↑` ascending / `↓` descending, bound to `sortDirection`) is
   shown only when a property is selected (i.e. `columnOrderMode = Property`).
 - Manual ordering shows drag handles only when `columnOrderMode = Manual`.
+- In `Manual` mode, pinned tasks additionally show a small pin marker (lucide
+  `pin`); unpinned tasks show the drag handle only. Clicking the pin marker
+  unpins the task (see Pinned indicator / Unpinning).
 
 ---
 
@@ -358,6 +431,41 @@ interface PluginData {
 - ordering is applied within a column
 - unordered tasks append after explicitly ordered tasks in file order
 - stale order entries are pruned when tasks are removed from the column
+- pinned tasks form a contiguous prefix of the column (see prefix invariant)
+
+#### Drop algorithm
+
+When a task is dropped at display index `dropIndex` within a column (`Manual`
+mode):
+
+1. **Compute the target prefix.** Take the column's current display order, apply
+   the move, and slice `[0 .. dropIndex]` — the dropped task plus every task above
+   it. These are the tasks that must be pinned to hold the new position.
+2. **Assign missing block links.** For each prefix task without a block link,
+   auto-assign one. Group assignments by file and write each file once. Tasks in
+   the prefix that are already pinned keep their existing block link (no write).
+3. **Rewrite the store entry.** Set `manualOrder[columnTag]` to the prefix in its
+   new order, expressed as `path + "::" + blockLink` keys. Tasks below the prefix
+   are left unpinned and fall back to file order.
+4. **Reconcile once.** The block-link writes trigger a re-parse; suppress the
+   matching refresh-side reset so the just-set order is not clobbered (see
+   Architectural Concern #2).
+
+Properties of the algorithm:
+
+- dropping at the top assigns one block link; dropping at index `n` assigns up to
+  `n` block links (only those not already pinned).
+- the prefix invariant is preserved by construction: everything above the drop is
+  pinned, so no unpinned task is ever above a pinned task.
+- the unpinned tail is never written; it continues to follow live file order.
+
+#### Unpin operation
+
+Clicking a task's pin marker removes its `ManualOrderStore[columnTag]` entry. The
+task rejoins the unpinned tail in file order. The block link is left in the file
+(it may be referenced elsewhere), so unpinning is a store-only mutation with no
+file write. The prefix invariant is preserved automatically: the remaining
+entries still describe a contiguous prefix.
 
 ### Serialization
 
@@ -439,14 +547,108 @@ src/
 ### Phase 4: Manual Ordering
 **Goal:** Persist manual drag ordering within a column.
 
-1. [ ] Implement `manual_order.ts`
-2. [ ] Auto-assign block links when needed
-3. [ ] Handle block-link write re-entrancy deterministically
-4. [ ] Add manual-order drag handles to the column task list
-5. [ ] Save and load column-local `ManualOrderStore`
-6. [ ] Prune stale entries on task removal
+1. [x] Implement `manual_order.ts` (prefix-pin drop algorithm + store helpers)
+2. [x] Lazily auto-assign block links for the drop prefix only, batched per file
+3. [x] Handle block-link write re-entrancy deterministically (reconcile once)
+4. [x] Add manual-order drag handles to the column task list
+5. [x] Render the pin marker (lucide `pin`) on pinned tasks in `Manual` mode; clicking it unpins (store-only, keeps block link)
+6. [x] Save and load column-local `ManualOrderStore`
+7. [x] Prune stale entries on task removal
 
-**Deliverable:** Manually reordered tasks remain in order across reloads.
+**Deliverable:** Manually reordered tasks remain in order across reloads, with
+pinned tasks marked and the unpinned tail following file order. Covers test
+cases: ME1–ME4, P1–P5, PI1–PI3, CF1–CF2, PE1–PE5, PM1, U1–U5, PR1–PR2, IX1–IX2
+(all must pass before this spec is marked complete).
+
+#### Implementation notes (code landed; manual test cases still pending)
+
+- **Storage.** The plugin has no separate data file: settings persist in the
+  board's frontmatter (`kanban_plugin`). `ManualOrderStore` is therefore stored
+  as its own `manualOrder` field on `SettingValues` (zod: `record(string,
+  array(string))`) rather than the conceptual `PluginData` wrapper. It is kept a
+  distinct field so it is never conflated with display settings, and it is
+  written via a lightweight `settingsStore.update` that does **not**
+  re-initialise the tasks store (which would clobber a just-set order).
+- **Re-entrancy.** No timing heuristic is needed: a task's `id` hashes
+  `content + path + rowIndex`, none of which include the block link, so
+  appending ` ^id` to a line preserves task identity. After the write triggers a
+  re-parse, tasks keep their ids and now carry the block links the store already
+  references, so display recomputes to the same order — no snap-back.
+- **Grouping guard (this spec is ungrouped-only).** Manual *display* order works
+  under grouping for free (ordering is applied to the whole column before the
+  swimlane split, so each cell shows the column-global relative order). But
+  drag-*reorder* is gated behind `reorderEnabled = isManualOrder && groupSource
+  is none`: the store is column-keyed, so a grouped drop would rewrite the whole
+  column prefix from a single swimlane's tasks and clobber the other swimlanes.
+  Pin markers stay visible when grouped and *unpin* stays allowed (a targeted
+  single-key removal cannot clobber other groups); only drag handles and reorder
+  drops are suppressed. Grouped manual ordering is deferred to `SPEC 0021`, whose
+  natural extension is to key the store by `columnTag::secondaryId` (cell-local
+  order with a per-cell prefix invariant), which subsumes the ungrouped case as
+  the single-default-bucket degenerate form.
+
+---
+
+## Manual Test Cases
+
+Phases 1–3 (parsing, sort, display) are covered by unit tests. The Phase 4 manual
+ordering behavior is stateful, touches the filesystem, and crosses the
+parse/re-render boundary, so it must be verified manually.
+
+All Phase 4 test cases must be checked off before this spec can be marked complete.
+
+### Mode Entry
+
+- [ ] **ME1.** With `columnOrderMode = File order`, no drag handles or pin markers appear on cards.
+- [ ] **ME2.** Switch the board header sort control to `Manual`. Drag handles appear on every card; no pin markers appear yet (nothing is pinned).
+- [ ] **ME3.** On entering `Manual` mode, no block links are written to any source file (inspect a file before and after — content is unchanged).
+- [ ] **ME4.** In `Manual` mode the column initially renders in file order, identical to `File order` mode.
+
+### Pinning via Drag
+
+- [ ] **P1.** Drag a task to the top of a column. Only that task receives a block link in its source file; no other task is modified.
+- [ ] **P2.** Drag a task to the 3rd position. That task and exactly the two tasks above it receive block links; tasks below are untouched.
+- [ ] **P3.** After P2, the three top tasks show a pin marker; all tasks below show a drag handle but no pin marker.
+- [ ] **P4.** Drag an already-pinned task to a new position within the existing pinned prefix. No new block link is written (existing ones are reused); only the store order changes.
+- [ ] **P5.** Drag a task to a position below an existing pin, extending the prefix. Only the newly covered, previously-unpinned tasks get block links.
+
+### Prefix Invariant
+
+- [ ] **PI1.** After any drag, the pinned (marker-bearing) tasks are a contiguous block at the top of the column — no unpinned task ever appears above a pinned one.
+- [ ] **PI2.** Attempting to drop a task above the pinned prefix pins the intervening tasks as needed so the prefix stays contiguous (you cannot leave a gap).
+- [ ] **PI3.** With a pinned prefix present, a brand-new task added to the source file appears in the unpinned tail (in file order), never above a pinned task.
+
+### Cross-File Writes
+
+- [ ] **CF1.** In a column aggregating tasks from multiple files, drag a task so the prefix spans two files. Both files receive block links; each is written exactly once.
+- [ ] **CF2.** After CF1, no unrelated lines in either file are reformatted or reordered.
+
+### Persistence & Re-entrancy
+
+- [ ] **PE1.** Pin several tasks, then reload the board (close and reopen the view). The manual order is preserved exactly.
+- [ ] **PE2.** Pin several tasks, then fully reload the vault/Obsidian. The manual order is preserved exactly.
+- [ ] **PE3.** Immediately after a drag, the just-set order is not clobbered by the re-parse triggered by the block-link write (no visible "snap back").
+- [ ] **PE4.** Edit a pinned task's text in the source markdown. Its position in the column is preserved (identity follows the block link, not the content hash).
+- [ ] **PE5.** Move a pinned task to a different line in its source file (without changing the block link). Its column position is preserved.
+
+### Pin Marker & Unpinning
+
+- [ ] **PM1.** The pin marker uses the shared icon set (lucide `pin`), not an emoji, and sits alongside other card controls.
+- [ ] **U1.** Click a pinned task's pin marker. The task loses its marker and moves to its natural file-order position in the unpinned tail.
+- [ ] **U2.** After U1, inspect the source file: the block link is still present (unpinning does not remove the anchor).
+- [ ] **U3.** Unpin a task from the middle of the pinned prefix. The remaining pinned tasks stay contiguous at the top and keep their relative order.
+- [ ] **U4.** Re-pin a task that was previously unpinned (and still has a block link). No new block link is written; the existing one is reused.
+- [ ] **U5.** Unpin every pinned task in a column. The column returns to pure file order; no pin markers remain; drag handles still show (mode is still `Manual`).
+
+### Lifecycle & Pruning
+
+- [ ] **PR1.** Delete a pinned task from its source file. Its stale `ManualOrderStore` entry is pruned; remaining pinned tasks keep their order.
+- [ ] **PR2.** Move a pinned task out of the column (change its column tag). Its entry is removed from that column's order and it appears correctly in the destination column.
+
+### Interaction with Other Modes
+
+- [ ] **IX1.** Switch from `Manual` to a property sort, then back to `Manual`. The previously pinned order is restored (the store survived the round trip).
+- [ ] **IX2.** Manual ordering works under every property schema, including `None` (manual mode is never disabled by schema choice).
 
 ---
 

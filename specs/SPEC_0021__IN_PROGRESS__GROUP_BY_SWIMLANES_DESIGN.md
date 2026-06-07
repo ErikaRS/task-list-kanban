@@ -18,6 +18,12 @@ Current implementation status, as of 2026-05:
 - File swimlane drag is implemented for moving tasks between source files while preserving column placement.
 - Tag prefix grouping (e.g. swimlanes based on `#Project-` tags) and tag exclusion list settings are planned/designed.
 - Property grouping and grouped manual ordering remain future work.
+- `SPEC 0020` Phase 4 landed **column-local** manual ordering (ungrouped only).
+  Its drag-reorder is deliberately disabled while grouped — the store it ships is
+  keyed by column alone, so a grouped drop would rewrite a whole column's pinned
+  prefix from one swimlane's tasks and clobber the others. This spec's Phase 5
+  lifts that restriction by extending the store to grouped cells (see
+  [Manual Ordering in Grouped Mode](#manual-ordering-in-grouped-mode)).
 
 Dependency sequencing:
 
@@ -137,12 +143,21 @@ Ordering always applies within a single matrix cell.
 Grouped manual order storage becomes:
 
 ```typescript
-type ManualOrderKey = string; // from SPEC 0020
+type ManualOrderKey = string; // "path::blockLink", from SPEC 0020
 type GroupBucketId = string;
-type ManualOrderStore = Record<GroupBucketId, Record<string, ManualOrderKey[]>>;
+type ColumnTag = string;
+// Outer key: secondary-axis (group) bucket. Inner key: primary (column) bucket.
+type ManualOrderStore = Record<GroupBucketId, Record<ColumnTag, ManualOrderKey[]>>;
 ```
 
 This spec owns that extension because grouped ordering depends on grouping semantics.
+
+The inner `Record<ColumnTag, ManualOrderKey[]>` is **exactly** the column-local
+store that `SPEC 0020` ships today. The two are the same model at different
+nesting depths: ungrouped order is the degenerate single-group case, stored under
+the default group bucket. (The `columnTag::secondaryId` composite key floated in
+`SPEC 0020`'s Phase 4 notes is just a flattened encoding of this same nested
+record; this spec treats the nested form as canonical.)
 
 ---
 
@@ -203,6 +218,50 @@ When grouping is on and manual ordering is enabled:
 - ordering is stored per `(group bucket, primary bucket)` cell
 - switching between grouped and ungrouped views does not change task identity
 - grouped manual ordering extends, rather than replaces, the block-link identity model from `SPEC 0020`
+
+#### What already works for free (display)
+
+`SPEC 0020` applies manual order to the **whole column before** the swimlane
+split (`deriveBoardMatrix` orders `tasksByPrimary[col]`, then partitions into
+secondary buckets preserving order). So even today, a grouped board *displays*
+the column-global manual order "broken out by group": within each cell, that
+group's pinned tasks lead and its unpinned tasks follow in file order. The
+per-cell prefix invariant holds visually as a side effect. No work is required to
+make grouped *display* correct — only grouped *mutation*.
+
+#### The mutation problem this phase solves
+
+A `BoardCell` only ever sees one cell's tasks. With the column-keyed store,
+honoring a drop inside a swimlane would rewrite `manualOrder[columnTag]` from
+just that swimlane's prefix, dropping every other swimlane's pinned keys (they
+unpin) and breaking the "pinned tasks form a contiguous column prefix"
+invariant, which no longer even applies once order is per cell. `SPEC 0020`
+therefore guards reorder behind `reorderEnabled = isManualOrder && groupSource is
+none`. *Unpin* and the pin markers stay live while grouped, because removing a
+single key is a targeted mutation that cannot clobber other cells.
+
+#### The extension (Option C)
+
+Re-key the store by `(GroupBucketId, ColumnTag)` so each cell owns an independent
+order array with its **own** contiguous-prefix invariant. Then:
+
+- **Reorder** runs cell-local against `manualOrder[secondaryId][columnTag]`,
+  reusing `SPEC 0020`'s `computeDropPlan` / `computeDisplayOrder` / block-link
+  assignment unchanged — only the store key gains the group dimension. The
+  ungrouped guard is removed; `reorderEnabled` becomes just `isManualOrder`.
+- **Identity is untouched.** Keys remain `path::blockLink`; block links are still
+  assigned lazily on first pin. Switching group-by does not rewrite any file.
+- **Regrouping orphans entries.** Order is tied to the active grouping dimension,
+  so changing `groupSource` (or a task changing groups) leaves entries under
+  stale `GroupBucketId`s. These are pruned the same way `SPEC 0020` prunes stale
+  column entries: keys absent from a cell's present-task set are dropped; an
+  emptied cell/group record is deleted. Display already ignores stale entries, so
+  pruning is cleanup, not correctness.
+- **Ungrouped ↔ grouped are distinct keys** by design (the default bucket vs. a
+  real group bucket). They are not merged: a global drag and a per-group drag
+  describe different intents, and reconciling them would require a merge rule with
+  no obvious correct answer. Round-tripping ungrouped→grouped→ungrouped preserves
+  the ungrouped order because its entries live untouched under the default bucket.
 
 ### File Swimlane Drag
 
@@ -343,14 +402,33 @@ src/
 **Deliverable:** Kanban board supports tag prefix swimlanes with cross-swimlane drag, and tag exclusions.
 
 ### Phase 5: Grouped Manual Ordering
-**Goal:** Extend manual ordering from columns to grouped cells.
+**Goal:** Extend manual ordering from columns to grouped cells (Option C — see
+[Manual Ordering in Grouped Mode](#manual-ordering-in-grouped-mode)).
 
-1. [ ] Extend `ManualOrderStore` to nested grouped-cell storage
-2. [ ] Migrate ungrouped storage into the default group bucket as needed
-3. [ ] Apply manual order within each grouped cell
-4. [ ] Prune stale grouped entries on task removal or regrouping
+Builds directly on `SPEC 0020` Phase 4: `manual_order.ts` (`computeDisplayOrder`,
+`computeDropPlan`, `computePinnedIds`, `pruneEntries`, `removeEntry`), the
+`reorderTask` / `unpinTask` / `pruneManualOrder` actions, and the `manualOrder`
+settings field. Most of this phase is threading the extra group-bucket key; the
+ordering algorithms are reused as-is.
 
-**Deliverable:** Manual ordering works inside grouped cells.
+1. [ ] Re-key `manualOrder` to `Record<GroupBucketId, Record<ColumnTag, ManualOrderKey[]>>`
+   (zod + `SettingValues`), with a parse-time migration wrapping any existing
+   flat `Record<ColumnTag, ...>` under the default group bucket id.
+2. [ ] Apply manual order per cell in `deriveBoardMatrix`: order each
+   `(secondary, primary)` cell via `computeDisplayOrder(cellTasks,
+   manualOrder[secondaryId]?.[columnTag])` instead of ordering the whole column
+   pre-split.
+3. [ ] Pass `secondaryId` into `reorderTask` / `unpinTask` and read/write the
+   nested record; drop the ungrouped reorder guard so `reorderEnabled =
+   isManualOrder`.
+4. [ ] Compute `computePinnedIds` per cell from the nested record and keep the
+   pin-marker / drag-handle UI unchanged.
+5. [ ] Extend `pruneManualOrder` to nested storage: prune keys absent from each
+   cell's present-task set, and delete emptied cell/group records (covers task
+   removal, column change, and regrouping).
+
+**Deliverable:** Manual ordering works inside grouped cells; ungrouped order
+survives a round trip through grouping, and switching group-by writes no files.
 
 ---
 

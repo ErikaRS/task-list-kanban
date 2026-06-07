@@ -23,6 +23,10 @@
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
 	import { PropertyDisplayMode } from "../settings/settings_store";
+	import {
+		computePinnedIds,
+		type ManualOrderKey,
+	} from "../tasks/manual_order";
 
 	export let app: App;
 	export let cell: BoardCell;
@@ -40,6 +44,12 @@
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
 	export let accentColor: string | undefined = undefined;
+	// Manual ordering. `isManualOrder` controls marker/handle display; reordering
+	// drops are only honored when ungrouped (see SPEC 0020 Phase 4 scope) — that
+	// guard is enforced via `reorderEnabled`.
+	export let isManualOrder: boolean = false;
+	export let manualOrderEntries: ManualOrderKey[] | undefined = undefined;
+	export let reorderEnabled: boolean = false;
 
 	// The parent row or column handles collapse state for layout,
 	// but cell might hide its contents if collapsed.
@@ -72,6 +82,63 @@
 	);
 
 	let isDraggedOver = false;
+
+	$: pinnedIds = isManualOrder
+		? computePinnedIds(tasks, manualOrderEntries)
+		: new Set<string>();
+	$: displayIds = tasks.map((t) => t.id);
+
+	// Intra-column manual reorder (ungrouped only). A single-task, same-cell drag
+	// is treated as a reorder; everything else (cross-column, multi-select) keeps
+	// the existing column-change behavior handled at the wrapper level.
+	let reorderOverId: string | null = null;
+	let reorderPlaceBefore = false;
+
+	$: isManualReorderDrag =
+		reorderEnabled &&
+		!!draggingData &&
+		draggingData.fromColumn === column &&
+		draggingData.fromSecondaryId === cell.secondaryId &&
+		draggingData.draggedTaskIds.length === 1;
+
+	function computeTargetIndex(
+		draggedId: string,
+		overId: string,
+		placeBefore: boolean,
+	): number {
+		const without = displayIds.filter((id) => id !== draggedId);
+		const overPos = without.indexOf(overId);
+		if (overPos === -1) return without.length;
+		return placeBefore ? overPos : overPos + 1;
+	}
+
+	function handleReorderDragOver(e: DragEvent, overTaskId: string) {
+		if (!isManualReorderDrag) return;
+		e.preventDefault();
+		e.stopPropagation();
+		const target = e.currentTarget as HTMLElement;
+		const rect = target.getBoundingClientRect();
+		reorderPlaceBefore = e.clientY < rect.top + rect.height / 2;
+		reorderOverId = overTaskId;
+		if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+	}
+
+	function handleReorderDragLeave() {
+		reorderOverId = null;
+	}
+
+	async function handleReorderDrop(e: DragEvent, overTaskId: string) {
+		if (!isManualReorderDrag || !draggingData) return;
+		e.preventDefault();
+		e.stopPropagation();
+		const draggedId = draggingData.draggedTaskIds[0];
+		const placeBefore = reorderPlaceBefore;
+		reorderOverId = null;
+		// Dropping a task onto itself is a no-op.
+		if (!draggedId || draggedId === overTaskId) return;
+		const targetIndex = computeTargetIndex(draggedId, overTaskId, placeBefore);
+		await taskActions.reorderTask(column, displayIds, draggedId, targetIndex);
+	}
 
 	$: draggingData = $isDraggingStore;
 	$: hasSelectedTaskOutsideTargetFile =
@@ -282,7 +349,7 @@
 	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
 	class:vertical-collapsed={isCollapsed && isVerticalFlow}
-	class:drop-active={!!draggingData}
+	class:drop-active={!!draggingData && !isManualReorderDrag}
 	class:drop-hover={isDraggedOver}
 	on:dragover={handleDragOver}
 	on:dragleave={handleDragLeave}
@@ -330,26 +397,40 @@
 		</div>
 	{/if}
 	<div class="tasks">
-		{#each tasks as task}
-			<TaskComponent
-				{app}
-					{task}
-					{taskActions}
-					{columnTagTableStore}
-					{showFilepath}
-					{propertyDisplay}
-					{consolidateTags}
-					{excludedTags}
-					displayColumn={column}
-					displaySecondaryId={cell.secondaryId}
-					isSelectionMode={isSelectMode}
-				isSelected={isTaskSelected(task.id, $taskSelectionStore)}
-				onToggleSelection={() => toggleTaskSelection(task.id)}
-				selectedTaskIds={selectedIds}
-				{taskSecondaryIds}
-				{doneColumnName}
-				{accentColor}
-			/>
+		{#each tasks as task (task.id)}
+			<div
+				class="task-slot"
+				class:drop-before={isManualReorderDrag && reorderOverId === task.id && reorderPlaceBefore}
+				class:drop-after={isManualReorderDrag && reorderOverId === task.id && !reorderPlaceBefore}
+				role="presentation"
+				on:dragover={(e) => handleReorderDragOver(e, task.id)}
+				on:drop={(e) => handleReorderDrop(e, task.id)}
+				on:dragleave={handleReorderDragLeave}
+			>
+				<TaskComponent
+					{app}
+						{task}
+						{taskActions}
+						{columnTagTableStore}
+						{showFilepath}
+						{propertyDisplay}
+						{consolidateTags}
+						{excludedTags}
+						displayColumn={column}
+						displaySecondaryId={cell.secondaryId}
+						isSelectionMode={isSelectMode}
+					isSelected={isTaskSelected(task.id, $taskSelectionStore)}
+					onToggleSelection={() => toggleTaskSelection(task.id)}
+					selectedTaskIds={selectedIds}
+					{taskSecondaryIds}
+					{doneColumnName}
+					{accentColor}
+					{isManualOrder}
+					isPinned={pinnedIds.has(task.id)}
+					showDragHandle={reorderEnabled}
+					onUnpin={() => taskActions.unpinTask(column, task.id)}
+				/>
+			</div>
 		{/each}
 	</div>
 </div>
@@ -406,6 +487,29 @@
 			flex-direction: column;
 			gap: var(--size-4-2);
 			padding-top: var(--size-4-2);
+		}
+
+		.task-slot {
+			position: relative;
+
+			&.drop-before::before,
+			&.drop-after::after {
+				content: "";
+				position: absolute;
+				left: 0;
+				right: 0;
+				height: 2px;
+				background: var(--column-color, var(--interactive-accent));
+				border-radius: 1px;
+			}
+
+			&.drop-before::before {
+				top: calc(-1 * var(--size-4-1));
+			}
+
+			&.drop-after::after {
+				bottom: calc(-1 * var(--size-4-1));
+			}
 		}
 
 		.new-task-input {

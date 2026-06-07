@@ -10,6 +10,7 @@ import {
 import type { GroupSource } from "../tasks/task_grouping";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
+import type { ManualOrderStore } from "../tasks/manual_order";
 
 export interface SavedGrouping {
 	id: string;
@@ -143,6 +144,11 @@ const settingsObject = z.object({
 	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
 	sortProperty: z.string().nullable().default(null).optional(),
 	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
+	// Column-local manual ordering: per-column arrays of `path::blockLink` keys.
+	// Stored alongside display settings in the board's frontmatter (the plugin has
+	// no separate data file), but kept as its own field so it is never conflated
+	// with display configuration.
+	manualOrder: z.record(z.string(), z.array(z.string())).default({}).optional(),
 });
 
 export interface SettingValues {
@@ -180,6 +186,7 @@ export interface SettingValues {
 	columnOrderMode?: ColumnOrderMode;
 	sortProperty?: string | null;
 	sortDirection?: SortDirection;
+	manualOrder?: ManualOrderStore;
 }
 
 export const defaultSettings: SettingValues = {
@@ -213,6 +220,7 @@ export const defaultSettings: SettingValues = {
 	columnOrderMode: ColumnOrderMode.FileOrder,
 	sortProperty: null,
 	sortDirection: "asc",
+	manualOrder: {},
 };
 
 export const createSettingsStore = () =>

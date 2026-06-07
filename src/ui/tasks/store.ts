@@ -150,6 +150,13 @@ export function createTasksStore(
 			settingsStore.update((s) => ({ ...s, lastUsedTaskFile: path }));
 			requestSave();
 		},
+		getManualOrder: () => get(settingsStore).manualOrder ?? {},
+		setManualOrder: (next) => {
+			// Lightweight settings mutation: unlike the settings modal, this must not
+			// re-initialise the tasks store (that would clobber the just-set order).
+			settingsStore.update((s) => ({ ...s, manualOrder: next }));
+			requestSave();
+		},
 	});
 
 	return { tasksStore, taskActions, initialise };

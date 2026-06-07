@@ -13,6 +13,14 @@ import { shouldIncludeFilePath } from "./scope";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
 import { createTaskLine } from "./task_creation";
+import {
+	buildOrderEntries,
+	computeDropPlan,
+	generateBlockLinkId,
+	removeEntry,
+	taskKey,
+	type ManualOrderStore,
+} from "./manual_order";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
@@ -49,6 +57,23 @@ export type TaskActions = {
 		additionalTags?: string[],
 	) => Promise<void>;
 	getTargetFile: () => TFile | null;
+	/**
+	 * Pins a manual reorder: drops `draggedId` at `targetIndex` within a column's
+	 * current `displayOrderIds`, assigning block links to the new prefix as needed.
+	 */
+	reorderTask: (
+		columnTag: string,
+		displayOrderIds: string[],
+		draggedId: string,
+		targetIndex: number,
+	) => Promise<void>;
+	/** Unpins a task: removes its store entry, leaving the block link in place. */
+	unpinTask: (columnTag: string, taskId: string) => Promise<void>;
+	/**
+	 * Prunes stale order entries (tasks deleted or moved out of their column).
+	 * `presentKeysByColumn` lists the keys still present in each column.
+	 */
+	pruneManualOrder: (presentKeysByColumn: Record<string, Set<string>>) => void;
 };
 
 export function createTaskActions({
@@ -63,6 +88,8 @@ export function createTaskActions({
 	getDefaultTaskFile,
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
+	getManualOrder,
+	setManualOrder,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
@@ -75,6 +102,8 @@ export function createTaskActions({
 	getDefaultTaskFile: () => string | null;
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
+	getManualOrder: () => ManualOrderStore;
+	setManualOrder: (next: ManualOrderStore) => void;
 }): TaskActions {
 	function resolveFileIfValid(filePath: string | null): TFile | null {
 		if (!filePath) return null;
@@ -110,9 +139,135 @@ export function createTaskActions({
 		);
 	}
 
+	const blockLinkRegexp = /\s\^([a-zA-Z0-9-]+)\s*$/;
+
+	/**
+	 * Assigns block links to the given tasks (those lacking one), batched so each
+	 * file is read and written exactly once. Returns a map of taskId → block link
+	 * for every requested task (existing links are returned unchanged).
+	 *
+	 * The block link is appended to the raw source line; nothing else on the line
+	 * is reformatted, and a task's `id` is unaffected (it hashes content + path +
+	 * row, none of which include the block link).
+	 */
+	async function assignBlockLinks(
+		tasks: Task[],
+	): Promise<Map<string, string>> {
+		const resolved = new Map<string, string>();
+		const needsAssignment: { task: Task; metadata: Metadata }[] = [];
+
+		for (const task of tasks) {
+			if (task.blockLink) {
+				resolved.set(task.id, task.blockLink);
+				continue;
+			}
+			const metadata = metadataByTaskId.get(task.id);
+			if (metadata) {
+				needsAssignment.push({ task, metadata });
+			}
+		}
+
+		if (needsAssignment.length === 0) {
+			return resolved;
+		}
+
+		const byFile = new Map<TFile, { task: Task; metadata: Metadata }[]>();
+		for (const entry of needsAssignment) {
+			const list = byFile.get(entry.metadata.fileHandle) ?? [];
+			list.push(entry);
+			byFile.set(entry.metadata.fileHandle, list);
+		}
+
+		for (const [fileHandle, entries] of byFile) {
+			const rows = (await vault.read(fileHandle)).split("\n");
+
+			// Collect block links already in the file so generated ids don't collide.
+			const existing = new Set<string>();
+			for (const row of rows) {
+				const match = row.match(blockLinkRegexp);
+				if (match?.[1]) existing.add(match[1]);
+			}
+
+			for (const { task, metadata } of entries) {
+				const row = rows[metadata.rowIndex];
+				if (row == null) continue;
+				const blockLink = generateBlockLinkId(existing);
+				existing.add(blockLink);
+				rows[metadata.rowIndex] = `${row.trimEnd()} ^${blockLink}`;
+				resolved.set(task.id, blockLink);
+			}
+
+			await vault.modify(fileHandle, rows.join("\n"));
+		}
+
+		return resolved;
+	}
+
 	return {
 		async changeColumn(id, column) {
 			await updateRowWithTask(id, (task) => (task.column = column));
+		},
+
+		async reorderTask(columnTag, displayOrderIds, draggedId, targetIndex) {
+			const displayOrder = displayOrderIds
+				.map((id) => tasksByTaskId.get(id))
+				.filter((task): task is Task => !!task);
+
+			const plan = computeDropPlan(displayOrder, draggedId, targetIndex);
+			if (plan.prefixTasks.length === 0) {
+				return;
+			}
+
+			const resolved = await assignBlockLinks(plan.tasksNeedingBlockLink);
+			const entries = buildOrderEntries(plan.prefixTasks, (task) => {
+				const link = task.blockLink ?? resolved.get(task.id);
+				if (!link) {
+					// Should not happen: every prefix task either had a link or was
+					// just assigned one. Fall back to its id to avoid a bad key.
+					return task.id;
+				}
+				return link;
+			});
+
+			const current = getManualOrder();
+			setManualOrder({ ...current, [columnTag]: entries });
+		},
+
+		async unpinTask(columnTag, taskId) {
+			const task = tasksByTaskId.get(taskId);
+			if (!task) return;
+			const key = taskKey(task);
+			if (!key) return;
+
+			const current = getManualOrder();
+			const entries = current[columnTag];
+			const next = removeEntry(entries, key);
+			if (next === entries) return;
+
+			setManualOrder({ ...current, [columnTag]: next });
+		},
+
+		pruneManualOrder(presentKeysByColumn) {
+			const current = getManualOrder();
+			let changed = false;
+			const next: ManualOrderStore = { ...current };
+
+			for (const [columnTag, entries] of Object.entries(current)) {
+				const present = presentKeysByColumn[columnTag] ?? new Set<string>();
+				const pruned = entries.filter((entry) => present.has(entry));
+				if (pruned.length !== entries.length) {
+					changed = true;
+					if (pruned.length === 0) {
+						delete next[columnTag];
+					} else {
+						next[columnTag] = pruned;
+					}
+				}
+			}
+
+			if (changed) {
+				setManualOrder(next);
+			}
 		},
 
 		async markDone(id) {

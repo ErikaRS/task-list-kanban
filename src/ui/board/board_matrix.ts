@@ -11,6 +11,7 @@ import {
 	compareByProperty,
 	type SortDirection,
 } from "../../parsing/properties/comparators";
+import { computeDisplayOrder } from "../tasks/manual_order";
 
 export type PrimaryBucketId = ColumnTag | DefaultColumns;
 export type SecondaryBucketId = string;
@@ -71,16 +72,24 @@ export function deriveBoardMatrix(
 	}
 
 	// Apply ordering inside each primary bucket. Property sort falls back to file
-	// order as a stable tiebreak; Manual ordering is not yet implemented (Phase 4)
-	// and currently behaves like file order.
+	// order as a stable tiebreak. Manual mode pins explicitly ordered tasks to a
+	// contiguous prefix and lets the rest follow live file order.
 	const orderMode = settings.columnOrderMode ?? ColumnOrderMode.FileOrder;
 	const sortProperty = settings.sortProperty ?? null;
 	const sortDirection: SortDirection = settings.sortDirection ?? "asc";
 	const useProperty = orderMode === ColumnOrderMode.Property && !!sortProperty;
+	const useManual = orderMode === ColumnOrderMode.Manual;
+	const manualOrder = settings.manualOrder ?? {};
 
-	for (const bucketTasks of Object.values(tasksByPrimary)) {
+	for (const [bucketId, bucketTasks] of Object.entries(tasksByPrimary)) {
 		if (useProperty && sortProperty) {
 			sortTasksByProperty(bucketTasks, sortProperty, sortDirection);
+		} else if (useManual) {
+			// computeDisplayOrder needs a stable file-ordered base for the tail. It
+			// may return the same array reference (nothing pinned), so reassign the
+			// bucket rather than mutating in place.
+			sortTasksByFile(bucketTasks);
+			tasksByPrimary[bucketId] = computeDisplayOrder(bucketTasks, manualOrder[bucketId]);
 		} else {
 			sortTasksByFile(bucketTasks);
 		}

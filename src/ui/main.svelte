@@ -22,7 +22,7 @@
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
-	import { onMount } from "svelte";
+	import { onMount, onDestroy } from "svelte";
 	import type { App } from "obsidian";
 	import { getBoardTaskCount } from "./board_counts";
 
@@ -541,10 +541,13 @@
 	})();
 
 	const SORT_FILE_VALUE = "__file__";
-	$: isPropertySort =
-		($settingsStore.columnOrderMode ?? ColumnOrderMode.FileOrder) === ColumnOrderMode.Property;
-	$: sortSelectValue =
-		isPropertySort && $settingsStore.sortProperty
+	const SORT_MANUAL_VALUE = "__manual__";
+	$: orderMode = $settingsStore.columnOrderMode ?? ColumnOrderMode.FileOrder;
+	$: isPropertySort = orderMode === ColumnOrderMode.Property;
+	$: isManualOrder = orderMode === ColumnOrderMode.Manual;
+	$: sortSelectValue = isManualOrder
+		? SORT_MANUAL_VALUE
+		: isPropertySort && $settingsStore.sortProperty
 			? `prop:${$settingsStore.sortProperty}`
 			: SORT_FILE_VALUE;
 
@@ -552,11 +555,64 @@
 		if (value.startsWith("prop:")) {
 			$settingsStore.columnOrderMode = ColumnOrderMode.Property;
 			$settingsStore.sortProperty = value.slice("prop:".length);
+		} else if (value === SORT_MANUAL_VALUE) {
+			$settingsStore.columnOrderMode = ColumnOrderMode.Manual;
 		} else {
 			$settingsStore.columnOrderMode = ColumnOrderMode.FileOrder;
 		}
 		requestSave();
 	}
+
+	$: manualOrder = $settingsStore.manualOrder ?? {};
+	// Manual drag-reorder is column-local and only safe when ungrouped: the store
+	// is keyed by column, so a grouped drop would clobber other swimlanes (see
+	// SPEC 0020 Phase 4 scope; grouped manual ordering is deferred to SPEC 0021).
+	$: isGrouped = ($settingsStore.groupSource?.kind ?? "none") !== "none";
+	$: reorderEnabled = isManualOrder && !isGrouped;
+
+	// Prune stale manual-order entries when the visible task set changes (tasks
+	// deleted or moved out of a column). Display already ignores stale entries, so
+	// this is purely persistence cleanup — never load-bearing for rendering.
+	//
+	// It MUST be debounced. A reorder writes block links to files and then sets the
+	// new order synchronously, but the task store only reflects those block links
+	// asynchronously (file-watch + a 50ms debounce in store.ts). Pruning eagerly in
+	// that window would read the new entries against stale tasks, see the freshly
+	// assigned block links as "absent", and delete the entries we just wrote. We
+	// wait comfortably past the store's settle time so fresh pins always survive;
+	// genuine deletions are still cleaned up, just a moment later.
+	let pruneTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function schedulePrune() {
+		if (pruneTimer) {
+			clearTimeout(pruneTimer);
+		}
+		pruneTimer = setTimeout(() => {
+			pruneTimer = undefined;
+			const presentKeysByColumn: Record<string, Set<string>> = {};
+			for (const bucket of activeMatrix.primaryAxis) {
+				const keys = new Set<string>();
+				const cells = activeMatrix.cells[bucket.id] ?? {};
+				for (const cell of Object.values(cells)) {
+					for (const task of cell.tasks) {
+						if (task.blockLink) keys.add(`${task.path}::${task.blockLink}`);
+					}
+				}
+				presentKeysByColumn[bucket.id] = keys;
+			}
+			taskActions.pruneManualOrder(presentKeysByColumn);
+		}, 500);
+	}
+
+	$: if (isManualOrder && activeMatrix) {
+		schedulePrune();
+	}
+
+	onDestroy(() => {
+		if (pruneTimer) {
+			clearTimeout(pruneTimer);
+		}
+	});
 
 	function toggleSortDirection() {
 		$settingsStore.sortDirection =
@@ -860,6 +916,9 @@
 						on:change={(e) => onSortChange(e.currentTarget.value)}
 					>
 						<option value={SORT_FILE_VALUE}>Sort: File order</option>
+						<option value={SORT_MANUAL_VALUE}
+							>Sort: Manual{isGrouped ? " (readonly)" : ""}</option
+						>
 						<optgroup label="Properties">
 							{#each availableSortKeys as sortKey (sortKey.key)}
 								<option value={`prop:${sortKey.key}`}>Sort: {sortKey.label}</option>
@@ -911,6 +970,9 @@
 						{doneColumnName}
 						columnWidth="{columnWidth}px"
 						{propertyDisplay}
+						{isManualOrder}
+						{manualOrder}
+						{reorderEnabled}
 					/>
 				{:else}
 					<BoardMatrixVertical
@@ -929,6 +991,9 @@
 						{uncategorizedColumnName}
 						{doneColumnName}
 						{propertyDisplay}
+						{isManualOrder}
+						{manualOrder}
+						{reorderEnabled}
 					/>
 				{/if}
 			</div>

@@ -28,6 +28,11 @@
 	export let taskSecondaryIds: Record<string, string> = {};
 	export let doneColumnName: string | undefined = undefined;
 	export let accentColor: string | undefined = undefined;
+	// Manual ordering (SPEC 0020 Phase 4).
+	export let isManualOrder: boolean = false;
+	export let isPinned: boolean = false;
+	export let showDragHandle: boolean = false;
+	export let onUnpin: () => void = () => {};
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -451,6 +456,29 @@
 			{/if}
 		</div>
 		<div class="task-row-right">
+			{#if isManualOrder && isPinned}
+				<button
+					class="icon-button pin-marker"
+					aria-label="Unpin task (return to file order)"
+					title="Pinned — click to unpin"
+					on:click|stopPropagation={onUnpin}
+					on:keydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							e.stopPropagation();
+							onUnpin();
+						}
+					}}
+					tabindex="0"
+				>
+					<Icon name="lucide-pin" size={16} opacity={0.9} />
+				</button>
+			{/if}
+			{#if isManualOrder && showDragHandle}
+				<span class="drag-handle" title="Drag to reorder" aria-hidden="true">
+					<Icon name="lucide-grip-vertical" size={16} opacity={0.5} />
+				</span>
+			{/if}
 			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
 		</div>
 	</div>
@@ -626,6 +654,23 @@
 					color: var(--interactive-accent);
 				}
 			}
+
+			&.pin-marker :global(svg) {
+				color: var(--interactive-accent);
+			}
+
+			&.pin-marker:hover :global(svg) {
+				opacity: 1 !important;
+			}
+		}
+
+		.drag-handle {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 22px;
+			height: 22px;
+			cursor: grab;
 		}
 
 		.task-footer {

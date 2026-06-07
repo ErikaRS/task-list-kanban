@@ -11,6 +11,7 @@
 	import ColumnHeader from "../components/ColumnHeader.svelte";
 	import BoardCell from "./BoardCell.svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
+	import type { ManualOrderStore } from "../tasks/manual_order";
 
 	export let app: App;
 	export let matrix: BoardMatrix;
@@ -27,6 +28,9 @@
 	export let onToggleCollapse: (columnId: string) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	export let isManualOrder: boolean = false;
+	export let manualOrder: ManualOrderStore = {};
+	export let reorderEnabled: boolean = false;
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [
@@ -93,6 +97,9 @@
 								{doneColumnName}
 								isCollapsed={pBucket.collapsed}
 								accentColor={pBucket.meta?.color}
+								{isManualOrder}
+								manualOrderEntries={manualOrder[pBucket.id]}
+								{reorderEnabled}
 							/>
 						</div>
 					{/each}
