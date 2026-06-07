@@ -1,224 +1,200 @@
 # Task List Kanban
 
-The Task List Kanban is a free and open source Obsidian plugin that automatically imports all your 'tasks' within Obsidian files into a kanban view. This plugin was created to reduce duplication of effort when managing and prioritising tasks. Simply note down tasks using the 'task' format in any Obsidian file, and they will automatically appear in your Task List Kanban.
+Task List Kanban is a free, open source Obsidian plugin that turns Markdown tasks from your vault into a kanban board. Tasks stay in their original files, and changes made from the board are written back to Markdown.
 
-By adding tags to your tasks using '#', you can allocate tasks to specific columns in your kanban, as well as add additional tags for filtering. From the kanban view, you can easily move tasks between columns, cancel or restore tasks, archive tasks, apply or change filters, and even jump straight to the file where the task sits. Any change made to a task from the kanban view will also update the task in its file, and vice versa.
+Use it to:
+- collect tasks from one folder, selected folders, or the whole vault
+- move tasks between columns with tags
+- edit, complete, cancel, archive, duplicate, and bulk-update tasks
+- filter by content, tag, or file
+- group tasks into swimlanes by file or tag
+- sort tasks by file order, parsed task properties, or manual pinned order
 
 ![Task List Kanban Screenshot](https://github.com/ErikaRS/task-list-kanban/assets/80379257/ddde01aa-3098-4cfc-8860-6af34f0ece57)
 
 ## Getting Started
 
-### Creating Your First Kanban
+### Create a Board
 
-Right click on the folder in which you want your Task List Kanban to appear. Choose 'New kanban'. Your new Task List Kanban file has been created!
+Right-click the folder where you want the board file, then choose **New kanban**.
 
 ![Creating a new kanban](https://github.com/ErikaRS/task-list-kanban/assets/80379257/fbe25c3f-824f-4feb-b1b3-5acbdf1c8901)
 
-### Adding Tasks
+### Add Tasks
 
-Create a 'task' in any Obsidian file. Tasks will automatically appear in your kanban under the 'Uncategorised' column. The plugin supports tasks standard Markdown task markers (`-`, `*`, and `+`).
+Create Markdown tasks in any included file:
 
-To assign a task to a specific column:
+```markdown
+- [ ] Write release notes #this-week
+```
 
-1. **In the file**: Add `#[column-name]` to your task text
-2. **In the kanban**: Drag and drop the task to the desired column
+Task List Kanban supports the standard Markdown task bullets `-`, `*`, and `+`.
 
-The `#[column-name]` text won't be visible in the kanban view, keeping your tasks clean!
+Tasks without a column tag appear in **Uncategorized**. To place a task in a column, either add the column tag in Markdown or drag the task to that column on the board. Placement tags are hidden from task cards so the board stays clean.
 
-**Creating tasks from the kanban**: Click the **+ Add new** button at the bottom of any column. If a default task file is configured (in settings) or you've previously added a task, the text input appears immediately — no file picker needed. A small indicator below the button shows which file will be used. If no file is known yet, a file picker appears to choose where the task should be saved; that choice is remembered for next time. You can click **(change)** on the indicator to pick a different file.
+Click **Add new** at the bottom of a column to create a task from the board. If a default or recently used task file is available, the input opens immediately; otherwise, choose a file first.
 
-### Basic Task Management
+## Everyday Use
 
-**Editing tasks**: Click any task text in the kanban view to edit it directly. Changes sync to the original file.
+### Task Actions
 
-**Moving tasks**: Drag and drop between columns, or use the task's settings menu to select a column.
+- **Edit**: click task text, edit inline, then blur or press Enter.
+- **Move**: drag a task to another column, or choose a column from the task menu.
+- **Complete**: click the circle icon to mark a task done and move it to **Done**.
+- **Cancel or restore**: use the task menu to switch between `[-]` and `[ ]`.
+- **Archive**: archive completed tasks from the task menu or bulk menu.
+- **Duplicate**: duplicate a task directly below the original source line.
+- **Open source file**: click the file path or arrow icon on a card.
 
-**Completing tasks**: Click the circle icon on each task card to quickly mark it as done and move it to the Done column. Click again on a completed task to uncheck it.
+### Filters
 
-**Cancelling tasks**: Use the task menu to set a task to cancelled (`[-]`) with **Cancel task**. For cancelled tasks, the same menu item becomes **Restore task**, which sets the task back to incomplete (`[ ]`).
+Open the filters sidebar to filter by content, tags, or file path. Save common filter combinations and reload them from **Saved filters**.
 
-**Navigate to file**: Click the arrow icon or file path at the bottom of any task card to jump directly to that task in its source file.
+Enable **Consolidate tags** in settings to move non-column tags to the card footer.
 
-## Configuration
+### Bulk Actions
 
-### Setting Up Columns
+Each column header has a **Done / Select** toggle.
 
-Access settings via the settings icon in the top right corner of your kanban.
+- **Done mode**: card check icons complete tasks.
+- **Select mode**: card square icons select tasks for bulk actions.
 
-**Columns editor**: Manage columns directly in the **Columns** section of settings. You can rename columns, assign optional column background colors, remove columns, and drag custom columns to reorder them. The built-in **Uncategorized** and **Done** rows stay fixed at the top and bottom of the list, and each has its own visibility setting.
+After selecting tasks, use the column bulk menu to move, complete, cancel, restore, or archive them. Dragging one selected task moves all selected tasks in that column.
+
+## Board Configuration
+
+Open board settings with the settings icon in the top-right corner.
+
+### Columns
+
+Use the **Columns** section to rename, color, remove, and reorder custom columns. **Uncategorized** and **Done** stay fixed at the top and bottom of the settings list, with separate visibility controls.
 
 ![Column settings](https://github.com/user-attachments/assets/6b9f0e79-1cac-4976-b46b-577917d6d42c)
 
-**Column Colors**: Enter a hex color like `#FF5733` in a column's **Color** field to tint that column's background.
+Column matching options:
+- **Name matching**: a column named `In Progress` matches tags such as `#InProgress`, `#in-progress`, and `#In-Progress`.
+- **Explicit tag matching**: configure one or more required tags for a column. A column with `status/active` and `project/alpha` matches only tasks with both tags.
+- **Renaming name-matched columns**: settings can optionally update existing task tags to match the new name.
 
-**Renaming columns**: For standard name-based columns, renaming changes the derived placement tag. When you rename an existing column, settings can optionally update existing task tags to match the new name.
+Column display options:
+- **Colors**: add a hex color like `#FF5733` to tint a column.
+- **Width**: set all columns between 200px and 600px.
+- **Collapse**: collapse columns from the board header; collapse state is saved.
+- **Visibility**: show **Uncategorized** and **Done** always, never, or only when non-empty.
 
-**Explicit tag mapping**: In the **Columns** settings editor, each custom column can either match by its name or by one or more explicit tags. Explicit tag matching uses AND semantics, so a column configured with `status/active` and `project/alpha` only matches tasks that contain both tags.
+### Layout
 
-**Tag Mapping**: Name-based columns are case-insensitive and ignore spaces when matching tags.
-- "In Progress" matches tags like `#InProgress`, `#in-progress`, and `#In-Progress`.
-- Nested tags like `#Parent/Child` are preserved and will map to a column named "Parent/Child".
+Flow direction controls how columns are arranged:
+- **Left to right**: horizontal board, scrolling right.
+- **Right to left**: horizontal board in reverse order.
+- **Top to bottom**: vertical columns, with cards flowing horizontally.
+- **Bottom to top**: vertical columns in reverse order.
 
-**Column Width**: Adjust the width of all columns (200-600px) in the settings menu.
+### Sorting
 
-**Flow Direction**: Choose how columns are arranged:
-- **Left to right** (default) - Columns flow horizontally, scrolling right
-- **Right to left** - Columns flow horizontally in reverse order
-- **Top to bottom** - Columns stack vertically, with cards flowing horizontally within each column
-- **Bottom to top** - Columns stack vertically in reverse order
+Use the **Sort** dropdown in the board header to order tasks within each column:
+- **File order**: use natural order from Markdown files.
+- **Property sorting**: sort by parsed task properties such as dates or priorities when a property schema is enabled.
+- **Manual**: drag one task within a column to pin a custom order.
 
-### Grouping & Swimlanes
+Manual sorting keeps pinned tasks together at the top of the column. Pinned cards show a pin marker; click it to unpin the task and return it to the file-order tail. When a task is first pinned, the plugin may add an Obsidian block link like `^abc123` to the source line so the order survives text edits and reloads.
 
-To help you organize complex projects, you can group tasks on your board. You can select your grouping options via the dropdown in the top-right header of the kanban board (next to the settings icon).
+Manual drag reordering is available when the board is not grouped. When grouping is active, saved manual order still displays, but the Manual sort option is readonly until grouping is turned off.
 
-**Group by File**: Group all tasks on your board by their source markdown file.
-- **Swimlanes in Horizontal Flows**: In **Left to right** or **Right to left** flows, grouping presents tasks in board-wide horizontal **swimlane rows**. Column headers remain sticky at the top, and collapsed columns align perfectly.
-- **Section Headers in Vertical Flows**: In **Top to bottom** or **Bottom to top** flows, the same grouping is presented using repeated local file headers within each column stack.
-- **Compact Empty Cells**: Cells that contain no tasks are rendered compactly with add/drop controls, preventing excessive padding or empty card placeholders.
-- **File Swimlane Drag and Drop**: Move tasks between files by dragging cards across different swimlane rows or vertical sections:
-  - Dragging a task card into a different file swimlane/section moves the underlying task into that destination markdown file, while applying the destination column's status or tag changes.
-  - Dragging a task card within the same file swimlane/section to a different column only updates its column/tag.
+### Scope
 
-**Group by Tag**: Group all tasks on your board by tags matching a configured tag prefix, or group by all tags if the prefix is left empty (excluding any tags in the exclusion list).
-- **Swimlanes & Stacks**: Just like file grouping, tag grouping supports both horizontal swimlane rows and vertical section headers based on active tags.
-- **Tag Swimlane Drag and Drop**: Dragging a task card into a different tag swimlane automatically updates the task's tags in the underlying markdown file:
-  - *With Prefix*: Replaces the matching prefix tag with the new destination tag. Dragging to the `Unassigned` swimlane removes the prefix tag.
-  - *Without Prefix*: Replaces the dragged tag with the new destination tag. Dragging to `Unassigned` removes all non-excluded tags from the task.
-- **Saved Groupings**: Save and manage frequently used tag grouping setups (tag prefix and exclusion lists) directly in the header (next to the Group By dropdown).
-- **Tag Exclusion List**: Add tags to the "Excluded tags" setting to filter them out of task cards and the consolidated tag footer. A settings button lets you automatically exclude all tags mapped to active columns.
+Choose which files feed the board:
+- **This folder**: files beside the kanban file.
+- **Every folder**: the whole vault.
+- **Selected folders**: specific vault-relative folders. The board's own folder is always included.
 
-### Folder Scope
+Use **Excluded paths** to omit directories or files after scope is applied. The board's own folder cannot be excluded directly, but its subdirectories can.
 
-**This folder** (default): The kanban shows tasks from files in the same folder as the kanban file.
+## Grouping And Swimlanes
 
-**Every folder**: The kanban shows tasks from your entire Obsidian vault.
+Use **Group by** in the board header to split tasks into swimlanes.
 
-**Selected folders**: The kanban shows tasks from specific folders you choose. When selected, a folder list appears where you can add vault-relative folder paths (e.g., `projects/active`). The board's own folder is always included and cannot be removed. Folders that don't exist in the vault are shown with a "(not found)" warning but are still saved (useful if the folder will be created later).
+### Group By File
 
-### Excluded Paths
+Tasks are grouped by source Markdown file.
 
-You can exclude specific directories or files from the kanban's scope. Add paths in the "Excluded paths" setting (e.g., `templates` or `notes/scratch.md`). Excluded paths are applied after the folder scope, so they work with all three scope modes.
+- In horizontal layouts, file groups appear as board-wide swimlane rows.
+- In vertical layouts, file groups appear as repeated section headers inside each column.
+- Drag tasks between file swimlanes to move their source lines between files.
 
-The board's own folder is always protected — you cannot exclude it directly. However, you can exclude subdirectories within it.
+### Group By Tag
 
-Change these settings in the kanban's settings menu.
+Tasks are grouped by tag, optionally limited to a configured prefix.
 
-## Advanced Features
+- With a prefix, dragging between swimlanes replaces the matching prefix tag.
+- Without a prefix, dragging replaces the dragged group tag.
+- Dragging to **Unassigned** removes the relevant tag.
+- Saved groupings let you reuse common tag grouping setups.
 
-### Task Status Customization
+The **Excluded tags** setting hides configured tags from cards, tag grouping, and consolidated tag footers. A settings button can automatically exclude all tags mapped to active columns.
 
-Task status visuals are inherited from your active Obsidian theme/plugin CSS for markdown checkboxes.
+## Task Status Settings
 
-**Done Status Markers**: Customize which characters mark tasks as completed. By default, tasks marked with 'x' or 'X' are considered done, but you can configure any combination of single character markers (including Unicode/emoji).
+Task status visuals come from your active Obsidian theme or plugin CSS.
+
+Status marker settings control how checkbox characters behave:
+- **Done markers**: characters treated as complete. Default: `xX`.
+- **Ignored markers**: characters hidden from the board entirely. Default: empty.
+- **Cancelled markers**: characters used by cancel/restore. Default: `-`.
 
 Examples:
-- `xX` (default) - Recognizes `[x]` and `[X]` as done
-- `xX✓` - Also recognizes `[✓]` as done
-- `✅👍` - Use emoji markers
+- `xX` recognizes `[x]` and `[X]` as done.
+- `xX✓` also recognizes `[✓]`.
+- ignored marker `-` hides `[-]` tasks.
 
-**Ignored Status Markers**: Configure characters that mark tasks to be completely ignored by the kanban. This is useful for cancelled or irrelevant tasks.
-
-Examples:
-- Leave empty (default) - All task-like strings are processed
-- `-` - Tasks like `[-] Cancelled task` are ignored
-- `-~` - Tasks with `[-]` or `[~]` are ignored
-- `❌` - Tasks like `[❌] Not relevant` are ignored
-
-**Cancel/Restore + marker settings**: Cancel and restore actions only change checkbox markers (`[-]` and `[ ]`). What happens next on the board is still controlled by your status marker settings. For example, if `-` is in ignored markers, cancelled tasks are hidden; if `-` is in done markers, cancelled tasks are treated as done.
-
-### Tagging and Filtering
-
-**Adding tags**: Add `#[tag-name]` anywhere in your task text. Tags appear in both the kanban and original files.
-
-**Filtering**: Use the filters sidebar (toggle with the ◂/▸ button) to show only tasks with specific criteria. You can filter by:
-- **Content**: Search for tasks containing specific text
-- **Tags**: Select one or multiple tags to filter tasks
-- **Files**: Select specific files to show only tasks from those files
-
-**Saved Filters**: Save frequently used filter combinations for quick access:
-1. Set up your desired content, tag, and/or file filters in the sidebar
-2. Click the "Add" button to save the current filter combination
-3. Your saved filters appear under "Saved filters" and can be activated with one click
-4. Remove saved filters by clicking the ✕ button next to each one
-
-![Filters view](https://github.com/user-attachments/assets/da40a567-d638-43a3-aedd-7ffe8112adc4)
-
-**Tag consolidation**: Enable "Consolidate tags" in settings to move all non-column tags to the task footer for cleaner display.
-
-### Advanced Task Management
-
-**Bulk operations**: Each column header has a **Done / Select** toggle:
-
-- **Done mode** (default) — clicking the circle icon on a task card marks it complete and moves it to the Done column.
-- **Select mode** — clicking the square icon on a task card selects it (highlighted with an accent border). Select as many tasks as you like across the column.
-
-Once tasks are selected, a count ("N selected") appears under the column title and a **⋯** menu button appears. The menu lets you:
-- **Move selected to Done** — mark all selected tasks complete at once.
-- **Move selected to [Column]** — move all selected tasks to any other column.
-- **Cancel selected / Restore selected** — cancel selected tasks (`[-]`) or restore them (`[ ]`) when all selected tasks are already cancelled.
-- **Archive selected** — archive all selected tasks in one action.
-
-You can also **drag** any selected task to a different column and all selected tasks in that column will move together. The Done column has an additional option to archive all tasks at once.
-
-**Duplicating tasks**: Use the task menu to duplicate a task. The duplicate is inserted directly below the original in the source file, with its checkbox reset to unchecked. Content, tags, column assignment, and formatting are all preserved.
-
-**Archive tasks**: Use the task settings menu (or bulk actions) to archive completed tasks. This marks them as done and removes them from the active kanban while preserving them in the original file.
-
-**Task formatting**: The plugin preserves original indentation and formatting when moving tasks between columns.
-
-### Visibility Controls
-
-**Collapsing columns**: Click the **▼** button in any column header to collapse it. A collapsed column shrinks to a narrow strip showing only the column name and task count, freeing up space for the columns you're actively working in. Click **▶** to expand it again. Collapse state is saved automatically, so columns stay collapsed across sessions.
-
-**Uncategorised column**: Choose when to show tasks without column assignments:
-- Hide when empty (default)
-- Always show
-- Never show
-
-**Done column**: Control visibility of the completed tasks column with the same options.
+Cancel and restore only change checkbox markers. If a cancelled marker is also configured as ignored or done, that marker setting determines whether the task is hidden or treated as complete.
 
 ## Development
 
 ### Prerequisites
-- Node.js and npm
-- Obsidian for testing
+
+- Node.js
+- npm
+- Obsidian for manual testing
 
 ### Setup
-1. Clone the repository
-2. Run `npm install` to install dependencies
-3. Run `npm run dev` to start development mode
-4. Copy the built plugin to your Obsidian plugins folder for testing
 
-For detailed Obsidian plugin development guidance, see the [official plugin development guide](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin).
+```bash
+npm install
+npm run dev
+```
 
-### Testing
-- Run `npm test` to execute the test suite
-- The project includes comprehensive tests for task parsing, validation, and kanban functionality
+Build output is written to the repository root for Obsidian plugin loading.
 
-### Deployment
+### Quality Checks
 
-When ready to make a new deployment:
+```bash
+npm run build
+npm test
+```
 
-1. Bump the version (updates `package.json`, `manifest.json`, and `versions.json`, then commits and tags):
-   ```bash
-   npm version patch   # or minor / major
-   ```
-2. Push the commit and tag:
-   ```bash
-   git push origin main
-   git push origin <tag>
-   ```
-3. Wait for the GitHub Action to create a draft Release with built assets (`main.js`, `manifest.json`, `styles.css`)
-5. Go to the [releases page](https://github.com/ErikaRS/task-list-kanban/releases)
-6. Edit the draft created by `github-actions` for that tag, paste in your release notes, and publish
-7. Do not create a release draft manually (`gh release create` or UI), or you may end up with duplicate drafts and missing assets
+`npm run build` runs TypeScript checking and a production ESBuild bundle. `npm test` runs the Vitest suite.
 
-### Manual Testing Deploy
+### Manual Testing
 
-For local Obsidian testing, `tools/deploy_for_manual_test.sh` now deploys to the repo's vendored test vault by default:
+Deploy to the vendored test vault:
 
 ```bash
 ./tools/deploy_for_manual_test.sh
 ```
 
-This copies the built plugin into `test-vaults/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can still pass an explicit target directory as an argument if you want to deploy somewhere else.
+This copies the built plugin into `test-vaults/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can pass a target directory to deploy somewhere else.
+
+### Release
+
+1. Bump the version:
+
+   ```bash
+   npm version patch
+   ```
+
+2. Push `main` and the new tag.
+3. Wait for GitHub Actions to create the draft release with built assets.
+4. Edit and publish that draft from the releases page.
+
+Do not create a release draft manually with `gh release create` or the GitHub UI; the automated draft is the one with the correct assets.
