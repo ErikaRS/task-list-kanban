@@ -1,0 +1,54 @@
+import { describe, it, expect } from "vitest";
+import { compareByProperty } from "../comparators";
+import type { Task } from "../../../ui/tasks/task";
+
+function taskWith(value: string | number | Date | null): Task {
+	const properties = new Map();
+	if (value !== null) {
+		properties.set("key", { key: "key", rawValue: String(value), value });
+	}
+	return { properties } as unknown as Task;
+}
+
+describe("compareByProperty", () => {
+	it("orders dates chronologically when ascending", () => {
+		const a = taskWith(new Date("2024-01-01"));
+		const b = taskWith(new Date("2024-02-01"));
+		expect(compareByProperty(a, b, "key", "asc")).toBeLessThan(0);
+		expect(compareByProperty(b, a, "key", "asc")).toBeGreaterThan(0);
+	});
+
+	it("reverses present values when descending", () => {
+		const a = taskWith(new Date("2024-01-01"));
+		const b = taskWith(new Date("2024-02-01"));
+		expect(compareByProperty(a, b, "key", "desc")).toBeGreaterThan(0);
+	});
+
+	it("orders numbers numerically, not lexically", () => {
+		const a = taskWith(2);
+		const b = taskWith(10);
+		expect(compareByProperty(a, b, "key", "asc")).toBeLessThan(0);
+	});
+
+	it("orders text lexically", () => {
+		const a = taskWith("alpha");
+		const b = taskWith("beta");
+		expect(compareByProperty(a, b, "key", "asc")).toBeLessThan(0);
+	});
+
+	it("sorts missing values last regardless of direction", () => {
+		const present = taskWith("value");
+		const missing = taskWith(null);
+
+		expect(compareByProperty(present, missing, "key", "asc")).toBeLessThan(0);
+		expect(compareByProperty(missing, present, "key", "asc")).toBeGreaterThan(0);
+
+		// Direction does not promote missing values ahead of present ones.
+		expect(compareByProperty(present, missing, "key", "desc")).toBeLessThan(0);
+		expect(compareByProperty(missing, present, "key", "desc")).toBeGreaterThan(0);
+	});
+
+	it("treats two missing values as equal", () => {
+		expect(compareByProperty(taskWith(null), taskWith(null), "key", "asc")).toBe(0);
+	});
+});

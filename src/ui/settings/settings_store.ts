@@ -9,6 +9,7 @@ import {
 } from "../columns/definitions";
 import type { GroupSource } from "../tasks/task_grouping";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
+import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 
 export interface SavedGrouping {
 	id: string;
@@ -133,6 +134,9 @@ const settingsObject = z.object({
 	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
 	propertySchema: z.nativeEnum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
 	showProperties: z.boolean().default(false).optional(),
+	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
+	sortProperty: z.string().nullable().default(null).optional(),
+	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
 });
 
 export interface SettingValues {
@@ -167,6 +171,9 @@ export interface SettingValues {
 	groupSource?: GroupSource;
 	propertySchema?: PropertySchemaOption;
 	showProperties?: boolean;
+	columnOrderMode?: ColumnOrderMode;
+	sortProperty?: string | null;
+	sortDirection?: SortDirection;
 }
 
 export const defaultSettings: SettingValues = {
@@ -197,6 +204,9 @@ export const defaultSettings: SettingValues = {
 	groupSource: { kind: "none" },
 	propertySchema: PropertySchemaOption.None,
 	showProperties: false,
+	columnOrderMode: ColumnOrderMode.FileOrder,
+	sortProperty: null,
+	sortDirection: "asc",
 };
 
 export const createSettingsStore = () =>

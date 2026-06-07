@@ -6,6 +6,11 @@ import {
 	createGroupAssigner,
 	type GroupBucket,
 } from "../tasks/task_grouping";
+import {
+	ColumnOrderMode,
+	compareByProperty,
+	type SortDirection,
+} from "../../parsing/properties/comparators";
 
 export type PrimaryBucketId = ColumnTag | DefaultColumns;
 export type SecondaryBucketId = string;
@@ -65,9 +70,20 @@ export function deriveBoardMatrix(
 		}
 	}
 
-	// Apply file-order sorting inside each primary bucket
+	// Apply ordering inside each primary bucket. Property sort falls back to file
+	// order as a stable tiebreak; Manual ordering is not yet implemented (Phase 4)
+	// and currently behaves like file order.
+	const orderMode = settings.columnOrderMode ?? ColumnOrderMode.FileOrder;
+	const sortProperty = settings.sortProperty ?? null;
+	const sortDirection: SortDirection = settings.sortDirection ?? "asc";
+	const useProperty = orderMode === ColumnOrderMode.Property && !!sortProperty;
+
 	for (const bucketTasks of Object.values(tasksByPrimary)) {
-		sortTasksByFile(bucketTasks);
+		if (useProperty && sortProperty) {
+			sortTasksByProperty(bucketTasks, sortProperty, sortDirection);
+		} else {
+			sortTasksByFile(bucketTasks);
+		}
 	}
 
 	const collapsedColumns = new Set(settings.collapsedColumns ?? []);
@@ -178,10 +194,23 @@ export function deriveBoardMatrix(
 }
 
 function sortTasksByFile(tasks: Task[]) {
+	tasks.sort(compareByFile);
+}
+
+function compareByFile(a: Task, b: Task): number {
+	if (a.path === b.path) {
+		return a.rowIndex - b.rowIndex;
+	}
+	return a.path.localeCompare(b.path);
+}
+
+function sortTasksByProperty(
+	tasks: Task[],
+	key: string,
+	direction: SortDirection
+) {
 	tasks.sort((a, b) => {
-		if (a.path === b.path) {
-			return a.rowIndex - b.rowIndex;
-		}
-		return a.path.localeCompare(b.path);
+		const result = compareByProperty(a, b, key, direction);
+		return result !== 0 ? result : compareByFile(a, b);
 	});
 }
