@@ -4,6 +4,18 @@ import type { Task } from "../../tasks/task";
 import type { ColumnDefinition } from "../../columns/columns";
 import { FlowDirection, VisibilityOption, type SettingValues, defaultSettings } from "../../settings/settings_store";
 import { DEFAULT_GROUP_BUCKET_ID } from "../../tasks/task_grouping";
+import { ColumnOrderMode } from "../../../parsing/properties/comparators";
+
+function taskWithProperty(
+	overrides: Partial<Task> & { path: string; rowIndex: number },
+	property?: { key: string; value: string | number | Date },
+): Task {
+	const properties = new Map();
+	if (property) {
+		properties.set(property.key, { key: property.key, rawValue: String(property.value), value: property.value });
+	}
+	return { column: "col-1", done: false, properties, ...overrides } as unknown as Task;
+}
 
 describe("deriveBoardMatrix", () => {
 	it("derives empty matrix correctly", () => {
@@ -53,6 +65,74 @@ describe("deriveBoardMatrix", () => {
 			expect(matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks[1]?.path).toBe("fileB");
 
 			expect(matrix.cells["uncategorised"]![DEFAULT_GROUP_BUCKET_ID]!.tasks).toHaveLength(1);
+	});
+
+	it("sorts a column by property when columnOrderMode is Property", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Property,
+			sortProperty: "due",
+			sortDirection: "asc",
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		// File order would be a, b, c (rowIndex). Due dates reorder to b, a, c.
+		const tasks = [
+			taskWithProperty({ path: "f", rowIndex: 1 }, { key: "due", value: new Date("2024-03-01") }),
+			taskWithProperty({ path: "f", rowIndex: 2 }, { key: "due", value: new Date("2024-01-01") }),
+			taskWithProperty({ path: "f", rowIndex: 3 }), // missing due → last
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(sorted.map((t) => t.rowIndex)).toEqual([2, 1, 3]);
+	});
+
+	it("respects descending property sort", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Property,
+			sortProperty: "due",
+			sortDirection: "desc",
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			taskWithProperty({ path: "f", rowIndex: 1 }, { key: "due", value: new Date("2024-01-01") }),
+			taskWithProperty({ path: "f", rowIndex: 2 }, { key: "due", value: new Date("2024-03-01") }),
+			taskWithProperty({ path: "f", rowIndex: 3 }), // missing still last
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(sorted.map((t) => t.rowIndex)).toEqual([2, 1, 3]);
+	});
+
+	it("falls back to file order when property sort has no sortProperty", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Property,
+			sortProperty: null,
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			taskWithProperty({ path: "f", rowIndex: 2 }, { key: "due", value: new Date("2024-01-01") }),
+			taskWithProperty({ path: "f", rowIndex: 1 }, { key: "due", value: new Date("2024-03-01") }),
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(sorted.map((t) => t.rowIndex)).toEqual([1, 2]);
 	});
 
 	it("respects RTL flow direction", () => {

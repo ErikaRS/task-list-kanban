@@ -197,29 +197,76 @@ When a task is first manually reordered and lacks a block link, the plugin auto-
 
 ---
 
-## Settings UI
+## UI Surfaces
+
+Property controls are split across two surfaces by their nature:
+
+- **Settings page** owns the "what format is my vault in" configuration that is set once.
+- **Board header** owns the "how do I want to look at the board right now" controls, alongside the existing group-by dropdown.
+
+### Settings page
 
 New section in Settings: **Task Properties**
 
 ```text
-Property Schema: [ None ▼ ]
+Property Schema:  [ None ▼ ]
+Show properties:  [ None ▼ ]   (None / Pretty / Debug (JSON))
+```
 
-Ordering
-Column order:    [ File order ▼ ]
-                 File order / Sort by property / Manual
+The schema picker and `propertyDisplay` selector live here. `Show properties`
+is a tri-state display mode rather than a boolean toggle:
 
-  [if Property sort:]
-  Sort by:       [ due ▼ ] [ Ascending ▼ ]
+- `None` — no property strip on cards.
+- `Pretty` — formatted property chips (dates as `Jan 20`, priorities as labels).
+- `Debug (JSON)` — raw parsed property map as a JSON dump (developer aid).
 
-Display
-Show properties: [ toggle ]
+Ordering is **not** configured here.
+
+### Board header (sort control)
+
+Ordering is controlled from the board header, next to the group-by dropdown, mirroring
+how `groupSource` is persisted in settings but rendered/controlled from the board.
+
+The control is a **single unified dropdown** plus a **direction toggle**. The dropdown
+collapses `columnOrderMode` and `sortProperty` into one list; selecting a property
+implies `columnOrderMode = Property` with that `sortProperty`, while `File order` and
+`Manual` map to their respective modes.
+
+```text
+Board header:
+[ Group by: (none) ▼ ]  [ Sort: File order ▼ ]
+
+After picking a property:
+[ Sort: Due ▼ ] [ ↑ ]
+```
+
+Dropdown contents (schema = Tasks):
+
+```text
+  File order
+  Manual            (Phase 4)
+  ──────────
+  Status
+  Due
+  Scheduled
+  Start
+  Done
+  Created
+  Priority
+  Recurrence
 ```
 
 Behavior:
 
-- sort-key dropdown disabled when schema is `none`
-- Dataview sort-key choices include discovered inline keys present on current tasks
-- manual ordering shows drag handles only when `columnOrderMode = Manual`
+- The dropdown always offers `File order` and `Manual`, then a separator, then the
+  available sort keys for the active schema.
+- The available sort keys are `schema.knownKeys()`, plus — for Dataview only —
+  discovered inline keys present on currently parsed tasks.
+- `status` is always present as a sort key, including under the `None` schema. The
+  control is never fully disabled.
+- The direction toggle (`↑` ascending / `↓` descending, bound to `sortDirection`) is
+  shown only when a property is selected (i.e. `columnOrderMode = Property`).
+- Manual ordering shows drag handles only when `columnOrderMode = Manual`.
 
 ---
 
@@ -251,7 +298,7 @@ propertySchema:  PropertySchemaOption;
 columnOrderMode: ColumnOrderMode;
 sortProperty:    string | null;
 sortDirection:   "asc" | "desc";
-showProperties:  boolean;
+propertyDisplay: PropertyDisplayMode; // None | Pretty | Debug
 ```
 
 Manual order data is stored separately from display settings:
@@ -281,11 +328,24 @@ interface PluginData {
 
 ### Property Display
 
-When `showProperties = true`, recognized properties are shown below task content:
+`propertyDisplay` selects how parsed properties appear below task content:
 
-- dates as locale-short values such as `Jan 20`
-- priorities as labels such as `High`
-- text values as-is
+- `None` — nothing is rendered.
+- `Pretty` — recognized properties are shown as chips:
+  - dates as locale-short values such as `Jan 20`
+  - priorities as labels such as `High`
+  - text values as-is
+  - recognized Tasks-plugin properties use their Tasks emoji as the chip icon
+    (`📅` due, `⏳` scheduled, `🛫` start, `✅` done, `➕` created, `🔁` recurrence,
+    and the level emoji `🔺`…`⏬` for priority); unrecognized keys fall back to a
+    text label. Icons are keyed on the canonical property key, so Dataview dates
+    also get icons, while non-numeric Dataview priority text falls back to a label.
+  - the universal `status` property is omitted (the checkbox already conveys it)
+  - the raw text of each displayed property is hidden from the rendered task
+    body (it is shown only as a chip), mirroring how consolidated tags move to
+    the footer. The underlying markdown is not modified; the edit view still
+    shows the full source.
+- `Debug (JSON)` — the raw parsed property map is dumped as JSON for development.
 
 ### Property Sorting
 
@@ -341,37 +401,40 @@ src/
 ### Phase 1: Schema Infrastructure and Parsing
 **Goal:** Parse and store properties on task objects.
 
-1. [ ] Add `propertySchema` to `TaskParseContext`
-2. [ ] Create `src/parsing/properties/`
-3. [ ] Implement universal `status` property parsing from task checkbox (`[<char>]`)
-4. [ ] Implement `NoneSchema` with unit tests (returns map with only `status`)
-5. [ ] Implement `TasksPluginSchema` with unit tests (includes emoji properties + `status`)
-6. [ ] Implement `DataviewSchema` with unit tests (includes inline fields + `status`)
-7. [ ] Add `properties` to `Task`
-8. [ ] Thread schema selection from settings through parsing
-9. [ ] Add schema picker to Settings UI
+1. [x] Add `propertySchema` to `TaskParseContext`
+2. [x] Create `src/parsing/properties/`
+3. [x] Implement universal `status` property parsing from task checkbox (`[<char>]`)
+4. [x] Implement `NoneSchema` with unit tests (returns map with only `status`)
+5. [x] Implement `TasksPluginSchema` with unit tests (includes emoji properties + `status`)
+6. [x] Implement `DataviewSchema` with unit tests (includes inline fields + `status`)
+7. [x] Add `properties` to `Task`
+8. [x] Thread schema selection from settings through parsing
+9. [x] Add schema picker to Settings UI
 
 **Deliverable:** `task.properties` is populated correctly for the selected schema, including the universal `status` property.
 
 ### Phase 2: Property Sort
 **Goal:** Sort tasks within a column by the configured property.
 
-1. [ ] Add `columnOrderMode`, `sortProperty`, and `sortDirection` to settings
-2. [ ] Implement typed comparators with null-last behavior
-3. [ ] Apply sort in column task computation
-4. [ ] Populate sort-key choices from schema-known keys and discovered Dataview keys
-5. [ ] Add ordering controls to Settings UI
+1. [x] Add `columnOrderMode`, `sortProperty`, and `sortDirection` to settings (zod schema + defaults), mirroring `groupSource`
+2. [x] Implement typed comparators with null-last behavior (date/number/text by parsed value type)
+3. [x] Apply sort in column task computation (`deriveBoardMatrix`, with file order as stable tiebreak)
+4. [x] Derive available sort keys reactively: `schema.knownKeys()` ∪ discovered Dataview keys; `status` always included
+5. [x] Add the unified sort dropdown + direction toggle to the board header (next to group-by); direction toggle shown only when a property is selected
 
-**Deliverable:** Tasks sort by configured property without affecting parsing or storage.
+**Deliverable:** Tasks sort by the configured property, controlled from the board header, without affecting parsing or storage.
 
 ### Phase 3: Property Display
 **Goal:** Show parsed properties on cards when enabled.
 
-1. [ ] Add `showProperties` to settings
-2. [ ] Render property strip in `task.svelte`
-3. [ ] Format property values for display
+1. [x] Add `propertyDisplay` (None / Pretty / Debug) to settings, replacing the
+   debug-only `showProperties` toggle and migrating legacy values (`true` → Debug)
+2. [x] Render property strip in `task.svelte` (Pretty chips + Debug JSON)
+3. [x] Format property values for display (`display.ts`: dates, priority labels, text)
+4. [x] Move the display control out of "Advanced task parsing" into the
+   "Task properties" settings section, next to the schema picker
 
-**Deliverable:** Task cards can display parsed properties.
+**Deliverable:** Task cards can display parsed properties in Pretty or Debug form.
 
 ### Phase 4: Manual Ordering
 **Goal:** Persist manual drag ordering within a column.

@@ -8,6 +8,8 @@ import type {
 } from "../columns/columns";
 import { getTagsFromContent, isValidTag } from "src/parsing/tags/tags";
 import { isPlacementTag, resolveMatchedColumnDefinition } from "../columns/definitions";
+import type { PropertySchema, TaskPropertyMap } from "../../parsing/properties/property_schema";
+import { NoneSchema } from "../../parsing/properties/none_schema";
 
 /**
  * A string containing characters that mark tasks as completed.
@@ -199,17 +201,24 @@ function isStatusMatch(statusContent: string | undefined, markers: string): bool
 }
 
 
+export interface TaskParseContext {
+	columnDefinitions: ColumnDefinition[];
+	columnPlacementTagTable: ColumnPlacementTagTable;
+	consolidateTags: boolean;
+	doneStatusMarkers: string;
+	cancelledStatusMarkers: string;
+	ignoredStatusMarkers: string;
+	propertySchema: PropertySchema;
+}
+
 export class Task {
+	readonly properties: TaskPropertyMap;
+
 	constructor(
 		rawContent: TaskString,
 		fileHandle: { path: string },
 		readonly rowIndex: number,
-		columnDefinitions: ColumnDefinition[],
-		private readonly columnPlacementTagTable: ColumnPlacementTagTable,
-		private readonly consolidateTags: boolean,
-		private readonly doneStatusMarkers: string = DEFAULT_DONE_STATUS_MARKERS,
-		private readonly cancelledStatusMarkers: string = DEFAULT_CANCELLED_STATUS_MARKERS,
-		private readonly ignoredStatusMarkers: string = DEFAULT_IGNORED_STATUS_MARKERS
+		context: TaskParseContext,
 	) {
 		const [, blockLink] = rawContent.match(blockLinkRegexp) ?? [];
 		this.blockLink = blockLink;
@@ -234,10 +243,10 @@ export class Task {
 		this._id = sha256(content + fileHandle.path + rowIndex).toString();
 		this.content = content;
 		this._displayStatus = status || " ";
-		this._done = isStatusMatch(this._displayStatus, this.doneStatusMarkers);
+		this._done = isStatusMatch(this._displayStatus, context.doneStatusMarkers);
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
-		const matchedColumn = resolveMatchedColumnDefinition(columnDefinitions, tags);
+		const matchedColumn = resolveMatchedColumnDefinition(context.columnDefinitions, tags);
 
 		for (const tag of tags) {
 			if (tag === "done") {
@@ -245,7 +254,7 @@ export class Task {
 					this._column = "done" as DefaultColumns;
 				}
 				tags.delete(tag);
-				if (!consolidateTags) {
+				if (!context.consolidateTags) {
 					this.content = this.stripTagFromContent(this.content, tag);
 				}
 				continue;
@@ -256,17 +265,23 @@ export class Task {
 					this._column = matchedColumn.id;
 				}
 				tags.delete(tag);
-				if (!consolidateTags) {
+				if (!context.consolidateTags) {
 					this.content = this.stripTagFromContent(this.content, tag);
 				}
 			}
-			if (consolidateTags) {
+			if (context.consolidateTags) {
 				this.content = this.stripTagFromContent(this.content, tag);
 			}
 		}
 
 		this._tags = tags;
 		this.blockLink = blockLink;
+		this.properties = context.propertySchema.parseProperties(rawContent);
+		this.consolidateTags = context.consolidateTags;
+		this.columnPlacementTagTable = context.columnPlacementTagTable;
+		this.doneStatusMarkers = context.doneStatusMarkers;
+		this.cancelledStatusMarkers = context.cancelledStatusMarkers;
+		this.ignoredStatusMarkers = context.ignoredStatusMarkers;
 
 		if (this._done) {
 			this._column = undefined;
@@ -279,6 +294,11 @@ export class Task {
 	}
 
 	content: string;
+	private consolidateTags: boolean;
+	private columnPlacementTagTable: ColumnPlacementTagTable;
+	private doneStatusMarkers: string;
+	private cancelledStatusMarkers: string;
+	private ignoredStatusMarkers: string;
 
 	private _done: boolean;
 	get done(): boolean {

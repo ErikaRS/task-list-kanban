@@ -14,10 +14,14 @@
 	import { normalizeTagPrefix } from "./tasks/task_grouping";
 	import SelectTag from "./components/select/select_tag.svelte";
 	import IconButton from "./components/icon_button.svelte";
+	import Icon from "./components/icon.svelte";
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SettingValues, VisibilityOption, FlowDirection } from "./settings/settings_store";
+	import { type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { getSchemaImpl } from "../parsing/properties/index";
+	import { PropertySchemaOption } from "../parsing/properties/property_schema";
+	import { ColumnOrderMode } from "../parsing/properties/comparators";
 	import { onMount } from "svelte";
 	import type { App } from "obsidian";
 	import { getBoardTaskCount } from "./board_counts";
@@ -476,6 +480,7 @@
 		flowDirection = FlowDirection.LeftToRight,
 		uncategorizedColumnName,
 		doneColumnName,
+		propertyDisplay = PropertyDisplayMode.None,
 	} = $settingsStore);
 
 	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
@@ -512,6 +517,52 @@
 		...$settingsStore,
 		collapsedColumns: Array.from($collapsedColumnsStore)
 	});
+
+	// --- Sort control (board header) ---
+	// Available sort keys are the active schema's known keys, plus — for Dataview
+	// only — inline keys discovered on currently parsed tasks.
+	$: activeSchema = getSchemaImpl($settingsStore.propertySchema ?? PropertySchemaOption.None);
+	$: availableSortKeys = (() => {
+		const known = activeSchema.knownKeys().map((k) => ({ key: k.key, label: k.label }));
+		if ($settingsStore.propertySchema !== PropertySchemaOption.Dataview) {
+			return known;
+		}
+		const seen = new Set(known.map((k) => k.key));
+		const discovered: { key: string; label: string }[] = [];
+		for (const task of $tasksStore) {
+			for (const key of task.properties.keys()) {
+				if (!seen.has(key)) {
+					seen.add(key);
+					discovered.push({ key, label: key });
+				}
+			}
+		}
+		return [...known, ...discovered];
+	})();
+
+	const SORT_FILE_VALUE = "__file__";
+	$: isPropertySort =
+		($settingsStore.columnOrderMode ?? ColumnOrderMode.FileOrder) === ColumnOrderMode.Property;
+	$: sortSelectValue =
+		isPropertySort && $settingsStore.sortProperty
+			? `prop:${$settingsStore.sortProperty}`
+			: SORT_FILE_VALUE;
+
+	function onSortChange(value: string) {
+		if (value.startsWith("prop:")) {
+			$settingsStore.columnOrderMode = ColumnOrderMode.Property;
+			$settingsStore.sortProperty = value.slice("prop:".length);
+		} else {
+			$settingsStore.columnOrderMode = ColumnOrderMode.FileOrder;
+		}
+		requestSave();
+	}
+
+	function toggleSortDirection() {
+		$settingsStore.sortDirection =
+			($settingsStore.sortDirection ?? "asc") === "asc" ? "desc" : "asc";
+		requestSave();
+	}
 
 	function toggleSidebar() {
 		$settingsStore.filtersSidebarExpanded = !filtersSidebarExpanded;
@@ -803,6 +854,33 @@
 						<option value="file">Group by: File</option>
 						<option value="tag-prefix">Group by: Tag</option>
 					</select>
+					<select
+						class="dropdown sort-by-select"
+						value={sortSelectValue}
+						on:change={(e) => onSortChange(e.currentTarget.value)}
+					>
+						<option value={SORT_FILE_VALUE}>Sort: File order</option>
+						<optgroup label="Properties">
+							{#each availableSortKeys as sortKey (sortKey.key)}
+								<option value={`prop:${sortKey.key}`}>Sort: {sortKey.label}</option>
+							{/each}
+						</optgroup>
+					</select>
+					{#if isPropertySort}
+						<button
+							class="sort-direction-btn"
+							on:click={toggleSortDirection}
+							aria-label="Toggle sort direction"
+							title={($settingsStore.sortDirection ?? "asc") === "asc" ? "Ascending" : "Descending"}
+						>
+							<Icon
+								name={($settingsStore.sortDirection ?? "asc") === "asc"
+									? "arrow-up-narrow-wide"
+									: "arrow-down-wide-narrow"}
+								size={16}
+							/>
+						</button>
+					{/if}
 					<span class="board-task-count" aria-live="polite">
 						{#if isFiltered}
 							{filteredTaskCount} of {totalTaskCount} tasks
@@ -832,6 +910,7 @@
 						{uncategorizedColumnName}
 						{doneColumnName}
 						columnWidth="{columnWidth}px"
+						{propertyDisplay}
 					/>
 				{:else}
 					<BoardMatrixVertical
@@ -849,6 +928,7 @@
 						onToggleCollapse={toggleColumnCollapse}
 						{uncategorizedColumnName}
 						{doneColumnName}
+						{propertyDisplay}
 					/>
 				{/if}
 			</div>
@@ -971,9 +1051,28 @@
 				gap: var(--size-4-2);
 				min-height: 54px; /* prevent shifting when saved groups is toggled */
 
-				.group-by-select {
+				.group-by-select,
+				.sort-by-select {
 					font-size: var(--font-ui-smaller);
-					padding: var(--size-2-1) var(--size-4-2);
+					/* Only adjust vertical padding; leave horizontal padding to
+					   Obsidian's .dropdown so its chevron keeps its reserved space. */
+					padding-block: var(--size-2-1);
+				}
+
+				.sort-direction-btn {
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					padding: var(--size-2-1) var(--size-2-2);
+					border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+					border-radius: var(--radius-s);
+					background: var(--interactive-normal);
+					color: var(--text-normal);
+					cursor: pointer;
+
+					&:hover {
+						background: var(--interactive-hover);
+					}
 				}
 			}
 

@@ -6,6 +6,8 @@ import type { ColumnDefinition, ColumnPlacementTagTable } from "../columns/colum
 import { createTaskActions, type TaskActions } from "./actions";
 import type { SettingValues } from "../settings/settings_store";
 import { shouldIncludeFilePath } from "./scope";
+import { getSchemaImpl } from "../../parsing/properties/index";
+import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 
 function getMarkerSettings(settings: SettingValues) {
 	return {
@@ -16,6 +18,7 @@ function getMarkerSettings(settings: SettingValues) {
 		excludedTaskTags: new Set(
 			(settings.excludedTaskTags ?? []).map((t) => t.trim().toLowerCase())
 		),
+		propertySchema: getSchemaImpl(settings.propertySchema ?? PropertySchemaOption.None),
 	};
 }
 

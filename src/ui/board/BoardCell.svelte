@@ -22,6 +22,7 @@
 		clearColumnSelections,
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
+	import { PropertyDisplayMode } from "../settings/settings_store";
 
 	export let app: App;
 	export let cell: BoardCell;
@@ -31,6 +32,7 @@
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
+	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let isVerticalFlow: boolean = false;
@@ -335,6 +337,7 @@
 					{taskActions}
 					{columnTagTableStore}
 					{showFilepath}
+					{propertyDisplay}
 					{consolidateTags}
 					{excludedTags}
 					displayColumn={column}

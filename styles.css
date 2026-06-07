@@ -25,8 +25,8 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	width: min(860px, calc(100vw - 48px));
-	max-width: 860px;
+	width: min(1120px, calc(100vw - 48px));
+	max-width: 1120px;
 }
 
 .task-list-kanban-settings-modal {
@@ -38,11 +38,10 @@ If your plugin does not need CSS, delete this file.
 
 .settings-scroll-wrapper {
 	flex: 1;
-	overflow-x: hidden;
-	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	min-height: 0;
-	padding-bottom: 8px;
-	padding-right: 2px;
 }
 
 /* Settings header */
@@ -50,7 +49,9 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	margin-bottom: 18px;
+	padding-bottom: 14px;
+	margin-bottom: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
 }
 
 .settings-header h1 {
@@ -112,21 +113,113 @@ If your plugin does not need CSS, delete this file.
 	border-top: 1px solid var(--background-modifier-border);
 }
 
+.task-list-kanban-confirm-modal {
+	min-width: min(420px, calc(100vw - 64px));
+}
+
+.task-list-kanban-confirm-modal h2 {
+	margin-top: 0;
+}
+
+.confirm-modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 18px;
+}
+
+.settings-body {
+	display: grid;
+	grid-template-columns: 180px minmax(0, 1fr);
+	gap: 24px;
+	flex: 1;
+	min-height: 0;
+	padding-top: 18px;
+}
+
+.settings-nav {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 2px 0 12px;
+	overflow-y: auto;
+	min-height: 0;
+	border-right: 1px solid var(--background-modifier-border);
+}
+
+.settings-nav button {
+	justify-content: flex-start;
+	width: calc(100% - 14px);
+	height: auto;
+	min-height: 32px;
+	padding: 6px 10px;
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+	text-align: left;
+}
+
+.settings-nav button:hover,
+.settings-nav button:focus-visible {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.settings-content {
+	overflow-y: auto;
+	overflow-x: hidden;
+	min-height: 0;
+	padding: 0 2px 12px 0;
+	scroll-behavior: smooth;
+}
+
+.settings-section {
+	padding-bottom: 22px;
+	scroll-margin-top: 10px;
+}
+
+.settings-section + .settings-section {
+	padding-top: 20px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.settings-section-header {
+	margin-bottom: 14px;
+}
+
+.settings-section-header h2 {
+	margin: 0 0 4px;
+	font-size: 1.35em;
+}
+
+.settings-section-header .setting-item-description {
+	margin: 0;
+	max-width: 760px;
+	color: var(--text-muted);
+}
+
+.settings-section-body > .setting-item:first-child {
+	border-top: 0;
+}
+
+.settings-subsection {
+	margin-top: 12px;
+}
+
 /* Column editor layout */
 .column-editor-section {
-	margin-bottom: 20px;
+	margin-bottom: 0;
 }
 
 .column-editor-intro {
-	position: sticky;
-	top: 0;
-	z-index: 2;
-	padding: 0 0 10px;
-	background: linear-gradient(to bottom, var(--background-primary) 0%, var(--background-primary) 82%, transparent 100%);
-}
-
-.column-editor-intro h2 {
-	margin-bottom: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
 }
 
 .column-editor-intro .setting-item-description {
@@ -134,24 +227,43 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-muted);
 }
 
+.column-editor-intro-actions {
+	display: flex;
+	gap: 8px;
+	flex: 0 0 auto;
+}
+
+.column-editor-intro-actions button,
+.column-editor-controls button {
+	height: 30px;
+	padding: 4px 10px;
+	font-size: var(--font-ui-smaller);
+}
+
 .column-editor-list {
 	display: flex;
 	flex-direction: column;
-	margin-top: 12px;
-	border-top: 1px solid var(--background-modifier-border);
+	gap: 6px;
+	margin-top: 0;
 }
 
 .column-editor-row {
 	display: flex;
 	position: relative;
-	align-items: center;
+	align-items: flex-start;
 	gap: 8px;
-	padding: 10px 8px;
-	border-bottom: 1px solid var(--background-modifier-border);
-	background: transparent;
-	transition: background-color 140ms ease, box-shadow 140ms ease;
+	padding: 8px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary);
+	transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 	overflow: visible;
 	min-width: 0;
+}
+
+.column-editor-row.is-collapsed,
+.column-editor-row.is-bookend {
+	align-items: center;
 }
 
 .column-editor-row-content {
@@ -160,13 +272,13 @@ If your plugin does not need CSS, delete this file.
 }
 
 .column-editor-row:hover {
-	background: color-mix(in srgb, var(--background-primary) 86%, var(--background-modifier-hover));
+	border-color: color-mix(in srgb, var(--background-modifier-border) 55%, var(--text-muted));
+	background: color-mix(in srgb, var(--background-primary) 92%, var(--background-modifier-hover));
 }
 
 .column-editor-row:focus-within {
-	background: color-mix(in srgb, var(--background-primary) 82%, var(--background-modifier-hover));
-	box-shadow: inset 0 1px 0 color-mix(in srgb, var(--background-modifier-border-focus) 55%, transparent),
-		inset 0 -1px 0 color-mix(in srgb, var(--background-modifier-border-focus) 55%, transparent);
+	border-color: var(--background-modifier-border-focus);
+	box-shadow: 0 0 0 1px color-mix(in srgb, var(--background-modifier-border-focus) 45%, transparent);
 }
 
 .column-editor-row.is-drop-target {
@@ -234,6 +346,7 @@ If your plugin does not need CSS, delete this file.
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	transform: translateY(0);
 }
 
 .column-editor-handle:active {
@@ -244,6 +357,51 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	gap: 10px;
 	min-width: 0;
+}
+
+.column-editor-summary {
+	display: grid;
+	grid-template-columns: minmax(180px, 1fr) minmax(150px, auto) 24px auto;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	width: 100%;
+}
+
+.column-editor-row.is-bookend .column-editor-summary {
+	grid-template-columns: minmax(180px, 1fr) minmax(150px, auto);
+}
+
+.column-editor-details {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 14px;
+	margin-top: 10px;
+	padding: 10px;
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+}
+
+.column-editor-row.is-collapsed .column-editor-details {
+	display: none;
+}
+
+.column-editor-pill {
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px;
+	max-width: 180px;
+	padding: 2px 8px;
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .column-editor-fields.column-editor-fields-inline {
@@ -291,7 +449,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .column-editor-field-tag {
-	flex: 1 1 180px;
+	flex: 1 1 260px;
 	min-width: 0;
 	position: relative;
 	overflow: visible;
@@ -335,8 +493,8 @@ If your plugin does not need CSS, delete this file.
 }
 
 .column-editor-color-swatch {
-	width: 14px;
-	height: 14px;
+	width: 18px;
+	height: 18px;
 	border-radius: 999px;
 	border: 1px solid var(--background-modifier-border);
 	appearance: none;
@@ -348,10 +506,45 @@ If your plugin does not need CSS, delete this file.
 		var(--background-secondary) 90deg 180deg
 	);
 	background-blend-mode: overlay;
-	flex: 0 0 14px;
+	flex: 0 0 18px;
 	padding: 0;
 	cursor: pointer;
 	box-shadow: none;
+}
+
+.column-editor-summary-swatch {
+	justify-self: center;
+}
+
+.column-editor-expand-button {
+	width: auto;
+	min-width: 0;
+	height: 28px;
+	padding: 0 8px;
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	white-space: nowrap;
+	background: transparent;
+	box-shadow: none;
+}
+
+.column-editor-expand-button:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.column-editor-expand-icon {
+	display: inline-flex;
+	width: 14px;
+	height: 14px;
+	align-items: center;
+	justify-content: center;
 }
 
 .column-editor-color-swatch.has-color {
@@ -381,11 +574,16 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-remove-rail {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
 	margin-left: auto;
 	flex: 0 0 20px;
 	width: 20px;
+}
+
+.column-editor-row.is-collapsed .column-editor-remove-rail,
+.column-editor-row.is-bookend .column-editor-remove-rail {
+	align-items: center;
 }
 
 .column-editor-remove-rail > button {
@@ -410,19 +608,68 @@ If your plugin does not need CSS, delete this file.
 .column-editor-controls {
 	display: flex;
 	justify-content: flex-start;
-	margin-top: 10px;
+	margin-top: 12px;
 }
 
 /* Responsive layout */
+@media (max-width: 900px) {
+	.task-list-kanban-settings-modal-container {
+		width: min(920px, calc(100vw - 24px));
+	}
+
+	.settings-body {
+		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+
+	.settings-nav {
+		position: sticky;
+		top: 0;
+		z-index: 4;
+		flex-direction: row;
+		gap: 6px;
+		overflow-x: auto;
+		padding: 0 0 10px;
+		border-right: 0;
+		border-bottom: 1px solid var(--background-modifier-border);
+		background: var(--background-primary);
+	}
+
+	.settings-nav button {
+		width: auto;
+		flex: 0 0 auto;
+		white-space: nowrap;
+	}
+
+	.column-editor-summary {
+		grid-template-columns: minmax(160px, 1fr) auto auto auto;
+	}
+}
+
 @media (max-width: 720px) {
 	.column-editor-row {
 		align-items: flex-start;
 	}
 
+	.column-editor-intro,
+	.column-editor-summary,
+	.column-editor-details,
 	.column-editor-fields.column-editor-fields-inline,
 	.column-editor-field {
 		flex-direction: column;
 		align-items: stretch;
+	}
+
+	.column-editor-intro {
+		align-items: stretch;
+	}
+
+	.column-editor-summary {
+		display: flex;
+	}
+
+	.column-editor-row.is-bookend .column-editor-summary {
+		display: flex;
 	}
 
 	.column-editor-fields.column-editor-fields-inline {
@@ -446,5 +693,9 @@ If your plugin does not need CSS, delete this file.
 	.column-editor-field-visibility select,
 	.column-editor-field-color .setting-input {
 		width: 100%;
+	}
+
+	.column-editor-pill {
+		max-width: 100%;
 	}
 }

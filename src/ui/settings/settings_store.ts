@@ -8,6 +8,8 @@ import {
 	migrateColumnDefinitions,
 } from "../columns/definitions";
 import type { GroupSource } from "../tasks/task_grouping";
+import { PropertySchemaOption } from "../../parsing/properties/property_schema";
+import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 
 export interface SavedGrouping {
 	id: string;
@@ -32,6 +34,12 @@ export enum FlowDirection {
 	RightToLeft = "rtl",
 	TopToBottom = "ttb",
 	BottomToTop = "btt",
+}
+
+export enum PropertyDisplayMode {
+	None = "none",
+	Pretty = "pretty",
+	Debug = "debug",
 }
 
 export interface ContentValue {
@@ -130,6 +138,11 @@ const settingsObject = z.object({
 	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
 	doneColumnName: z.string().default("Done").optional(),
 	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
+	propertySchema: z.nativeEnum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
+	propertyDisplay: z.nativeEnum(PropertyDisplayMode).catch(PropertyDisplayMode.None).optional(),
+	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
+	sortProperty: z.string().nullable().default(null).optional(),
+	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
 });
 
 export interface SettingValues {
@@ -162,6 +175,11 @@ export interface SettingValues {
 	uncategorizedColumnName?: string;
 	doneColumnName?: string;
 	groupSource?: GroupSource;
+	propertySchema?: PropertySchemaOption;
+	propertyDisplay?: PropertyDisplayMode;
+	columnOrderMode?: ColumnOrderMode;
+	sortProperty?: string | null;
+	sortDirection?: SortDirection;
 }
 
 export const defaultSettings: SettingValues = {
@@ -190,6 +208,11 @@ export const defaultSettings: SettingValues = {
 	uncategorizedColumnName: "Uncategorized",
 	doneColumnName: "Done",
 	groupSource: { kind: "none" },
+	propertySchema: PropertySchemaOption.None,
+	propertyDisplay: PropertyDisplayMode.None,
+	columnOrderMode: ColumnOrderMode.FileOrder,
+	sortProperty: null,
+	sortDirection: "asc",
 };
 
 export const createSettingsStore = () =>
@@ -202,10 +225,20 @@ export function parseSettingsString(str: string): SettingValues {
 		const columns = migrateColumnDefinitions(
 			(partial.columns ?? defaultSettings.columns) as Array<string | Partial<ColumnDefinition>>,
 		);
+		// Migrate the legacy `showProperties` boolean (a debug-only toggle) to the
+		// `propertyDisplay` tri-state. `true` mapped to the JSON debug dump.
+		const propertyDisplay =
+			partial.propertyDisplay ??
+			(typeof parsed?.showProperties === "boolean"
+				? parsed.showProperties
+					? PropertyDisplayMode.Debug
+					: PropertyDisplayMode.None
+				: defaultSettings.propertyDisplay);
 		return {
 			...defaultSettings,
 			...partial,
 			columns,
+			propertyDisplay,
 			collapsedColumns: migrateCollapsedColumns(partial.collapsedColumns, columns),
 		};
 	} catch {

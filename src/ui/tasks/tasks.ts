@@ -2,6 +2,7 @@ import type { TFile, Vault } from "obsidian";
 import { isTrackedTaskString, Task } from "./task";
 import type { ColumnDefinition, ColumnPlacementTagTable } from "../columns/columns";
 import { get, type Readable } from "svelte/store";
+import type { PropertySchema } from "../../parsing/properties/property_schema";
 
 export type Metadata = {
 	rowIndex: number;
@@ -24,6 +25,7 @@ export async function updateMapsFromFile({
 	cancelledStatusMarkers,
 	ignoredStatusMarkers,
 	excludedTaskTags,
+	propertySchema,
 }: {
 	fileHandle: TFile;
 	tasksByTaskId: Map<string, Task>;
@@ -37,6 +39,7 @@ export async function updateMapsFromFile({
 	cancelledStatusMarkers: string;
 	ignoredStatusMarkers: string;
 	excludedTaskTags: Set<string>;
+	propertySchema: PropertySchema;
 }) {
 	try {
 		const previousTaskIds =
@@ -59,12 +62,15 @@ export async function updateMapsFromFile({
 					row,
 					fileHandle,
 					i,
-					columnDefinitions,
-					columnPlacementTagTable,
-					consolidateTags,
-					doneStatusMarkers,
-					cancelledStatusMarkers,
-					ignoredStatusMarkers
+					{
+						columnDefinitions,
+						columnPlacementTagTable,
+						consolidateTags,
+						doneStatusMarkers,
+						cancelledStatusMarkers,
+						ignoredStatusMarkers,
+						propertySchema,
+					}
 				);
 
 				const hasExcludedTag = Array.from(task.tags).some((tag) =>

@@ -20,6 +20,8 @@ import {
 	parseTask,
 	parseTaskWithColumns,
 } from "./task_test_helpers";
+import { TasksPluginSchema } from "src/parsing/properties/tasks_schema";
+import { DataviewSchema } from "src/parsing/properties/dataview_schema";
 
 describe("Task", () => {
 	describe("basic parsing and serialization", () => {
@@ -47,6 +49,32 @@ describe("Task", () => {
 			const task = parseTask("- [ ] Something #tag #column ^link-link");
 			expect(task.content).toBe("Something #tag");
 			expect(task.blockLink).toBe("link-link");
+		});
+
+		it("parses Tasks plugin properties from the raw line while preserving task content cleanup", () => {
+			const taskString = "- [ ] Something #tag #column 📅 2024-01-20 ^link-link";
+			const task = parseTask(taskString, { propertySchema: new TasksPluginSchema() });
+			const due = task.properties.get("due");
+
+			expect(task.content).toBe("Something #tag 📅 2024-01-20");
+			expect(task.blockLink).toBe("link-link");
+			expect(due?.value).toBeInstanceOf(Date);
+			expect(due?.rawValue).toBe("📅 2024-01-20");
+			expect(taskString.slice(due?.startIndex ?? -1, due?.endIndex ?? -1)).toBe("📅 2024-01-20");
+		});
+
+		it("parses Dataview properties from the raw line when tags are consolidated", () => {
+			const taskString = "- [ ] Something #tag #column [priority:: high]";
+			const task = parseTask(taskString, {
+				consolidateTags: true,
+				propertySchema: new DataviewSchema(),
+			});
+			const priority = task.properties.get("priority");
+
+			expect(task.content).toBe("Something [priority:: high]");
+			expect(task.tags.has("tag")).toBe(true);
+			expect(priority?.value).toBe("high");
+			expect(taskString.slice(priority?.startIndex ?? -1, priority?.endIndex ?? -1)).toBe("[priority:: high]");
 		});
 
 		it("serialises a basic task string with a block link", () => {
