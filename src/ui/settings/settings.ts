@@ -86,6 +86,16 @@ export class SettingsModal extends Modal {
 		return this.updateExistingTaskTagsByColumnId.get(columnId) ?? true;
 	}
 
+	private confirmRemoveColumn(column: ColumnDefinition) {
+		new ConfirmColumnRemovalModal(this.app, column.label, () => {
+			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
+			this.updateExistingTaskTagsByColumnId.delete(column.id);
+			this.expandedColumnIds.delete(column.id);
+			this.renderColumnsEditor();
+			this.touchSettings();
+		}).open();
+	}
+
 	private addColumn() {
 		const usedIds = new Set(this.settings.columns.map((column) => column.id));
 		this.settings.columns = [
@@ -417,6 +427,51 @@ export class SettingsModal extends Modal {
 		});
 
 		const details = content.createDiv({ cls: "column-editor-details" });
+		const colorField = details.createDiv({ cls: "column-editor-field column-editor-field-color" });
+		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
+		const colorSwatchButton = colorField.createEl("button", {
+			cls: "column-editor-color-swatch",
+		});
+		colorSwatchButton.type = "button";
+		colorSwatchButton.setAttribute("aria-label", `Pick color for ${column.label}`);
+		const colorPickerInput = colorField.createEl("input", {
+			type: "color",
+			value: /^#[0-9a-fA-F]{6}$/.test(column.color ?? "") ? column.color : "#000000",
+		});
+		colorPickerInput.addClass("column-editor-color-picker");
+		const updateColorSwatch = () => {
+			const colorValue = column.color?.trim();
+			const hasValidColor = !!colorValue && /^#[0-9a-fA-F]{6}$/.test(colorValue);
+			colorSwatchButton.toggleClass("has-color", hasValidColor);
+			colorSummary.toggleClass("has-color", hasValidColor);
+			colorSwatchButton.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
+			colorSummary.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
+			colorSummary.title = hasValidColor ? colorValue! : "No color";
+			colorPickerInput.value = hasValidColor ? colorValue! : "#000000";
+		};
+		const colorInput = colorField.createEl("input", {
+			type: "text",
+			value: column.color ?? "",
+			placeholder: "#RRGGBB",
+		});
+		colorInput.addClass("setting-input");
+		colorInput.setAttribute("aria-label", `${column.label} color`);
+		colorInput.addEventListener("input", () => {
+			column.color = colorInput.value.trim() || undefined;
+			updateColorSwatch();
+			this.touchSettings();
+		});
+		colorSwatchButton.addEventListener("click", () => {
+			colorPickerInput.click();
+		});
+		colorPickerInput.addEventListener("input", () => {
+			column.color = colorPickerInput.value;
+			colorInput.value = colorPickerInput.value;
+			updateColorSwatch();
+			this.touchSettings();
+		});
+		updateColorSwatch();
+
 		const matchModeField = details.createDiv({ cls: "column-editor-field column-editor-field-match" });
 		matchModeField.createDiv({ cls: "column-editor-inline-label", text: "Match by" });
 		const matchModeSelect = matchModeField.createEl("select");
@@ -466,50 +521,6 @@ export class SettingsModal extends Modal {
 			});
 		}
 
-		const colorField = details.createDiv({ cls: "column-editor-field column-editor-field-color" });
-		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
-		const colorSwatchButton = colorField.createEl("button", {
-			cls: "column-editor-color-swatch",
-		});
-		colorSwatchButton.type = "button";
-		colorSwatchButton.setAttribute("aria-label", `Pick color for ${column.label}`);
-		const colorPickerInput = colorField.createEl("input", {
-			type: "color",
-			value: /^#[0-9a-fA-F]{6}$/.test(column.color ?? "") ? column.color : "#000000",
-		});
-		colorPickerInput.addClass("column-editor-color-picker");
-		const updateColorSwatch = () => {
-			const colorValue = column.color?.trim();
-			const hasValidColor = !!colorValue && /^#[0-9a-fA-F]{6}$/.test(colorValue);
-			colorSwatchButton.toggleClass("has-color", hasValidColor);
-			colorSummary.toggleClass("has-color", hasValidColor);
-			colorSwatchButton.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
-			colorSummary.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
-			colorSummary.title = hasValidColor ? colorValue! : "No color";
-			colorPickerInput.value = hasValidColor ? colorValue! : "#000000";
-		};
-		const colorInput = colorField.createEl("input", {
-			type: "text",
-			value: column.color ?? "",
-			placeholder: "#RRGGBB",
-		});
-		colorInput.addClass("setting-input");
-		colorInput.setAttribute("aria-label", `${column.label} color`);
-		colorInput.addEventListener("input", () => {
-			column.color = colorInput.value.trim() || undefined;
-			updateColorSwatch();
-			this.touchSettings();
-		});
-		colorSwatchButton.addEventListener("click", () => {
-			colorPickerInput.click();
-		});
-		colorPickerInput.addEventListener("input", () => {
-			column.color = colorPickerInput.value;
-			colorInput.value = colorPickerInput.value;
-			updateColorSwatch();
-			this.touchSettings();
-		});
-		updateColorSwatch();
 		const renameOption = details.createDiv({ cls: "column-editor-rename-option" });
 		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
 		const renameLabel = renameOption.createEl("label", {
@@ -539,11 +550,7 @@ export class SettingsModal extends Modal {
 		setIcon(removeButton, "x");
 		removeButton.setAttribute("aria-label", `Remove ${column.label} column`);
 		removeButton.addEventListener("click", () => {
-			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
-			this.updateExistingTaskTagsByColumnId.delete(column.id);
-			this.expandedColumnIds.delete(column.id);
-			this.renderColumnsEditor();
-			this.touchSettings();
+			this.confirmRemoveColumn(column);
 		});
 	}
 
@@ -1352,5 +1359,41 @@ export class SettingsModal extends Modal {
 			default:
 				return null;
 		}
+	}
+}
+
+class ConfirmColumnRemovalModal extends Modal {
+	constructor(
+		app: App,
+		private readonly columnLabel: string,
+		private readonly onConfirm: () => void,
+	) {
+		super(app);
+	}
+
+	onOpen() {
+		this.contentEl.addClass("task-list-kanban-confirm-modal");
+		this.contentEl.createEl("h2", { text: "Remove column?" });
+		this.contentEl.createEl("p", {
+			text: `Remove "${this.columnLabel || "Untitled column"}" from this board's settings?`,
+		});
+		this.contentEl.createEl("p", {
+			text: "This change is not saved until you save the settings modal.",
+			cls: "setting-item-description",
+		});
+
+		const actions = this.contentEl.createDiv({ cls: "confirm-modal-actions" });
+		const cancelButton = actions.createEl("button", { text: "Cancel" });
+		cancelButton.addEventListener("click", () => this.close());
+		const removeButton = actions.createEl("button", { text: "Remove", cls: "mod-warning" });
+		removeButton.addEventListener("click", () => {
+			this.onConfirm();
+			this.close();
+		});
+		window.requestAnimationFrame(() => cancelButton.focus());
+	}
+
+	onClose() {
+		this.contentEl.empty();
 	}
 }

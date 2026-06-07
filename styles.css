@@ -113,6 +113,21 @@ If your plugin does not need CSS, delete this file.
 	border-top: 1px solid var(--background-modifier-border);
 }
 
+.task-list-kanban-confirm-modal {
+	min-width: min(420px, calc(100vw - 64px));
+}
+
+.task-list-kanban-confirm-modal h2 {
+	margin-top: 0;
+}
+
+.confirm-modal-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 18px;
+}
+
 .settings-body {
 	display: grid;
 	grid-template-columns: 180px minmax(0, 1fr);
@@ -246,6 +261,11 @@ If your plugin does not need CSS, delete this file.
 	min-width: 0;
 }
 
+.column-editor-row.is-collapsed,
+.column-editor-row.is-bookend {
+	align-items: center;
+}
+
 .column-editor-row-content {
 	flex: 1 1 auto;
 	min-width: 0;
@@ -326,6 +346,7 @@ If your plugin does not need CSS, delete this file.
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	transform: translateY(0);
 }
 
 .column-editor-handle:active {
@@ -553,11 +574,16 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-remove-rail {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
 	margin-left: auto;
 	flex: 0 0 20px;
 	width: 20px;
+}
+
+.column-editor-row.is-collapsed .column-editor-remove-rail,
+.column-editor-row.is-bookend .column-editor-remove-rail {
+	align-items: center;
 }
 
 .column-editor-remove-rail > button {
