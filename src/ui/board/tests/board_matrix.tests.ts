@@ -135,6 +135,32 @@ describe("deriveBoardMatrix", () => {
 		expect(sorted.map((t) => t.rowIndex)).toEqual([1, 2]);
 	});
 
+	it.each([
+		["asc" as const, ["one", "ten", "eleven", "two"]],
+		["desc" as const, ["two", "eleven", "ten", "one"]],
+	])("sorts a column by task name lexicographically %s", (sortDirection, expectedIds) => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.TaskName,
+			sortDirection,
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			{ id: "ten", column: "col-1", path: "f", rowIndex: 1, done: false, content: "Task 10", properties: new Map() } as unknown as Task,
+			{ id: "two", column: "col-1", path: "f", rowIndex: 2, done: false, content: "Task 2", properties: new Map() } as unknown as Task,
+			{ id: "one", column: "col-1", path: "f", rowIndex: 3, done: false, content: "Task 1", properties: new Map() } as unknown as Task,
+			{ id: "eleven", column: "col-1", path: "f", rowIndex: 4, done: false, content: "Task 11", properties: new Map() } as unknown as Task,
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(sorted.map((t) => t.id)).toEqual(expectedIds);
+	});
+
 	it("applies manual order with a pinned prefix and file-order tail", () => {
 		const settings: SettingValues = {
 			...defaultSettings,

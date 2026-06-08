@@ -2,6 +2,7 @@ import type { Task } from "../../ui/tasks/task";
 
 export enum ColumnOrderMode {
 	FileOrder = "file",
+	TaskName = "task-name",
 	Property = "property",
 	Manual = "manual",
 }

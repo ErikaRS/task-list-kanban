@@ -66,17 +66,9 @@
 	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 
-	$: sortedTasks = [...tasks].sort((a, b) => {
-		if (a.path === b.path) {
-			return a.rowIndex - b.rowIndex;
-		} else {
-			return a.path.localeCompare(b.path);
-		}
-	});
-
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
-	$: columnTaskIds = sortedTasks.map((t) => t.id);
+	$: columnTaskIds = tasks.map((t) => t.id);
 	$: selectedCount = getSelectedTaskCount(columnTaskIds, $taskSelectionStore);
 	$: selectedIds = columnTaskIds.filter((id) =>
 		isTaskSelected(id, $taskSelectionStore),
@@ -118,7 +110,7 @@
 
 			menu.addSeparator();
 
-			const selectedTasks = selectedIds.map(id => sortedTasks.find(t => t.id === id)).filter(Boolean) as Task[];
+			const selectedTasks = selectedIds.map(id => tasks.find(t => t.id === id)).filter(Boolean) as Task[];
 			const allCancelled = selectedTasks.length > 0 && selectedTasks.every(t => t.isCancelled);
 
 			if (allCancelled) {

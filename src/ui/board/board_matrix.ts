@@ -81,8 +81,10 @@ export function deriveBoardMatrix(
 	const useManual = orderMode === ColumnOrderMode.Manual;
 	const manualOrder = settings.manualOrder ?? {};
 
-	for (const [bucketId, bucketTasks] of Object.entries(tasksByPrimary)) {
-		if (useProperty && sortProperty) {
+	for (const bucketTasks of Object.values(tasksByPrimary)) {
+		if (orderMode === ColumnOrderMode.TaskName) {
+			sortTasksByTaskName(bucketTasks, sortDirection);
+		} else if (useProperty && sortProperty) {
 			sortTasksByProperty(bucketTasks, sortProperty, sortDirection);
 		} else {
 			sortTasksByFile(bucketTasks);
@@ -218,5 +220,15 @@ function sortTasksByProperty(
 	tasks.sort((a, b) => {
 		const result = compareByProperty(a, b, key, direction);
 		return result !== 0 ? result : compareByFile(a, b);
+	});
+}
+
+function sortTasksByTaskName(tasks: Task[], direction: SortDirection) {
+	tasks.sort((a, b) => {
+		const result = a.content.trim().localeCompare(b.content.trim());
+		if (result !== 0) {
+			return direction === "desc" ? -result : result;
+		}
+		return compareByFile(a, b);
 	});
 }

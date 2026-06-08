@@ -94,6 +94,7 @@ Flow direction controls how columns are arranged:
 
 Use the **Sort** dropdown in the board header to order tasks within each column:
 - **File order**: use natural order from Markdown files.
+- **Task name**: sort lexicographically by task text.
 - **Property sorting**: sort by parsed task properties such as dates or priorities when a property schema is enabled.
 - **Manual**: drag one task within a column to pin a custom order.
 

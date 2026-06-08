@@ -8,6 +8,7 @@ import {
 	toSettingsString,
 	type SavedFilter,
 } from "../settings_store";
+import { ColumnOrderMode } from "../../../parsing/properties/comparators";
 import { migrateColumnDefinitions } from "../../columns/definitions";
 import { DEFAULT_GROUP_BUCKET_ID } from "../../tasks/task_grouping";
 
@@ -102,6 +103,15 @@ describe("Invalid field resilience", () => {
 		});
 
 		expect(parsed.groupSource).toEqual({ kind: "property", key: "priority" });
+	});
+
+	it("parses task-name column ordering", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			columnOrderMode: "task-name",
+		});
+
+		expect(parsed.columnOrderMode).toBe(ColumnOrderMode.TaskName);
 	});
 
 	it("migrates legacy flat manual order under the default group bucket", () => {

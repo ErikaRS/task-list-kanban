@@ -547,13 +547,18 @@
 	$: availableGroupKeys = availableSortKeys;
 
 	const SORT_FILE_VALUE = "__file__";
+	const SORT_TASK_NAME_VALUE = "__task_name__";
 	const SORT_MANUAL_VALUE = "__manual__";
 	$: orderMode = $settingsStore.columnOrderMode ?? ColumnOrderMode.FileOrder;
+	$: isTaskNameSort = orderMode === ColumnOrderMode.TaskName;
 	$: isPropertySort = orderMode === ColumnOrderMode.Property;
+	$: isDirectionalSort = isTaskNameSort || isPropertySort;
 	$: isManualOrder = orderMode === ColumnOrderMode.Manual;
 	$: sortSelectValue = isManualOrder
 		? SORT_MANUAL_VALUE
-		: isPropertySort && $settingsStore.sortProperty
+		: isTaskNameSort
+			? SORT_TASK_NAME_VALUE
+			: isPropertySort && $settingsStore.sortProperty
 			? `prop:${$settingsStore.sortProperty}`
 			: SORT_FILE_VALUE;
 	$: groupSelectValue = $settingsStore.groupSource?.kind === "property"
@@ -564,6 +569,8 @@
 		if (value.startsWith("prop:")) {
 			$settingsStore.columnOrderMode = ColumnOrderMode.Property;
 			$settingsStore.sortProperty = value.slice("prop:".length);
+		} else if (value === SORT_TASK_NAME_VALUE) {
+			$settingsStore.columnOrderMode = ColumnOrderMode.TaskName;
 		} else if (value === SORT_MANUAL_VALUE) {
 			$settingsStore.columnOrderMode = ColumnOrderMode.Manual;
 		} else {
@@ -922,6 +929,7 @@
 						on:change={(e) => onSortChange(e.currentTarget.value)}
 					>
 						<option value={SORT_FILE_VALUE}>Sort: File order</option>
+						<option value={SORT_TASK_NAME_VALUE}>Sort: Task name</option>
 						<option value={SORT_MANUAL_VALUE}>Sort: Manual</option>
 						<optgroup label="Properties">
 							{#each availableSortKeys as sortKey (sortKey.key)}
@@ -929,7 +937,7 @@
 							{/each}
 						</optgroup>
 					</select>
-					{#if isPropertySort}
+					{#if isDirectionalSort}
 						<button
 							class="sort-direction-btn"
 							on:click={toggleSortDirection}
