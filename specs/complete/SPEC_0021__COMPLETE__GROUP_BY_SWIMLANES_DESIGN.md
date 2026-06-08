@@ -1,4 +1,6 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-06
 
 # SPEC 0021 — Group By and Swim Lanes
 
@@ -6,24 +8,19 @@ Status: IN_PROGRESS
 
 This spec depends on:
 
-- [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](complete/SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
-- [SPEC_0020__IN_PROGRESS__TASK_PROPERTIES_DESIGN.md](SPEC_0020__IN_PROGRESS__TASK_PROPERTIES_DESIGN.md)
+- [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
+- [SPEC_0020__COMPLETE__TASK_PROPERTIES_DESIGN.md](SPEC_0020__COMPLETE__TASK_PROPERTIES_DESIGN.md)
 
 It defines grouping and swimlane behavior on top of the shared board matrix and parsed property model.
 
-Current implementation status, as of 2026-05:
+Current implementation status, as of 2026-06:
 
 - File grouping is implemented with `groupSource: { kind: "file" }`.
 - Horizontal and vertical grouped presentations are implemented through the matrix renderers.
 - File swimlane drag is implemented for moving tasks between source files while preserving column placement.
-- Tag prefix grouping (e.g. swimlanes based on `#Project-` tags) and tag exclusion list settings are planned/designed.
-- Property grouping and grouped manual ordering remain future work.
-- `SPEC 0020` Phase 4 landed **column-local** manual ordering (ungrouped only).
-  Its drag-reorder is deliberately disabled while grouped — the store it ships is
-  keyed by column alone, so a grouped drop would rewrite a whole column's pinned
-  prefix from one swimlane's tasks and clobber the others. This spec's Phase 5
-  lifts that restriction by extending the store to grouped cells (see
-  [Manual Ordering in Grouped Mode](#manual-ordering-in-grouped-mode)).
+- Tag prefix grouping (e.g. swimlanes based on `#Project-` tags), tag exclusion list settings, and tag swimlane drag are implemented.
+- Property grouping is implemented from parsed property keys.
+- Manual ordering is implemented per grouped cell, with legacy ungrouped manual order migrated under the default group bucket.
 
 Dependency sequencing:
 
@@ -31,7 +28,7 @@ Dependency sequencing:
 - `Group by property` depends on `SPEC 0019` plus property parsing/key metadata from `SPEC 0020`.
 - Grouped manual ordering depends on `SPEC 0019`, `SPEC 0020`'s stable task identity/manual order foundation, and this spec's grouped-cell semantics.
 
-`SPEC 0019` is complete, so file grouping and grouped rendering can build directly on the matrix contract. Property grouping and grouped manual ordering still wait on the relevant `SPEC 0020` property/manual-order foundations.
+`SPEC 0019` and `SPEC 0020` are complete, so file grouping, property grouping, grouped rendering, and grouped manual ordering can build directly on the matrix and parsed-property/manual-order foundations.
 
 ---
 
@@ -341,15 +338,17 @@ src/
 
 **Implemented by:** [07d2c58](https://github.com/ErikaRS/task-list-kanban/commit/07d2c58), [83a079b](https://github.com/ErikaRS/task-list-kanban/commit/83a079b)
 
-### Phase 2: Property Grouping
+### Phase 2: Property Grouping ✅ COMPLETE
 **Goal:** Add grouping by parsed property keys after `SPEC 0020` property parsing is available.
 
-1. [ ] Populate property group choices from parsed property metadata
-2. [ ] Derive property group buckets from all visible tasks
-3. [ ] Sort property buckets with the typed comparator from `SPEC 0020`
-4. [ ] Preserve null/missing-property buckets last
+1. ✅ Populate property group choices from parsed property metadata
+2. ✅ Derive property group buckets from all visible tasks
+3. ✅ Sort property buckets with the typed comparator from `SPEC 0020`
+4. ✅ Preserve null/missing-property buckets last
 
 **Deliverable:** The matrix can be grouped by file or by a parsed property.
+
+**Implemented by:** Pending review/commit.
 
 ### Phase 3: Horizontal Swimlanes ✅ COMPLETE
 **Goal:** Render grouped horizontal flows as swimlane-style rows.
@@ -401,7 +400,7 @@ src/
 
 **Deliverable:** Kanban board supports tag prefix swimlanes with cross-swimlane drag, and tag exclusions.
 
-### Phase 5: Grouped Manual Ordering
+### Phase 5: Grouped Manual Ordering ✅ COMPLETE
 **Goal:** Extend manual ordering from columns to grouped cells (Option C — see
 [Manual Ordering in Grouped Mode](#manual-ordering-in-grouped-mode)).
 
@@ -411,24 +410,26 @@ Builds directly on `SPEC 0020` Phase 4: `manual_order.ts` (`computeDisplayOrder`
 settings field. Most of this phase is threading the extra group-bucket key; the
 ordering algorithms are reused as-is.
 
-1. [ ] Re-key `manualOrder` to `Record<GroupBucketId, Record<ColumnTag, ManualOrderKey[]>>`
+1. ✅ Re-key `manualOrder` to `Record<GroupBucketId, Record<ColumnTag, ManualOrderKey[]>>`
    (zod + `SettingValues`), with a parse-time migration wrapping any existing
    flat `Record<ColumnTag, ...>` under the default group bucket id.
-2. [ ] Apply manual order per cell in `deriveBoardMatrix`: order each
+2. ✅ Apply manual order per cell in `deriveBoardMatrix`: order each
    `(secondary, primary)` cell via `computeDisplayOrder(cellTasks,
    manualOrder[secondaryId]?.[columnTag])` instead of ordering the whole column
    pre-split.
-3. [ ] Pass `secondaryId` into `reorderTask` / `unpinTask` and read/write the
+3. ✅ Pass `secondaryId` into `reorderTask` / `unpinTask` and read/write the
    nested record; drop the ungrouped reorder guard so `reorderEnabled =
    isManualOrder`.
-4. [ ] Compute `computePinnedIds` per cell from the nested record and keep the
+4. ✅ Compute `computePinnedIds` per cell from the nested record and keep the
    pin-marker / drag-handle UI unchanged.
-5. [ ] Extend `pruneManualOrder` to nested storage: prune keys absent from each
+5. ✅ Extend `pruneManualOrder` to nested storage: prune keys absent from each
    cell's present-task set, and delete emptied cell/group records (covers task
    removal, column change, and regrouping).
 
 **Deliverable:** Manual ordering works inside grouped cells; ungrouped order
 survives a round trip through grouping, and switching group-by writes no files.
+
+**Implemented by:** Pending review/commit.
 
 ---
 

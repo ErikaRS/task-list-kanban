@@ -44,9 +44,8 @@
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
 	export let accentColor: string | undefined = undefined;
-	// Manual ordering. `isManualOrder` controls marker/handle display; reordering
-	// drops are only honored when ungrouped (see SPEC 0020 Phase 4 scope) — that
-	// guard is enforced via `reorderEnabled`.
+	// Manual ordering. `isManualOrder` controls marker display; `reorderEnabled`
+	// controls whether the drag handle can mutate this cell's order.
 	export let isManualOrder: boolean = false;
 	export let manualOrderEntries: ManualOrderKey[] | undefined = undefined;
 	export let reorderEnabled: boolean = false;
@@ -88,7 +87,7 @@
 		: new Set<string>();
 	$: displayIds = tasks.map((t) => t.id);
 
-	// Intra-column manual reorder (ungrouped only). A single-task, same-cell drag
+	// Intra-cell manual reorder. A single-task, same-cell drag
 	// is treated as a reorder; everything else (cross-column, multi-select) keeps
 	// the existing column-change behavior handled at the wrapper level.
 	let reorderOverId: string | null = null;
@@ -137,7 +136,7 @@
 		// Dropping a task onto itself is a no-op.
 		if (!draggedId || draggedId === overTaskId) return;
 		const targetIndex = computeTargetIndex(draggedId, overTaskId, placeBefore);
-		await taskActions.reorderTask(column, displayIds, draggedId, targetIndex);
+		await taskActions.reorderTask(cell.secondaryId, column, displayIds, draggedId, targetIndex);
 	}
 
 	$: draggingData = $isDraggingStore;
@@ -428,7 +427,7 @@
 					{isManualOrder}
 					isPinned={pinnedIds.has(task.id)}
 					showDragHandle={reorderEnabled}
-					onUnpin={() => taskActions.unpinTask(column, task.id)}
+					onUnpin={() => taskActions.unpinTask(cell.secondaryId, column, task.id)}
 				/>
 			</div>
 		{/each}

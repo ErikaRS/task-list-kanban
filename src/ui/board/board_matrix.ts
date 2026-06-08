@@ -23,7 +23,7 @@ export interface AxisBucket<TId extends string = string> {
 	collapsed: boolean;
 	meta?: {
 		color?: string;
-		value?: string | null;
+		value?: GroupBucket["value"];
 		source?: GroupBucket["source"];
 		isDefault?: boolean;
 	};
@@ -71,9 +71,9 @@ export function deriveBoardMatrix(
 		}
 	}
 
-	// Apply ordering inside each primary bucket. Property sort falls back to file
-	// order as a stable tiebreak. Manual mode pins explicitly ordered tasks to a
-	// contiguous prefix and lets the rest follow live file order.
+	// Apply primary-bucket ordering. Property sort falls back to file order as a
+	// stable tiebreak. Manual mode starts from file order here, then applies pins
+	// after secondary grouping so each grouped cell owns its own prefix.
 	const orderMode = settings.columnOrderMode ?? ColumnOrderMode.FileOrder;
 	const sortProperty = settings.sortProperty ?? null;
 	const sortDirection: SortDirection = settings.sortDirection ?? "asc";
@@ -84,12 +84,6 @@ export function deriveBoardMatrix(
 	for (const [bucketId, bucketTasks] of Object.entries(tasksByPrimary)) {
 		if (useProperty && sortProperty) {
 			sortTasksByProperty(bucketTasks, sortProperty, sortDirection);
-		} else if (useManual) {
-			// computeDisplayOrder needs a stable file-ordered base for the tail. It
-			// may return the same array reference (nothing pinned), so reassign the
-			// bucket rather than mutating in place.
-			sortTasksByFile(bucketTasks);
-			tasksByPrimary[bucketId] = computeDisplayOrder(bucketTasks, manualOrder[bucketId]);
 		} else {
 			sortTasksByFile(bucketTasks);
 		}
@@ -185,12 +179,15 @@ export function deriveBoardMatrix(
 		for (const groupBucket of groupBuckets) {
 			const sId = groupBucket.id;
 			const cellTasks = cellTasksBySecondary.get(sId) ?? [];
+			const orderedCellTasks = useManual
+				? computeDisplayOrder(cellTasks, manualOrder[sId]?.[pId])
+				: cellTasks;
 
 			cells[pId]![sId] = {
 				primaryId: pId as PrimaryBucketId,
 				secondaryId: sId,
-				tasks: cellTasks,
-				isEmpty: cellTasks.length === 0,
+				tasks: orderedCellTasks,
+				isEmpty: orderedCellTasks.length === 0,
 			};
 		}
 	}

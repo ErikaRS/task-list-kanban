@@ -1,5 +1,5 @@
 /**
- * Column-local manual ordering (SPEC 0020, Phase 4).
+ * Cell-local manual ordering (SPEC 0020, Phase 4; SPEC 0021, Phase 5).
  *
  * This module is the pure, filesystem-free core of manual ordering. It defines
  * the stable task-identity key, the display-order computation (pinned prefix +
@@ -15,8 +15,8 @@
 /** Stable task identity: `path + "::" + blockLink`. */
 export type ManualOrderKey = string;
 
-/** Per-column display order, keyed by columnTag (the primary bucket id). */
-export type ManualOrderStore = Record<string, ManualOrderKey[]>;
+/** Per-cell display order, keyed first by group bucket id, then column id. */
+export type ManualOrderStore = Record<string, Record<string, ManualOrderKey[]>>;
 
 /** Minimal view of a task needed for ordering. */
 export interface OrderableTask {
@@ -224,22 +224,30 @@ export function removeEntry(
  * board matrix, so temporary content/tag/file filters cannot delete valid pins.
  */
 export function collectPresentManualOrderKeys<T extends ManualOrderPruneTask>(
-	tasks: T[]
-): Record<string, Set<ManualOrderKey>> {
-	const presentKeysByColumn: Record<string, Set<ManualOrderKey>> = {};
+	tasks: T[],
+	assignGroupId: (task: T) => string | undefined,
+): Record<string, Record<string, Set<ManualOrderKey>>> {
+	const presentKeysByGroupAndColumn: Record<string, Record<string, Set<ManualOrderKey>>> = {};
 	for (const task of tasks) {
 		if (!task.blockLink || task.column === "archived") {
+			continue;
+		}
+
+		const groupId = assignGroupId(task);
+		if (!groupId) {
 			continue;
 		}
 
 		const columnTag = task.done || task.column === "done"
 			? "done"
 			: task.column ?? "uncategorised";
-		const keys = presentKeysByColumn[columnTag] ?? new Set<ManualOrderKey>();
+		const keysByColumn = presentKeysByGroupAndColumn[groupId] ?? {};
+		const keys = keysByColumn[columnTag] ?? new Set<ManualOrderKey>();
 		keys.add(manualOrderKey(task.path, task.blockLink));
-		presentKeysByColumn[columnTag] = keys;
+		keysByColumn[columnTag] = keys;
+		presentKeysByGroupAndColumn[groupId] = keysByColumn;
 	}
-	return presentKeysByColumn;
+	return presentKeysByGroupAndColumn;
 }
 
 const BLOCK_LINK_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";

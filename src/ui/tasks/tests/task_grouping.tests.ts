@@ -4,6 +4,7 @@ import {
 	getTaskTagGroupValue,
 	taskBelongsToGroup,
 } from "../task_grouping";
+import type { Task } from "../task";
 import { parseTask } from "./task_test_helpers";
 
 describe("tag-prefix grouping", () => {
@@ -114,5 +115,78 @@ describe("tag-prefix grouping", () => {
 			expect(task.tags.has("Sprint-2")).toBe(true);
 			expect(task.tags.has("Sprint-1")).toBe(false);
 		});
+	});
+});
+
+describe("property grouping", () => {
+	function taskWithProperty(
+		value: string | number | Date | null,
+		key = "priority",
+		rawValue = String(value),
+	): Task {
+		return {
+			path: "tasks.md",
+			properties: new Map(value === null ? [] : [[key, {
+				key,
+				rawValue,
+				value,
+				startIndex: 0,
+				endIndex: 0,
+			}]]),
+		} as unknown as Task;
+	}
+
+	it("derives typed property buckets with missing values last", () => {
+		const early = taskWithProperty(new Date("2026-01-01"), "due");
+		const late = taskWithProperty(new Date("2026-03-01"), "due");
+		const missing = taskWithProperty(null, "due");
+
+		const buckets = deriveGroupBuckets(
+			[late, missing, early],
+			{ kind: "property", key: "due" },
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual([
+			"2026-01-01",
+			"2026-03-01",
+			"No value",
+		]);
+		expect(taskBelongsToGroup(early, buckets[0]!)).toBe(true);
+		expect(taskBelongsToGroup(missing, buckets[2]!)).toBe(true);
+	});
+
+	it("orders Tasks priority buckets highest first and labels them with markers", () => {
+		const buckets = deriveGroupBuckets(
+			[
+				taskWithProperty(5, "priority", "🔺"),
+				taskWithProperty(1, "priority", "⏬"),
+				taskWithProperty(3, "priority", "🔼"),
+			],
+			{ kind: "property", key: "priority" },
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["🔺", "🔼", "⏬", "No value"]);
+	});
+
+	it("orders Dataview priority buckets highest first and labels them with text", () => {
+		const buckets = deriveGroupBuckets(
+			[
+				taskWithProperty("high", "priority", "[priority:: high]"),
+				taskWithProperty("low", "priority", "[priority:: low]"),
+				taskWithProperty("medium", "priority", "[priority:: medium]"),
+			],
+			{ kind: "property", key: "priority" },
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["high", "medium", "low", "No value"]);
+	});
+
+	it("sorts numeric non-priority buckets numerically", () => {
+		const buckets = deriveGroupBuckets(
+			[taskWithProperty(10, "estimate"), taskWithProperty(2, "estimate")],
+			{ kind: "property", key: "estimate" },
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["2", "10", "No value"]);
 	});
 });

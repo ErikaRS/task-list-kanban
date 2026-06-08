@@ -11,7 +11,11 @@
 	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
 	import { deriveBoardMatrix } from "./board/board_matrix";
-	import { normalizeTagPrefix } from "./tasks/task_grouping";
+	import {
+		createGroupAssigner,
+		deriveGroupBuckets,
+		normalizeTagPrefix,
+	} from "./tasks/task_grouping";
 	import SelectTag from "./components/select/select_tag.svelte";
 	import IconButton from "./components/icon_button.svelte";
 	import Icon from "./components/icon.svelte";
@@ -540,6 +544,7 @@
 		}
 		return [...known, ...discovered];
 	})();
+	$: availableGroupKeys = availableSortKeys;
 
 	const SORT_FILE_VALUE = "__file__";
 	const SORT_MANUAL_VALUE = "__manual__";
@@ -551,6 +556,9 @@
 		: isPropertySort && $settingsStore.sortProperty
 			? `prop:${$settingsStore.sortProperty}`
 			: SORT_FILE_VALUE;
+	$: groupSelectValue = $settingsStore.groupSource?.kind === "property"
+		? `prop:${$settingsStore.groupSource.key}`
+		: $settingsStore.groupSource?.kind ?? "none";
 
 	function onSortChange(value: string) {
 		if (value.startsWith("prop:")) {
@@ -565,11 +573,7 @@
 	}
 
 	$: manualOrder = $settingsStore.manualOrder ?? {};
-	// Manual drag-reorder is column-local and only safe when ungrouped: the store
-	// is keyed by column, so a grouped drop would clobber other swimlanes (see
-	// SPEC 0020 Phase 4 scope; grouped manual ordering is deferred to SPEC 0021).
-	$: isGrouped = ($settingsStore.groupSource?.kind ?? "none") !== "none";
-	$: reorderEnabled = isManualOrder && !isGrouped;
+	$: reorderEnabled = isManualOrder;
 
 	// Prune stale manual-order entries when the full task set changes (tasks
 	// deleted or moved out of a column). Display already ignores stale entries, so
@@ -590,7 +594,10 @@
 		}
 		pruneTimer = setTimeout(() => {
 			pruneTimer = undefined;
-			taskActions.pruneManualOrder(collectPresentManualOrderKeys($tasksStore));
+			const groupSource = $settingsStore.groupSource ?? { kind: "none" };
+			const groupBuckets = deriveGroupBuckets($tasksStore, groupSource, $settingsStore.excludedTags ?? []);
+			const assignGroupId = createGroupAssigner(groupBuckets, groupSource, $settingsStore.excludedTags ?? []);
+			taskActions.pruneManualOrder(collectPresentManualOrderKeys($tasksStore, assignGroupId));
 		}, 500);
 	}
 
@@ -880,7 +887,7 @@
 					{/if}
 					<select
 						class="dropdown group-by-select"
-						value={$settingsStore.groupSource?.kind ?? "none"}
+						value={groupSelectValue}
 						on:change={(e) => {
 							const val = e.currentTarget.value;
 							rememberCurrentTagGroupingIfSaved();
@@ -890,6 +897,8 @@
 								$settingsStore.groupSource = $settingsStore.groupSource?.kind === "tag-prefix"
 									? { kind: "tag-prefix", prefix: $settingsStore.groupSource.prefix }
 									: createTagGroupSourceFromMemory();
+							} else if (val.startsWith("prop:")) {
+								$settingsStore.groupSource = { kind: "property", key: val.slice("prop:".length) };
 							} else {
 								$settingsStore.groupSource = { kind: "none" };
 							}
@@ -899,6 +908,13 @@
 						<option value="none">Group by: (none)</option>
 						<option value="file">Group by: File</option>
 						<option value="tag-prefix">Group by: Tag</option>
+						{#if availableGroupKeys.length > 0}
+							<optgroup label="Properties">
+								{#each availableGroupKeys as groupKey (groupKey.key)}
+									<option value={`prop:${groupKey.key}`}>Group by: {groupKey.label}</option>
+								{/each}
+							</optgroup>
+						{/if}
 					</select>
 					<select
 						class="dropdown sort-by-select"
@@ -906,9 +922,7 @@
 						on:change={(e) => onSortChange(e.currentTarget.value)}
 					>
 						<option value={SORT_FILE_VALUE}>Sort: File order</option>
-						<option value={SORT_MANUAL_VALUE}
-							>Sort: Manual{isGrouped ? " (readonly)" : ""}</option
-						>
+						<option value={SORT_MANUAL_VALUE}>Sort: Manual</option>
 						<optgroup label="Properties">
 							{#each availableSortKeys as sortKey (sortKey.key)}
 								<option value={`prop:${sortKey.key}`}>Sort: {sortKey.label}</option>

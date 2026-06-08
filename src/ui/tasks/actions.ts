@@ -62,18 +62,19 @@ export type TaskActions = {
 	 * current `displayOrderIds`, assigning block links to the new prefix as needed.
 	 */
 	reorderTask: (
+		groupId: string,
 		columnTag: string,
 		displayOrderIds: string[],
 		draggedId: string,
 		targetIndex: number,
 	) => Promise<void>;
 	/** Unpins a task: removes its store entry, leaving the block link in place. */
-	unpinTask: (columnTag: string, taskId: string) => Promise<void>;
+	unpinTask: (groupId: string, columnTag: string, taskId: string) => Promise<void>;
 	/**
 	 * Prunes stale order entries (tasks deleted or moved out of their column).
-	 * `presentKeysByColumn` lists the keys still present in each column.
+	 * `presentKeysByGroupAndColumn` lists the keys still present in each cell.
 	 */
-	pruneManualOrder: (presentKeysByColumn: Record<string, Set<string>>) => void;
+	pruneManualOrder: (presentKeysByGroupAndColumn: Record<string, Record<string, Set<string>>>) => void;
 };
 
 export function createTaskActions({
@@ -209,7 +210,7 @@ export function createTaskActions({
 			await updateRowWithTask(id, (task) => (task.column = column));
 		},
 
-		async reorderTask(columnTag, displayOrderIds, draggedId, targetIndex) {
+		async reorderTask(groupId, columnTag, displayOrderIds, draggedId, targetIndex) {
 			const displayOrder = displayOrderIds
 				.map((id) => tasksByTaskId.get(id))
 				.filter((task): task is Task => !!task);
@@ -231,38 +232,69 @@ export function createTaskActions({
 			});
 
 			const current = getManualOrder();
-			setManualOrder({ ...current, [columnTag]: entries });
+			setManualOrder({
+				...current,
+				[groupId]: {
+					...(current[groupId] ?? {}),
+					[columnTag]: entries,
+				},
+			});
 		},
 
-		async unpinTask(columnTag, taskId) {
+		async unpinTask(groupId, columnTag, taskId) {
 			const task = tasksByTaskId.get(taskId);
 			if (!task) return;
 			const key = taskKey(task);
 			if (!key) return;
 
 			const current = getManualOrder();
-			const entries = current[columnTag];
+			const groupEntries = current[groupId];
+			const entries = groupEntries?.[columnTag];
 			const next = removeEntry(entries, key);
 			if (next === entries) return;
 
-			setManualOrder({ ...current, [columnTag]: next });
+			const nextStore: ManualOrderStore = { ...current };
+			const nextGroup = { ...(groupEntries ?? {}) };
+			if (next.length === 0) {
+				delete nextGroup[columnTag];
+			} else {
+				nextGroup[columnTag] = next;
+			}
+			if (Object.keys(nextGroup).length === 0) {
+				delete nextStore[groupId];
+			} else {
+				nextStore[groupId] = nextGroup;
+			}
+			setManualOrder(nextStore);
 		},
 
-		pruneManualOrder(presentKeysByColumn) {
+		pruneManualOrder(presentKeysByGroupAndColumn) {
 			const current = getManualOrder();
 			let changed = false;
 			const next: ManualOrderStore = { ...current };
 
-			for (const [columnTag, entries] of Object.entries(current)) {
-				const present = presentKeysByColumn[columnTag] ?? new Set<string>();
-				const pruned = entries.filter((entry) => present.has(entry));
-				if (pruned.length !== entries.length) {
-					changed = true;
-					if (pruned.length === 0) {
-						delete next[columnTag];
-					} else {
-						next[columnTag] = pruned;
+			for (const [groupId, entriesByColumn] of Object.entries(current)) {
+				const presentByColumn = presentKeysByGroupAndColumn[groupId] ?? {};
+				const nextGroup = { ...entriesByColumn };
+
+				for (const [columnTag, entries] of Object.entries(entriesByColumn)) {
+					const present = presentByColumn[columnTag] ?? new Set<string>();
+					const pruned = entries.filter((entry) => present.has(entry));
+					if (pruned.length !== entries.length) {
+						changed = true;
+						if (pruned.length === 0) {
+							delete nextGroup[columnTag];
+						} else {
+							nextGroup[columnTag] = pruned;
+						}
 					}
+				}
+
+				if (Object.keys(nextGroup).length === 0) {
+					changed = true;
+					delete next[groupId];
+				} else {
+					next[groupId] = nextGroup;
 				}
 			}
 

@@ -1,16 +1,19 @@
 import type { Task } from "./task";
+import { compareValues } from "../../parsing/properties/comparators";
+import type { TaskProperty } from "../../parsing/properties/property_schema";
 
 export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 
 export type GroupSource =
 	| { kind: "none" }
 	| { kind: "file" }
-	| { kind: "tag-prefix"; prefix?: string };
+	| { kind: "tag-prefix"; prefix?: string }
+	| { kind: "property"; key: string };
 
 export interface GroupBucket {
 	id: string; // stable internal id
 	label: string; // user-facing label
-	value: string | null;
+	value: string | number | Date | null;
 	source: GroupSource;
 	isDefault: boolean;
 }
@@ -98,6 +101,43 @@ export function deriveGroupBuckets(
 		return buckets;
 	}
 
+	if (source.kind === "property") {
+		const valueMap = new Map<string, { value: string | number | Date; label: string }>();
+
+		for (const task of tasks) {
+			const property = task.properties.get(source.key);
+			const value = property?.value ?? null;
+			if (value === null) continue;
+			const key = propertyValueKey(value);
+			if (!valueMap.has(key)) {
+				valueMap.set(key, {
+					value,
+					label: property ? formatPropertyGroupLabel(property) : formatPropertyValueLabel(value),
+				});
+			}
+		}
+
+		const buckets: GroupBucket[] = Array.from(valueMap.values())
+			.sort((a, b) => comparePropertyGroupValues(source.key, a.value, b.value))
+			.map((entry) => ({
+				id: createPropertyGroupBucketId(source.key, entry.value),
+				label: entry.label,
+				value: entry.value,
+				source,
+				isDefault: false,
+			}));
+
+		buckets.push({
+			id: createPropertyMissingGroupBucketId(source.key),
+			label: "No value",
+			value: null,
+			source,
+			isDefault: true,
+		});
+
+		return buckets;
+	}
+
 	return [
 		{
 			id: DEFAULT_GROUP_BUCKET_ID,
@@ -115,7 +155,14 @@ export function taskBelongsToGroup(task: Task, bucket: GroupBucket, excludedTags
 			return bucket.value !== null && task.path === bucket.value;
 		case "tag-prefix": {
 			const groupTag = getTaskTagGroupValue(task, bucket.source, excludedTags);
-			return bucket.isDefault ? groupTag === null : groupTag?.toLowerCase() === bucket.value?.toLowerCase();
+			const bucketValue = typeof bucket.value === "string" ? bucket.value : null;
+			return bucket.isDefault ? groupTag === null : groupTag?.toLowerCase() === bucketValue?.toLowerCase();
+		}
+		case "property": {
+			const value = task.properties.get(bucket.source.key)?.value ?? null;
+			return bucket.isDefault
+				? value === null
+				: value !== null && bucket.value !== null && propertyValueKey(value) === propertyValueKey(bucket.value);
 		}
 		case "none":
 			return true;
@@ -164,7 +211,7 @@ export function createGroupAssigner(
 		const excludeSet = createNormalizedTagSet(excludedTags);
 		const idByValue = new Map<string, string>();
 		for (const bucket of buckets) {
-			if (!bucket.isDefault && bucket.value !== null) {
+			if (!bucket.isDefault && typeof bucket.value === "string") {
 				idByValue.set(bucket.value.toLowerCase(), bucket.id);
 			}
 		}
@@ -178,16 +225,30 @@ export function createGroupAssigner(
 	if (source.kind === "file") {
 		const idByPath = new Map<string, string>();
 		for (const bucket of buckets) {
-			if (bucket.value !== null) idByPath.set(bucket.value, bucket.id);
+			if (typeof bucket.value === "string") idByPath.set(bucket.value, bucket.id);
 		}
 		return (task) => idByPath.get(task.path) ?? defaultBucketId;
+	}
+
+	if (source.kind === "property") {
+		const idByValue = new Map<string, string>();
+		for (const bucket of buckets) {
+			if (!bucket.isDefault && bucket.value !== null) {
+				idByValue.set(propertyValueKey(bucket.value), bucket.id);
+			}
+		}
+		return (task) => {
+			const value = task.properties.get(source.key)?.value ?? null;
+			if (value === null) return defaultBucketId;
+			return idByValue.get(propertyValueKey(value)) ?? defaultBucketId;
+		};
 	}
 
 	return () => defaultBucketId;
 }
 
 export function getFileGroupPath(bucket: GroupBucket): string | null {
-	return bucket.source.kind === "file" && bucket.value !== null
+	return bucket.source.kind === "file" && typeof bucket.value === "string"
 		? bucket.value
 		: null;
 }
@@ -202,6 +263,86 @@ function createTagPrefixGroupBucketId(prefix: string, label: string): string {
 
 function createTagPrefixUnassignedGroupBucketId(prefix: string): string {
 	return createTagPrefixGroupBucketId(prefix, "__unassigned__");
+}
+
+function createPropertyGroupBucketId(key: string, value: string | number | Date): string {
+	return `property:${key}:${propertyValueKey(value)}`;
+}
+
+function createPropertyMissingGroupBucketId(key: string): string {
+	return `property:${key}:__missing__`;
+}
+
+function propertyValueKey(value: string | number | Date): string {
+	if (value instanceof Date) {
+		return `date:${value.getTime()}`;
+	}
+	return `${typeof value}:${String(value).toLowerCase()}`;
+}
+
+function comparePropertyGroupValues(key: string, a: string | number | Date, b: string | number | Date): number {
+	if (key === "priority") {
+		return comparePriorityGroupValues(a, b);
+	}
+	return compareValues(a, b);
+}
+
+function comparePriorityGroupValues(a: string | number | Date, b: string | number | Date): number {
+	const aRank = priorityRank(a);
+	const bRank = priorityRank(b);
+	if (aRank !== null && bRank !== null && aRank !== bRank) {
+		return bRank - aRank;
+	}
+	if (aRank !== null && bRank === null) return -1;
+	if (aRank === null && bRank !== null) return 1;
+	return compareValues(a, b);
+}
+
+function priorityRank(value: string | number | Date): number | null {
+	if (typeof value === "number") {
+		return value;
+	}
+	if (typeof value !== "string") {
+		return null;
+	}
+
+	switch (value.trim().toLowerCase()) {
+		case "highest":
+			return 5;
+		case "high":
+			return 4;
+		case "medium":
+			return 3;
+		case "low":
+			return 2;
+		case "lowest":
+			return 1;
+		default:
+			return null;
+	}
+}
+
+function formatPropertyGroupLabel(property: TaskProperty): string {
+	if (property.key === "priority") {
+		if (typeof property.value === "number") {
+			return property.rawValue || formatPropertyValueLabel(property.value);
+		}
+		if (property.value !== null) {
+			return String(property.value);
+		}
+		return property.rawValue;
+	}
+
+	return property.value === null
+		? property.rawValue
+		: formatPropertyValueLabel(property.value);
+}
+
+function formatPropertyValueLabel(value: string | number | Date): string {
+	if (value instanceof Date) {
+		return value.toISOString().slice(0, 10);
+	}
+	return String(value);
 }
 
 export function normalizeTagPrefix(prefix: string | undefined): string {

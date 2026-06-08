@@ -128,7 +128,7 @@
 					isCollapsed={pBucket.collapsed}
 					accentColor={pBucket.meta?.color}
 					{isManualOrder}
-					manualOrderEntries={manualOrder[pBucket.id]}
+					manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 					{reorderEnabled}
 				/>
 			</div>

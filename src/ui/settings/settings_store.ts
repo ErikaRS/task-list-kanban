@@ -7,7 +7,7 @@ import {
 	migrateCollapsedColumns,
 	migrateColumnDefinitions,
 } from "../columns/definitions";
-import type { GroupSource } from "../tasks/task_grouping";
+import { DEFAULT_GROUP_BUCKET_ID, type GroupSource } from "../tasks/task_grouping";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 import type { ManualOrderStore } from "../tasks/manual_order";
@@ -82,7 +82,12 @@ const savedFilterSchema = z.object({
 });
 
 const groupSourceSchema = z
-	.object({ kind: z.enum(["none", "file", "tag-prefix"]), prefix: z.string().optional() })
+	.union([
+		z.object({ kind: z.literal("none") }),
+		z.object({ kind: z.literal("file") }),
+		z.object({ kind: z.literal("tag-prefix"), prefix: z.string().optional() }),
+		z.object({ kind: z.literal("property"), key: z.string() }),
+	])
 	.catch({ kind: "none" as const });
 
 const savedGroupingSchema = z.object({
@@ -98,6 +103,28 @@ const columnDefinitionSchema = z.object({
 	matchMode: z.enum(["name", "tags"]).default("name"),
 	matchTags: z.array(z.string()).default([]),
 });
+
+const manualOrderEntriesSchema = z.array(z.string());
+const manualOrderCellSchema = z.record(z.string(), manualOrderEntriesSchema);
+const manualOrderSchema = z.preprocess((value) => {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		return {};
+	}
+
+	const record = value as Record<string, unknown>;
+	const hasFlatEntries = Object.values(record).some((entry) => Array.isArray(entry));
+	if (hasFlatEntries) {
+		const migrated: Record<string, unknown> = {};
+		for (const [columnTag, entries] of Object.entries(record)) {
+			if (Array.isArray(entries)) {
+				migrated[columnTag] = entries;
+			}
+		}
+		return { [DEFAULT_GROUP_BUCKET_ID]: migrated };
+	}
+
+	return value;
+}, z.record(z.string(), manualOrderCellSchema));
 
 // Fields with strict validation (enums, ranges) use .catch() so that a single
 // invalid value degrades gracefully instead of failing the entire settings parse.
@@ -144,11 +171,12 @@ const settingsObject = z.object({
 	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
 	sortProperty: z.string().nullable().default(null).optional(),
 	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
-	// Column-local manual ordering: per-column arrays of `path::blockLink` keys.
+	// Cell-local manual ordering: group bucket id -> column id -> `path::blockLink`.
 	// Stored alongside display settings in the board's frontmatter (the plugin has
 	// no separate data file), but kept as its own field so it is never conflated
-	// with display configuration.
-	manualOrder: z.record(z.string(), z.array(z.string())).default({}).optional(),
+	// with display configuration. Legacy column-local records are migrated under
+	// the default group bucket id at parse time.
+	manualOrder: manualOrderSchema.default({}).optional(),
 });
 
 export interface SettingValues {

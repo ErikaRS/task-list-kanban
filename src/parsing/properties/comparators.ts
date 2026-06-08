@@ -17,7 +17,7 @@ export type SortDirection = "asc" | "desc";
  *
  * Callers are expected to handle missing values (null) before delegating here.
  */
-function compareValues(
+export function compareValues(
 	a: string | number | Date,
 	b: string | number | Date
 ): number {

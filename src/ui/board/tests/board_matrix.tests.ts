@@ -140,7 +140,9 @@ describe("deriveBoardMatrix", () => {
 			...defaultSettings,
 			columnOrderMode: ColumnOrderMode.Manual,
 			manualOrder: {
-				"col-1": ["f::lc", "f::la"],
+				[DEFAULT_GROUP_BUCKET_ID]: {
+					"col-1": ["f::lc", "f::la"],
+				},
 			},
 		};
 		const columns: ColumnDefinition[] = [
@@ -180,6 +182,37 @@ describe("deriveBoardMatrix", () => {
 		const ordered = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
 
 		expect(ordered.map((t) => t.rowIndex)).toEqual([1, 2]);
+	});
+
+	it("applies manual order independently inside grouped cells", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Manual,
+			groupSource: { kind: "file" },
+			manualOrder: {
+				"file:a.md": {
+					"col-1": ["a.md::a2"],
+				},
+				"file:b.md": {
+					"col-1": ["b.md::b2"],
+				},
+			},
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			{ id: "a1", column: "col-1", path: "a.md", rowIndex: 1, done: false, blockLink: "a1", properties: new Map() } as unknown as Task,
+			{ id: "a2", column: "col-1", path: "a.md", rowIndex: 2, done: false, blockLink: "a2", properties: new Map() } as unknown as Task,
+			{ id: "b1", column: "col-1", path: "b.md", rowIndex: 1, done: false, blockLink: "b1", properties: new Map() } as unknown as Task,
+			{ id: "b2", column: "col-1", path: "b.md", rowIndex: 2, done: false, blockLink: "b2", properties: new Map() } as unknown as Task,
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+
+		expect(matrix.cells["col-1"]!["file:a.md"]!.tasks.map((t) => t.id)).toEqual(["a2", "a1"]);
+		expect(matrix.cells["col-1"]!["file:b.md"]!.tasks.map((t) => t.id)).toEqual(["b2", "b1"]);
 	});
 
 	it("respects RTL flow direction", () => {
@@ -249,5 +282,31 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.secondaryAxis[0]?.id).toBe(`file:${DEFAULT_GROUP_BUCKET_ID}`);
 		expect(matrix.secondaryAxis[0]?.meta?.isDefault).toBe(false);
 		expect(matrix.cells["col-1"]![`file:${DEFAULT_GROUP_BUCKET_ID}`]!.tasks).toHaveLength(1);
+	});
+
+	it("derives secondary axis from parsed properties with missing values last", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			groupSource: { kind: "property", key: "due" },
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			taskWithProperty({ id: "late", path: "f", rowIndex: 1 }, { key: "due", value: new Date("2026-03-01") }),
+			taskWithProperty({ id: "missing", path: "f", rowIndex: 2 }),
+			taskWithProperty({ id: "early", path: "f", rowIndex: 3 }, { key: "due", value: new Date("2026-01-01") }),
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+
+		expect(matrix.secondaryAxis.map((bucket) => bucket.label)).toEqual([
+			"2026-01-01",
+			"2026-03-01",
+			"No value",
+		]);
+		expect(matrix.cells["col-1"]!["property:due:date:1767225600000"]!.tasks.map((task) => task.id)).toEqual(["early"]);
+		expect(matrix.cells["col-1"]!["property:due:__missing__"]!.tasks.map((task) => task.id)).toEqual(["missing"]);
 	});
 });

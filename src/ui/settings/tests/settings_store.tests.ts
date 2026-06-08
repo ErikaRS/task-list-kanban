@@ -9,6 +9,7 @@ import {
 	type SavedFilter,
 } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
+import { DEFAULT_GROUP_BUCKET_ID } from "../../tasks/task_grouping";
 
 function parseSettings(overrides: Record<string, unknown>) {
 	return parseSettingsString(JSON.stringify(overrides));
@@ -85,13 +86,37 @@ describe("Invalid field resilience", () => {
 	it("recovers from invalid groupSource without losing other settings", () => {
 		const parsed = parseSettings({
 			columns: ["MyColumn"],
-			groupSource: { kind: "property", key: "priority" },
+			groupSource: { kind: "unknown", key: "priority" },
 			showFilepath: false,
 		});
 
 		expect(parsed.groupSource).toEqual({ kind: "none" });
 		expect(parsed.columns.map((column) => column.label)).toEqual(["MyColumn"]);
 		expect(parsed.showFilepath).toBe(false);
+	});
+
+	it("parses property groupSource", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			groupSource: { kind: "property", key: "priority" },
+		});
+
+		expect(parsed.groupSource).toEqual({ kind: "property", key: "priority" });
+	});
+
+	it("migrates legacy flat manual order under the default group bucket", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			manualOrder: {
+				"my-column": ["tasks.md::abc123"],
+			},
+		});
+
+		expect(parsed.manualOrder).toEqual({
+			[DEFAULT_GROUP_BUCKET_ID]: {
+				"my-column": ["tasks.md::abc123"],
+			},
+		});
 	});
 });
 

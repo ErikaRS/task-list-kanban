@@ -187,19 +187,19 @@ describe("removeEntry", () => {
 });
 
 describe("collectPresentManualOrderKeys", () => {
-	it("collects present keys from the full task set by primary column", () => {
+	it("collects present keys from the full task set by group and primary column", () => {
 		const present = collectPresentManualOrderKeys([
-			{ done: false, column: "todo", path: "a.md", blockLink: "aa" },
-			{ done: true, column: "todo", path: "b.md", blockLink: "bb" },
-			{ done: false, column: undefined, path: "c.md", blockLink: "cc" },
-			{ done: false, column: "archived", path: "d.md", blockLink: "dd" },
-			{ done: false, column: "todo", path: "e.md", blockLink: undefined },
-		]);
+			{ done: false, column: "todo", path: "a.md", blockLink: "aa", group: "g1" },
+			{ done: true, column: "todo", path: "b.md", blockLink: "bb", group: "g1" },
+			{ done: false, column: undefined, path: "c.md", blockLink: "cc", group: "g2" },
+			{ done: false, column: "archived", path: "d.md", blockLink: "dd", group: "g2" },
+			{ done: false, column: "todo", path: "e.md", blockLink: undefined, group: "g1" },
+		], (task) => task.group);
 
-		expect(present["todo"]).toEqual(new Set(["a.md::aa"]));
-		expect(present["done"]).toEqual(new Set(["b.md::bb"]));
-		expect(present["uncategorised"]).toEqual(new Set(["c.md::cc"]));
-		expect(present["archived"]).toBeUndefined();
+		expect(present["g1"]?.["todo"]).toEqual(new Set(["a.md::aa"]));
+		expect(present["g1"]?.["done"]).toEqual(new Set(["b.md::bb"]));
+		expect(present["g2"]?.["uncategorised"]).toEqual(new Set(["c.md::cc"]));
+		expect(present["g2"]?.["archived"]).toBeUndefined();
 	});
 });
 
