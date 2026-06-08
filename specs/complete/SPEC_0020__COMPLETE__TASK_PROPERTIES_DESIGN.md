@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-06
 
 # SPEC 0020 — Task Properties and Ordering
 
@@ -6,8 +7,8 @@ Status: IN_PROGRESS
 
 This spec was split out from the earlier combined task-properties / grouping design.
 
-- [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](complete/SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md) owns board rendering architecture.
-- [SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md](SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md) owns grouping and swimlanes.
+- [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md) owns board rendering architecture.
+- [SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md](../SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md) owns grouping and swimlanes.
 
 This spec is intentionally limited to property parsing, property display, property-based sorting, and manual ordering within a column.
 
@@ -18,7 +19,7 @@ This spec is intentionally limited to property parsing, property display, proper
 
 ## Implementation Order
 
-`SPEC 0019` is now complete, so this spec should be implemented against the board matrix renderer instead of the removed legacy column renderer.
+`SPEC 0019` is complete, so this spec was implemented against the board matrix renderer instead of the removed legacy column renderer.
 
 The current code already has a column-local rendering and ordering boundary:
 
@@ -565,7 +566,7 @@ pinned tasks marked and the unpinned tail following file order. Covers test
 cases: ME1–ME4, P1–P5, PI1–PI3, CF1–CF2, PE1–PE5, PM1, U1–U5, PR1–PR2, IX1–IX2
 (all must pass before this spec is marked complete).
 
-#### Implementation notes (code landed; manual test cases still pending)
+#### Implementation notes
 
 - **Storage.** The plugin has no separate data file: settings persist in the
   board's frontmatter (`kanban_plugin`). `ManualOrderStore` is therefore stored
@@ -630,30 +631,31 @@ All Phase 4 test cases must be checked off before this spec can be marked comple
 
 ### Persistence & Re-entrancy
 
-- [ ] **PE1.** Pin several tasks, then reload the board (close and reopen the view). The manual order is preserved exactly.
-- [ ] **PE2.** Pin several tasks, then fully reload the vault/Obsidian. The manual order is preserved exactly.
-- [ ] **PE3.** Immediately after a drag, the just-set order is not clobbered by the re-parse triggered by the block-link write (no visible "snap back").
-- [ ] **PE4.** Edit a pinned task's text in the source markdown. Its position in the column is preserved (identity follows the block link, not the content hash).
-- [ ] **PE5.** Move a pinned task to a different line in its source file (without changing the block link). Its column position is preserved.
+- [x] **PE1.** Pin several tasks, then reload the board (close and reopen the view). The manual order is preserved exactly.
+- [x] **PE2.** Pin several tasks, then fully reload the vault/Obsidian. The manual order is preserved exactly.
+- [x] **PE3.** Immediately after a drag, the just-set order is not clobbered by the re-parse triggered by the block-link write (no visible "snap back").
+- [x] **PE4.** Edit a pinned task's text in the source markdown. Its position in the column is preserved (identity follows the block link, not the content hash).
+- [x] **PE5.** Move a pinned task to a different line in its source file (without changing the block link). Its column position is preserved.
+    - Works if the line is moved. Not if it is deleted and readded. That's working as intended
 
 ### Pin Marker & Unpinning
 
-- [ ] **PM1.** The pin marker uses the shared icon set (lucide `pin`), not an emoji, and sits alongside other card controls.
-- [ ] **U1.** Click a pinned task's pin marker. The task loses its marker and moves to its natural file-order position in the unpinned tail.
-- [ ] **U2.** After U1, inspect the source file: the block link is still present (unpinning does not remove the anchor).
-- [ ] **U3.** Unpin a task from the middle of the pinned prefix. The remaining pinned tasks stay contiguous at the top and keep their relative order.
-- [ ] **U4.** Re-pin a task that was previously unpinned (and still has a block link). No new block link is written; the existing one is reused.
-- [ ] **U5.** Unpin every pinned task in a column. The column returns to pure file order; no pin markers remain; drag handles still show (mode is still `Manual`).
+- [x] **PM1.** The pin marker uses the shared icon set (lucide `pin`), not an emoji, and sits alongside other card controls.
+- [x] **U1.** Click a pinned task's pin marker. The task loses its marker and moves to its natural file-order position in the unpinned tail.
+- [x] **U2.** After U1, inspect the source file: the block link is still present (unpinning does not remove the anchor).
+- [x] **U3.** Unpin a task from the middle of the pinned prefix. The remaining pinned tasks stay contiguous at the top and keep their relative order.
+- [x] **U4.** Re-pin a task that was previously unpinned (and still has a block link). No new block link is written; the existing one is reused.
+- [x] **U5.** Unpin every pinned task in a column. The column returns to pure file order; no pin markers remain; drag handles still show (mode is still `Manual`).
 
 ### Lifecycle & Pruning
 
-- [ ] **PR1.** Delete a pinned task from its source file. Its stale `ManualOrderStore` entry is pruned; remaining pinned tasks keep their order.
-- [ ] **PR2.** Move a pinned task out of the column (change its column tag). Its entry is removed from that column's order and it appears correctly in the destination column.
+- [x] **PR1.** Delete a pinned task from its source file. Its stale `ManualOrderStore` entry is pruned; remaining pinned tasks keep their order.
+- [x] **PR2.** Move a pinned task out of the column (change its column tag). Its entry is removed from that column's order and it appears correctly in the destination column.
 
 ### Interaction with Other Modes
 
-- [ ] **IX1.** Switch from `Manual` to a property sort, then back to `Manual`. The previously pinned order is restored (the store survived the round trip).
-- [ ] **IX2.** Manual ordering works under every property schema, including `None` (manual mode is never disabled by schema choice).
+- [x] **IX1.** Switch from `Manual` to a property sort, then back to `Manual`. The previously pinned order is restored (the store survived the round trip).
+- [x] **IX2.** Manual ordering works under every property schema, including `None` (manual mode is never disabled by schema choice).
 
 ---
 
