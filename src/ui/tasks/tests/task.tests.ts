@@ -12,6 +12,7 @@ import {
 	validateCancelledStatusMarkers,
 	validateDoneStatusMarkers,
 	validateIgnoredStatusMarkers,
+	validateStatusMarkerOrder,
 } from "../task";
 import {
 	createNameModeColumns,
@@ -498,6 +499,20 @@ describe("Cancelled Status Markers Validation", () => {
 		it("can be used to create validated markers", () => {
 			expect(() => createCancelledStatusMarkers(DEFAULT_CANCELLED_STATUS_MARKERS)).not.toThrow();
 		});
+	});
+});
+
+describe("Status Marker Order Validation", () => {
+	it.each(["", " /x", "/ x", "🚀 x"])("accepts valid order strings for %s", (markers) => {
+		expect(validateStatusMarkerOrder(markers)).toEqual([]);
+	});
+
+	it("rejects duplicate markers", () => {
+		expect(validateStatusMarkerOrder("/x/")).toContain("Duplicate marker '/' at position 3");
+	});
+
+	it("rejects whitespace other than the blank status marker", () => {
+		expect(validateStatusMarkerOrder("/\tx")).toContain("Marker at position 2 is whitespace");
 	});
 });
 

@@ -59,6 +59,11 @@
 
 	let isEditing = false;
 	let isDragging = false;
+	$: displayStatusIsCustom = task.displayStatus !== " ";
+
+	function shouldRenderStatusAsText(status: string): boolean {
+		return status.length > 1 || /\p{Extended_Pictographic}/u.test(status);
+	}
 
 	function handleDragStart(e: DragEvent) {
 		handleContentBlur();
@@ -193,7 +198,7 @@
 		}
 		
 		const indentedContinuationLines = contentWithBlockLink.replaceAll("\n", "\n  ");
-		return `- [${task.displayStatus}] ${indentedContinuationLines}`;
+		return `- [ ] ${indentedContinuationLines}`;
 	}
 
 	// Render markdown content using Obsidian's MarkdownRenderer
@@ -334,8 +339,8 @@
 		});
 	}
 
-	// Re-render when task content or the property-display mode changes
-	$: if (task && propertyDisplay && !isEditing && previewContainerEl) {
+	// Re-render when task content, status, or the property-display mode changes
+	$: if (task && task.content && task.displayStatus && propertyDisplay && !isEditing && previewContainerEl) {
 		void renderMarkdown(isSelectionMode);
 	}
 
@@ -403,7 +408,7 @@
 					tabindex="0"
 				>
 					<Icon
-						name={isSelected ? "lucide-check-square" : "lucide-square"}
+						name={isSelected ? "lucide-check-circle" : "lucide-circle"}
 						size={18}
 						opacity={isSelected ? 1 : 0.5}
 					/>
@@ -413,6 +418,12 @@
 				<button
 					class="icon-button toggle-done-task"
 					class:is-done={task.done}
+					class:usesStatusMarker={displayStatusIsCustom}
+					class:markdown-rendered={displayStatusIsCustom}
+					class:markdown-preview-view={displayStatusIsCustom}
+					class:task-list-item={displayStatusIsCustom}
+					class:is-checked={displayStatusIsCustom}
+					data-task={displayStatusIsCustom ? task.displayStatus : undefined}
 					role="checkbox"
 					aria-label={task.done ? "Mark as incomplete" : "Mark as complete"}
 					aria-checked={task.done}
@@ -426,11 +437,23 @@
 					}}
 					tabindex="0"
 				>
-					<Icon
-						name={task.done ? "lucide-check-circle" : "lucide-circle"}
-						size={18}
-						opacity={task.done ? 1 : 0.5}
-					/>
+					{#if displayStatusIsCustom}
+						{#if shouldRenderStatusAsText(task.displayStatus)}
+							<span class="status-text-marker">{task.displayStatus}</span>
+						{:else}
+							<span
+								class="task-list-item-checkbox source-status-checkbox"
+								data-task={task.displayStatus}
+								aria-hidden="true"
+							></span>
+						{/if}
+					{:else}
+						<Icon
+							name={task.done ? "lucide-check-square" : "lucide-square"}
+							size={18}
+							opacity={task.done ? 1 : 0.5}
+						/>
+					{/if}
 				</button>
 			{/if}
 		</div>
@@ -661,6 +684,29 @@
 
 			&.pin-marker:hover :global(svg) {
 				opacity: 1 !important;
+			}
+
+			&.usesStatusMarker {
+				color: var(--text-normal);
+			}
+
+			&.usesStatusMarker .source-status-checkbox,
+			&.usesStatusMarker .status-text-marker {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 18px;
+				height: 18px;
+				min-width: 18px;
+				min-height: 18px;
+				margin: 0 !important;
+				padding: 0 !important;
+				pointer-events: none;
+				line-height: 1;
+			}
+
+			&.usesStatusMarker .status-text-marker {
+				font-size: 15px;
 			}
 		}
 

@@ -602,7 +602,13 @@
 		pruneTimer = setTimeout(() => {
 			pruneTimer = undefined;
 			const groupSource = $settingsStore.groupSource ?? { kind: "none" };
-			const groupBuckets = deriveGroupBuckets($tasksStore, groupSource, $settingsStore.excludedTags ?? []);
+			const groupBuckets = deriveGroupBuckets(
+				$tasksStore,
+				groupSource,
+				$settingsStore.excludedTags ?? [],
+				$settingsStore.statusMarkerOrder ?? "",
+				$settingsStore.doneStatusMarkers ?? "",
+			);
 			const assignGroupId = createGroupAssigner(groupBuckets, groupSource, $settingsStore.excludedTags ?? []);
 			taskActions.pruneManualOrder(collectPresentManualOrderKeys($tasksStore, assignGroupId));
 		}, 500);

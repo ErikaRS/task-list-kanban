@@ -5,6 +5,7 @@ import type { ColumnDefinition } from "../../columns/columns";
 import { FlowDirection, VisibilityOption, type SettingValues, defaultSettings } from "../../settings/settings_store";
 import { DEFAULT_GROUP_BUCKET_ID } from "../../tasks/task_grouping";
 import { ColumnOrderMode } from "../../../parsing/properties/comparators";
+import { UNIVERSAL_STATUS_PROPERTY_KEY } from "../../../parsing/properties/property_schema";
 
 function taskWithProperty(
 	overrides: Partial<Task> & { path: string; rowIndex: number },
@@ -112,6 +113,56 @@ describe("deriveBoardMatrix", () => {
 		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
 
 		expect(sorted.map((t) => t.rowIndex)).toEqual([2, 1, 3]);
+	});
+
+	it("sorts status by configured marker order with unchecked first by default", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Property,
+			sortProperty: UNIVERSAL_STATUS_PROPERTY_KEY,
+			sortDirection: "asc",
+			statusMarkerOrder: "/x",
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			taskWithProperty({ path: "f", rowIndex: 1 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: "x" }),
+			taskWithProperty({ path: "f", rowIndex: 2 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: "?" }),
+			taskWithProperty({ path: "f", rowIndex: 3 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: "/" }),
+			taskWithProperty({ path: "f", rowIndex: 4 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: " " }),
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(sorted.map((t) => t.rowIndex)).toEqual([4, 3, 2, 1]);
+	});
+
+	it("keeps done status markers at the bottom when sorting status descending", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			columnOrderMode: ColumnOrderMode.Property,
+			sortProperty: UNIVERSAL_STATUS_PROPERTY_KEY,
+			sortDirection: "desc",
+			statusMarkerOrder: "/",
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			taskWithProperty({ path: "f", rowIndex: 1 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: "x" }),
+			taskWithProperty({ path: "f", rowIndex: 2 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: "?" }),
+			taskWithProperty({ path: "f", rowIndex: 3 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: "/" }),
+			taskWithProperty({ path: "f", rowIndex: 4 }, { key: UNIVERSAL_STATUS_PROPERTY_KEY, value: " " }),
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
+
+		expect(sorted.map((t) => t.rowIndex)).toEqual([2, 3, 4, 1]);
 	});
 
 	it("falls back to file order when property sort has no sortProperty", () => {
@@ -310,7 +361,7 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.cells["col-1"]![`file:${DEFAULT_GROUP_BUCKET_ID}`]!.tasks).toHaveLength(1);
 	});
 
-	it("derives secondary axis from parsed properties with missing values last", () => {
+	it("derives secondary axis from parsed properties without a missing-value row", () => {
 		const settings: SettingValues = {
 			...defaultSettings,
 			groupSource: { kind: "property", key: "due" },
@@ -330,9 +381,9 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.secondaryAxis.map((bucket) => bucket.label)).toEqual([
 			"2026-01-01",
 			"2026-03-01",
-			"No value",
 		]);
 		expect(matrix.cells["col-1"]!["property:due:date:1767225600000"]!.tasks.map((task) => task.id)).toEqual(["early"]);
-		expect(matrix.cells["col-1"]!["property:due:__missing__"]!.tasks.map((task) => task.id)).toEqual(["missing"]);
+		expect(matrix.secondaryAxis.some((bucket) => bucket.id === "property:due:__missing__")).toBe(false);
+		expect(Object.values(matrix.cells["col-1"]!).flatMap((cell) => cell.tasks).map((task) => task.id)).not.toContain("missing");
 	});
 });

@@ -114,6 +114,15 @@ describe("Invalid field resilience", () => {
 		expect(parsed.columnOrderMode).toBe(ColumnOrderMode.TaskName);
 	});
 
+	it("parses status marker order", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			statusMarkerOrder: "/ x",
+		});
+
+		expect(parsed.statusMarkerOrder).toBe("/ x");
+	});
+
 	it("migrates legacy flat manual order under the default group bucket", () => {
 		const parsed = parseSettings({
 			columns: ["MyColumn"],

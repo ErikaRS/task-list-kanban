@@ -9,7 +9,7 @@ import {
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
-import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers } from "../tasks/task";
+import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers, validateStatusMarkerOrder } from "../tasks/task";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import { kebab } from "src/parsing/kebab/kebab";
@@ -634,10 +634,10 @@ export class SettingsModal extends Modal {
 			"Display",
 			"Card metadata, filepath, and tag display behavior.",
 		);
-		const advancedTaskParsingSection = createSection(
-			"advanced-task-parsing",
-			"Advanced task parsing",
-			"Task status marker characters.",
+		const statusMarkersSection = createSection(
+			"status-markers",
+			"Status markers",
+			"Task status markers and status-specific board behavior.",
 		);
 
 		this.columnsEditorEl = columnsSection;
@@ -1247,7 +1247,28 @@ export class SettingsModal extends Modal {
 				});
 			});
 
-		new Setting(advancedTaskParsingSection)
+		new Setting(statusMarkersSection)
+			.setName("Status marker order")
+			.setDesc(
+				"Ascending order for status grouping and status sorting. Unchecked tasks come first unless this order includes a literal space. Unspecified markers appear afterward alphabetically, followed by done markers."
+			)
+			.addText((text) => {
+				text.setValue(this.settings.statusMarkerOrder ?? "");
+				text.onChange((value) => {
+					const errors = validateStatusMarkerOrder(value);
+					if (errors.length > 0) {
+						text.inputEl.style.borderColor = "var(--text-error)";
+						text.inputEl.title = `Invalid: ${errors.join(', ')}`;
+					} else {
+						text.inputEl.style.borderColor = "";
+						text.inputEl.title = "Valid status marker order";
+						this.settings.statusMarkerOrder = value;
+						this.updateDirtyBanner();
+					}
+				});
+			});
+
+		new Setting(statusMarkersSection)
 			.setName("Done status markers")
 			.setDesc(
 				"Characters that mark a task as done (e.g., 'xX' for [x] and [X]). Each character should be a single Unicode character without spaces."
@@ -1269,7 +1290,7 @@ export class SettingsModal extends Modal {
 				});
 			});
 
-		new Setting(advancedTaskParsingSection)
+		new Setting(statusMarkersSection)
 			.setName("Cancelled status markers")
 			.setDesc(
 				"Characters that mark a task as cancelled (e.g., '-' for [-]). Each character should be a single Unicode character without spaces."
@@ -1291,7 +1312,7 @@ export class SettingsModal extends Modal {
 				});
 			});
 
-		new Setting(advancedTaskParsingSection)
+		new Setting(statusMarkersSection)
 			.setName("Ignored status markers")
 			.setDesc(
 				"Characters that mark tasks to be completely ignored by the kanban (e.g., '-' for [-] cancelled tasks). Leave empty to process all task-like strings. Each character should be a single Unicode character without spaces."

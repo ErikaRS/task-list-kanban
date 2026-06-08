@@ -6,6 +6,7 @@ import {
 } from "../task_grouping";
 import type { Task } from "../task";
 import { parseTask } from "./task_test_helpers";
+import { UNIVERSAL_STATUS_PROPERTY_KEY } from "../../../parsing/properties/property_schema";
 
 describe("tag-prefix grouping", () => {
 	it("derives prefix buckets case-insensitively and keeps unassigned last", () => {
@@ -136,7 +137,7 @@ describe("property grouping", () => {
 		} as unknown as Task;
 	}
 
-	it("derives typed property buckets with missing values last", () => {
+	it("derives typed property buckets without a missing-value bucket", () => {
 		const early = taskWithProperty(new Date("2026-01-01"), "due");
 		const late = taskWithProperty(new Date("2026-03-01"), "due");
 		const missing = taskWithProperty(null, "due");
@@ -149,10 +150,9 @@ describe("property grouping", () => {
 		expect(buckets.map((bucket) => bucket.label)).toEqual([
 			"2026-01-01",
 			"2026-03-01",
-			"No value",
 		]);
 		expect(taskBelongsToGroup(early, buckets[0]!)).toBe(true);
-		expect(taskBelongsToGroup(missing, buckets[2]!)).toBe(true);
+		expect(buckets.some((bucket) => taskBelongsToGroup(missing, bucket))).toBe(false);
 	});
 
 	it("orders Tasks priority buckets highest first and labels them with markers", () => {
@@ -165,7 +165,7 @@ describe("property grouping", () => {
 			{ kind: "property", key: "priority" },
 		);
 
-		expect(buckets.map((bucket) => bucket.label)).toEqual(["🔺", "🔼", "⏬", "No value"]);
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["🔺", "🔼", "⏬"]);
 	});
 
 	it("orders Dataview priority buckets highest first and labels them with text", () => {
@@ -178,7 +178,7 @@ describe("property grouping", () => {
 			{ kind: "property", key: "priority" },
 		);
 
-		expect(buckets.map((bucket) => bucket.label)).toEqual(["high", "medium", "low", "No value"]);
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["high", "medium", "low"]);
 	});
 
 	it("sorts numeric non-priority buckets numerically", () => {
@@ -187,6 +187,37 @@ describe("property grouping", () => {
 			{ kind: "property", key: "estimate" },
 		);
 
-		expect(buckets.map((bucket) => bucket.label)).toEqual(["2", "10", "No value"]);
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["2", "10"]);
+	});
+
+	it("orders status buckets by configured ascending marker order", () => {
+		const buckets = deriveGroupBuckets(
+			[
+				taskWithProperty("x", UNIVERSAL_STATUS_PROPERTY_KEY),
+				taskWithProperty("?", UNIVERSAL_STATUS_PROPERTY_KEY),
+				taskWithProperty("/", UNIVERSAL_STATUS_PROPERTY_KEY),
+				taskWithProperty(" ", UNIVERSAL_STATUS_PROPERTY_KEY),
+			],
+			{ kind: "property", key: UNIVERSAL_STATUS_PROPERTY_KEY },
+			[],
+			"/x",
+			"xX",
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual([" ", "/", "?", "x"]);
+	});
+
+	it("uses explicit space placement for status buckets", () => {
+		const buckets = deriveGroupBuckets(
+			[
+				taskWithProperty(" ", UNIVERSAL_STATUS_PROPERTY_KEY),
+				taskWithProperty("/", UNIVERSAL_STATUS_PROPERTY_KEY),
+			],
+			{ kind: "property", key: UNIVERSAL_STATUS_PROPERTY_KEY },
+			[],
+			"/ ",
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["/", " "]);
 	});
 });

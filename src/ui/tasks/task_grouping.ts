@@ -1,6 +1,6 @@
 import type { Task } from "./task";
-import { compareValues } from "../../parsing/properties/comparators";
-import type { TaskProperty } from "../../parsing/properties/property_schema";
+import { compareStatusMarkerValues, compareValues } from "../../parsing/properties/comparators";
+import { UNIVERSAL_STATUS_PROPERTY_KEY, type TaskProperty } from "../../parsing/properties/property_schema";
 
 export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 
@@ -22,6 +22,8 @@ export function deriveGroupBuckets(
 	tasks: Task[],
 	source: GroupSource,
 	excludedTags: string[] = [],
+	statusMarkerOrder = "",
+	doneStatusMarkers = "",
 ): GroupBucket[] {
 	if (source.kind === "file") {
 		const paths = [...new Set(tasks.map((task) => task.path))].sort((a, b) =>
@@ -118,7 +120,13 @@ export function deriveGroupBuckets(
 		}
 
 		const buckets: GroupBucket[] = Array.from(valueMap.values())
-			.sort((a, b) => comparePropertyGroupValues(source.key, a.value, b.value))
+			.sort((a, b) => comparePropertyGroupValues(
+				source.key,
+				a.value,
+				b.value,
+				statusMarkerOrder,
+				doneStatusMarkers,
+			))
 			.map((entry) => ({
 				id: createPropertyGroupBucketId(source.key, entry.value),
 				label: entry.label,
@@ -126,14 +134,6 @@ export function deriveGroupBuckets(
 				source,
 				isDefault: false,
 			}));
-
-		buckets.push({
-			id: createPropertyMissingGroupBucketId(source.key),
-			label: "No value",
-			value: null,
-			source,
-			isDefault: true,
-		});
 
 		return buckets;
 	}
@@ -269,10 +269,6 @@ function createPropertyGroupBucketId(key: string, value: string | number | Date)
 	return `property:${key}:${propertyValueKey(value)}`;
 }
 
-function createPropertyMissingGroupBucketId(key: string): string {
-	return `property:${key}:__missing__`;
-}
-
 function propertyValueKey(value: string | number | Date): string {
 	if (value instanceof Date) {
 		return `date:${value.getTime()}`;
@@ -280,9 +276,18 @@ function propertyValueKey(value: string | number | Date): string {
 	return `${typeof value}:${String(value).toLowerCase()}`;
 }
 
-function comparePropertyGroupValues(key: string, a: string | number | Date, b: string | number | Date): number {
+function comparePropertyGroupValues(
+	key: string,
+	a: string | number | Date,
+	b: string | number | Date,
+	statusMarkerOrder: string,
+	doneStatusMarkers: string,
+): number {
 	if (key === "priority") {
 		return comparePriorityGroupValues(a, b);
+	}
+	if (key === UNIVERSAL_STATUS_PROPERTY_KEY) {
+		return compareStatusMarkerValues(a, b, statusMarkerOrder, doneStatusMarkers);
 	}
 	return compareValues(a, b);
 }

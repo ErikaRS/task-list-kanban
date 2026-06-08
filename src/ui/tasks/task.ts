@@ -167,6 +167,25 @@ export function validateCancelledStatusMarkers(markers: string): string[] {
 	return validateTypedStatusMarkers(markers, "Cancelled", false);
 }
 
+export function validateStatusMarkerOrder(markers: string): string[] {
+	const errors: string[] = [];
+	const chars = Array.from(markers);
+	const seen = new Set<string>();
+
+	for (let i = 0; i < chars.length; i++) {
+		const char = chars[i]!;
+		if (char !== " " && /\s/.test(char)) {
+			errors.push(`Marker at position ${i + 1} is whitespace`);
+		}
+		if (seen.has(char)) {
+			errors.push(`Duplicate marker '${char}' at position ${i + 1}`);
+		}
+		seen.add(char);
+	}
+
+	return errors;
+}
+
 export function createCancelledStatusMarkers(markers: string): CancelledStatusMarkers {
 	const errors = validateCancelledStatusMarkers(markers);
 	if (errors.length > 0) {

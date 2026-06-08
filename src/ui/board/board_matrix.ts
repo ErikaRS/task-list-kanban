@@ -85,7 +85,13 @@ export function deriveBoardMatrix(
 		if (orderMode === ColumnOrderMode.TaskName) {
 			sortTasksByTaskName(bucketTasks, sortDirection);
 		} else if (useProperty && sortProperty) {
-			sortTasksByProperty(bucketTasks, sortProperty, sortDirection);
+			sortTasksByProperty(
+				bucketTasks,
+				sortProperty,
+				sortDirection,
+				settings.statusMarkerOrder ?? "",
+				settings.doneStatusMarkers ?? "",
+			);
 		} else {
 			sortTasksByFile(bucketTasks);
 		}
@@ -145,7 +151,13 @@ export function deriveBoardMatrix(
 	});
 
 	const groupSource = settings.groupSource ?? { kind: "none" };
-	const groupBuckets = deriveGroupBuckets(Object.values(tasksByPrimary).flat(), groupSource, settings.excludedTags);
+	const groupBuckets = deriveGroupBuckets(
+		Object.values(tasksByPrimary).flat(),
+		groupSource,
+		settings.excludedTags,
+		settings.statusMarkerOrder ?? "",
+		settings.doneStatusMarkers ?? "",
+	);
 	const assignTaskToBucket = createGroupAssigner(groupBuckets, groupSource, settings.excludedTags);
 	const secondaryAxis: AxisBucket<SecondaryBucketId>[] = groupBuckets.map((bucket) => ({
 		id: bucket.id,
@@ -215,10 +227,12 @@ function compareByFile(a: Task, b: Task): number {
 function sortTasksByProperty(
 	tasks: Task[],
 	key: string,
-	direction: SortDirection
+	direction: SortDirection,
+	statusMarkerOrder: string,
+	doneStatusMarkers: string,
 ) {
 	tasks.sort((a, b) => {
-		const result = compareByProperty(a, b, key, direction);
+		const result = compareByProperty(a, b, key, direction, { statusMarkerOrder, doneStatusMarkers });
 		return result !== 0 ? result : compareByFile(a, b);
 	});
 }
