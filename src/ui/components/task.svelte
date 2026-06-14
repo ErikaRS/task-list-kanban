@@ -10,6 +10,7 @@
 	import { onDestroy } from "svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
+	import { renderTaskMarkdownSource } from "./task_markdown";
 
 	export let app: App;
 	export let task: Task;
@@ -190,15 +191,12 @@
 				? stripDisplayedPropertiesFromContent(task.content, task.properties)
 				: task.content;
 
-		let contentWithBlockLink = (body + (task.blockLink ? ` ^${task.blockLink}` : ""))
-			.replaceAll("<br />", "\n");
-
-		for (const tag of excludedTags) {
-			contentWithBlockLink = stripTagFromRenderedContent(contentWithBlockLink, tag);
-		}
-		
-		const indentedContinuationLines = contentWithBlockLink.replaceAll("\n", "\n  ");
-		return `- [ ] ${indentedContinuationLines}`;
+		return renderTaskMarkdownSource({
+			content: body,
+			displayStatus: task.displayStatus,
+			blockLink: task.blockLink,
+			excludedTags,
+		});
 	}
 
 	// Render markdown content using Obsidian's MarkdownRenderer
@@ -367,12 +365,6 @@
 	$: visibleTags = Array.from(task.tags).filter(t => !excludedTagNames.includes(t.toLowerCase()));
 	$: shouldconsolidateTags = consolidateTags && visibleTags.length > 0;
 
-	function stripTagFromRenderedContent(content: string, tag: string): string {
-		const normalizedTag = tag.trim().replace(/^#/, "");
-		if (!normalizedTag) return content;
-		const escapedTag = normalizedTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		return content.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_\/\\p{L}\\p{N}])`, "giu"), "$1").trim();
-	}
 </script>
 
 	<div
