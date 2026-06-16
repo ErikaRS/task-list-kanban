@@ -42,19 +42,23 @@
 	$: showSwimlaneHeaders =
 		matrix.secondaryAxis.length > 1 ||
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0].meta?.isDefault);
+
+	$: ungroupedSecondaryBucket = matrix.secondaryAxis[0];
+	$: ungroupedGridTemplateRows = matrix.primaryAxis
+		.map(() => "max-content")
+		.join(" ");
 </script>
 
-<div class="matrix-vertical">
-	{#each matrix.primaryAxis as pBucket (pBucket.id)}
-		<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-		<div
-			class="column-vertical"
-			class:collapsed={pBucket.collapsed}
-			style:--column-color={pBucket.meta?.color}
-			style={pBucket.meta?.color ? `background-color: ${pBucket.meta.color};` : ""}
-			on:click={() => { if (pBucket.collapsed) onToggleCollapse(pBucket.id); }}
-		>
-			<div class="header-wrapper">
+{#if !showSwimlaneHeaders && ungroupedSecondaryBucket}
+	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows}>
+		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
+			<div
+				class="row-header-wrapper"
+				class:collapsed={pBucket.collapsed}
+				style:grid-column="1"
+				style:grid-row={pIndex + 1}
+				style:--column-color={pBucket.meta?.color}
+			>
 				<ColumnHeader
 					column={pBucket.id}
 					tasks={tasksByPrimary[pBucket.id] ?? []}
@@ -70,15 +74,72 @@
 				/>
 			</div>
 
-			{#if !pBucket.collapsed}
-				<div class="cells-container">
-					{#each matrix.secondaryAxis as sBucket (sBucket.id)}
-						{#if showSwimlaneHeaders}
+			<div
+				class="cell-wrapper row-cell"
+				class:collapsed={pBucket.collapsed}
+				style:grid-column="2"
+				style:grid-row={pIndex + 1}
+				style:--column-color={pBucket.meta?.color}
+			>
+				<BoardCell
+					{app}
+					cell={matrix.cells[pBucket.id][ungroupedSecondaryBucket.id]}
+					primaryTasks={tasksByPrimary[pBucket.id] ?? []}
+					secondaryAxisBucket={ungroupedSecondaryBucket}
+					primaryAxisLabel={pBucket.label}
+					{taskActions}
+					{columnTagTableStore}
+					{showFilepath}
+					{propertyDisplay}
+					{consolidateTags}
+					{excludedTags}
+					isVerticalFlow={true}
+					{targetTaskFile}
+					{targetFileIsDefault}
+					{doneColumnName}
+					isCollapsed={pBucket.collapsed}
+					accentColor={pBucket.meta?.color}
+					{isManualOrder}
+					manualOrderEntries={manualOrder[ungroupedSecondaryBucket.id]?.[pBucket.id]}
+					{reorderEnabled}
+				/>
+			</div>
+		{/each}
+	</div>
+{:else}
+	<div class="matrix-vertical stacked-groups">
+		{#each matrix.primaryAxis as pBucket (pBucket.id)}
+			<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+			<div
+				class="column-vertical"
+				class:collapsed={pBucket.collapsed}
+				style:--column-color={pBucket.meta?.color}
+				style={pBucket.meta?.color ? `background-color: ${pBucket.meta.color};` : ""}
+				on:click={() => { if (pBucket.collapsed) onToggleCollapse(pBucket.id); }}
+			>
+				<div class="header-wrapper">
+					<ColumnHeader
+						column={pBucket.id}
+						tasks={tasksByPrimary[pBucket.id] ?? []}
+						{taskActions}
+						{columnTagTableStore}
+						{columnColourTableStore}
+						{columnMatchTagTableStore}
+						isVerticalFlow={true}
+						isCollapsed={pBucket.collapsed}
+						onToggleCollapse={() => onToggleCollapse(pBucket.id)}
+						{uncategorizedColumnName}
+						{doneColumnName}
+					/>
+				</div>
+
+				{#if !pBucket.collapsed}
+					<div class="cells-container">
+						{#each matrix.secondaryAxis as sBucket (sBucket.id)}
 							<div class="swimlane-header">
 								{sBucket.label}
 							</div>
-						{/if}
-						<div class="cell-wrapper">
+							<div class="cell-wrapper">
 								<BoardCell
 									{app}
 									cell={matrix.cells[pBucket.id][sBucket.id]}
@@ -87,35 +148,91 @@
 									primaryAxisLabel={pBucket.label}
 									{taskActions}
 									{columnTagTableStore}
-								{showFilepath}
-								{propertyDisplay}
-								{consolidateTags}
-								{excludedTags}
-								isVerticalFlow={true}
-								{targetTaskFile}
-								{targetFileIsDefault}
-								{doneColumnName}
-								isCollapsed={pBucket.collapsed}
-								accentColor={pBucket.meta?.color}
-								{isManualOrder}
-								manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
-								{reorderEnabled}
-							/>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{/each}
-</div>
+									{showFilepath}
+									{propertyDisplay}
+									{consolidateTags}
+									{excludedTags}
+									isVerticalFlow={true}
+									{targetTaskFile}
+									{targetFileIsDefault}
+									{doneColumnName}
+									isCollapsed={pBucket.collapsed}
+									accentColor={pBucket.meta?.color}
+									{isManualOrder}
+									manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
+									{reorderEnabled}
+								/>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <style lang="scss">
 	.matrix-vertical {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-4-4);
-		width: 100%;
 		padding-bottom: var(--size-4-4);
+
+		&.stacked-groups {
+			display: flex;
+			flex-direction: column;
+			gap: var(--size-4-4);
+			width: 100%;
+		}
+
+		&.ungrouped-grid {
+			display: grid;
+			grid-template-columns: minmax(220px, 280px) max-content;
+			column-gap: 0;
+			row-gap: 0;
+			align-items: stretch;
+			min-width: max-content;
+			border: var(--border-width) solid var(--background-modifier-border);
+			border-radius: var(--radius-m);
+			background: var(--background-primary);
+			box-shadow: var(--shadow-s);
+			overflow: visible;
+		}
+	}
+
+	.row-header-wrapper,
+	.row-cell {
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
+	}
+
+	.row-header-wrapper {
+		position: sticky;
+		left: 0;
+		z-index: 4;
+		display: flex;
+		align-items: stretch;
+		min-height: 96px;
+		padding: var(--size-4-2) var(--size-4-3);
+		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
+		border-right: var(--border-width) solid var(--background-modifier-border);
+		--column-header-x-padding-override: var(--size-4-3);
+		--column-header-y-padding-override: var(--size-4-2);
+
+		&.collapsed {
+			min-height: 64px;
+			cursor: pointer;
+		}
+	}
+
+	.row-cell {
+		z-index: 1;
+		display: flex;
+		align-self: stretch;
+		min-height: 96px;
+		min-width: max-content;
+		padding: var(--size-4-2) var(--size-4-4);
+		background: color-mix(in srgb, var(--background-primary) 88%, var(--background-secondary));
+
+		&.collapsed {
+			display: none;
+		}
 	}
 
 	.column-vertical {

@@ -459,14 +459,34 @@
 			gap: var(--size-4-2);
 
 			.tasks {
+				order: 1;
 				flex-direction: row;
-				flex-wrap: wrap;
+				flex-wrap: nowrap;
 				align-items: flex-start;
+				min-width: max-content;
 
 				:global(.task) {
-					width: min(var(--column-width, 300px), 100%);
+					width: var(--column-width, 300px);
 					flex-shrink: 0;
 				}
+			}
+
+			.task-slot {
+				flex: 0 0 var(--column-width, 300px);
+			}
+
+			.new-task-input {
+				order: 4;
+				width: var(--column-width, 300px);
+				box-sizing: border-box;
+			}
+
+			.add-new-controls {
+				order: 2;
+			}
+
+			.file-indicator {
+				order: 3;
 			}
 		}
 

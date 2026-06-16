@@ -1376,7 +1376,7 @@
 			padding-bottom: var(--size-4-4);
 
 			&.vertical-flow {
-				overflow-x: hidden;
+				overflow-x: auto;
 				overflow-y: scroll;
 			}
 		}

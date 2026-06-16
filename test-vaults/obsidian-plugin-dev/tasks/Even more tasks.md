@@ -23,3 +23,6 @@
 - [ ] Later B #later
 - [ ] Later B #later #Project-B
 - [ ] Later B 2 #later #Project-B
+- [ ] This is another task #B #C
+- [ ] Another test task #later
+- [ ] Foo bar #next-week

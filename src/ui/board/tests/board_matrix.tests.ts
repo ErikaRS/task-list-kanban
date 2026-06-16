@@ -309,6 +309,38 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.primaryAxis.map(a => a.id)).toEqual(["done", "col-1", "uncategorised"]);
 	});
 
+	it("keeps normal primary axis order for top-to-bottom flow", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			flowDirection: FlowDirection.TopToBottom,
+			uncategorizedVisibility: VisibilityOption.AlwaysShow,
+			doneVisibility: VisibilityOption.AlwaysShow,
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const matrix = deriveBoardMatrix([], columns, settings);
+
+		expect(matrix.primaryAxis.map(a => a.id)).toEqual(["uncategorised", "col-1", "done"]);
+	});
+
+	it("reverses primary axis order for bottom-to-top flow", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			flowDirection: FlowDirection.BottomToTop,
+			uncategorizedVisibility: VisibilityOption.AlwaysShow,
+			doneVisibility: VisibilityOption.AlwaysShow,
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const matrix = deriveBoardMatrix([], columns, settings);
+
+		expect(matrix.primaryAxis.map(a => a.id)).toEqual(["done", "col-1", "uncategorised"]);
+	});
+
 	it("derives secondary axis from files when grouped by file", () => {
 		const settings: SettingValues = {
 			...defaultSettings,
