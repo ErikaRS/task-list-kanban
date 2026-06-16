@@ -26,3 +26,4 @@
 - [ ] This is another task #B #C
 - [ ] Another test task #later
 - [ ] Foo bar #next-week
+- [ ] Adding a new task #cat #01-later
