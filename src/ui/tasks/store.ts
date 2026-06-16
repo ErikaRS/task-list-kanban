@@ -150,6 +150,7 @@ export function createTasksStore(
 			settingsStore.update((s) => ({ ...s, lastUsedTaskFile: path }));
 			requestSave();
 		},
+		getPropertySchemaOption: () => get(settingsStore).propertySchema ?? PropertySchemaOption.None,
 		getManualOrder: () => get(settingsStore).manualOrder ?? {},
 		setManualOrder: (next) => {
 			// Lightweight settings mutation: unlike the settings modal, this must not

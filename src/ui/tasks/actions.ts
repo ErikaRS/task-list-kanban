@@ -14,6 +14,12 @@ import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
 import { createTaskLine } from "./task_creation";
 import {
+	formatLocalDate,
+	getPropertyWriteAdapter,
+	PropertySchemaOption,
+	type WritableDatePropertyKey,
+} from "../../parsing/properties";
+import {
 	buildOrderEntries,
 	computeDropPlan,
 	ensureRowBlockLink,
@@ -26,6 +32,12 @@ export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
 	markDone: (id: string) => Promise<void>;
 	toggleDone: (id: string) => Promise<void>;
+	setDateProperty: (
+		id: string,
+		key: Exclude<WritableDatePropertyKey, "completion">,
+		date: string,
+	) => Promise<void>;
+	clearDateProperty: (id: string, key: WritableDatePropertyKey) => Promise<void>;
 	updateContent: (id: string, content: string) => Promise<void>;
 	viewFile: (id: string, event?: MouseEvent | KeyboardEvent) => Promise<void>;
 	archiveTasks: (ids: string[]) => Promise<void>;
@@ -89,6 +101,8 @@ export function createTaskActions({
 	getDefaultTaskFile,
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
+	getPropertySchemaOption,
+	getCurrentDate,
 	getManualOrder,
 	setManualOrder,
 }: {
@@ -103,6 +117,8 @@ export function createTaskActions({
 	getDefaultTaskFile: () => string | null;
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
+	getPropertySchemaOption: () => PropertySchemaOption;
+	getCurrentDate?: () => Date;
 	getManualOrder: () => ManualOrderStore;
 	setManualOrder: (next: ManualOrderStore) => void;
 }): TaskActions {
@@ -120,7 +136,8 @@ export function createTaskActions({
 
 	async function updateRowWithTask(
 		id: string,
-		updater: (task: Task) => void
+		updater: (task: Task) => void,
+		transformSerialized?: (newTaskString: string) => string,
 	) {
 		const metadata = metadataByTaskId.get(id);
 		const task = tasksByTaskId.get(id);
@@ -131,13 +148,39 @@ export function createTaskActions({
 
 		updater(task);
 
-		const newTaskString = task.serialise();
+		const serialized = task.serialise();
+		const newTaskString = transformSerialized ? transformSerialized(serialized) : serialized;
 		await updateRow(
 			vault,
 			metadata.fileHandle,
 			metadata.rowIndex,
 			newTaskString
 		);
+	}
+
+	async function updateSourceRow(
+		id: string,
+		transform: (row: string) => string,
+	) {
+		const metadata = metadataByTaskId.get(id);
+		if (!metadata) {
+			return;
+		}
+
+		const file = await vault.read(metadata.fileHandle);
+		const rows = file.split("\n");
+		const row = rows[metadata.rowIndex];
+		if (row == null) {
+			return;
+		}
+
+		const nextRow = transform(row);
+		if (nextRow === row) {
+			return;
+		}
+
+		rows[metadata.rowIndex] = nextRow;
+		await vault.modify(metadata.fileHandle, rows.join("\n"));
 	}
 
 	/**
@@ -304,21 +347,49 @@ export function createTaskActions({
 		},
 
 		async markDone(id) {
-			await updateRowWithTask(id, (task) => (task.done = true));
+			let shouldAddCompletionDate = false;
+			await updateRowWithTask(
+				id,
+				(task) => {
+					shouldAddCompletionDate = !task.done;
+					task.done = true;
+				},
+				(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
+			);
 		},
 
 		async toggleDone(id) {
-			await updateRowWithTask(id, (task) => {
-				if (task.done) {
-					task.undone();
-				} else {
-					task.done = true;
-				}
-			});
+			let shouldAddCompletionDate = false;
+			await updateRowWithTask(
+				id,
+				(task) => {
+					if (task.done) {
+						task.undone();
+					} else {
+						shouldAddCompletionDate = true;
+						task.done = true;
+					}
+				},
+				(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
+			);
 		},
 
 		async updateContent(id, content) {
 			await updateRowWithTask(id, (task) => (task.content = content));
+		},
+
+		async setDateProperty(id, key, date) {
+			await updateSourceRow(
+				id,
+				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.upsertDate(row, key, date) ?? row,
+			);
+		},
+
+		async clearDateProperty(id, key) {
+			await updateSourceRow(
+				id,
+				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.removeDate(row, key) ?? row,
+			);
 		},
 
 		async archiveTasks(ids) {
@@ -577,6 +648,15 @@ export function createTaskActions({
 			);
 		},
 	};
+
+	function addCompletionDateIfEnabled(rawLine: string): string {
+		const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
+		if (!adapter) {
+			return rawLine;
+		}
+
+		return adapter.addCompletionDateIfMissing(rawLine, formatLocalDate(getCurrentDate?.() ?? new Date()));
+	}
 }
 
 async function updateRow(
