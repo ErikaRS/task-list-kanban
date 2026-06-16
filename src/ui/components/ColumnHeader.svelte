@@ -253,7 +253,7 @@
 			position: relative;
 			display: flex;
 			align-items: stretch;
-			margin-bottom: var(--size-4-2);
+			margin-bottom: 0;
 
 			&::before {
 				position: absolute;

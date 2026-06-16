@@ -184,19 +184,19 @@ Implementation should preserve `BoardCell` as the interaction boundary if practi
 
 **Implemented by:** Pending review in working tree.
 
-### Phase 2: Grouped Transposed Grid
+### Phase 2: Grouped Transposed Grid ✅ COMPLETE
 
 **Goal:** Grouped `TTB` and `BTT` boards render group buckets as columns across the top.
 
-1. [ ] Add grouped header row with secondary-axis labels.
-2. [ ] Add corner cell where the row-header and group-header axes meet.
-3. [ ] Render every `(primary, secondary)` cell at the correct row/column intersection.
-4. [ ] Keep empty grouped cells compact but usable for supported drop/create interactions.
-5. [ ] Verify grouped file, tag-prefix, and property boards.
+1. ✅ Add grouped header row with secondary-axis labels.
+2. ✅ Add corner cell where the row-header and group-header axes meet.
+3. ✅ Render every `(primary, secondary)` cell at the correct row/column intersection.
+4. ✅ Keep empty grouped cells compact but usable for supported drop/create interactions.
+5. ✅ Verify grouped file, tag-prefix, and property board data paths with existing Vitest coverage and successful build.
 
 **Deliverable:** Grouped vertical flow behaves as a transposed matrix with group columns.
 
-**Implemented by:** Not yet implemented.
+**Implemented by:** Pending review in working tree.
 
 ### Phase 3: Interaction and Regression Pass
 

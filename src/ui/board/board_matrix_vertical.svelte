@@ -47,6 +47,14 @@
 	$: ungroupedGridTemplateRows = matrix.primaryAxis
 		.map(() => "max-content")
 		.join(" ");
+	$: groupedGridTemplateColumns = [
+		"var(--vertical-row-header-width)",
+		...matrix.secondaryAxis.map(() => "max-content"),
+	].join(" ");
+	$: groupedGridTemplateRows = [
+		"max-content",
+		...matrix.primaryAxis.map(() => "max-content"),
+	].join(" ");
 </script>
 
 {#if !showSwimlaneHeaders && ungroupedSecondaryBucket}
@@ -107,84 +115,90 @@
 		{/each}
 	</div>
 {:else}
-	<div class="matrix-vertical stacked-groups">
-		{#each matrix.primaryAxis as pBucket (pBucket.id)}
-			<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+	<div
+		class="matrix-vertical transposed-grid"
+		style:grid-template-columns={groupedGridTemplateColumns}
+		style:grid-template-rows={groupedGridTemplateRows}
+	>
+		<div class="matrix-corner" style:grid-column="1" style:grid-row="1"></div>
+
+		{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
 			<div
-				class="column-vertical"
-				class:collapsed={pBucket.collapsed}
-				style:--column-color={pBucket.meta?.color}
-				style={pBucket.meta?.color ? `background-color: ${pBucket.meta.color};` : ""}
-				on:click={() => { if (pBucket.collapsed) onToggleCollapse(pBucket.id); }}
+				class="group-header-cell"
+				style:grid-column={sIndex + 2}
+				style:grid-row="1"
 			>
-				<div class="header-wrapper">
-					<ColumnHeader
-						column={pBucket.id}
-						tasks={tasksByPrimary[pBucket.id] ?? []}
+				<span class="group-label" title={sBucket.label}>{sBucket.label}</span>
+			</div>
+		{/each}
+
+		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
+			<div
+				class="row-header-wrapper"
+				class:collapsed={pBucket.collapsed}
+				style:grid-column="1"
+				style:grid-row={pIndex + 2}
+				style:--column-color={pBucket.meta?.color}
+			>
+				<ColumnHeader
+					column={pBucket.id}
+					tasks={tasksByPrimary[pBucket.id] ?? []}
+					{taskActions}
+					{columnTagTableStore}
+					{columnColourTableStore}
+					{columnMatchTagTableStore}
+					isVerticalFlow={true}
+					isCollapsed={pBucket.collapsed}
+					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
+					{uncategorizedColumnName}
+					{doneColumnName}
+				/>
+			</div>
+
+			{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
+				<div
+					class="cell-wrapper grouped-cell"
+					class:collapsed={pBucket.collapsed}
+					style:grid-column={sIndex + 2}
+					style:grid-row={pIndex + 2}
+					style:--column-color={pBucket.meta?.color}
+				>
+					<BoardCell
+						{app}
+						cell={matrix.cells[pBucket.id][sBucket.id]}
+						primaryTasks={tasksByPrimary[pBucket.id] ?? []}
+						secondaryAxisBucket={sBucket}
+						primaryAxisLabel={pBucket.label}
 						{taskActions}
 						{columnTagTableStore}
-						{columnColourTableStore}
-						{columnMatchTagTableStore}
+						{showFilepath}
+						{propertyDisplay}
+						{consolidateTags}
+						{excludedTags}
 						isVerticalFlow={true}
-						isCollapsed={pBucket.collapsed}
-						onToggleCollapse={() => onToggleCollapse(pBucket.id)}
-						{uncategorizedColumnName}
+						{targetTaskFile}
+						{targetFileIsDefault}
 						{doneColumnName}
+						isCollapsed={pBucket.collapsed}
+						accentColor={pBucket.meta?.color}
+						{isManualOrder}
+						manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
+						{reorderEnabled}
 					/>
 				</div>
-
-				{#if !pBucket.collapsed}
-					<div class="cells-container">
-						{#each matrix.secondaryAxis as sBucket (sBucket.id)}
-							<div class="swimlane-header">
-								{sBucket.label}
-							</div>
-							<div class="cell-wrapper">
-								<BoardCell
-									{app}
-									cell={matrix.cells[pBucket.id][sBucket.id]}
-									primaryTasks={tasksByPrimary[pBucket.id] ?? []}
-									secondaryAxisBucket={sBucket}
-									primaryAxisLabel={pBucket.label}
-									{taskActions}
-									{columnTagTableStore}
-									{showFilepath}
-									{propertyDisplay}
-									{consolidateTags}
-									{excludedTags}
-									isVerticalFlow={true}
-									{targetTaskFile}
-									{targetFileIsDefault}
-									{doneColumnName}
-									isCollapsed={pBucket.collapsed}
-									accentColor={pBucket.meta?.color}
-									{isManualOrder}
-									manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
-									{reorderEnabled}
-								/>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
+			{/each}
 		{/each}
 	</div>
 {/if}
 
 <style lang="scss">
 	.matrix-vertical {
+		--vertical-row-header-width: clamp(220px, 24vw, 280px);
 		padding-bottom: var(--size-4-4);
 
-		&.stacked-groups {
-			display: flex;
-			flex-direction: column;
-			gap: var(--size-4-4);
-			width: 100%;
-		}
-
-		&.ungrouped-grid {
+		&.ungrouped-grid,
+		&.transposed-grid {
 			display: grid;
-			grid-template-columns: minmax(220px, 280px) max-content;
 			column-gap: 0;
 			row-gap: 0;
 			align-items: stretch;
@@ -194,6 +208,49 @@
 			background: var(--background-primary);
 			box-shadow: var(--shadow-s);
 			overflow: visible;
+		}
+
+		&.ungrouped-grid {
+			grid-template-columns: var(--vertical-row-header-width) max-content;
+		}
+	}
+
+	.matrix-corner,
+	.group-header-cell {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+		min-height: 64px;
+		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
+		border-right: var(--border-width) solid var(--background-modifier-border);
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
+		box-shadow:
+			inset 0 var(--border-width) 0 var(--background-modifier-border),
+			inset var(--border-width) 0 0 var(--background-modifier-border);
+	}
+
+	.matrix-corner {
+		left: 0;
+		z-index: 8;
+	}
+
+	.group-header-cell {
+		display: flex;
+		align-items: center;
+		min-width: var(--column-width, 300px);
+		padding: var(--size-4-3) var(--size-4-4);
+		overflow: clip;
+
+		.group-label {
+			position: sticky;
+			left: calc(var(--vertical-row-header-width) + var(--size-4-4));
+			display: inline-block;
+			max-width: max-content;
+			color: var(--text-normal);
+			font-size: var(--font-ui-medium);
+			font-weight: var(--font-medium);
+			line-height: 1.2;
+			white-space: nowrap;
 		}
 	}
 
@@ -235,52 +292,22 @@
 		}
 	}
 
-	.column-vertical {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		padding: var(--size-4-4);
-		border-radius: var(--radius-m);
-		border: var(--border-width) solid var(--background-modifier-border);
-		background: color-mix(in srgb, var(--background-primary) 88%, var(--background-secondary));
-		transition: padding-bottom 250ms ease;
-		overflow: hidden;
-		box-shadow: var(--shadow-s);
-
-		&.collapsed {
-			cursor: pointer;
-			padding-bottom: var(--size-4-4);
-		}
-	}
-
-	.header-wrapper {
-		width: 100%;
-		z-index: 1;
-	}
-
-	.cells-container {
-		display: flex;
-		flex-direction: column;
-		width: 100%;
-		margin-top: var(--size-4-4);
-		gap: 0;
-		border: var(--border-width) solid var(--background-modifier-border);
-		border-radius: var(--radius-s);
-		overflow: clip;
-	}
-
-	.swimlane-header {
-		font-size: var(--font-ui-medium);
-		font-weight: var(--font-medium);
-		color: var(--text-normal);
-		padding: var(--size-4-3) var(--size-4-4);
-		border-bottom: var(--border-width) solid var(--background-modifier-border);
-		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
-	}
-
 	.cell-wrapper {
-		width: 100%;
 		padding: var(--size-4-2) var(--size-4-4);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
+
+		&.grouped-cell {
+			z-index: 1;
+			display: flex;
+			align-self: stretch;
+			min-height: 96px;
+			min-width: var(--column-width, 300px);
+			background: color-mix(in srgb, var(--background-primary) 88%, var(--background-secondary));
+			border-right: var(--border-width) solid var(--background-modifier-border);
+
+			&.collapsed {
+				display: none;
+			}
+		}
 	}
 </style>
