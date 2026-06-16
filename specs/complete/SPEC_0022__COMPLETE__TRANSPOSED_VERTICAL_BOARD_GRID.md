@@ -1,4 +1,6 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-06
 
 # SPEC 0022 - Transposed Vertical Board Grid
 
@@ -182,7 +184,7 @@ Implementation should preserve `BoardCell` as the interaction boundary if practi
 
 **Deliverable:** Ungrouped vertical flow behaves as a transposed board grid.
 
-**Implemented by:** Pending review in working tree.
+**Implemented by:** [cf7387b](https://github.com/ErikaRS/task-list-kanban/commit/cf7387b)
 
 ### Phase 2: Grouped Transposed Grid ✅ COMPLETE
 
@@ -196,19 +198,19 @@ Implementation should preserve `BoardCell` as the interaction boundary if practi
 
 **Deliverable:** Grouped vertical flow behaves as a transposed matrix with group columns.
 
-**Implemented by:** Pending review in working tree.
+**Implemented by:** [8ec9064](https://github.com/ErikaRS/task-list-kanban/commit/8ec9064)
 
-### Phase 3: Interaction and Regression Pass
+### Phase 3: Interaction and Regression Pass ✅ COMPLETE
 
 **Goal:** Confirm the transposed renderer preserves existing board behavior.
 
-1. [ ] Verify dragging tasks between board-column rows.
-2. [ ] Verify dragging tasks between file/tag group columns.
-3. [ ] Verify manual ordering within a cell.
-4. [ ] Verify collapsed rows.
-5. [ ] Run `npm run build`.
-6. [ ] Run `npm test`.
+1. ✅ Verify dragging tasks between board-column rows.
+2. ✅ Verify dragging tasks between file/tag group columns.
+3. ✅ Verify manual ordering within a cell.
+4. ✅ Verify collapsed rows.
+5. ✅ Run `npm run build`.
+6. ✅ Run `npm test`.
 
 **Deliverable:** The transposed renderer passes quality gates and preserves existing interactions.
 
-**Implemented by:** Not yet implemented.
+**Implemented by:** Manual verification by Erika; quality gates passed locally.
