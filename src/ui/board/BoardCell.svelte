@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setIcon, type App, TFile } from "obsidian";
+	import { type App, TFile } from "obsidian";
 	import type { AxisBucket, BoardCell, SecondaryBucketId } from "./board_matrix";
 	import {
 		type ColumnTagTable,
@@ -9,6 +9,7 @@
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
+	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
 	import IconButton from "../components/icon_button.svelte";
 	import { isDraggingStore } from "../dnd/store";
 	import {
@@ -23,6 +24,7 @@
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
 	import { PropertyDisplayMode } from "../settings/settings_store";
+	import { getPropertyWriteAdapter, PropertySchemaOption, type WritableDatePropertyKey } from "../../parsing/properties";
 	import {
 		computePinnedIds,
 		type ManualOrderKey,
@@ -37,6 +39,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
 	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
+	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let isVerticalFlow: boolean = false;
@@ -231,23 +234,25 @@
 		clearColumnSelections(droppedIds);
 	}
 
-	let buttonEl: HTMLSpanElement | undefined;
-
-	$: {
-		if (buttonEl) {
-			setIcon(buttonEl, "lucide-plus");
-		}
-	}
-
 	// Inline task creation
 	let pendingNewTask: TFile | null = null;
 	let pendingCancelled = false;
 	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
+	let newTaskInputEl: HTMLDivElement | undefined;
+	const emptyDateValues: DateFieldValues = { due: "", scheduled: "", start: "" };
+	let newTaskDateValues: DateFieldValues = { ...emptyDateValues };
+	$: canEditNewTaskDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
 
-	async function handleNewTaskSave() {
+	async function handleNewTaskSave(event?: FocusEvent) {
+		const nextTarget = event?.relatedTarget;
+		if (nextTarget instanceof Node && newTaskInputEl?.contains(nextTarget)) {
+			return;
+		}
+
 		if (pendingCancelled) {
 			pendingCancelled = false;
 			pendingNewTask = null;
+			newTaskDateValues = { ...emptyDateValues };
 			return;
 		}
 
@@ -256,6 +261,7 @@
 		pendingNewTask = null;
 
 		if (!content || !file || !isColTag) {
+			newTaskDateValues = { ...emptyDateValues };
 			return;
 		}
 
@@ -264,7 +270,9 @@
 			content,
 			column,
 			creationMetadata.additionalTags,
+			newTaskDateValues,
 		);
+		newTaskDateValues = { ...emptyDateValues };
 	}
 
 	function handleNewTaskKeydown(e: KeyboardEvent) {
@@ -287,12 +295,14 @@
 			return;
 		}
 
+		newTaskDateValues = { ...emptyDateValues };
 		if (fileGroupTargetFile) {
 			pendingNewTask = fileGroupTargetFile;
 			return;
 		}
 
 		taskActions.pickFileForNewTask(column, e, (file) => {
+			newTaskDateValues = { ...emptyDateValues };
 			pendingNewTask = file;
 		});
 	}
@@ -306,10 +316,21 @@
 			column,
 			e,
 			(file) => {
+				newTaskDateValues = { ...emptyDateValues };
 				pendingNewTask = file;
 			},
 			true,
 		);
+	}
+
+	function handleNewTaskDateChange(
+		key: Exclude<WritableDatePropertyKey, "completion">,
+		value: string,
+	) {
+		newTaskDateValues = {
+			...newTaskDateValues,
+			[key]: value,
+		};
 	}
 
 	function groupIdsBySecondaryId(
@@ -364,8 +385,8 @@
 				disabled={!!pendingNewTask}
 				on:click={handleAddNewClick}
 			>
-				<span bind:this={buttonEl}></span>
-				Add new
+				<span aria-hidden="true">+</span>
+				Task
 			</button>
 			<IconButton
 				class="add-new-picker-btn"
@@ -386,13 +407,20 @@
 		{/if}
 	{/if}
 	{#if pendingNewTask}
-		<div class="new-task-input">
+		<div class="new-task-input" bind:this={newTaskInputEl} on:focusout={handleNewTaskSave}>
 			<textarea
 				bind:this={newTaskTextAreaEl}
-				on:blur={handleNewTaskSave}
 				on:keydown={handleNewTaskKeydown}
 				placeholder="Task name..."
 			></textarea>
+			{#if canEditNewTaskDates}
+				<div class="new-task-date-fields">
+					<DateInputFields
+						values={newTaskDateValues}
+						onDateChange={handleNewTaskDateChange}
+					/>
+				</div>
+			{/if}
 		</div>
 	{/if}
 	<div class="tasks">
@@ -413,6 +441,7 @@
 						{columnTagTableStore}
 						{showFilepath}
 						{propertyDisplay}
+						{propertySchemaOption}
 						{consolidateTags}
 						{excludedTags}
 						displayColumn={column}
@@ -545,17 +574,24 @@
 			}
 		}
 
+		.new-task-date-fields {
+			margin-top: var(--size-2-3);
+		}
+
 		.add-new-btn {
-			display: flex;
+			display: inline-flex;
 			align-items: center;
+			gap: var(--size-2-1);
 			align-self: flex-start;
 			cursor: pointer;
 			border: 0;
-			border-radius: 0;
+			border-radius: var(--radius-s);
 			box-shadow: none;
 			margin: 0;
 			min-height: 26px;
-			padding: 2px var(--size-4-2);
+			padding: 0;
+			background: transparent;
+			color: var(--text-accent);
 			font-size: var(--font-ui-small);
 			font-weight: var(--font-medium);
 			line-height: 1.2;
@@ -564,39 +600,31 @@
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
-				width: 15px;
-				height: 15px;
-				flex: 0 0 15px;
-			}
-
-			span :global(svg) {
-				width: 15px;
-				height: 15px;
-				display: block;
+				font-size: var(--font-ui-medium);
+				line-height: 1;
 			}
 		}
 
 		.add-new-controls {
 			display: inline-flex;
 			align-items: center;
+			gap: var(--size-2-1);
 			align-self: flex-start;
-			border: var(--border-width) solid var(--background-modifier-border);
-			border-radius: var(--radius-s);
-			overflow: hidden;
-			background-color: var(--interactive-normal);
-			box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+			border: 0;
+			background: transparent;
+			box-shadow: none;
 		}
 
 		:global(.add-new-picker-btn) {
 			flex-shrink: 0;
-			width: 28px;
+			width: 22px;
 			height: 26px;
 			border: 0;
-			border-left: var(--border-width) solid var(--background-modifier-border);
-			border-radius: 0;
+			border-radius: var(--radius-s);
 			box-shadow: none;
 			margin: 0;
 			background-color: transparent;
+			color: var(--text-accent);
 		}
 
 		.add-new-btn,
@@ -606,12 +634,14 @@
 
 		.add-new-btn:hover:not(:disabled),
 		:global(.add-new-picker-btn:hover:not(:disabled)) {
-			background-color: var(--interactive-hover);
+			background-color: transparent;
+			color: var(--text-accent-hover);
 		}
 
 		.add-new-btn:active:not(:disabled),
 		:global(.add-new-picker-btn:active:not(:disabled)) {
-			background-color: var(--interactive-accent-hover);
+			background-color: transparent;
+			color: var(--text-accent-hover);
 		}
 
 		.file-indicator {

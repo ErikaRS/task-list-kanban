@@ -11,6 +11,7 @@
 	import ColumnHeader from "../components/ColumnHeader.svelte";
 	import BoardCell from "./BoardCell.svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
+	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
 
 	export let app: App;
@@ -21,6 +22,7 @@
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let showFilepath: boolean;
 	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
+	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let targetTaskFile: TFile | null = null;
@@ -119,6 +121,7 @@
 						{columnTagTableStore}
 					{showFilepath}
 					{propertyDisplay}
+					{propertySchemaOption}
 					{consolidateTags}
 					{excludedTags}
 					isVerticalFlow={false}

@@ -67,6 +67,7 @@ export type TaskActions = {
 		content: string,
 		column: ColumnTag,
 		additionalTags?: string[],
+		dateProperties?: Partial<Record<Exclude<WritableDatePropertyKey, "completion">, string>>,
 	) => Promise<void>;
 	getTargetFile: () => TFile | null;
 	/**
@@ -635,16 +636,28 @@ export function createTaskActions({
 			createMenu(folder, undefined);
 		},
 
-		async createTask(file, content, column, additionalTags = []) {
+		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
+			const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
+			let taskLine = createTaskLine(
+				content,
+				getPlacementTagsForColumn(column),
+				additionalTags,
+			);
+
+			if (adapter) {
+				for (const key of ["due", "scheduled", "start"] as const) {
+					const date = dateProperties[key];
+					if (date) {
+						taskLine = adapter.upsertDate(taskLine, key, date);
+					}
+				}
+			}
+
 			await updateRow(
 				vault,
 				file,
 				undefined,
-				createTaskLine(
-					content,
-					getPlacementTagsForColumn(column),
-					additionalTags,
-				),
+				taskLine,
 			);
 		},
 	};

@@ -4,11 +4,14 @@
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import TaskMenu from "./task_menu.svelte";
+	import TaskDateFields from "./TaskDateFields.svelte";
 	import Icon from "./icon.svelte";
 	import { Component, Keymap, MarkdownRenderer, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
 	import { onDestroy } from "svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
+	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
+	import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
 	import { renderTaskMarkdownSource } from "./task_markdown";
 
@@ -18,6 +21,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let showFilepath: boolean;
 	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
+	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let displayColumn: ColumnTag | DefaultColumns;
@@ -119,6 +123,8 @@
 	let textAreaEl: HTMLTextAreaElement | undefined;
 	let previewContainerEl: HTMLDivElement | undefined;
 	let markdownComponent: Component | undefined;
+	let isEditingDates = false;
+	const editableDatePropertyKeys = new Set(["due", "scheduled", "start"]);
 
 	const interactiveTagNames = new Set([
 		"a",
@@ -184,12 +190,17 @@
 	}
 
 	function renderTaskMarkdown() {
-		// In Pretty mode, displayed properties are moved to the chip strip, so
-		// hide their raw text from the body (mirrors the consolidated-tag footer).
-		const body =
-			propertyDisplay === PropertyDisplayMode.Pretty && task.properties
-				? stripDisplayedPropertiesFromContent(task.content, task.properties)
-				: task.content;
+		let body = task.content;
+
+		if (task.properties) {
+			if (propertyDisplay === PropertyDisplayMode.Pretty) {
+				// In Pretty mode, displayed properties are moved to the chip strip, so
+				// hide their raw text from the body (mirrors the consolidated-tag footer).
+				body = stripDisplayedPropertiesFromContent(body, task.properties);
+			} else if (dateEditingEnabled) {
+				body = stripDisplayedPropertiesFromContent(body, dateProperties);
+			}
+		}
 
 		return renderTaskMarkdownSource({
 			content: body,
@@ -364,6 +375,19 @@
 	$: excludedTagNames = excludedTags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase());
 	$: visibleTags = Array.from(task.tags).filter(t => !excludedTagNames.includes(t.toLowerCase()));
 	$: shouldconsolidateTags = consolidateTags && visibleTags.length > 0;
+	$: dateEditingEnabled = getPropertyWriteAdapter(propertySchemaOption) !== null;
+	$: displayProperties = task.properties ? toDisplayProperties(task.properties) : [];
+	$: dateDisplayProperties = dateEditingEnabled
+		? displayProperties
+			.filter((prop) => editableDatePropertyKeys.has(prop.key))
+			.map((prop) => propertySchemaOption === PropertySchemaOption.Dataview
+				? { ...prop, icon: undefined, label: `${prop.key}::` }
+				: prop)
+		: [];
+	$: nonDateDisplayProperties = displayProperties.filter((prop) => !editableDatePropertyKeys.has(prop.key));
+	$: dateProperties = new Map(
+		Array.from(task.properties?.entries() ?? []).filter(([key]) => editableDatePropertyKeys.has(key)),
+	);
 
 </script>
 
@@ -515,10 +539,9 @@
 			<pre><code>{JSON.stringify(Array.from(task.properties.entries()), null, 2)}</code></pre>
 		</div>
 	{:else if propertyDisplay === PropertyDisplayMode.Pretty && task.properties}
-		{@const displayProperties = toDisplayProperties(task.properties)}
-		{#if displayProperties.length > 0}
+		{#if nonDateDisplayProperties.length > 0}
 			<div class="task-properties">
-				{#each displayProperties as prop (prop.key)}
+				{#each nonDateDisplayProperties as prop (prop.key)}
 					<span class="task-property">
 						{#if prop.icon}
 							<span class="task-property-icon" title={prop.label} aria-label={prop.label}>{prop.icon}</span>
@@ -530,6 +553,37 @@
 				{/each}
 			</div>
 		{/if}
+	{/if}
+	{#if dateEditingEnabled}
+		<div class="task-properties task-date-properties">
+			{#if !isEditingDates}
+				<TaskDateFields
+					{task}
+					{taskActions}
+					{propertySchemaOption}
+					isTaskEditing={isEditing}
+					bind:isEditingDates
+				/>
+				{#each dateDisplayProperties as prop (prop.key)}
+					<span class="task-property" class:dataview-property={propertySchemaOption === PropertySchemaOption.Dataview}>
+						{#if prop.icon}
+							<span class="task-property-icon" title={prop.label} aria-label={prop.label}>{prop.icon}</span>
+						{:else}
+							<span class="task-property-label">{prop.label}</span>
+						{/if}
+						<span class="task-property-value">{prop.value}</span>
+					</span>
+				{/each}
+			{:else}
+				<TaskDateFields
+					{task}
+					{taskActions}
+					{propertySchemaOption}
+					isTaskEditing={isEditing}
+					bind:isEditingDates
+				/>
+			{/if}
+		</div>
 	{/if}
 	{#if showFilepath}
 		<div class="task-footer">
@@ -556,6 +610,8 @@
 <style lang="scss">
 	.task {
 		--task-accent: var(--task-accent-color, var(--background-modifier-border-hover));
+		--task-footer-line-height: 1.15;
+		--task-footer-block-padding: 2px;
 		position: relative;
 		overflow: hidden;
 		background: var(--background-primary);
@@ -714,15 +770,23 @@
 		.task-footer {
 			border-top: var(--border-width) solid
 				var(--background-modifier-border);
-			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
+			padding: var(--task-footer-block-padding) var(--size-4-2) var(--task-footer-block-padding) calc(var(--size-4-2) + 8px);
+			font-size: var(--font-ui-smaller);
+			line-height: var(--task-footer-line-height);
+			display: flex;
+			align-items: center;
+			min-height: 0;
 
 			.go-to-file-button {
-				display: flex;
+				display: inline-flex;
 				align-items: center;
 				justify-content: flex-start;
 				gap: var(--size-2-1);
-				width: 100%;
+				width: auto;
+				max-width: 100%;
 				padding: 0;
+				min-height: 0;
+				height: auto;
 				border: none;
 				background: transparent;
 				cursor: pointer;
@@ -730,6 +794,8 @@
 				box-shadow: none;
 				transition: opacity 0.2s ease;
 				border-radius: var(--radius-s);
+				font: inherit;
+				line-height: inherit;
 
 				&:hover {
 					background: transparent;
@@ -752,15 +818,18 @@
 
 				.file-path {
 					margin: 0;
-					font-size: var(--font-ui-smaller);
 					color: var(--text-muted);
 					transition: color 0.2s ease;
 					overflow-wrap: anywhere;
 					white-space: normal;
-					flex: 1;
 					min-width: 0;
-					line-height: 1.2;
+					line-height: inherit;
 				}
+			}
+
+			.go-to-file-button :global(svg) {
+				width: 1em;
+				height: 1em;
 			}
 		}
 
@@ -815,9 +884,18 @@
 			display: flex;
 			flex-wrap: wrap;
 			gap: var(--size-2-2);
-			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
+			padding: var(--task-footer-block-padding) var(--size-4-2) var(--task-footer-block-padding) calc(var(--size-4-2) + 8px);
 			border-top: var(--border-width) solid var(--background-modifier-border);
 			font-size: var(--font-ui-smaller);
+			line-height: var(--task-footer-line-height);
+		}
+
+		.task-date-properties {
+			align-items: center;
+		}
+
+		.task-date-properties :global(.edit-mode) {
+			flex-basis: 100%;
 		}
 
 		.task-property {
@@ -827,7 +905,7 @@
 			padding: 0 var(--size-2-2);
 			border-radius: var(--radius-s);
 			background-color: var(--background-secondary-alt);
-			line-height: var(--line-height-tight);
+			line-height: inherit;
 		}
 
 		.task-property-label {
@@ -837,8 +915,13 @@
 			letter-spacing: 0.02em;
 		}
 
+		.task-property.dataview-property .task-property-label {
+			text-transform: none;
+			letter-spacing: 0;
+		}
+
 		.task-property-icon {
-			font-size: var(--font-ui-smaller);
+			font-size: inherit;
 			line-height: 1;
 		}
 

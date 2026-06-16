@@ -527,6 +527,7 @@
 	// Available sort keys are the active schema's known keys, plus — for Dataview
 	// only — inline keys discovered on currently parsed tasks.
 	$: activeSchema = getSchemaImpl($settingsStore.propertySchema ?? PropertySchemaOption.None);
+	$: propertySchemaOption = $settingsStore.propertySchema ?? PropertySchemaOption.None;
 	$: availableSortKeys = (() => {
 		const known = activeSchema.knownKeys().map((k) => ({ key: k.key, label: k.label }));
 		if ($settingsStore.propertySchema !== PropertySchemaOption.Dataview) {
@@ -988,6 +989,7 @@
 						{doneColumnName}
 						columnWidth="{columnWidth}px"
 						{propertyDisplay}
+						{propertySchemaOption}
 						{isManualOrder}
 						{manualOrder}
 						{reorderEnabled}
@@ -1009,6 +1011,7 @@
 						{uncategorizedColumnName}
 						{doneColumnName}
 						{propertyDisplay}
+						{propertySchemaOption}
 						{isManualOrder}
 						{manualOrder}
 						{reorderEnabled}

@@ -142,6 +142,63 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [ ] Send invoice");
 		});
 	});
+
+	describe("createTask date properties", () => {
+		it("writes Tasks-plugin dates when creating a task", async () => {
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks",
+				PropertySchemaOption.TasksPlugin,
+			);
+
+			await actions.createTask(
+				fileHandle as never,
+				"New task",
+				"in-progress" as never,
+				["project/alpha"],
+				{ due: "2026-06-15", scheduled: "2026-06-16", start: "2026-06-17" },
+			);
+
+			expect(contents()).toBe(
+				"# Tasks\n- [ ] New task #in-progress #project/alpha 📅 2026-06-15 ⏳ 2026-06-16 🛫 2026-06-17",
+			);
+		});
+
+		it("writes Dataview dates when creating a task", async () => {
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks",
+				PropertySchemaOption.Dataview,
+			);
+
+			await actions.createTask(
+				fileHandle as never,
+				"New task",
+				"in-progress" as never,
+				[],
+				{ due: "2026-06-15", start: "2026-06-17" },
+			);
+
+			expect(contents()).toBe(
+				"# Tasks\n- [ ] New task #in-progress [due:: 2026-06-15] [start:: 2026-06-17]",
+			);
+		});
+
+		it("ignores create-task dates when schema is none", async () => {
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks",
+				PropertySchemaOption.None,
+			);
+
+			await actions.createTask(
+				fileHandle as never,
+				"New task",
+				"in-progress" as never,
+				[],
+				{ due: "2026-06-15" },
+			);
+
+			expect(contents()).toBe("# Tasks\n- [ ] New task #in-progress");
+		});
+	});
 });
 
 function setupActionsForLine(
@@ -150,13 +207,35 @@ function setupActionsForLine(
 	propertySchema: NoneSchema | TasksPluginSchema | DataviewSchema,
 ) {
 	const fileHandle = { path: "tasks.md" };
-	let fileContents = line;
 	const task = parseTask(line, { propertySchema });
 	const tasksByTaskId = new Map([[task.id, task]]);
 	const metadataByTaskId = new Map([[task.id, { fileHandle, rowIndex: 0 }]]) as never;
-	const actions = createTaskActions({
+	const { actions, contents } = setupActions(
+		line,
+		propertySchemaOption,
 		tasksByTaskId,
 		metadataByTaskId,
+		fileHandle,
+	);
+
+	return {
+		actions,
+		taskId: task.id,
+		contents,
+	};
+}
+
+function setupActions(
+	initialContents: string,
+	propertySchemaOption: PropertySchemaOption,
+	tasksByTaskId = new Map(),
+	metadataByTaskId = new Map(),
+	fileHandle = { path: "tasks.md" },
+) {
+	let fileContents = initialContents;
+	const actions = createTaskActions({
+		tasksByTaskId: tasksByTaskId as never,
+		metadataByTaskId: metadataByTaskId as never,
 		vault: {
 			read: async () => fileContents,
 			modify: async (_file: unknown, nextContents: string) => {
@@ -179,7 +258,7 @@ function setupActionsForLine(
 
 	return {
 		actions,
-		taskId: task.id,
+		fileHandle,
 		contents: () => fileContents,
 	};
 }

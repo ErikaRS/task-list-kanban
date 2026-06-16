@@ -84,7 +84,14 @@ Expose due, scheduled, and start date editing from each task card when the selec
 
 These date fields are optional in the data-entry sense: users may leave any of them empty, and the plugin does not enforce that a task has due, scheduled, or start metadata. There should not be a separate setting for which date fields are editable.
 
-The initial implementation can use compact native date inputs in the task menu or a small task-card metadata editor. A task-menu implementation is lower risk because it avoids increasing card density for users who only need occasional edits.
+The implementation should use a hybrid inline card editor rather than hiding date controls in the task menu:
+
+- Read mode shows parsed dates only in the compact property/footer display, using Tasks/Dataview-native labels/icons rather than a second large inline date rendering.
+- Read mode also offers a compact `+ Date` control so date editing is discoverable without opening the overflow menu.
+- Task/date edit mode expands the card with native date inputs for due, scheduled, and start.
+- Date input changes are held as a local draft and written only when the user clicks `Done`, so users can set multiple date fields without the editor closing after the first choice.
+- The new-task composer uses the same native date input row below the task-name textarea.
+- Missing date fields remain empty and optional.
 
 Expected interactions:
 
@@ -92,6 +99,7 @@ Expected interactions:
 - Clearing a date removes the matching property.
 - Existing parsed values populate the control.
 - Invalid or unparsable existing values are shown as empty but are not removed unless the user explicitly sets or clears that field.
+- Date controls are shown only when the active property schema supports date writes (`Tasks Plugin` or `Dataview`).
 
 ### Completion Behavior
 
@@ -202,8 +210,8 @@ Examples:
 **Goal:** Users can set or clear task dates from the board and the selected schema receives the correct source-line update.
 
 1. ✅ Add task action methods for setting and clearing date properties.
-2. [ ] Add due, scheduled, and start controls in the task menu or task-card metadata editor when the active schema is Tasks-plugin or Dataview.
-3. [ ] Populate controls from parsed task properties while allowing any field to remain blank.
+2. ✅ Add due, scheduled, and start controls to an inline task-card metadata editor and new-task composer when the active schema is Tasks-plugin or Dataview.
+3. ✅ Populate controls from parsed task properties while allowing any field to remain blank.
 4. ✅ Unit test action-level set and clear behavior for both schemas.
 5. [ ] Manual test creating, changing, and clearing dates for Tasks and Dataview boards.
 
