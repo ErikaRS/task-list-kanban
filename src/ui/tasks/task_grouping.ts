@@ -105,11 +105,15 @@ export function deriveGroupBuckets(
 
 	if (source.kind === "property") {
 		const valueMap = new Map<string, { value: string | number | Date; label: string }>();
+		let hasMissingValue = false;
 
 		for (const task of tasks) {
 			const property = task.properties.get(source.key);
 			const value = property?.value ?? null;
-			if (value === null) continue;
+			if (value === null) {
+				hasMissingValue = true;
+				continue;
+			}
 			const key = propertyValueKey(value);
 			if (!valueMap.has(key)) {
 				valueMap.set(key, {
@@ -119,24 +123,34 @@ export function deriveGroupBuckets(
 			}
 		}
 
-		const buckets: GroupBucket[] = Array.from(valueMap.values())
-			.sort((a, b) => comparePropertyGroupValues(
-				source.key,
-				a.value,
-				b.value,
-				statusMarkerOrder,
-				doneStatusMarkers,
-			))
-			.map((entry) => ({
-				id: createPropertyGroupBucketId(source.key, entry.value),
-				label: entry.label,
-				value: entry.value,
-				source,
-				isDefault: false,
-			}));
+			const buckets: GroupBucket[] = Array.from(valueMap.values())
+				.sort((a, b) => comparePropertyGroupValues(
+					source.key,
+					a.value,
+					b.value,
+					statusMarkerOrder,
+					doneStatusMarkers,
+				))
+				.map((entry) => ({
+					id: createPropertyGroupBucketId(source.key, entry.value),
+					label: entry.label,
+					value: entry.value,
+					source,
+					isDefault: false,
+				}));
 
-		return buckets;
-	}
+			if (hasMissingValue || buckets.length === 0) {
+				buckets.push({
+					id: createPropertyMissingGroupBucketId(source.key),
+					label: "Unassigned",
+					value: null,
+					source,
+					isDefault: true,
+				});
+			}
+
+			return buckets;
+		}
 
 	return [
 		{
@@ -267,6 +281,10 @@ function createTagPrefixUnassignedGroupBucketId(prefix: string): string {
 
 function createPropertyGroupBucketId(key: string, value: string | number | Date): string {
 	return `property:${key}:${propertyValueKey(value)}`;
+}
+
+function createPropertyMissingGroupBucketId(key: string): string {
+	return `property:${key}:__missing__`;
 }
 
 function propertyValueKey(value: string | number | Date): string {

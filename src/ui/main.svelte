@@ -30,6 +30,11 @@
 	import type { App } from "obsidian";
 	import { getBoardTaskCount } from "./board_counts";
 	import { collectPresentManualOrderKeys } from "./tasks/manual_order";
+	import {
+		readBoardFilterState,
+		serializeBoardFilterState,
+		writeBoardFilterState,
+	} from "./filters/filter_state";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -397,27 +402,16 @@
 	let filterText = "";
 	let fileFilter = "";
 	let hydrated = false;
-	let subscriptionCount = 0;
+	let lastPersistedFilterStateKey = "";
 
 	onMount(() => {
 		const unsubscribe = settingsStore.subscribe(settings => {
-			subscriptionCount++;
-			// Skip the first call (immediate subscription with current value)
-			if (subscriptionCount === 1) {
-				return;
-			}
 			if (!hydrated) {
-				filterText = settings.lastContentFilter ?? "";
-				fileFilter = settings.lastFileFilter?.[0] ?? "";
-				// Delay tag filter hydration until tags are loaded
-				if (settings.lastTagFilter && settings.lastTagFilter.length > 0) {
-					const checkTags = setInterval(() => {
-						if (tags.size > 0) {
-							selectedTags = settings.lastTagFilter ?? [];
-							clearInterval(checkTags);
-						}
-					}, 100);
-				}
+				const filterState = readBoardFilterState(settings);
+				filterText = filterState.contentText;
+				selectedTags = filterState.tagValues;
+				fileFilter = filterState.fileText;
+				lastPersistedFilterStateKey = serializeBoardFilterState(filterState);
 				hydrated = true;
 			}
 		});
@@ -427,12 +421,18 @@
 
 	function saveFilterState() {
 		if (hydrated) {
-			settingsStore.update(settings => ({
-				...settings,
-				lastContentFilter: filterText,
-				lastTagFilter: selectedTags,
-				lastFileFilter: fileFilter ? [fileFilter] : [],
-			}));
+			const filterState = {
+				contentText: filterText,
+				tagValues: selectedTags,
+				fileText: fileFilter,
+			};
+			const nextFilterStateKey = serializeBoardFilterState(filterState);
+			if (nextFilterStateKey === lastPersistedFilterStateKey) {
+				return;
+			}
+
+			lastPersistedFilterStateKey = nextFilterStateKey;
+			settingsStore.update(settings => writeBoardFilterState(settings, filterState));
 			requestSave();
 		}
 	}

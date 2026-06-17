@@ -45,22 +45,34 @@ export function createTasksStore(
 	const metadataByTaskId = new Map<string, Metadata>();
 	const taskIdsByFileHandle = new Map<TFile, Set<string>>();
 
-	const fileHandles = vault.getMarkdownFiles();
+	function publishTasks() {
+		tasksStore.set(
+			[...tasksByTaskId.values()].sort((a, b) => {
+				if (a.path !== b.path) {
+					return a.path.localeCompare(b.path);
+				}
+				return a.rowIndex - b.rowIndex;
+			})
+		);
+	}
 
 	function debounceSetTasks() {
-		if (!timer) {
-			timer = window.setTimeout(() => {
-				timer = undefined;
-				tasksStore.set(
-					[...tasksByTaskId.values()].sort((a, b) => {
-						if (a.path !== b.path) {
-							return a.path.localeCompare(b.path);
-						}
-						return a.rowIndex - b.rowIndex;
-					})
-				);
-			}, 50);
+		if (timer) {
+			return;
 		}
+
+		timer = window.setTimeout(() => {
+			timer = undefined;
+			publishTasks();
+		}, 50);
+	}
+
+	function publishTasksImmediately() {
+		if (timer) {
+			window.clearTimeout(timer);
+			timer = undefined;
+		}
+		publishTasks();
 	}
 
 	function shouldHandle(file: TFile): boolean {
@@ -86,8 +98,9 @@ export function createTasksStore(
 		tasksByTaskId.clear();
 		metadataByTaskId.clear();
 		taskIdsByFileHandle.clear();
+		publishTasksImmediately();
 
-		for (const fileHandle of fileHandles) {
+		for (const fileHandle of vault.getMarkdownFiles()) {
 			if (!shouldHandle(fileHandle)) {
 				continue;
 			}
@@ -123,6 +136,7 @@ export function createTasksStore(
 					metadataByTaskId.delete(taskId);
 				}
 				taskIdsByFileHandle.delete(fileHandle);
+				debounceSetTasks();
 			}
 		})
 	);

@@ -1,12 +1,9 @@
 import { Notice, TextFileView, WorkspaceLeaf } from "obsidian";
-import matter from "front-matter";
 
 import Main from "./main.svelte";
 import { SettingsModal } from "./settings/settings";
 import {
 	createSettingsStore,
-	parseSettingsString,
-	toSettingsString,
 	ScopeOption,
 	type SettingValues,
 } from "./settings/settings_store";
@@ -14,6 +11,10 @@ import { get, type Readable, type Writable } from "svelte/store";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
+import {
+	parseKanbanSettingsFromViewData,
+	writeKanbanSettingsToViewData,
+} from "./kanban_frontmatter";
 import {
 	createColumnStores,
 	type ColumnDefinition,
@@ -152,18 +153,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	getViewData(): string {
-		const parsed = matter<{ kanban_plugin: string }>(this.data + "\n");
-		parsed.attributes["kanban_plugin"] = toSettingsString(
-			get(this.settingsStore)
-		);
-
-		return `---
-${Object.entries(parsed.attributes)
-	.map(([key, value]) => `${key}: '${value}'`)
-	.join("\n")}
----
-${parsed.body}
-`;
+		return writeKanbanSettingsToViewData(this.data, get(this.settingsStore));
 	}
 
 	setViewData(data: string, clear?: boolean): void {
@@ -173,8 +163,7 @@ ${parsed.body}
 	}
 
 	private getInitialSettings(data: string): SettingValues {
-		const parsed = matter<{ kanban_plugin?: string }>(data + "\n");
-		return parseSettingsString(parsed.attributes.kanban_plugin ?? "");
+		return parseKanbanSettingsFromViewData(data);
 	}
 
 	clear(): void {

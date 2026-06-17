@@ -27,6 +27,13 @@ import {
 	taskKey,
 	type ManualOrderStore,
 } from "./manual_order";
+import {
+	deleteRows,
+	readFileRows,
+	transformSourceRow,
+	updateRow,
+	writeFileRows,
+} from "./source_line_editor";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
@@ -168,20 +175,12 @@ export function createTaskActions({
 			return;
 		}
 
-		const file = await vault.read(metadata.fileHandle);
-		const rows = file.split("\n");
-		const row = rows[metadata.rowIndex];
-		if (row == null) {
-			return;
-		}
-
-		const nextRow = transform(row);
-		if (nextRow === row) {
-			return;
-		}
-
-		rows[metadata.rowIndex] = nextRow;
-		await vault.modify(metadata.fileHandle, rows.join("\n"));
+		await transformSourceRow(
+			vault,
+			metadata.fileHandle,
+			metadata.rowIndex,
+			transform,
+		);
 	}
 
 	/**
@@ -222,7 +221,7 @@ export function createTaskActions({
 		}
 
 		for (const [fileHandle, entries] of byFile) {
-			const rows = (await vault.read(fileHandle)).split("\n");
+			const rows = await readFileRows(vault, fileHandle);
 
 			// Collect block links already in the file so generated ids don't collide.
 			const existing = new Set<string>();
@@ -242,7 +241,7 @@ export function createTaskActions({
 			}
 
 			if (changed) {
-				await vault.modify(fileHandle, rows.join("\n"));
+				await writeFileRows(vault, fileHandle, rows);
 			}
 		}
 
@@ -433,8 +432,7 @@ export function createTaskActions({
 			if (!metadata) return;
 
 			const { fileHandle, rowIndex } = metadata;
-			const file = await vault.read(fileHandle);
-			const rows = file.split("\n");
+			const rows = await readFileRows(vault, fileHandle);
 
 			if (rowIndex >= rows.length) return;
 
@@ -443,7 +441,7 @@ export function createTaskActions({
 
 			const newLine = createDuplicateLine(originalLine);
 			rows.splice(rowIndex + 1, 0, newLine);
-			await vault.modify(fileHandle, rows.join("\n"));
+			await writeFileRows(vault, fileHandle, rows);
 		},
 
 		async moveTasksToFile(ids, destinationFile, destinationColumn) {
@@ -460,7 +458,7 @@ export function createTaskActions({
 				return;
 			}
 
-			const destinationRows = (await vault.read(destinationFile)).split("\n");
+			const destinationRows = await readFileRows(vault, destinationFile);
 			for (const { task } of moves) {
 				destinationRows.push(
 					taskIsInColumn(task, destinationColumn)
@@ -468,7 +466,7 @@ export function createTaskActions({
 						: task.serialiseForColumn(destinationColumn),
 				);
 			}
-			await vault.modify(destinationFile, destinationRows.join("\n"));
+			await writeFileRows(vault, destinationFile, destinationRows);
 
 			const movesBySourceFile = new Map<TFile, Metadata[]>();
 			for (const { metadata } of moves) {
@@ -478,13 +476,11 @@ export function createTaskActions({
 			}
 
 			for (const [sourceFile, sourceMoves] of movesBySourceFile) {
-				const sourceRows = (await vault.read(sourceFile)).split("\n");
-				for (const { rowIndex } of sourceMoves.sort((a, b) => b.rowIndex - a.rowIndex)) {
-					if (rowIndex < sourceRows.length) {
-						sourceRows.splice(rowIndex, 1);
-					}
-				}
-				await vault.modify(sourceFile, sourceRows.join("\n"));
+				await deleteRows(
+					vault,
+					sourceFile,
+					sourceMoves.map(({ rowIndex }) => rowIndex),
+				);
 			}
 		},
 
@@ -670,32 +666,6 @@ export function createTaskActions({
 
 		return adapter.addCompletionDateIfMissing(rawLine, formatLocalDate(getCurrentDate?.() ?? new Date()));
 	}
-}
-
-async function updateRow(
-	vault: Vault,
-	fileHandle: TFile,
-	row: number | undefined,
-	newText: string
-) {
-	const file = await vault.read(fileHandle);
-	const rows = file.split("\n");
-
-	if (row == null) {
-		row = rows.length;
-	}
-
-	if (rows.length < row) {
-		return;
-	}
-
-	if (newText === "") {
-		rows.splice(row, 1);
-	} else {
-		rows[row] = newText;
-	}
-	const newFile = rows.join("\n");
-	await vault.modify(fileHandle, newFile);
 }
 
 function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean {

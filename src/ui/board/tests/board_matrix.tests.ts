@@ -393,7 +393,7 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.cells["col-1"]![`file:${DEFAULT_GROUP_BUCKET_ID}`]!.tasks).toHaveLength(1);
 	});
 
-	it("derives secondary axis from parsed properties without a missing-value row", () => {
+	it("derives secondary axis from parsed properties with missing values last", () => {
 		const settings: SettingValues = {
 			...defaultSettings,
 			groupSource: { kind: "property", key: "due" },
@@ -413,9 +413,11 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.secondaryAxis.map((bucket) => bucket.label)).toEqual([
 			"2026-01-01",
 			"2026-03-01",
+			"Unassigned",
 		]);
 		expect(matrix.cells["col-1"]!["property:due:date:1767225600000"]!.tasks.map((task) => task.id)).toEqual(["early"]);
-		expect(matrix.secondaryAxis.some((bucket) => bucket.id === "property:due:__missing__")).toBe(false);
-		expect(Object.values(matrix.cells["col-1"]!).flatMap((cell) => cell.tasks).map((task) => task.id)).not.toContain("missing");
+		expect(matrix.secondaryAxis.at(-1)?.id).toBe("property:due:__missing__");
+		expect(matrix.secondaryAxis.at(-1)?.meta?.isDefault).toBe(true);
+		expect(matrix.cells["col-1"]!["property:due:__missing__"]!.tasks.map((task) => task.id)).toEqual(["missing"]);
 	});
 });

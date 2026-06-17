@@ -1,0 +1,74 @@
+import type { TFile, Vault } from "obsidian";
+
+export async function readFileRows(
+	vault: Vault,
+	fileHandle: TFile,
+): Promise<string[]> {
+	return (await vault.read(fileHandle)).split("\n");
+}
+
+export async function writeFileRows(
+	vault: Vault,
+	fileHandle: TFile,
+	rows: string[],
+): Promise<void> {
+	await vault.modify(fileHandle, rows.join("\n"));
+}
+
+export async function transformSourceRow(
+	vault: Vault,
+	fileHandle: TFile,
+	rowIndex: number,
+	transform: (row: string) => string,
+): Promise<boolean> {
+	const rows = await readFileRows(vault, fileHandle);
+	const row = rows[rowIndex];
+	if (row == null) {
+		return false;
+	}
+
+	const nextRow = transform(row);
+	if (nextRow === row) {
+		return false;
+	}
+
+	rows[rowIndex] = nextRow;
+	await writeFileRows(vault, fileHandle, rows);
+	return true;
+}
+
+export async function updateRow(
+	vault: Vault,
+	fileHandle: TFile,
+	row: number | undefined,
+	newText: string,
+): Promise<boolean> {
+	const rows = await readFileRows(vault, fileHandle);
+
+	const rowIndex = row ?? rows.length;
+	if (rows.length < rowIndex) {
+		return false;
+	}
+
+	if (newText === "") {
+		rows.splice(rowIndex, 1);
+	} else {
+		rows[rowIndex] = newText;
+	}
+	await writeFileRows(vault, fileHandle, rows);
+	return true;
+}
+
+export async function deleteRows(
+	vault: Vault,
+	fileHandle: TFile,
+	rowIndexes: number[],
+): Promise<void> {
+	const rows = await readFileRows(vault, fileHandle);
+	for (const rowIndex of [...rowIndexes].sort((a, b) => b - a)) {
+		if (rowIndex < rows.length) {
+			rows.splice(rowIndex, 1);
+		}
+	}
+	await writeFileRows(vault, fileHandle, rows);
+}

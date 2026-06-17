@@ -92,7 +92,7 @@ export async function updateMapsFromFile({
 		}
 
 		taskIdsByFileHandle.set(fileHandle, newTaskIds);
-	} catch {
-		//
+	} catch (error) {
+		console.error(`Failed to update task cache for ${fileHandle.path}`, error);
 	}
 }

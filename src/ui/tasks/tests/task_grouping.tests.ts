@@ -137,7 +137,7 @@ describe("property grouping", () => {
 		} as unknown as Task;
 	}
 
-	it("derives typed property buckets without a missing-value bucket", () => {
+	it("derives typed property buckets with missing values last", () => {
 		const early = taskWithProperty(new Date("2026-01-01"), "due");
 		const late = taskWithProperty(new Date("2026-03-01"), "due");
 		const missing = taskWithProperty(null, "due");
@@ -150,9 +150,11 @@ describe("property grouping", () => {
 		expect(buckets.map((bucket) => bucket.label)).toEqual([
 			"2026-01-01",
 			"2026-03-01",
+			"Unassigned",
 		]);
 		expect(taskBelongsToGroup(early, buckets[0]!)).toBe(true);
-		expect(buckets.some((bucket) => taskBelongsToGroup(missing, bucket))).toBe(false);
+		expect(taskBelongsToGroup(missing, buckets[2]!)).toBe(true);
+		expect(buckets[2]?.isDefault).toBe(true);
 	});
 
 	it("orders Tasks priority buckets highest first and labels them with markers", () => {
