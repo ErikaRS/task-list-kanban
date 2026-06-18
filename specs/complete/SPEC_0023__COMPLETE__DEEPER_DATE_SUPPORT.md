@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-06
 
 # SPEC 0023 - Deeper Date Support
 
@@ -205,7 +206,7 @@ Examples:
 
 **Implemented by:** Current working tree.
 
-### Phase 3: Due/Scheduled/Start Date Editing 🚧 IN PROGRESS
+### Phase 3: Due/Scheduled/Start Date Editing ✅ COMPLETE
 
 **Goal:** Users can set or clear task dates from the board and the selected schema receives the correct source-line update.
 
@@ -213,19 +214,19 @@ Examples:
 2. ✅ Add due, scheduled, and start controls to an inline task-card metadata editor and new-task composer when the active schema is Tasks-plugin or Dataview.
 3. ✅ Populate controls from parsed task properties while allowing any field to remain blank.
 4. ✅ Unit test action-level set and clear behavior for both schemas.
-5. [ ] Manual test creating, changing, and clearing dates for Tasks and Dataview boards.
+5. ✅ Manual test creating, changing, and clearing dates for Tasks and Dataview boards.
 
 **Deliverable:** Due, scheduled, and start dates can be edited from a task card for Tasks and Dataview boards, with no requirement that any date be present.
 
 **Implemented by:** Current working tree.
 
-### Phase 4: Polish, Docs, And Edge Cases
+### Phase 4: Polish, Docs, And Edge Cases ✅ COMPLETE
 
 **Goal:** The feature is documented, discoverable, and resilient around common source-line shapes.
 
-1. [ ] Update README task property documentation.
-2. [ ] Add release-note bullets for completion write-back and task date editing.
-3. [ ] Verify formatting with tasks that contain placement tags, consolidated tags, non-placement tags, block links, and existing duplicate properties.
+1. ✅ Update README task property documentation.
+2. ✅ Add release-note bullets for completion write-back and task date editing.
+3. ✅ Verify formatting with tasks that contain placement tags, consolidated tags, non-placement tags, block links, and existing duplicate properties.
 4. ✅ Run `npm run build`.
 5. ✅ Run `npm test`.
 
