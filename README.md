@@ -9,6 +9,7 @@ Use it to:
 - filter by content, tag, or file
 - group tasks into swimlanes by file or tag
 - sort tasks by file order, parsed task properties, or manual pinned order
+- display, sort, group, and edit Tasks Plugin or Dataview date metadata
 
 ![Task List Kanban Screenshot](https://github.com/ErikaRS/task-list-kanban/assets/80379257/ddde01aa-3098-4cfc-8860-6af34f0ece57)
 
@@ -45,6 +46,30 @@ Click **Add new** at the bottom of a column to create a task from the board. If 
 - **Archive**: archive completed tasks from the task menu or bulk menu.
 - **Duplicate**: duplicate a task directly below the original source line.
 - **Open source file**: click the file path or arrow icon on a card.
+
+### Task Dates And Properties
+
+Enable a **Property schema** in settings to parse task metadata from either Tasks plugin syntax or Dataview inline fields.
+
+Supported Tasks plugin fields include due, scheduled, start, done, created, priority, and recurrence metadata. Supported Dataview fields include due, scheduled, start, done, completion, created, priority, repeat, and arbitrary inline fields.
+
+When the schema is **Tasks Plugin** or **Dataview**, task cards show a compact **+ Date** control. Use it to set or clear due, scheduled, and start dates directly from the board. New tasks created from the board can include the same dates.
+
+Date writes use the selected schema's native format:
+
+```markdown
+- [ ] Send invoice 📅 2026-06-15 ⏳ 2026-06-16 🛫 2026-06-17
+- [ ] Send invoice [due:: 2026-06-15] [scheduled:: 2026-06-16] [start:: 2026-06-17]
+```
+
+Completing an open task from the board adds a completion date when the selected schema supports it and the task does not already have one:
+
+```markdown
+- [x] Send invoice ✅ 2026-06-15
+- [x] Send invoice [completion:: 2026-06-15]
+```
+
+Existing completion dates are preserved. Reopening, moving, cancelling, archiving, or editing a task does not remove or rewrite historical completion metadata.
 
 ### Filters
 
@@ -87,8 +112,10 @@ Column display options:
 Flow direction controls how columns are arranged:
 - **Left to right**: horizontal board, scrolling right.
 - **Right to left**: horizontal board in reverse order.
-- **Top to bottom**: vertical columns, with cards flowing horizontally.
-- **Bottom to top**: vertical columns in reverse order.
+- **Top to bottom**: transposed board, with board columns as rows and cards flowing horizontally.
+- **Bottom to top**: transposed board in reverse row order.
+
+When grouping is enabled in a vertical flow, board columns become rows and group buckets become columns across the top. Cards inside each cell flow horizontally and the board can scroll sideways when needed.
 
 ### Sorting
 
@@ -101,6 +128,13 @@ Use the **Sort** dropdown in the board header to order tasks within each column:
 Manual sorting keeps pinned tasks together at the top of the column. Pinned cards show a pin marker; click it to unpin the task and return it to the file-order tail. When a task is first pinned, the plugin may add an Obsidian block link like `^abc123` to the source line so the order survives text edits and reloads.
 
 Manual drag reordering is available when the board is not grouped. When grouping is active, saved manual order still displays, but the Manual sort option is readonly until grouping is turned off.
+
+### Property Display
+
+The **Show properties** setting controls whether parsed metadata appears on task cards:
+- **None**: hide parsed properties on cards.
+- **Pretty**: show formatted property values, with Tasks plugin dates and priorities using familiar labels and icons.
+- **Debug (JSON)**: show the raw parsed data for troubleshooting schemas and unusual task lines.
 
 ### Scope
 
@@ -120,7 +154,7 @@ Use **Group by** in the board header to split tasks into swimlanes.
 Tasks are grouped by source Markdown file.
 
 - In horizontal layouts, file groups appear as board-wide swimlane rows.
-- In vertical layouts, file groups appear as repeated section headers inside each column.
+- In vertical layouts, file groups appear as columns across the top of the transposed grid.
 - Drag tasks between file swimlanes to move their source lines between files.
 
 ### Group By Tag
@@ -139,6 +173,7 @@ The **Excluded tags** setting hides configured tags from cards, tag grouping, an
 Task status visuals come from your active Obsidian theme or plugin CSS.
 
 Status marker settings control how checkbox characters behave:
+- **Status marker order**: controls how status markers sort and group when using status as a parsed property.
 - **Done markers**: characters treated as complete. Default: `xX`.
 - **Ignored markers**: characters hidden from the board entirely. Default: empty.
 - **Cancelled markers**: characters used by cancel/restore. Default: `-`.
@@ -149,6 +184,15 @@ Examples:
 - ignored marker `-` hides `[-]` tasks.
 
 Cancel and restore only change checkbox markers. If a cancelled marker is also configured as ignored or done, that marker setting determines whether the task is hidden or treated as complete.
+
+## Screenshot Refresh Candidates
+
+The current README still uses older screenshots. Useful new or replacement screenshots would be:
+- the main board screenshot, showing current card footers, properties, and the **+ Date** control
+- the task date editor, showing due, scheduled, and start date inputs on a card
+- a grouped **Top to bottom** or **Bottom to top** board, showing the transposed grid with board columns as rows and groups across the top
+- the **Task properties** settings section, showing **Property schema** and **Show properties**
+- the **Status markers** settings section, showing status marker order alongside done, ignored, and cancelled markers
 
 ## Development
 
