@@ -62,7 +62,6 @@ Column matching options:
 Column display options:
 - **Colors**: add a hex color like `#FF5733` to show a color bar on the column and its cards.
 - **Width**: set all columns between 200px and 600px.
-- **Collapse**: collapse columns from the board header; collapse state is saved.
 - **Visibility**: show **Uncategorized** and **Done** always, never, or only when non-empty.
 
 ### Tag Display
@@ -83,7 +82,10 @@ Flow direction controls how columns are arranged:
 
 Enable a **Property schema** in settings to read and write task metadata from the Obsidian Tasks plugin or Dataview inline fields.
 
-Task List Kanban can display, sort, group, and edit metadata from either integration while keeping each task in its source Markdown format. Supported Obsidian Tasks plugin fields include due, scheduled, start, done, created, priority, and recurrence metadata. Supported Dataview fields include due, scheduled, start, done, completion, created, priority, repeat, and arbitrary inline fields.
+Task List Kanban can display, sort, group, and edit metadata from either integration while keeping each task in its source Markdown format.
+
+- **Obsidian Tasks plugin**: due, scheduled, start, done, created, priority, and recurrence metadata.
+- **Dataview**: due, scheduled, start, done, completion, created, priority, repeat, and arbitrary inline fields.
 
 The **Show properties** setting controls whether parsed metadata appears on task cards:
 - **None**: leave parsed properties inline as task text.
@@ -127,13 +129,17 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 
 ## Board Controls
 
+### Column Controls
+
+- **Collapse**: collapse columns from the board header; collapse state is saved.
+
 ### Task Actions
 
-- **Edit**: click task text, edit inline, then blur or press Enter.
+- **Edit**: click task text, edit inline, then click away or press Enter.
 - **Move**: drag a task to another column, or choose a column from the task menu.
 - **Complete**: click the task checkbox to mark a task done and move it to **Done**.
 - **Cancel or restore**: use the task menu to switch between cancelled and active.
-- **Archive**: archive completed tasks from the task menu or bulk menu.
+- **Archive**: archive tasks from the task menu or bulk menu. This marks open tasks done and adds the `#archived` tag.
 - **Duplicate**: duplicate a task directly below the original source line.
 - **Open source file**: click the file path or arrow icon on a card.
 
@@ -178,9 +184,6 @@ Tasks are grouped by source Markdown file.
 
 Tasks are grouped by tag, optionally limited to a configured prefix.
 
-- With a prefix, dragging between swimlanes replaces the matching prefix tag.
-- Without a prefix, dragging replaces the dragged group tag.
-- Dragging to **Unassigned** removes the relevant tag.
 - Saved groupings let you reuse common tag grouping setups.
 
 ## Screenshot Refresh Candidates
