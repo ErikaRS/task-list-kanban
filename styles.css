@@ -227,13 +227,6 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-muted);
 }
 
-.column-editor-intro-actions {
-	display: flex;
-	gap: 8px;
-	flex: 0 0 auto;
-}
-
-.column-editor-intro-actions button,
 .column-editor-controls button {
 	height: 30px;
 	padding: 4px 10px;
@@ -250,7 +243,7 @@ If your plugin does not need CSS, delete this file.
 .column-editor-row {
 	display: flex;
 	position: relative;
-	align-items: flex-start;
+	align-items: center;
 	gap: 8px;
 	padding: 8px;
 	border: 1px solid var(--background-modifier-border);
@@ -261,7 +254,6 @@ If your plugin does not need CSS, delete this file.
 	min-width: 0;
 }
 
-.column-editor-row.is-collapsed,
 .column-editor-row.is-bookend {
 	align-items: center;
 }
@@ -361,7 +353,7 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-summary {
 	display: grid;
-	grid-template-columns: minmax(180px, 1fr) minmax(150px, auto) 24px auto;
+	grid-template-columns: minmax(180px, 1fr) 24px minmax(150px, auto);
 	align-items: center;
 	gap: 8px;
 	min-width: 0;
@@ -370,21 +362,6 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-row.is-bookend .column-editor-summary {
 	grid-template-columns: minmax(180px, 1fr) minmax(150px, auto);
-}
-
-.column-editor-details {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 10px 14px;
-	margin-top: 10px;
-	padding: 10px;
-	border-radius: var(--radius-s);
-	background: var(--background-secondary);
-}
-
-.column-editor-row.is-collapsed .column-editor-details {
-	display: none;
 }
 
 .column-editor-pill {
@@ -402,6 +379,63 @@ If your plugin does not need CSS, delete this file.
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.column-editor-popover-anchor {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+}
+
+.column-editor-match-anchor {
+	justify-content: flex-start;
+}
+
+.column-editor-popover {
+	position: absolute;
+	top: calc(100% + 8px);
+	z-index: 20;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary);
+	box-shadow: var(--shadow-s);
+}
+
+.column-editor-color-popover {
+	left: 50%;
+	width: 230px;
+	transform: translateX(-50%);
+}
+
+.column-editor-match-popover {
+	right: 0;
+	width: min(360px, calc(100vw - 64px));
+}
+
+.column-editor-popover-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.column-editor-summary-button {
+	appearance: none;
+	-webkit-appearance: none;
+	cursor: pointer;
+	box-shadow: none;
+}
+
+.column-editor-summary-button:hover,
+.column-editor-summary-button:focus-visible {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
 }
 
 .column-editor-fields.column-editor-fields-inline {
@@ -488,6 +522,10 @@ If your plugin does not need CSS, delete this file.
 	width: 84px;
 }
 
+.column-editor-field-status .setting-input:not(.is-visible) {
+	display: none;
+}
+
 .column-editor-inline-label {
 	flex: 0 0 auto;
 	color: var(--text-muted);
@@ -525,37 +563,6 @@ If your plugin does not need CSS, delete this file.
 	justify-self: center;
 }
 
-.column-editor-expand-button {
-	width: auto;
-	min-width: 0;
-	height: 28px;
-	padding: 0 8px;
-	border-radius: var(--radius-s);
-	color: var(--text-muted);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 4px;
-	font-size: var(--font-ui-smaller);
-	font-weight: 600;
-	white-space: nowrap;
-	background: transparent;
-	box-shadow: none;
-}
-
-.column-editor-expand-button:hover {
-	color: var(--text-normal);
-	background: var(--background-modifier-hover);
-}
-
-.column-editor-expand-icon {
-	display: inline-flex;
-	width: 14px;
-	height: 14px;
-	align-items: center;
-	justify-content: center;
-}
-
 .column-editor-color-swatch.has-color {
 	border-color: color-mix(in srgb, var(--background-modifier-border) 40%, var(--text-normal));
 	background-image: none;
@@ -579,20 +586,23 @@ If your plugin does not need CSS, delete this file.
 	font-size: var(--font-ui-smaller);
 	white-space: nowrap;
 	flex: 0 0 auto;
+	cursor: pointer;
+	user-select: none;
+	padding: 2px 0;
+}
+
+.column-editor-rename-option input,
+.column-editor-rename-option label {
+	cursor: pointer;
 }
 
 .column-editor-remove-rail {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: center;
 	margin-left: auto;
 	flex: 0 0 20px;
 	width: 20px;
-}
-
-.column-editor-row.is-collapsed .column-editor-remove-rail,
-.column-editor-row.is-bookend .column-editor-remove-rail {
-	align-items: center;
 }
 
 .column-editor-remove-rail > button {
@@ -651,7 +661,7 @@ If your plugin does not need CSS, delete this file.
 	}
 
 	.column-editor-summary {
-		grid-template-columns: minmax(160px, 1fr) auto auto auto;
+		grid-template-columns: minmax(160px, 1fr) auto auto;
 	}
 }
 
@@ -662,7 +672,6 @@ If your plugin does not need CSS, delete this file.
 
 	.column-editor-intro,
 	.column-editor-summary,
-	.column-editor-details,
 	.column-editor-fields.column-editor-fields-inline,
 	.column-editor-field {
 		flex-direction: column;
@@ -697,6 +706,18 @@ If your plugin does not need CSS, delete this file.
 	.column-editor-field-tag,
 	.column-editor-tag-select-host {
 		width: 100%;
+	}
+
+	.column-editor-popover-anchor,
+	.column-editor-popover,
+	.column-editor-popover-field {
+		width: 100%;
+	}
+
+	.column-editor-popover {
+		position: static;
+		transform: none;
+		margin-top: 8px;
 	}
 
 	.column-editor-field-match select,

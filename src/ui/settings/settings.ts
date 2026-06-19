@@ -46,7 +46,7 @@ export class SettingsModal extends Modal {
 	private availableColumnTags: string[] = [];
 	private mountedColumnControls: Array<() => void> = [];
 	private readonly updateExistingTaskTagsByColumnId = new Map<string, boolean>();
-	private readonly expandedColumnIds = new Set<string>();
+	private activeColumnPopover: { columnId: string; kind: "color" | "match" } | null = null;
 	private draggedColumnId: string | null = null;
 	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
 	private focusTagEditorColumnId: string | null = null;
@@ -100,7 +100,9 @@ export class SettingsModal extends Modal {
 		new ConfirmColumnRemovalModal(this.app, column.label, () => {
 			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
 			this.updateExistingTaskTagsByColumnId.delete(column.id);
-			this.expandedColumnIds.delete(column.id);
+			if (this.activeColumnPopover?.columnId === column.id) {
+				this.activeColumnPopover = null;
+			}
 			this.renderColumnsEditor();
 			this.touchSettings();
 		}).open();
@@ -201,21 +203,8 @@ export class SettingsModal extends Modal {
 		const sectionIntro = section.createDiv({ cls: "column-editor-intro" });
 		const introText = sectionIntro.createDiv({ cls: "column-editor-intro-text" });
 		introText.createEl("p", {
-			text: "Rename, reorder, and map board columns. Open a row when you need match rules, colors, or retagging.",
+			text: "Rename, reorder, and map board columns. Use the color and match controls to edit each column's rules.",
 			cls: "setting-item-description",
-		});
-		const introActions = sectionIntro.createDiv({ cls: "column-editor-intro-actions" });
-		const expandAllButton = introActions.createEl("button", { text: "Expand all" });
-		expandAllButton.addEventListener("click", () => {
-			for (const column of this.settings.columns) {
-				this.expandedColumnIds.add(column.id);
-			}
-			this.renderColumnsEditor();
-		});
-		const collapseAllButton = introActions.createEl("button", { text: "Collapse all" });
-		collapseAllButton.addEventListener("click", () => {
-			this.expandedColumnIds.clear();
-			this.renderColumnsEditor();
 		});
 
 		const rows = section.createDiv({ cls: "column-editor-list" });
@@ -359,10 +348,40 @@ export class SettingsModal extends Modal {
 		}));
 	}
 
+	private mountColumnPopoverDismiss(popover: HTMLElement, trigger: HTMLElement) {
+		const ownerDocument = popover.ownerDocument;
+		const closePopover = () => {
+			this.activeColumnPopover = null;
+			this.renderColumnsEditor();
+		};
+		const handleDocumentClick = (event: MouseEvent) => {
+			const target = event.target;
+			if (!(target instanceof Node)) return;
+			if (popover.contains(target) || trigger.contains(target)) return;
+			closePopover();
+		};
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Escape") return;
+			event.preventDefault();
+			closePopover();
+		};
+		const timeoutId = window.setTimeout(() => {
+			ownerDocument.addEventListener("click", handleDocumentClick);
+			ownerDocument.addEventListener("keydown", handleKeyDown);
+		});
+		this.mountedColumnControls.push(() => {
+			window.clearTimeout(timeoutId);
+			ownerDocument.removeEventListener("click", handleDocumentClick);
+			ownerDocument.removeEventListener("keydown", handleKeyDown);
+		});
+	}
+
 	private renderCustomColumnRow(container: HTMLDivElement, column: ColumnDefinition) {
-		const expanded = this.expandedColumnIds.has(column.id);
+		const activePopover = this.activeColumnPopover?.columnId === column.id
+			? this.activeColumnPopover.kind
+			: null;
 		const row = container.createDiv({
-			cls: `column-editor-row ${expanded ? "is-expanded" : "is-collapsed"}`,
+			cls: "column-editor-row",
 		});
 		row.dataset.columnId = column.id;
 		const dragHandle = row.createEl("button", {
@@ -424,218 +443,250 @@ export class SettingsModal extends Modal {
 		labelInput.addClass("setting-input");
 		labelInput.setAttribute("aria-label", "Column label");
 
-		const matchSummary = summary.createDiv({ cls: "column-editor-pill" });
-		matchSummary.setText(this.getColumnMatchSummary(column));
-
-		const colorSummary = summary.createEl("button", {
+		const openPopover = (kind: "color" | "match") => {
+			this.activeColumnPopover =
+				activePopover === kind ? null : { columnId: column.id, kind };
+			this.renderColumnsEditor();
+		};
+		const colorAnchor = summary.createDiv({ cls: "column-editor-popover-anchor column-editor-color-anchor" });
+		const colorSummary = colorAnchor.createEl("button", {
 			cls: "column-editor-color-swatch column-editor-summary-swatch",
 		});
 		colorSummary.type = "button";
+		colorSummary.setAttribute("aria-haspopup", "dialog");
+		colorSummary.setAttribute("aria-expanded", activePopover === "color" ? "true" : "false");
 		colorSummary.setAttribute("aria-label", `Edit color for ${column.label || "column"}`);
-		colorSummary.addEventListener("click", () => {
-			this.expandedColumnIds.add(column.id);
-			this.renderColumnsEditor();
-		});
+		colorSummary.addEventListener("click", () => openPopover("color"));
 
-		const expandButton = summary.createEl("button", {
-			cls: "column-editor-expand-button clickable-icon",
+		const matchAnchor = summary.createDiv({ cls: "column-editor-popover-anchor column-editor-match-anchor" });
+		const matchSummary = matchAnchor.createEl("button", {
+			cls: "column-editor-pill column-editor-summary-button",
 		});
-		expandButton.type = "button";
-		expandButton.setAttribute("aria-label", `${expanded ? "Collapse" : "Expand"} ${column.label || "column"} settings`);
-		expandButton.createSpan({ text: expanded ? "Hide settings" : "More settings" });
-		const expandIcon = expandButton.createSpan({ cls: "column-editor-expand-icon" });
-		setIcon(expandIcon, expanded ? "chevron-up" : "chevron-down");
-		expandButton.addEventListener("click", () => {
-			if (expanded) {
-				this.expandedColumnIds.delete(column.id);
-			} else {
-				this.expandedColumnIds.add(column.id);
-			}
-			this.renderColumnsEditor();
-		});
+		matchSummary.type = "button";
+		matchSummary.setText(this.getColumnMatchSummary(column));
+		matchSummary.setAttribute("aria-haspopup", "dialog");
+		matchSummary.setAttribute("aria-expanded", activePopover === "match" ? "true" : "false");
+		matchSummary.setAttribute("aria-label", `Edit match settings for ${column.label || "column"}`);
+		matchSummary.addEventListener("click", () => openPopover("match"));
 
-		const details = content.createDiv({ cls: "column-editor-details" });
-		const colorField = details.createDiv({ cls: "column-editor-field column-editor-field-color" });
-		colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
-		const colorSwatchButton = colorField.createEl("button", {
-			cls: "column-editor-color-swatch",
-		});
-		colorSwatchButton.type = "button";
-		colorSwatchButton.setAttribute("aria-label", `Pick color for ${column.label}`);
-		const colorPickerInput = colorField.createEl("input", {
-			type: "color",
-			value: /^#[0-9a-fA-F]{6}$/.test(column.color ?? "") ? column.color : "#000000",
-		});
-		colorPickerInput.addClass("column-editor-color-picker");
+		let colorSwatchButton: HTMLButtonElement | null = null;
+		let colorPickerInput: HTMLInputElement | null = null;
+		let colorInput: HTMLInputElement | null = null;
 		const updateColorSwatch = () => {
 			const colorValue = column.color?.trim();
 			const hasValidColor = !!colorValue && /^#[0-9a-fA-F]{6}$/.test(colorValue);
-			colorSwatchButton.toggleClass("has-color", hasValidColor);
 			colorSummary.toggleClass("has-color", hasValidColor);
-			colorSwatchButton.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
 			colorSummary.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
 			colorSummary.title = hasValidColor ? colorValue! : "No color";
-			colorPickerInput.value = hasValidColor ? colorValue! : "#000000";
+			if (colorSwatchButton) {
+				colorSwatchButton.toggleClass("has-color", hasValidColor);
+				colorSwatchButton.style.setProperty("--column-editor-swatch-color", hasValidColor ? colorValue! : "transparent");
+			}
+			if (colorPickerInput) {
+				colorPickerInput.value = hasValidColor ? colorValue! : "#000000";
+			}
+			if (colorInput) {
+				colorInput.value = column.color ?? "";
+			}
 		};
-		const colorInput = colorField.createEl("input", {
-			type: "text",
-			value: column.color ?? "",
-			placeholder: "#RRGGBB",
-		});
-		colorInput.addClass("setting-input");
-		colorInput.setAttribute("aria-label", `${column.label} color`);
-		colorInput.addEventListener("input", () => {
-			column.color = colorInput.value.trim() || undefined;
-			updateColorSwatch();
-			this.touchSettings();
-		});
-		colorSwatchButton.addEventListener("click", () => {
-			colorPickerInput.click();
-		});
-		colorPickerInput.addEventListener("input", () => {
-			column.color = colorPickerInput.value;
-			colorInput.value = colorPickerInput.value;
-			updateColorSwatch();
-			this.touchSettings();
-		});
+
+		if (activePopover === "color") {
+			const colorPopover = colorAnchor.createDiv({
+				cls: "column-editor-popover column-editor-color-popover",
+				attr: { role: "dialog", "aria-label": `${column.label || "Column"} color settings` },
+			});
+			colorPopover.addEventListener("click", (event) => event.stopPropagation());
+			const colorField = colorPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-color" });
+			colorField.createDiv({ cls: "column-editor-inline-label", text: "Color" });
+			colorSwatchButton = colorField.createEl("button", {
+				cls: "column-editor-color-swatch",
+			});
+			colorSwatchButton.type = "button";
+			colorSwatchButton.setAttribute("aria-label", `Pick color for ${column.label}`);
+			colorPickerInput = colorField.createEl("input", {
+				type: "color",
+				value: /^#[0-9a-fA-F]{6}$/.test(column.color ?? "") ? column.color : "#000000",
+			});
+			colorPickerInput.addClass("column-editor-color-picker");
+			colorInput = colorField.createEl("input", {
+				type: "text",
+				value: column.color ?? "",
+				placeholder: "#RRGGBB",
+			});
+			colorInput.addClass("setting-input");
+			colorInput.setAttribute("aria-label", `${column.label} color`);
+			colorInput.addEventListener("input", () => {
+				column.color = colorInput?.value.trim() || undefined;
+				updateColorSwatch();
+				this.touchSettings();
+			});
+			colorSwatchButton.addEventListener("click", () => {
+				colorPickerInput?.click();
+			});
+			colorPickerInput.addEventListener("input", () => {
+				if (!colorPickerInput) return;
+				column.color = colorPickerInput.value;
+				updateColorSwatch();
+				this.touchSettings();
+			});
+			this.mountColumnPopoverDismiss(colorPopover, colorSummary);
+		}
 		updateColorSwatch();
 
-		const matchModeField = details.createDiv({ cls: "column-editor-field column-editor-field-match" });
-		matchModeField.createDiv({ cls: "column-editor-inline-label", text: "Match by" });
-		const matchModeSelect = matchModeField.createEl("select");
-		matchModeSelect.addClass("dropdown");
-		matchModeSelect.createEl("option", {
-			value: "name",
-			text: "Name",
-		});
-		matchModeSelect.createEl("option", {
-			value: "tags",
-			text: "Tags",
-		});
-		matchModeSelect.createEl("option", {
-			value: "status",
-			text: "Status marker",
-		});
-		matchModeSelect.value = column.matchMode;
-		matchModeSelect.addEventListener("change", () => {
-			column.matchMode =
-				matchModeSelect.value === "tags" || matchModeSelect.value === "status"
-					? matchModeSelect.value
-					: "name";
-			if (column.matchMode === "name") {
-				column.matchTags = [];
-				column.matchStatus = undefined;
-			} else if (column.matchMode === "status") {
-				column.matchTags = [];
-				column.matchStatus = column.matchStatus ?? " ";
-			} else {
-				column.matchStatus = undefined;
-				this.focusTagEditorColumnId = column.id;
-			}
-			this.renderColumnsEditor();
-			this.touchSettings();
-		});
-
-		if (usesTagMatching(column)) {
-			const tagsField = details.createDiv({ cls: "column-editor-field column-editor-field-tag" });
-			tagsField.createDiv({ cls: "column-editor-inline-label", text: "Tags" });
-			const tagPicker = tagsField.createDiv({ cls: "column-editor-tag-select-host" });
-			const tagSelect = new CompactTagSelect({
-				target: tagPicker,
-				props: {
-					items: this.availableColumnTags,
-					value: [...column.matchTags],
-					maxSelected: 0,
-					placeholder: "",
-					ariaLabel: `${column.label} match tags`,
-				},
+		let updateRenameOption = () => undefined;
+		if (activePopover === "match") {
+			const matchPopover = matchAnchor.createDiv({
+				cls: "column-editor-popover column-editor-match-popover",
+				attr: { role: "dialog", "aria-label": `${column.label || "Column"} match settings` },
 			});
-			const onChange = tagSelect.$on("change", (event) => {
-				column.matchTags = event.detail;
-				updateRenameOption();
+			matchPopover.addEventListener("click", (event) => event.stopPropagation());
+
+			const matchModeField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-match" });
+			matchModeField.createDiv({ cls: "column-editor-inline-label", text: "Match by" });
+			const matchModeSelect = matchModeField.createEl("select");
+			matchModeSelect.addClass("dropdown");
+			matchModeSelect.createEl("option", {
+				value: "name",
+				text: "Name",
+			});
+			matchModeSelect.createEl("option", {
+				value: "tags",
+				text: "Tags",
+			});
+			matchModeSelect.createEl("option", {
+				value: "status",
+				text: "Status marker",
+			});
+			matchModeSelect.value = column.matchMode;
+			matchModeSelect.addEventListener("change", () => {
+				column.matchMode =
+					matchModeSelect.value === "tags" || matchModeSelect.value === "status"
+						? matchModeSelect.value
+						: "name";
+				if (column.matchMode === "name") {
+					column.matchTags = [];
+					column.matchStatus = undefined;
+				} else if (column.matchMode === "status") {
+					column.matchTags = [];
+					column.matchStatus = column.matchStatus ?? " ";
+				} else {
+					column.matchStatus = undefined;
+					this.focusTagEditorColumnId = column.id;
+				}
+				this.activeColumnPopover = { columnId: column.id, kind: "match" };
+				this.renderColumnsEditor();
 				this.touchSettings();
 			});
-			this.mountedColumnControls.push(() => {
-				onChange();
-				tagSelect.$destroy();
-			});
-		}
 
-		if (usesStatusMatching(column)) {
-			const statusField = details.createDiv({ cls: "column-editor-field column-editor-field-status" });
-			statusField.createDiv({ cls: "column-editor-inline-label", text: "Status" });
-			const statusSelect = statusField.createEl("select");
-			statusSelect.addClass("dropdown");
-			statusSelect.setAttribute("aria-label", `${column.label} known status marker`);
-			const markerOptions = this.getStatusMarkerOptions();
-			for (const option of markerOptions) {
-				statusSelect.createEl("option", {
-					value: option.value,
-					text: option.label,
+			if (usesTagMatching(column)) {
+				const tagsField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-tag" });
+				tagsField.createDiv({ cls: "column-editor-inline-label", text: "Tags" });
+				const tagPicker = tagsField.createDiv({ cls: "column-editor-tag-select-host" });
+				const tagSelect = new CompactTagSelect({
+					target: tagPicker,
+					props: {
+						items: this.availableColumnTags,
+						value: [...column.matchTags],
+						maxSelected: 0,
+						placeholder: "",
+						ariaLabel: `${column.label} match tags`,
+					},
+				});
+				const onChange = tagSelect.$on("change", (event) => {
+					column.matchTags = event.detail;
+					updateRenameOption();
+					this.touchSettings();
+				});
+				this.mountedColumnControls.push(() => {
+					onChange();
+					tagSelect.$destroy();
 				});
 			}
-			statusSelect.createEl("option", {
-				value: "custom",
-				text: "Custom",
-			});
 
-			const customStatusInput = statusField.createEl("input", {
-				type: "text",
-				value: column.matchStatus && column.matchStatus !== " " ? column.matchStatus : "",
-				placeholder: "e.g., /",
-			});
-			customStatusInput.addClass("setting-input");
-			customStatusInput.setAttribute("aria-label", `${column.label} custom status marker`);
-			customStatusInput.title = "Enter one status marker, such as / or !";
-
-			const setStatusControlValues = () => {
-				const status = column.matchStatus ?? " ";
-				statusSelect.value = markerOptions.some((option) => option.value === status) ? status : "custom";
-				customStatusInput.value = status === " " ? "" : status;
-			};
-			setStatusControlValues();
-			statusSelect.addEventListener("change", () => {
-				if (statusSelect.value !== "custom") {
-					column.matchStatus = statusSelect.value;
-					setStatusControlValues();
-				} else if (!column.matchStatus || column.matchStatus === " ") {
-					column.matchStatus = "";
-					customStatusInput.value = "";
-					customStatusInput.focus();
+			if (usesStatusMatching(column)) {
+				const statusField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-status" });
+				statusField.createDiv({ cls: "column-editor-inline-label", text: "Status" });
+				const statusSelect = statusField.createEl("select");
+				statusSelect.addClass("dropdown");
+				statusSelect.setAttribute("aria-label", `${column.label} known status marker`);
+				const markerOptions = this.getStatusMarkerOptions();
+				for (const option of markerOptions) {
+					statusSelect.createEl("option", {
+						value: option.value,
+						text: option.label,
+					});
 				}
-				updateRenameOption();
+				statusSelect.createEl("option", {
+					value: "custom",
+					text: "Custom",
+				});
+
+				const customStatusInput = statusField.createEl("input", {
+					type: "text",
+					value: column.matchStatus && column.matchStatus !== " " ? column.matchStatus : "",
+					placeholder: "e.g., /",
+				});
+				customStatusInput.addClass("setting-input");
+				customStatusInput.setAttribute("aria-label", `${column.label} custom status marker`);
+				customStatusInput.title = "Enter one status marker, such as / or !";
+
+				const setStatusControlValues = () => {
+					const status = column.matchStatus ?? " ";
+					statusSelect.value = markerOptions.some((option) => option.value === status) ? status : "custom";
+					customStatusInput.value = status === " " ? "" : status;
+					customStatusInput.toggleClass("is-visible", statusSelect.value === "custom");
+				};
+				setStatusControlValues();
+				statusSelect.addEventListener("change", () => {
+					if (statusSelect.value !== "custom") {
+						column.matchStatus = statusSelect.value;
+						setStatusControlValues();
+					} else if (!column.matchStatus || column.matchStatus === " ") {
+						column.matchStatus = "";
+						customStatusInput.value = "";
+						customStatusInput.focus();
+					}
+					customStatusInput.toggleClass("is-visible", statusSelect.value === "custom");
+					updateRenameOption();
+					this.touchSettings();
+				});
+				customStatusInput.addEventListener("input", () => {
+					column.matchStatus = customStatusInput.value;
+					statusSelect.value = markerOptions.some((option) => option.value === column.matchStatus)
+						? column.matchStatus
+						: "custom";
+					customStatusInput.toggleClass("is-visible", statusSelect.value === "custom");
+					updateRenameOption();
+					this.touchSettings();
+				});
+			}
+
+			const renameOption = matchPopover.createDiv({ cls: "column-editor-rename-option" });
+			const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
+			const renameCheckboxId = `column-editor-update-${column.id}`;
+			renameCheckbox.id = renameCheckboxId;
+			const renameLabel = renameOption.createEl("label", {
+				text: "Update existing tasks",
+			});
+			renameLabel.htmlFor = renameCheckboxId;
+			updateRenameOption = () => {
+				const show = this.shouldShowRetagOption(column);
+				renameOption.style.display = show ? "flex" : "none";
+				renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
+				renameCheckbox.setAttribute("aria-label", `Update existing tasks for ${column.label || "column"}`);
+				void renameLabel;
+			};
+			updateRenameOption();
+			renameCheckbox.addEventListener("change", () => {
+				this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
 				this.touchSettings();
 			});
-			customStatusInput.addEventListener("input", () => {
-				column.matchStatus = customStatusInput.value;
-				statusSelect.value = markerOptions.some((option) => option.value === column.matchStatus)
-					? column.matchStatus
-					: "custom";
-				updateRenameOption();
-				this.touchSettings();
-			});
+			this.mountColumnPopoverDismiss(matchPopover, matchSummary);
 		}
 
-		const renameOption = details.createDiv({ cls: "column-editor-rename-option" });
-		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
-		const renameLabel = renameOption.createEl("label", {
-			text: "Update existing tasks",
-		});
-		const updateRenameOption = () => {
-			const show = this.shouldShowRetagOption(column);
-			renameOption.style.display = show ? "flex" : "none";
-			renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
-			renameCheckbox.setAttribute("aria-label", `Update existing tasks for ${column.label || "column"}`);
-			void renameLabel;
-		};
-		updateRenameOption();
 		labelInput.addEventListener("input", () => {
 			column.label = labelInput.value;
 			updateRenameOption();
-			this.touchSettings();
-		});
-		renameCheckbox.addEventListener("change", () => {
-			this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
 			this.touchSettings();
 		});
 
