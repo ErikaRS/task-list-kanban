@@ -7,7 +7,12 @@ import type {
 	DefaultColumns,
 } from "../columns/columns";
 import { getTagsFromContent, isValidTag } from "src/parsing/tags/tags";
-import { isPlacementTag, resolveMatchedColumnDefinition } from "../columns/definitions";
+import {
+	getColumnStatus,
+	isPlacementTag,
+	resolveMatchedColumnDefinition,
+	usesStatusMatching,
+} from "../columns/definitions";
 import type { PropertySchema, TaskPropertyMap } from "../../parsing/properties/property_schema";
 import { NoneSchema } from "../../parsing/properties/none_schema";
 
@@ -222,6 +227,7 @@ function isStatusMatch(statusContent: string | undefined, markers: string): bool
 
 export interface TaskParseContext {
 	columnDefinitions: ColumnDefinition[];
+	columnWriteDefinitions?: ColumnDefinition[];
 	columnPlacementTagTable: ColumnPlacementTagTable;
 	consolidateTags: boolean;
 	doneStatusMarkers: string;
@@ -265,7 +271,10 @@ export class Task {
 		this._done = isStatusMatch(this._displayStatus, context.doneStatusMarkers);
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
-		const matchedColumn = resolveMatchedColumnDefinition(context.columnDefinitions, tags);
+		const matchedColumn = resolveMatchedColumnDefinition(context.columnDefinitions, {
+			tags,
+			status: this._displayStatus,
+		});
 
 		for (const tag of tags) {
 			if (tag === "done") {
@@ -293,10 +302,16 @@ export class Task {
 			}
 		}
 
+		if (matchedColumn && usesStatusMatching(matchedColumn) && !this._column) {
+			this._column = matchedColumn.id;
+		}
+
 		this._tags = tags;
 		this.blockLink = blockLink;
 		this.properties = context.propertySchema.parseProperties(rawContent);
 		this.consolidateTags = context.consolidateTags;
+		this.sourceColumnDefinitions = context.columnDefinitions;
+		this.columnDefinitions = context.columnWriteDefinitions ?? context.columnDefinitions;
 		this.columnPlacementTagTable = context.columnPlacementTagTable;
 		this.doneStatusMarkers = context.doneStatusMarkers;
 		this.cancelledStatusMarkers = context.cancelledStatusMarkers;
@@ -314,6 +329,8 @@ export class Task {
 
 	content: string;
 	private consolidateTags: boolean;
+	private sourceColumnDefinitions: ColumnDefinition[];
+	private columnDefinitions: ColumnDefinition[];
 	private columnPlacementTagTable: ColumnPlacementTagTable;
 	private doneStatusMarkers: string;
 	private cancelledStatusMarkers: string;
@@ -360,9 +377,8 @@ export class Task {
 		return this._column;
 	}
 	set column(column: ColumnTag) {
-		this._column = column;
 		this._done = false;
-		this._displayStatus = " ";
+		this.moveToColumn(column);
 	}
 
 	readonly blockLink: string | undefined;
@@ -381,6 +397,48 @@ export class Task {
 		}
 
 		return this.getPlacementTagsForColumn(this.column as ColumnTag);
+	}
+
+	private getColumnDefinition(
+		column: ColumnTag | undefined,
+		definitions: ColumnDefinition[] = this.columnDefinitions,
+	): ColumnDefinition | undefined {
+		if (!column) return undefined;
+		return definitions.find((definition) => definition.id === column);
+	}
+
+	private moveToColumn(column: ColumnTag) {
+		const sourceColumn = this.getColumnDefinition(
+			this._column && this._column !== "archived" && this._column !== "done" && this._column !== "uncategorised"
+				? this._column
+				: undefined,
+			this.sourceColumnDefinitions,
+		);
+		const destinationColumn = this.getColumnDefinition(column);
+
+		if (sourceColumn && usesStatusMatching(sourceColumn)) {
+			this._displayStatus = " ";
+		}
+		const destinationStatus = destinationColumn ? getColumnStatus(destinationColumn) : undefined;
+		if (destinationStatus) {
+			this._displayStatus = destinationStatus;
+		}
+
+		this._column = column;
+	}
+
+	private moveToUncategorised() {
+		const sourceColumn = this.getColumnDefinition(
+			this._column && this._column !== "archived" && this._column !== "done" && this._column !== "uncategorised"
+				? this._column
+				: undefined,
+			this.sourceColumnDefinitions,
+		);
+		if (sourceColumn && usesStatusMatching(sourceColumn)) {
+			this._displayStatus = " ";
+		}
+		this._column = undefined;
+		this._done = false;
 	}
 
 	private stripTagFromContent(value: string, tag: string): string {
@@ -414,6 +472,12 @@ export class Task {
 		}
 
 		const placementTags = this.getCurrentPlacementTags();
+		const currentColumnDefinition = this.getColumnDefinition(
+			this.column && this.column !== "archived" && this.column !== "done" && this.column !== "uncategorised"
+				? this.column
+				: undefined,
+		);
+		const usesStatusPlacement = !!currentColumnDefinition && usesStatusMatching(currentColumnDefinition);
 		const serialisedContent = placementTags.length > 0
 			? this.stripPlacementTags(this.content.trim(), placementTags)
 			: this.content.trim();
@@ -433,7 +497,9 @@ export class Task {
 			this.column
 				? this.column === "archived"
 					? ` #${this.column}`
-					: placementTags.length > 0
+					: usesStatusPlacement
+						? ""
+						: placementTags.length > 0
 						? ` ${placementTags.map((tag) => `#${tag}`).join(" ")}`
 						: ` #${this.column}`
 				: "",
@@ -451,9 +517,7 @@ export class Task {
 		if (column === "done") {
 			this.done = true;
 		} else if (column === "uncategorised") {
-			this._column = undefined;
-			this._done = false;
-			this._displayStatus = " ";
+			this.moveToUncategorised();
 		} else {
 			this.column = column;
 		}

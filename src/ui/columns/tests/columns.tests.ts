@@ -173,4 +173,22 @@ describe("createColumnStores reserved key filtering", () => {
 		expect(get(columnPlacementTagTable)[columnId]).toEqual(["status/now"]);
 		expect(get(columnMatchTagTable)[columnId]).toEqual(["status/now"]);
 	});
+
+	it("stores status columns without placement tags and with a header status marker", () => {
+		const columnId = "col-status" as ColumnTag;
+		const settingsStore = createSettingsStore();
+		settingsStore.set({
+			...defaultSettings,
+			columns: [
+				{ id: columnId, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+			],
+		});
+		const { columnTagTable, columnPlacementTagTable, columnMatchTagTable, columnSubtitleTable } =
+			createColumnStores(settingsStore);
+
+		expect(get(columnTagTable)[columnId]).toBe("Doing");
+		expect(get(columnPlacementTagTable)[columnId]).toEqual([]);
+		expect(get(columnMatchTagTable)[columnId]).toEqual([]);
+		expect(get(columnSubtitleTable)[columnId]).toBe("/");
+	});
 });

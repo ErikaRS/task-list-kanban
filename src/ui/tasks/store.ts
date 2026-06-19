@@ -158,6 +158,7 @@ export function createTasksStore(
 		getExcludeFilter,
 		getBoardFolderPath,
 		getPlacementTagsForColumn: (column) => get(columnPlacementTagTableStore)[column] ?? [column],
+		getColumnDefinitions: () => get(columnDefinitionsStore),
 		getDefaultTaskFile: () => get(settingsStore).defaultTaskFile || null,
 		getLastUsedTaskFile: () => get(settingsStore).lastUsedTaskFile || null,
 		setLastUsedTaskFile: (path: string) => {

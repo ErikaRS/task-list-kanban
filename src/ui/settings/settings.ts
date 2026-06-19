@@ -19,7 +19,13 @@ import {
 	type ColumnDefinition,
 	getColumnWriteTags,
 } from "../columns/columns";
-import { columnRuleSignature, createColumnId, usesTagMatching } from "../columns/definitions";
+import {
+	columnRuleSignature,
+	createColumnId,
+	getStatusColumnLabel,
+	usesStatusMatching,
+	usesTagMatching,
+} from "../columns/definitions";
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 import { getColumnValidationError } from "./column_validation";
 import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest } from "./suggest";
@@ -64,7 +70,10 @@ export class SettingsModal extends Modal {
 	}
 
 	private validateColumns() {
-		this.validationError = getColumnValidationError(this.settings.columns ?? []);
+		this.validationError = getColumnValidationError(this.settings.columns ?? [], {
+			doneStatusMarkers: this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+			ignoredStatusMarkers: this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		});
 		this.updateValidationBanner();
 	}
 
@@ -319,6 +328,9 @@ export class SettingsModal extends Modal {
 	}
 
 	private getColumnMatchSummary(column: ColumnDefinition): string {
+		if (usesStatusMatching(column)) {
+			return column.matchStatus ? `Status: ${getStatusColumnLabel(column.matchStatus)}` : "Needs status";
+		}
 		if (!usesTagMatching(column)) {
 			return "Matches name";
 		}
@@ -330,6 +342,21 @@ export class SettingsModal extends Modal {
 			return `#${tags[0]}`;
 		}
 		return `${tags.length} required tags`;
+	}
+
+	private getStatusMarkerOptions(): Array<{ value: string; label: string }> {
+		const values = new Set<string>([" "]);
+		for (const marker of Array.from(this.settings.statusMarkerOrder ?? "")) {
+			values.add(marker);
+		}
+		for (const marker of Array.from(this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS)) {
+			values.add(marker);
+		}
+
+		return [...values].map((value) => ({
+			value,
+			label: value === " " ? "Unchecked" : value,
+		}));
 	}
 
 	private renderCustomColumnRow(container: HTMLDivElement, column: ColumnDefinition) {
@@ -485,12 +512,24 @@ export class SettingsModal extends Modal {
 			value: "tags",
 			text: "Tags",
 		});
+		matchModeSelect.createEl("option", {
+			value: "status",
+			text: "Status marker",
+		});
 		matchModeSelect.value = column.matchMode;
 		matchModeSelect.addEventListener("change", () => {
-			column.matchMode = matchModeSelect.value === "tags" ? "tags" : "name";
+			column.matchMode =
+				matchModeSelect.value === "tags" || matchModeSelect.value === "status"
+					? matchModeSelect.value
+					: "name";
 			if (column.matchMode === "name") {
 				column.matchTags = [];
+				column.matchStatus = undefined;
+			} else if (column.matchMode === "status") {
+				column.matchTags = [];
+				column.matchStatus = column.matchStatus ?? " ";
 			} else {
+				column.matchStatus = undefined;
 				this.focusTagEditorColumnId = column.id;
 			}
 			this.renderColumnsEditor();
@@ -522,16 +561,71 @@ export class SettingsModal extends Modal {
 			});
 		}
 
+		if (usesStatusMatching(column)) {
+			const statusField = details.createDiv({ cls: "column-editor-field column-editor-field-status" });
+			statusField.createDiv({ cls: "column-editor-inline-label", text: "Status" });
+			const statusSelect = statusField.createEl("select");
+			statusSelect.addClass("dropdown");
+			statusSelect.setAttribute("aria-label", `${column.label} known status marker`);
+			const markerOptions = this.getStatusMarkerOptions();
+			for (const option of markerOptions) {
+				statusSelect.createEl("option", {
+					value: option.value,
+					text: option.label,
+				});
+			}
+			statusSelect.createEl("option", {
+				value: "custom",
+				text: "Custom",
+			});
+
+			const customStatusInput = statusField.createEl("input", {
+				type: "text",
+				value: column.matchStatus && column.matchStatus !== " " ? column.matchStatus : "",
+				placeholder: "e.g., /",
+			});
+			customStatusInput.addClass("setting-input");
+			customStatusInput.setAttribute("aria-label", `${column.label} custom status marker`);
+			customStatusInput.title = "Enter one status marker, such as / or !";
+
+			const setStatusControlValues = () => {
+				const status = column.matchStatus ?? " ";
+				statusSelect.value = markerOptions.some((option) => option.value === status) ? status : "custom";
+				customStatusInput.value = status === " " ? "" : status;
+			};
+			setStatusControlValues();
+			statusSelect.addEventListener("change", () => {
+				if (statusSelect.value !== "custom") {
+					column.matchStatus = statusSelect.value;
+					setStatusControlValues();
+				} else if (!column.matchStatus || column.matchStatus === " ") {
+					column.matchStatus = "";
+					customStatusInput.value = "";
+					customStatusInput.focus();
+				}
+				updateRenameOption();
+				this.touchSettings();
+			});
+			customStatusInput.addEventListener("input", () => {
+				column.matchStatus = customStatusInput.value;
+				statusSelect.value = markerOptions.some((option) => option.value === column.matchStatus)
+					? column.matchStatus
+					: "custom";
+				updateRenameOption();
+				this.touchSettings();
+			});
+		}
+
 		const renameOption = details.createDiv({ cls: "column-editor-rename-option" });
 		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
 		const renameLabel = renameOption.createEl("label", {
-			text: "Retag existing tasks",
+			text: "Update existing tasks",
 		});
 		const updateRenameOption = () => {
 			const show = this.shouldShowRetagOption(column);
 			renameOption.style.display = show ? "flex" : "none";
 			renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
-			renameCheckbox.setAttribute("aria-label", `Update existing task tags for ${column.label || "column"}`);
+			renameCheckbox.setAttribute("aria-label", `Update existing tasks for ${column.label || "column"}`);
 			void renameLabel;
 		};
 		updateRenameOption();
@@ -1263,7 +1357,7 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid status marker order";
 						this.settings.statusMarkerOrder = value;
-						this.updateDirtyBanner();
+						this.touchSettings();
 					}
 				});
 			});
@@ -1285,7 +1379,7 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid done status markers";
 						this.settings.doneStatusMarkers = value;
-						this.updateDirtyBanner();
+						this.touchSettings();
 					}
 				});
 			});
@@ -1307,7 +1401,7 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid cancelled status markers";
 						this.settings.cancelledStatusMarkers = value;
-						this.updateDirtyBanner();
+						this.touchSettings();
 					}
 				});
 			});
@@ -1329,7 +1423,7 @@ export class SettingsModal extends Modal {
 						text.inputEl.style.borderColor = "";
 						text.inputEl.title = "Valid ignored status markers";
 						this.settings.ignoredStatusMarkers = value;
-						this.updateDirtyBanner();
+						this.touchSettings();
 					}
 				});
 			});

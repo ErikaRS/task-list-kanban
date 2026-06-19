@@ -1,11 +1,21 @@
 import { kebab } from "src/parsing/kebab/kebab";
 import { isValidTag } from "src/parsing/tags/tags";
 import { RESERVED_COLUMN_KEYS, type ColumnDefinition } from "../columns/columns";
-import { columnRuleSignature, usesTagMatching } from "../columns/definitions";
+import {
+	columnRuleSignature,
+	getStatusColumnLabel,
+	usesStatusMatching,
+	usesTagMatching,
+} from "../columns/definitions";
 
-export function getColumnValidationError(columns: ColumnDefinition[]): string | null {
+export function getColumnValidationError(
+	columns: ColumnDefinition[],
+	options: { doneStatusMarkers?: string; ignoredStatusMarkers?: string } = {},
+): string | null {
 	const errors: string[] = [];
 	const seenSignatures = new Map<string, string>();
+	const doneStatusMarkers = Array.from(options.doneStatusMarkers ?? "");
+	const ignoredStatusMarkers = Array.from(options.ignoredStatusMarkers ?? "");
 
 	for (const column of columns) {
 		const label = column.label.trim();
@@ -33,10 +43,35 @@ export function getColumnValidationError(columns: ColumnDefinition[]): string | 
 			}
 		}
 
+		if (usesStatusMatching(column)) {
+			const marker = column.matchStatus;
+			if (marker == null || marker.length === 0) {
+				errors.push(`Column "${label}" must define a status marker.`);
+				continue;
+			}
+			if (Array.from(marker).length !== 1) {
+				errors.push(`Column "${label}" status marker must be a single character.`);
+				continue;
+			}
+			if (marker !== " " && /\s/.test(marker)) {
+				errors.push(`Column "${label}" status marker cannot be whitespace.`);
+				continue;
+			}
+			if (doneStatusMarkers.includes(marker)) {
+				errors.push(`Column "${label}" uses done status marker "${getStatusColumnLabel(marker)}".`);
+				continue;
+			}
+			if (ignoredStatusMarkers.includes(marker)) {
+				errors.push(`Column "${label}" uses ignored status marker "${getStatusColumnLabel(marker)}".`);
+				continue;
+			}
+		}
+
 		const signature = columnRuleSignature(column);
 		const existingLabel = seenSignatures.get(signature);
 		if (existingLabel) {
-			errors.push(`Columns "${existingLabel}" and "${label}" match the same tag.`);
+			const criterion = usesStatusMatching(column) ? "status marker" : "tag";
+			errors.push(`Columns "${existingLabel}" and "${label}" match the same ${criterion}.`);
 		} else {
 			seenSignatures.set(signature, label);
 		}

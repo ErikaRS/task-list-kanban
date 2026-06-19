@@ -74,6 +74,17 @@ describe("Invalid field resilience", () => {
 		expect(parsed.columns[1]?.matchTags).toEqual(["status/active"]);
 	});
 
+	it("parses status-mode structured columns", () => {
+		const parsed = parseSettings({
+			columns: [
+				{ id: "col-status", label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+			],
+		});
+
+		expect(parsed.columns[0]?.matchMode).toBe("status");
+		expect(parsed.columns[0]?.matchStatus).toBe("/");
+	});
+
 	it("recovers from invalid columnWidth without losing other settings", () => {
 		const parsed = parseSettings({
 			columns: ["MyColumn"],

@@ -8,7 +8,8 @@ import {
 } from "obsidian";
 import type { Task } from "./task";
 import type { Metadata } from "./tasks";
-import type { ColumnTag, DefaultColumns } from "../columns/columns";
+import type { ColumnDefinition, ColumnTag, DefaultColumns } from "../columns/columns";
+import { getColumnStatus } from "../columns/definitions";
 import { shouldIncludeFilePath } from "./scope";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
@@ -106,6 +107,7 @@ export function createTaskActions({
 	getExcludeFilter,
 	getBoardFolderPath,
 	getPlacementTagsForColumn,
+	getColumnDefinitions,
 	getDefaultTaskFile,
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
@@ -122,6 +124,7 @@ export function createTaskActions({
 	getExcludeFilter: () => string[] | null;
 	getBoardFolderPath: () => string | null;
 	getPlacementTagsForColumn: (column: ColumnTag) => string[];
+	getColumnDefinitions: () => ColumnDefinition[];
 	getDefaultTaskFile: () => string | null;
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
@@ -638,6 +641,7 @@ export function createTaskActions({
 				content,
 				getPlacementTagsForColumn(column),
 				additionalTags,
+				getColumnStatus(getColumnDefinitions().find((definition) => definition.id === column)) ?? " ",
 			);
 
 			if (adapter) {

@@ -1,5 +1,5 @@
 import type { TFile, Vault } from "obsidian";
-import { createColumnData, type ColumnDefinition } from "../columns/columns";
+import { createColumnData, type ColumnDefinition, type ColumnTag } from "../columns/columns";
 import { columnRuleSignature, resolveMatchedColumnDefinition } from "../columns/definitions";
 import type { SettingValues } from "./settings_store";
 import { getTagsFromContent } from "src/parsing/tags/tags";
@@ -75,6 +75,7 @@ export async function applyChangedColumnTagUpdates({
 			file,
 			targetColumnIds,
 			oldSettings.columns,
+			newSettings.columns,
 			newColumnData.columnPlacementTagTable,
 			oldSettings,
 		);
@@ -86,6 +87,7 @@ async function updateFileForChangedColumns(
 	file: TFile,
 	targetColumnIds: Set<string>,
 	oldColumnDefinitions: ColumnDefinition[],
+	newColumnDefinitions: ColumnDefinition[],
 	newPlacementTagTable: ReturnType<typeof createColumnData>["columnPlacementTagTable"],
 	settings: SettingValues,
 ) {
@@ -99,13 +101,18 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
-		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, getTagsFromContent(row));
+		const status = row.match(/^\s*[-*+]\s\[([^\[\]]*)\]\s/)?.[1] || " ";
+		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, {
+			tags: getTagsFromContent(row),
+			status,
+		});
 		const task = new Task(
 			row,
 			file,
 			i,
 			{
 				columnDefinitions: oldColumnDefinitions,
+				columnWriteDefinitions: newColumnDefinitions,
 				columnPlacementTagTable: newPlacementTagTable,
 				consolidateTags: settings.consolidateTags ?? false,
 				doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
@@ -120,6 +127,9 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
+		if (!task.done) {
+			task.column = targetColumnId as ColumnTag;
+		}
 		const nextRow = task.serialise();
 		if (nextRow !== row) {
 			rows[i] = nextRow;

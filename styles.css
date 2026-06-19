@@ -464,7 +464,8 @@ If your plugin does not need CSS, delete this file.
 }
 
 .column-editor-field-match,
-.column-editor-field-visibility {
+.column-editor-field-visibility,
+.column-editor-field-status {
 	flex: 0 1 auto;
 }
 
@@ -477,6 +478,14 @@ If your plugin does not need CSS, delete this file.
 
 .column-editor-field-visibility select {
 	min-width: 150px;
+}
+
+.column-editor-field-status select {
+	min-width: 120px;
+}
+
+.column-editor-field-status .setting-input {
+	width: 84px;
 }
 
 .column-editor-inline-label {
@@ -680,6 +689,7 @@ If your plugin does not need CSS, delete this file.
 	.column-editor-field-tag,
 	.column-editor-field-match,
 	.column-editor-field-visibility,
+	.column-editor-field-status,
 	.column-editor-field-color {
 		flex: 1 1 auto;
 	}
@@ -691,6 +701,8 @@ If your plugin does not need CSS, delete this file.
 
 	.column-editor-field-match select,
 	.column-editor-field-visibility select,
+	.column-editor-field-status select,
+	.column-editor-field-status .setting-input,
 	.column-editor-field-color .setting-input {
 		width: 100%;
 	}

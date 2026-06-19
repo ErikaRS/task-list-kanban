@@ -2,7 +2,7 @@ import type { Brand } from "src/brand";
 import { kebab } from "src/parsing/kebab/kebab";
 
 export type ColumnTag = Brand<string, "ColumnTag">;
-export type ColumnMatchMode = "name" | "tags";
+export type ColumnMatchMode = "name" | "tags" | "status";
 
 export interface ParsedColumn {
 	raw: string;
@@ -16,6 +16,7 @@ export interface ColumnDefinition {
 	color?: string;
 	matchMode: ColumnMatchMode;
 	matchTags: string[];
+	matchStatus?: string;
 }
 
 export const RESERVED_COLUMN_KEYS: ReadonlySet<string> = new Set<string>(["uncategorised", "done"]);
@@ -74,19 +75,50 @@ export function usesTagMatching(column: ColumnDefinition): boolean {
 	return column.matchMode === "tags";
 }
 
+export function usesStatusMatching(column: ColumnDefinition): boolean {
+	return column.matchMode === "status";
+}
+
 export function getColumnWriteTags(column: ColumnDefinition): string[] {
-	return usesTagMatching(column)
+	return usesStatusMatching(column)
+		? []
+		: usesTagMatching(column)
 		? column.matchTags
 		: [getNameModeWriteTag(column)];
 }
 
 export function columnRuleSignature(column: ColumnDefinition): string {
-	return usesTagMatching(column)
+	return usesStatusMatching(column)
+		? `status:${column.matchStatus ?? ""}`
+		: usesTagMatching(column)
 		? `tags:${[...getColumnWriteTags(column)].sort().join(",")}`
 		: `name:${getNameModeWriteTag(column)}`;
 }
 
-export function matchesColumnDefinition(column: ColumnDefinition, taskTags: Set<string>): boolean {
+export interface ColumnMatchContext {
+	tags: Set<string>;
+	status?: string;
+}
+
+function normalizeColumnMatchContext(context: Set<string> | ColumnMatchContext): ColumnMatchContext {
+	return context instanceof Set ? { tags: context } : context;
+}
+
+export function getColumnStatus(column: ColumnDefinition | undefined): string | undefined {
+	return column && usesStatusMatching(column) ? column.matchStatus : undefined;
+}
+
+export function getStatusColumnLabel(status: string | undefined): string {
+	return status === " " ? "unchecked" : status ?? "";
+}
+
+export function matchesColumnDefinition(column: ColumnDefinition, context: Set<string> | ColumnMatchContext): boolean {
+	const { tags: taskTags, status } = normalizeColumnMatchContext(context);
+
+	if (usesStatusMatching(column)) {
+		return !!column.matchStatus && status === column.matchStatus;
+	}
+
 	if (usesTagMatching(column)) {
 		const explicitTags = getColumnWriteTags(column);
 		return explicitTags.length > 0 && explicitTags.every((tag) => taskTags.has(tag));
@@ -108,13 +140,13 @@ export function getColumnMatchSpecificity(column: ColumnDefinition): number {
 
 export function resolveMatchedColumnDefinition(
 	columns: ColumnDefinition[],
-	taskTags: Set<string>,
+	context: Set<string> | ColumnMatchContext,
 ): ColumnDefinition | undefined {
 	let matchedColumn: ColumnDefinition | undefined;
 	let matchedSpecificity = -1;
 
 	for (const column of columns) {
-		if (!matchesColumnDefinition(column, taskTags)) {
+		if (!matchesColumnDefinition(column, context)) {
 			continue;
 		}
 
@@ -129,6 +161,9 @@ export function resolveMatchedColumnDefinition(
 }
 
 export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
+	if (usesStatusMatching(column)) {
+		return false;
+	}
 	if (usesTagMatching(column)) {
 		return getColumnWriteTags(column).includes(tag);
 	}
@@ -137,6 +172,13 @@ export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
 
 export function getColumnHeaderTags(column: ColumnDefinition): string[] {
 	return usesTagMatching(column) ? column.matchTags : [];
+}
+
+export function getColumnHeaderSubtitle(column: ColumnDefinition): string | undefined {
+	if (usesStatusMatching(column)) {
+		return column.matchStatus;
+	}
+	return undefined;
 }
 
 export function migrateColumnDefinitions(
@@ -154,6 +196,7 @@ export function migrateColumnDefinitions(
 					color: parsed.color,
 					matchMode: "name",
 					matchTags: [],
+					matchStatus: undefined,
 				},
 			];
 		}
@@ -169,13 +212,18 @@ export function migrateColumnDefinitions(
 				? (usedIds.add(idCandidate), idCandidate as ColumnTag)
 				: createColumnId(label, usedIds);
 
+		const matchMode: ColumnMatchMode =
+			column.matchMode === "tags" || column.matchMode === "status" ? column.matchMode : "name";
+		const matchStatus = typeof column.matchStatus === "string" ? column.matchStatus : undefined;
+
 		return [
 			{
 				id,
 				label,
 				color: typeof column.color === "string" && column.color.length > 0 ? column.color : undefined,
-				matchMode: column.matchMode === "tags" ? "tags" : "name",
+				matchMode,
 				matchTags: normalizeMatchTags(Array.isArray(column.matchTags) ? column.matchTags : []),
+				matchStatus,
 			},
 		];
 	});

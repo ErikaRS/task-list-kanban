@@ -16,6 +16,7 @@ import {
 } from "../task";
 import {
 	createNameModeColumns,
+	createStatusModeColumns,
 	createTagModeColumns,
 	defaultPlacementTags,
 	parseTask,
@@ -113,6 +114,115 @@ describe("Task", () => {
 
 			expect(task.content).toBe("Something");
 			expect(task.serialise()).toBe("- [ ] Something #Project-Beta #column");
+		});
+	});
+
+	describe("status-mode columns", () => {
+		const statusColumns = createStatusModeColumns([
+			{ id: "todo", label: "Todo", matchStatus: " " },
+			{ id: "doing", label: "Doing", matchStatus: "/" },
+			{ id: "blocked", label: "Blocked", matchStatus: "!" },
+		]);
+
+		it("matches a status-mode column by checkbox marker", () => {
+			const task = parseTaskWithColumns("- [/] Draft API plan #project", statusColumns);
+
+			expect(task.column).toBe("doing");
+			expect(task.content).toBe("Draft API plan #project");
+			expect(task.serialise()).toBe("- [/] Draft API plan #project");
+		});
+
+		it("matches unchecked tasks with the space marker", () => {
+			const task = parseTaskWithColumns("- [ ] Triage inbox #project", statusColumns);
+
+			expect(task.column).toBe("todo");
+			expect(task.serialise()).toBe("- [ ] Triage inbox #project");
+		});
+
+		it("uses column order to break equal-specificity status and tag ties", () => {
+			const columns = [
+				...createTagModeColumns([{ id: "this-week", label: "This Week", matchTags: ["this-week"] }]),
+				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
+			];
+			const task = parseTaskWithColumns("- [/] Draft #this-week #project", columns);
+
+			expect(task.column).toBe("this-week");
+			expect(task.content).toBe("Draft #project");
+		});
+
+		it("prefers a multi-tag column over a status column", () => {
+			const columns = [
+				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
+				...createTagModeColumns([
+					{ id: "active-work", label: "Active Work", matchTags: ["project/alpha", "this-week"] },
+				]),
+			];
+			const task = parseTaskWithColumns("- [/] Draft #project/alpha #this-week #note", columns);
+
+			expect(task.column).toBe("active-work");
+			expect(task.content).toBe("Draft #note");
+		});
+
+		it("writes the destination marker when moving into a status column", () => {
+			const columns = [
+				...createNameModeColumns(["Backlog"]),
+				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
+			];
+			const task = parseTaskWithColumns("- [ ] Something #tag #backlog", columns);
+
+			task.column = "doing" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [/] Something #tag");
+		});
+
+		it("clears the source marker when moving out of a status column", () => {
+			const columns = [
+				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
+				...createNameModeColumns(["Backlog"]),
+			];
+			const task = parseTaskWithColumns("- [/] Something #tag", columns);
+
+			task.column = "backlog" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
+		});
+
+		it("replaces the marker when moving between status columns", () => {
+			const task = parseTaskWithColumns("- [/] Something #tag", statusColumns);
+
+			task.column = "blocked" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [!] Something #tag");
+		});
+
+		it("preserves unrelated custom status markers when moving between tag columns", () => {
+			const columns = createNameModeColumns(["Backlog", "Next"]);
+			const task = parseTaskWithColumns("- [?] Something #tag #backlog", columns);
+
+			task.column = "next" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [?] Something #tag #next");
+		});
+
+		it("preserves unrelated custom status markers when moving to uncategorised", () => {
+			const columns = createNameModeColumns(["Backlog"]);
+			const task = parseTaskWithColumns("- [?] Something #tag #backlog", columns);
+
+			expect(task.serialiseForColumn("uncategorised")).toBe("- [?] Something #tag");
+		});
+
+		it("clears status placement when moving from a status column to uncategorised", () => {
+			const task = parseTaskWithColumns("- [/] Something #tag", statusColumns);
+
+			expect(task.serialiseForColumn("uncategorised")).toBe("- [ ] Something #tag");
+		});
+
+		it("keeps done status precedence over custom status columns", () => {
+			const columns = createStatusModeColumns([{ id: "done-ish", label: "Done-ish", matchStatus: "x" }]);
+			const task = parseTaskWithColumns("- [x] Completed #tag", columns);
+
+			expect(task.done).toBe(true);
+			expect(task.column).toBeUndefined();
 		});
 	});
 

@@ -5,6 +5,7 @@ import {
 	getColumnMatchSpecificity,
 	migrateColumnDefinitions,
 	resolveMatchedColumnDefinition,
+	usesStatusMatching,
 	usesTagMatching,
 } from "../../columns/definitions";
 import { getColumnValidationError } from "../column_validation";
@@ -69,6 +70,52 @@ describe("getColumnValidationError", () => {
 
 		expect(error).toBeNull();
 	});
+
+	it("rejects a status-mode column with no marker", () => {
+		const [column] = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [] },
+		]);
+
+		expect(getColumnValidationError([column!])).toBe('Column "Doing" must define a status marker.');
+	});
+
+	it("rejects status-mode columns that target done markers", () => {
+		const [column] = migrateColumnDefinitions([
+			{ id: "done-ish" as ColumnTag, label: "Done-ish", matchMode: "status", matchTags: [], matchStatus: "x" },
+		]);
+
+		expect(getColumnValidationError([column!], { doneStatusMarkers: "xX" })).toBe(
+			'Column "Done-ish" uses done status marker "x".',
+		);
+	});
+
+	it("rejects status-mode columns that target ignored markers", () => {
+		const [column] = migrateColumnDefinitions([
+			{ id: "ignored" as ColumnTag, label: "Ignored", matchMode: "status", matchTags: [], matchStatus: "-" },
+		]);
+
+		expect(getColumnValidationError([column!], { ignoredStatusMarkers: "-" })).toBe(
+			'Column "Ignored" uses ignored status marker "-".',
+		);
+	});
+
+	it("rejects duplicate status-mode markers", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+			{ id: "active" as ColumnTag, label: "Active", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+
+		expect(getColumnValidationError(columns)).toBe('Columns "Doing" and "Active" match the same status marker.');
+	});
+
+	it("allows tag and status columns to use overlapping task criteria", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "tagged" as ColumnTag, label: "Tagged", matchMode: "tags", matchTags: ["status/active"] },
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+
+		expect(getColumnValidationError(columns)).toBeNull();
+	});
 });
 
 describe("columnRuleSignature", () => {
@@ -102,6 +149,24 @@ describe("usesTagMatching", () => {
 
 		expect(usesTagMatching(nameModeColumn!)).toBe(false);
 		expect(usesTagMatching(explicitTagColumn!)).toBe(true);
+	});
+});
+
+describe("usesStatusMatching", () => {
+	it("returns true only for status-matched columns", () => {
+		const [nameModeColumn] = migrateColumnDefinitions(["In Progress"]);
+		const [statusColumn] = migrateColumnDefinitions([
+			{
+				id: "doing" as ColumnTag,
+				label: "Doing",
+				matchMode: "status",
+				matchTags: [],
+				matchStatus: "/",
+			},
+		]);
+
+		expect(usesStatusMatching(nameModeColumn!)).toBe(false);
+		expect(usesStatusMatching(statusColumn!)).toBe(true);
 	});
 });
 
@@ -140,6 +205,16 @@ describe("resolveMatchedColumnDefinition", () => {
 
 		expect(matched?.id).toBe("bc");
 	});
+
+	it("matches status columns from the status context", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, { tags: new Set(), status: "/" });
+
+		expect(matched?.id).toBe("doing");
+	});
 });
 
 describe("getColumnMatchSpecificity", () => {
@@ -160,5 +235,13 @@ describe("getColumnMatchSpecificity", () => {
 		]);
 
 		expect(getColumnMatchSpecificity(column!)).toBe(2);
+	});
+
+	it("treats status mode as specificity one", () => {
+		const [column] = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+
+		expect(getColumnMatchSpecificity(column!)).toBe(1);
 	});
 });

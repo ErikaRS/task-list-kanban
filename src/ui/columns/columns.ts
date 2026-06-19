@@ -3,6 +3,7 @@ import type { SettingValues } from "../settings/settings_store";
 import {
 	type ColumnDefinition,
 	type ColumnTag,
+	getColumnHeaderSubtitle,
 	getColumnHeaderTags,
 	getColumnWriteTags,
 	RESERVED_COLUMN_KEYS,
@@ -14,6 +15,7 @@ export type ColumnTagTable = Record<ColumnTag, string>;
 export type ColumnColourTable = Record<ColumnTag, string>;
 export type ColumnPlacementTagTable = Record<ColumnTag, string[]>;
 export type ColumnMatchTagTable = Record<ColumnTag, string[]>;
+export type ColumnSubtitleTable = Record<ColumnTag, string>;
 
 export {
 	type ColumnDefinition,
@@ -31,6 +33,7 @@ export const createColumnStores = (
 	columnColourTable: Readable<ColumnColourTable>;
 	columnPlacementTagTable: Readable<ColumnPlacementTagTable>;
 	columnMatchTagTable: Readable<ColumnMatchTagTable>;
+	columnSubtitleTable: Readable<ColumnSubtitleTable>;
 } => {
 	const columnDefinitions = derived([settingsStore], ([settings]) => settings.columns ?? []);
 	const columnData = derived([columnDefinitions], ([columns]) => createColumnData(columns));
@@ -38,6 +41,7 @@ export const createColumnStores = (
 	const columnColourTable = derived([columnData], ([data]) => data.columnColourTable);
 	const columnPlacementTagTable = derived([columnData], ([data]) => data.columnPlacementTagTable);
 	const columnMatchTagTable = derived([columnData], ([data]) => data.columnMatchTagTable);
+	const columnSubtitleTable = derived([columnData], ([data]) => data.columnSubtitleTable);
 
 	return {
 		columnDefinitions,
@@ -45,6 +49,7 @@ export const createColumnStores = (
 		columnColourTable,
 		columnPlacementTagTable,
 		columnMatchTagTable,
+		columnSubtitleTable,
 	};
 };
 
@@ -90,11 +95,13 @@ export function createColumnData(columns: ColumnDefinition[]): {
 	columnColourTable: ColumnColourTable;
 	columnPlacementTagTable: ColumnPlacementTagTable;
 	columnMatchTagTable: ColumnMatchTagTable;
+	columnSubtitleTable: ColumnSubtitleTable;
 } {
 	const columnTagTable: ColumnTagTable = {};
 	const columnColourTable: ColumnColourTable = {};
 	const columnPlacementTagTable: ColumnPlacementTagTable = {};
 	const columnMatchTagTable: ColumnMatchTagTable = {};
+	const columnSubtitleTable: ColumnSubtitleTable = {};
 
 	for (const column of columns) {
 		if (RESERVED_COLUMN_KEYS.has(column.id)) continue;
@@ -104,6 +111,10 @@ export function createColumnData(columns: ColumnDefinition[]): {
 		}
 		columnPlacementTagTable[column.id] = getColumnWriteTags(column);
 		columnMatchTagTable[column.id] = getColumnHeaderTags(column);
+		const subtitle = getColumnHeaderSubtitle(column);
+		if (subtitle) {
+			columnSubtitleTable[column.id] = subtitle;
+		}
 	}
 
 	return {
@@ -111,5 +122,6 @@ export function createColumnData(columns: ColumnDefinition[]): {
 		columnColourTable,
 		columnPlacementTagTable,
 		columnMatchTagTable,
+		columnSubtitleTable,
 	};
 }

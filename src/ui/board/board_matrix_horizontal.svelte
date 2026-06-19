@@ -6,6 +6,7 @@
 		ColumnTagTable,
 		ColumnColourTable,
 		ColumnMatchTagTable,
+		ColumnSubtitleTable,
 	} from "../columns/columns";
 	import type { TaskActions } from "../tasks/actions";
 	import ColumnHeader from "../components/ColumnHeader.svelte";
@@ -20,6 +21,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
+	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 	export let showFilepath: boolean;
 	export let propertyDisplay: PropertyDisplayMode = PropertyDisplayMode.None;
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
@@ -83,6 +85,7 @@
 				{columnTagTableStore}
 				{columnColourTableStore}
 				{columnMatchTagTableStore}
+				{columnSubtitleTableStore}
 				isVerticalFlow={false}
 				isCollapsed={pBucket.collapsed}
 				onToggleCollapse={() => onToggleCollapse(pBucket.id)}

@@ -57,7 +57,8 @@ Use the **Columns** section to rename, color, remove, and reorder custom columns
 Column matching options:
 - **Name matching**: a column named `In Progress` matches tags such as `#InProgress`, `#in-progress`, and `#In-Progress`.
 - **Explicit tag matching**: configure one or more required tags for a column. A column with `status/active` and `project/alpha` matches only tasks with both tags.
-- **Retagging changed match rules**: settings can optionally update existing task tags when a name-matched column is renamed or an explicit tag mapping changes.
+- **Status marker matching**: configure a column to match an active checkbox marker such as unchecked `[ ]`, in-progress `[/]`, or blocked `[!]`. Moving a task into that column updates the checkbox marker.
+- **Updating changed match rules**: settings can optionally update existing tasks when a name-matched column is renamed, an explicit tag mapping changes, or a status marker mapping changes.
 
 Column display options:
 - **Colors**: add a hex color like `#FF5733` to show a color bar on the column and its cards.

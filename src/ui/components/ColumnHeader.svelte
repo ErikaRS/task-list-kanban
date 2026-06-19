@@ -6,6 +6,7 @@
 		type ColumnTagTable,
 		type ColumnColourTable,
 		type ColumnMatchTagTable,
+		type ColumnSubtitleTable,
 		isColumnTag,
 		resolveDefaultColumnName,
 	} from "../columns/columns";
@@ -24,6 +25,8 @@
 		clearColumnSelections,
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
+	import Icon from "./icon.svelte";
+	import { getStatusColumnLabel } from "../columns/definitions";
 
 	export let column: ColumnTag | DefaultColumns;
 	export let tasks: Task[];
@@ -31,6 +34,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
+	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 	export let isVerticalFlow: boolean = false;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
@@ -59,12 +63,15 @@
 
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
 	$: columnMatchTags = isColumnTag(column, columnTagTableStore) ? ($columnMatchTagTableStore[column] ?? []) : [];
+	$: columnStatusMarker = isColumnTag(column, columnTagTableStore) ? $columnSubtitleTableStore[column] : undefined;
+	$: columnStatusLabel = getStatusColumnLabel(columnStatusMarker);
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
 	$: isVerticalCollapsed = isCollapsed && isVerticalFlow;
 	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
+	$: showColumnStatus = columnStatusMarker !== undefined && !isCollapsed;
 
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
@@ -151,6 +158,10 @@
 	}
 
 	$: showContextMenu = column === "done" || (isSelectMode && selectedCount > 0);
+
+	function shouldRenderStatusAsText(status: string): boolean {
+		return status.length > 1 || /\p{Extended_Pictographic}/u.test(status);
+	}
 </script>
 
 <div
@@ -189,6 +200,33 @@
 				{#if showColumnMatchTags}
 					<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
 						{columnMatchTags.map((tag) => `#${tag}`).join(" ")}
+					</div>
+				{/if}
+				{#if showColumnStatus}
+					<div class="column-match-status" title="Status: {columnStatusLabel}">
+						<span class="column-match-status-label">Status</span>
+						<span
+							class="column-status-preview"
+							class:uses-status-marker={columnStatusMarker !== " "}
+							class:markdown-rendered={columnStatusMarker !== " "}
+							class:markdown-preview-view={columnStatusMarker !== " "}
+							class:task-list-item={columnStatusMarker !== " "}
+							class:is-checked={columnStatusMarker !== " "}
+							data-task={columnStatusMarker !== " " ? columnStatusMarker : undefined}
+							aria-label="Status: {columnStatusLabel}"
+						>
+							{#if columnStatusMarker === " "}
+								<Icon name="lucide-square" size={18} opacity={0.5} />
+							{:else if shouldRenderStatusAsText(columnStatusMarker ?? "")}
+								<span class="status-text-marker">{columnStatusMarker}</span>
+							{:else}
+								<span
+									class="task-list-item-checkbox source-status-checkbox"
+									data-task={columnStatusMarker}
+									aria-hidden="true"
+								></span>
+							{/if}
+						</span>
 					</div>
 				{/if}
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
@@ -285,7 +323,8 @@
 					flex-wrap: wrap;
 					gap: var(--size-2-2) var(--size-4-2);
 
-					.column-match-tags {
+					.column-match-tags,
+					.column-match-status {
 						order: 1;
 						flex: 0 0 100%;
 					}
@@ -514,7 +553,8 @@
 		}
 	}
 
-	.column-match-tags {
+	.column-match-tags,
+	.column-match-status {
 		font-size: var(--font-ui-small);
 		color: var(--text-muted);
 		overflow: hidden;
@@ -523,6 +563,61 @@
 		line-height: 1.3;
 		min-width: 0;
 		flex: 1 1 auto;
+	}
+
+	.column-match-status {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2-2);
+		flex: 0 0 auto;
+		overflow: visible;
+	}
+
+	.column-match-status-label {
+		font-weight: var(--font-medium);
+	}
+
+	.column-status-preview {
+		display: inline-flex !important;
+		align-items: center !important;
+		justify-content: center !important;
+		width: 18px !important;
+		height: 18px !important;
+		min-width: 18px !important;
+		min-height: 18px !important;
+		max-width: 18px !important;
+		max-height: 18px !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		text-indent: 0 !important;
+		line-height: 1 !important;
+		list-style: none !important;
+		color: var(--text-normal);
+		vertical-align: middle;
+	}
+
+	.column-status-preview .source-status-checkbox,
+	.column-status-preview .status-text-marker {
+		display: inline-flex !important;
+		position: static !important;
+		align-items: center !important;
+		justify-content: center !important;
+		width: 18px !important;
+		height: 18px !important;
+		min-width: 18px !important;
+		min-height: 18px !important;
+		max-width: 18px !important;
+		max-height: 18px !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		pointer-events: none;
+		text-indent: 0 !important;
+		line-height: 1 !important;
+		vertical-align: middle !important;
+	}
+
+	.column-status-preview .status-text-marker {
+		font-size: 15px;
 	}
 
 	.selection-info {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyChangedColumnTagUpdates, getChangedColumnMatchRules } from "../column_rename_migration";
+import type { ColumnTag } from "../../columns/columns";
 import { defaultSettings, ScopeOption, type SettingValues } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
 
@@ -164,6 +165,67 @@ describe("applyChangedColumnTagUpdates", () => {
 		});
 
 		expect(contents).toBe("- [ ] Task A #status/now");
+	});
+
+	it("replaces a derived tag with a status marker when enabled", async () => {
+		const oldColumns = migrateColumnDefinitions(["Doing"]);
+		const newColumns = oldColumns.map((column) => ({
+			...column,
+			matchMode: "status" as const,
+			matchTags: [],
+			matchStatus: "/",
+		}));
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [ ] Task A #doing #project";
+
+		const vault = {
+			getMarkdownFiles: () => [file],
+			read: async () => contents,
+			modify: async (_file: unknown, nextContents: string) => {
+				contents = nextContents;
+			},
+		} as const;
+
+		await applyChangedColumnTagUpdates({
+			vault: vault as never,
+			oldSettings: { ...defaultSettings, columns: oldColumns },
+			newSettings: { ...defaultSettings, columns: newColumns },
+			boardFolderPath: "projects",
+			updateChoices: { [newColumns[0]!.id]: true },
+		});
+
+		expect(contents).toBe("- [/] Task A #project");
+	});
+
+	it("replaces a status marker with a derived tag when enabled", async () => {
+		const oldColumns = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+		const newColumns = oldColumns.map((column) => ({
+			...column,
+			matchMode: "name" as const,
+			matchStatus: undefined,
+		}));
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [/] Task A #project";
+
+		const vault = {
+			getMarkdownFiles: () => [file],
+			read: async () => contents,
+			modify: async (_file: unknown, nextContents: string) => {
+				contents = nextContents;
+			},
+		} as const;
+
+		await applyChangedColumnTagUpdates({
+			vault: vault as never,
+			oldSettings: { ...defaultSettings, columns: oldColumns },
+			newSettings: { ...defaultSettings, columns: newColumns },
+			boardFolderPath: "projects",
+			updateChoices: { [newColumns[0]!.id]: true },
+		});
+
+		expect(contents).toBe("- [ ] Task A #project #doing");
 	});
 
 	it("retags completed tasks when a column rule changes", async () => {

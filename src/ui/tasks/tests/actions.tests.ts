@@ -3,6 +3,7 @@ import { PropertySchemaOption } from "../../../parsing/properties";
 import { DataviewSchema } from "../../../parsing/properties/dataview_schema";
 import { NoneSchema } from "../../../parsing/properties/none_schema";
 import { TasksPluginSchema } from "../../../parsing/properties/tasks_schema";
+import { createColumnData, type ColumnDefinition, type ColumnTag } from "../../columns/columns";
 import { createTaskActions } from "../actions";
 import { createTaskLine } from "../task_creation";
 import { parseTask } from "./task_test_helpers";
@@ -198,6 +199,28 @@ describe("task actions", () => {
 
 			expect(contents()).toBe("# Tasks\n- [ ] New task #in-progress");
 		});
+
+		it("uses the status marker when creating a task in a status column", async () => {
+			const doingColumn: ColumnDefinition = {
+				id: "doing" as ColumnTag,
+				label: "Doing",
+				matchMode: "status",
+				matchTags: [],
+				matchStatus: "/",
+			};
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks",
+				PropertySchemaOption.None,
+				new Map(),
+				new Map(),
+				{ path: "tasks.md" },
+				[doingColumn],
+			);
+
+			await actions.createTask(fileHandle as never, "New task", "doing" as ColumnTag);
+
+			expect(contents()).toBe("# Tasks\n- [/] New task");
+		});
 	});
 });
 
@@ -231,8 +254,10 @@ function setupActions(
 	tasksByTaskId = new Map(),
 	metadataByTaskId = new Map(),
 	fileHandle = { path: "tasks.md" },
+	columnDefinitions: ColumnDefinition[] = [],
 ) {
 	let fileContents = initialContents;
+	const placementTags = createColumnData(columnDefinitions).columnPlacementTagTable;
 	const actions = createTaskActions({
 		tasksByTaskId: tasksByTaskId as never,
 		metadataByTaskId: metadataByTaskId as never,
@@ -246,7 +271,8 @@ function setupActions(
 		getFilenameFilter: () => null,
 		getExcludeFilter: () => null,
 		getBoardFolderPath: () => null,
-		getPlacementTagsForColumn: (column) => [column],
+		getPlacementTagsForColumn: (column) => placementTags[column] ?? [column],
+		getColumnDefinitions: () => columnDefinitions,
 		getDefaultTaskFile: () => null,
 		getLastUsedTaskFile: () => null,
 		setLastUsedTaskFile: () => undefined,

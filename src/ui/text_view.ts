@@ -22,6 +22,7 @@ import {
 	type ColumnColourTable,
 	type ColumnPlacementTagTable,
 	type ColumnMatchTagTable,
+	type ColumnSubtitleTable,
 } from "./columns/columns";
 import { applyChangedColumnTagUpdates } from "./settings/column_rename_migration";
 
@@ -36,6 +37,7 @@ export class KanbanView extends TextFileView {
 	private readonly columnColourTableStore: Readable<ColumnColourTable>;
 	private readonly columnPlacementTagTableStore: Readable<ColumnPlacementTagTable>;
 	private readonly columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
+	private readonly columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 
 	private filenameFilter: string[] | null = null;
 	private excludeFilter: string[] | null = null;
@@ -79,7 +81,14 @@ export class KanbanView extends TextFileView {
 			this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
 		});
 
-		const { columnDefinitions, columnTagTable, columnColourTable, columnPlacementTagTable, columnMatchTagTable } = createColumnStores(
+		const {
+			columnDefinitions,
+			columnTagTable,
+			columnColourTable,
+			columnPlacementTagTable,
+			columnMatchTagTable,
+			columnSubtitleTable,
+		} = createColumnStores(
 			this.settingsStore
 		);
 		this.columnDefinitionsStore = columnDefinitions;
@@ -87,6 +96,7 @@ export class KanbanView extends TextFileView {
 		this.columnColourTableStore = columnColourTable;
 		this.columnPlacementTagTableStore = columnPlacementTagTable;
 		this.columnMatchTagTableStore = columnMatchTagTable;
+		this.columnSubtitleTableStore = columnSubtitleTable;
 
 		const { tasksStore, taskActions, initialise } = createTasksStore(
 			this.app.vault,
@@ -180,6 +190,7 @@ export class KanbanView extends TextFileView {
 				columnTagTableStore: this.columnTagTableStore,
 				columnColourTableStore: this.columnColourTableStore,
 				columnMatchTagTableStore: this.columnMatchTagTableStore,
+				columnSubtitleTableStore: this.columnSubtitleTableStore,
 				openSettings: () => this.openSettingsModal(),
 				settingsStore: this.settingsStore,
 				requestSave: () => this.requestSave(),

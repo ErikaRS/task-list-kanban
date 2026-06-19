@@ -2,6 +2,7 @@
 	import {
 		type ColumnTag,
 		type ColumnMatchTagTable,
+		type ColumnSubtitleTable,
 		type ColumnTagTable,
 		type ColumnColourTable,
 		type DefaultColumns,
@@ -43,6 +44,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
+	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 	export let settingsStore: Writable<SettingValues>;
 	export let requestSave: () => void;
 
@@ -979,6 +981,7 @@
 						{columnTagTableStore}
 						{columnColourTableStore}
 						{columnMatchTagTableStore}
+						{columnSubtitleTableStore}
 						{showFilepath}
 						{consolidateTags}
 						excludedTags={$settingsStore.excludedTags ?? []}
@@ -1002,6 +1005,7 @@
 						{columnTagTableStore}
 						{columnColourTableStore}
 						{columnMatchTagTableStore}
+						{columnSubtitleTableStore}
 						{showFilepath}
 						{consolidateTags}
 						excludedTags={$settingsStore.excludedTags ?? []}

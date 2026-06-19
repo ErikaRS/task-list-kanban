@@ -31,6 +31,18 @@ export function createTagModeColumns(
 	}));
 }
 
+export function createStatusModeColumns(
+	definitions: Array<{ id: string; label: string; matchStatus: string }>,
+): ColumnDefinition[] {
+	return definitions.map(({ id, label, matchStatus }) => ({
+		id: id as ColumnTag,
+		label,
+		matchMode: "status",
+		matchTags: [],
+		matchStatus,
+	}));
+}
+
 export interface TaskParseOptions {
 	columns?: ColumnDefinition[];
 	placementTags?: ColumnPlacementTagTable;

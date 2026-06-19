@@ -2,6 +2,7 @@ export function createTaskLine(
 	content: string,
 	placementTags: string[],
 	additionalTags: string[] = [],
+	status: string = " ",
 ): string {
 	const seenTags = new Set<string>();
 	const appendedTags: string[] = [];
@@ -17,5 +18,5 @@ export function createTaskLine(
 		appendedTags.push(normalizedTag);
 	}
 
-	return `- [ ] ${content}${appendedTags.map((tag) => ` #${tag}`).join("")}`;
+	return `- [${status}] ${content}${appendedTags.map((tag) => ` #${tag}`).join("")}`;
 }
