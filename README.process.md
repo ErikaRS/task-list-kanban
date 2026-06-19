@@ -22,7 +22,7 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 **AI Assistance Attribution:**
 - **REQUIRED**: All commits created with AI assistance MUST include attribution in the commit body
-- Add a blank line after the description, then add: `Created in collaboration with <agent name(s)>`
+- Add a blank line after the description, then add the git trailer: `Assisted-by: <agent name(s)> <agent@email.com>`
 - Attribute the commit to the agent or agents that actually contributed to the change
 - This applies to ALL commits, not just PRs
 
@@ -30,7 +30,7 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 ```
 feat: add column reordering via drag and drop
 
-Created in collaboration with Codex
+Assisted-by: Codex <codex@openai.com>
 ```
 
 ```
@@ -39,7 +39,8 @@ fix(parser): handle special characters in tag names
 Fixed an issue where tags containing parentheses or quotes
 would break the parser.
 
-Created in collaboration with Gemini and Codex
+Assisted-by: Gemini <gemini@google.com>
+Assisted-by: Codex <codex@openai.com>
 ```
 
 ```
@@ -102,7 +103,7 @@ cutting a release, make sure to "land the plane". This means:
 
 ### Pull Request Messages
 - PR descriptions should end with a note indicating they were created with a coding agent
-- Format: `Created in collaboration with [agent name(s)]`
+- Format: `Assisted-by: [agent name(s)] <agent@email.com>`
 - When linking issues in PRs, use references only (e.g. `Refs #123`)
 - Do **not** use auto-closing keywords in PRs (`Fixes`, `Closes`, `Resolves`)
 - Issues should only be closed as part of the release workflow
