@@ -41,34 +41,6 @@
                 }
               },
               {
-                "id": "858ee79e127f29bb",
-                "type": "leaf",
-                "state": {
-                  "type": "markdown",
-                  "state": {
-                    "file": "periodic/2025-05-02.md",
-                    "mode": "source",
-                    "source": false
-                  },
-                  "icon": "lucide-file",
-                  "title": "2025-05-02"
-                }
-              },
-              {
-                "id": "9bd2d0b152e74484",
-                "type": "leaf",
-                "state": {
-                  "type": "markdown",
-                  "state": {
-                    "file": "tasks/Even more tasks.md",
-                    "mode": "source",
-                    "source": false
-                  },
-                  "icon": "lucide-file",
-                  "title": "Even more tasks"
-                }
-              },
-              {
                 "id": "1cb795da7bad7f19",
                 "type": "leaf",
                 "state": {
@@ -91,18 +63,6 @@
             "dimension": 61.0077519379845,
             "children": [
               {
-                "id": "08d2136051d11382",
-                "type": "leaf",
-                "state": {
-                  "type": "kanban-view",
-                  "state": {
-                    "file": "periodic/Kanban-1761679356942.md"
-                  },
-                  "icon": "kanban-square",
-                  "title": "Kanban-1761679356942"
-                }
-              },
-              {
                 "id": "9a8bfce43d42eb67",
                 "type": "leaf",
                 "state": {
@@ -115,8 +75,21 @@
                   "icon": "lucide-file",
                   "title": "Even more tasks"
                 }
+              },
+              {
+                "id": "9bd2d0b152e74484",
+                "type": "leaf",
+                "state": {
+                  "type": "kanban-view",
+                  "state": {
+                    "file": "periodic/Kanban-1761679356942.md"
+                  },
+                  "icon": "kanban-square",
+                  "title": "Kanban-1761679356942"
+                }
               }
-            ]
+            ],
+            "currentTab": 1
           }
         ],
         "direction": "horizontal"
@@ -172,8 +145,7 @@
               "title": "Bookmarks"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "horizontal",
@@ -279,10 +251,16 @@
       "bases:Create new base": false
     }
   },
-  "active": "08d2136051d11382",
+  "active": "9bd2d0b152e74484",
   "lastOpenFiles": [
-    "periodic/2025-05-02.md",
+    "periodic/Kanban-1771182407942.md",
     "periodic/Kanban-1761679356942.md",
+    "Kanban-1781896482430.md",
+    "Kanban-1781896508887.md",
+    "Untitled 1.md",
+    "Welcome.md",
+    "Untitled.base",
+    "periodic/2025-05-02.md",
     "periodic/2025-05-01.md",
     "tasks/Even more tasks.md",
     "periodic/tasks.md",
@@ -291,8 +269,6 @@
     "periodic/subfolder/2025-05-02.md",
     "root todo.md",
     "Kanban-1780186219895.md",
-    "Untitled 1.md",
-    "periodic/Kanban-1771182407942.md",
     "periodic/A test file with a very very very long name.md",
     "periodic/Kanban-repro.md",
     "periodic/Kanban-1774741608452.md",
@@ -305,7 +281,6 @@
     "periodic/2025-05-21.md",
     "reload.md",
     "periodic/Kanban-1749169673822.md",
-    "templates/DayTemplate.md",
-    "kan.md"
+    "templates/DayTemplate.md"
   ]
 }
