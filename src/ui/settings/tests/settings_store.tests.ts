@@ -85,6 +85,35 @@ describe("Invalid field resilience", () => {
 		expect(parsed.columns[0]?.matchStatus).toBe("/");
 	});
 
+	it("parses priority-mode structured columns", () => {
+		const parsed = parseSettings({
+			columns: [
+				{ id: "col-priority", label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+			],
+		});
+
+		expect(parsed.columns[0]?.matchMode).toBe("priority");
+		expect(parsed.columns[0]?.matchPriority).toBe("high");
+		expect(parsed.columns[0]?.matchPropertySchema).toBe("tasks");
+	});
+
+	it("preserves explicit priority column property schemas", () => {
+		const parsed = parseSettings({
+			columns: [
+				{
+					id: "col-priority",
+					label: "High",
+					matchMode: "priority",
+					matchTags: [],
+					matchPriority: "high",
+					matchPropertySchema: "dataview",
+				},
+			],
+		});
+
+		expect(parsed.columns[0]?.matchPropertySchema).toBe("dataview");
+	});
+
 	it("recovers from invalid columnWidth without losing other settings", () => {
 		const parsed = parseSettings({
 			columns: ["MyColumn"],

@@ -16,6 +16,7 @@ import {
 } from "../task";
 import {
 	createNameModeColumns,
+	createPriorityModeColumns,
 	createStatusModeColumns,
 	createTagModeColumns,
 	defaultPlacementTags,
@@ -223,6 +224,116 @@ describe("Task", () => {
 
 			expect(task.done).toBe(true);
 			expect(task.column).toBeUndefined();
+		});
+	});
+
+	describe("Tasks Plugin priority-mode columns", () => {
+		const priorityColumns = createPriorityModeColumns([
+			{ id: "highest", label: "Highest", matchPriority: "highest" },
+			{ id: "high", label: "High", matchPriority: "high" },
+			{ id: "medium", label: "Medium", matchPriority: "medium" },
+			{ id: "low", label: "Low", matchPriority: "low" },
+			{ id: "lowest", label: "Lowest", matchPriority: "lowest" },
+		]);
+
+		it.each([
+			["🔺", "highest"],
+			["⏫", "high"],
+			["🔼", "medium"],
+			["🔽", "low"],
+			["⏬", "lowest"],
+		])("matches Tasks priority %s", (emoji, expectedColumn) => {
+			const task = parseTaskWithColumns(`- [ ] Triage release ${emoji} #project`, priorityColumns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			expect(task.column).toBe(expectedColumn);
+			expect(task.serialise()).toBe(`- [ ] Triage release ${emoji} #project`);
+		});
+
+		it("writes the destination priority when moving into a priority column", () => {
+			const columns = [
+				...createNameModeColumns(["Backlog"]),
+				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
+			];
+			const task = parseTaskWithColumns("- [ ] Something #tag #backlog", columns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			task.column = "high" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag ⏫");
+		});
+
+		it("replaces the priority when moving between priority columns", () => {
+			const task = parseTaskWithColumns("- [ ] Something #tag ⏫", priorityColumns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			task.column = "low" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag 🔽");
+		});
+
+		it("removes source priority when moving from a priority column to a tag column", () => {
+			const columns = [
+				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
+				...createNameModeColumns(["Backlog"]),
+			];
+			const task = parseTaskWithColumns("- [ ] Something #tag ⏫", columns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			task.column = "backlog" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
+		});
+
+		it("preserves unrelated priority when moving between tag columns", () => {
+			const columns = createNameModeColumns(["Backlog", "Next"]);
+			const task = parseTaskWithColumns("- [ ] Something #tag ⏫ #backlog", columns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			task.column = "next" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag ⏫ #next");
+		});
+
+		it("uses column order to break equal-specificity priority and tag ties", () => {
+			const columns = [
+				...createTagModeColumns([{ id: "this-week", label: "This Week", matchTags: ["this-week"] }]),
+				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
+			];
+			const task = parseTaskWithColumns("- [ ] Draft #this-week ⏫ #project", columns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			expect(task.column).toBe("this-week");
+			expect(task.content).toBe("Draft ⏫ #project");
+		});
+
+		it("prefers a multi-tag column over a priority column", () => {
+			const columns = [
+				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
+				...createTagModeColumns([
+					{ id: "active-work", label: "Active Work", matchTags: ["project/alpha", "this-week"] },
+				]),
+			];
+			const task = parseTaskWithColumns("- [ ] Draft ⏫ #project/alpha #this-week #note", columns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			expect(task.column).toBe("active-work");
+			expect(task.content).toBe("Draft ⏫ #note");
+		});
+
+		it("keeps priority available as parsed metadata when priority placed the task", () => {
+			const task = parseTaskWithColumns("- [ ] Something ⏫", priorityColumns, {
+				propertySchema: new TasksPluginSchema(),
+			});
+
+			expect(task.properties.get("priority")?.value).toBe(4);
 		});
 	});
 

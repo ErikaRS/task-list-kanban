@@ -2,6 +2,7 @@ import { derived, get, type Readable, type Writable } from "svelte/store";
 import type { SettingValues } from "../settings/settings_store";
 import {
 	type ColumnDefinition,
+	type ColumnHeaderSubtitle,
 	type ColumnTag,
 	getColumnHeaderSubtitle,
 	getColumnHeaderTags,
@@ -15,7 +16,7 @@ export type ColumnTagTable = Record<ColumnTag, string>;
 export type ColumnColourTable = Record<ColumnTag, string>;
 export type ColumnPlacementTagTable = Record<ColumnTag, string[]>;
 export type ColumnMatchTagTable = Record<ColumnTag, string[]>;
-export type ColumnSubtitleTable = Record<ColumnTag, string>;
+export type ColumnSubtitleTable = Record<ColumnTag, ColumnHeaderSubtitle>;
 
 export {
 	type ColumnDefinition,

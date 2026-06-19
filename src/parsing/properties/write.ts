@@ -1,6 +1,6 @@
 import { DataviewSchema } from "./dataview_schema";
 import { PropertySchemaOption, type PropertySchema, type TaskProperty } from "./property_schema";
-import { TasksPluginSchema } from "./tasks_schema";
+import { TasksPluginSchema, getTasksPriorityOption } from "./tasks_schema";
 
 export type WritableDatePropertyKey = "due" | "scheduled" | "start" | "completion";
 type EditableDatePropertyKey = Exclude<WritableDatePropertyKey, "completion">;
@@ -10,6 +10,8 @@ export interface PropertyWriteAdapter {
 	addCompletionDateIfMissing(rawLine: string, date: string): string;
 	upsertDate(rawLine: string, key: EditableDatePropertyKey, date: string): string;
 	removeDate(rawLine: string, key: WritableDatePropertyKey): string;
+	upsertPriority(rawLine: string, priority: string): string;
+	removePriority(rawLine: string): string;
 }
 
 const TASKS_WRITERS: Record<EditableDatePropertyKey | "done", string> = {
@@ -50,6 +52,20 @@ class TasksPluginWriteAdapter implements PropertyWriteAdapter {
 		const property = this.propertySchema.parseProperties(rawLine).get(propertyKey);
 		return property ? removeProperty(rawLine, property) : rawLine;
 	}
+
+	upsertPriority(rawLine: string, priority: string): string {
+		const option = getTasksPriorityOption(priority);
+		if (!option) {
+			return rawLine;
+		}
+		const property = this.propertySchema.parseProperties(rawLine).get("priority");
+		return upsertProperty(rawLine, property, option.emoji);
+	}
+
+	removePriority(rawLine: string): string {
+		const property = this.propertySchema.parseProperties(rawLine).get("priority");
+		return property ? removeProperty(rawLine, property) : rawLine;
+	}
 }
 
 class DataviewWriteAdapter implements PropertyWriteAdapter {
@@ -71,6 +87,14 @@ class DataviewWriteAdapter implements PropertyWriteAdapter {
 	removeDate(rawLine: string, key: WritableDatePropertyKey): string {
 		const property = this.propertySchema.parseProperties(rawLine).get(key);
 		return property ? removeProperty(rawLine, property) : rawLine;
+	}
+
+	upsertPriority(rawLine: string, _priority: string): string {
+		return rawLine;
+	}
+
+	removePriority(rawLine: string): string {
+		return rawLine;
 	}
 }
 

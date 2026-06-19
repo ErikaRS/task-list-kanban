@@ -1,8 +1,12 @@
 import type { Brand } from "src/brand";
 import { kebab } from "src/parsing/kebab/kebab";
+import { formatPriorityColumnLabel } from "src/parsing/properties/display";
+import { PropertySchemaOption } from "src/parsing/properties/property_schema";
+import { getTasksPriorityOption } from "src/parsing/properties/tasks_schema";
 
 export type ColumnTag = Brand<string, "ColumnTag">;
-export type ColumnMatchMode = "name" | "tags" | "status";
+export type ColumnMatchMode = "name" | "tags" | "status" | "priority";
+export type PriorityColumnSchema = PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview;
 
 export interface ParsedColumn {
 	raw: string;
@@ -17,7 +21,13 @@ export interface ColumnDefinition {
 	matchMode: ColumnMatchMode;
 	matchTags: string[];
 	matchStatus?: string;
+	matchPriority?: string;
+	matchPropertySchema?: PriorityColumnSchema;
 }
+
+export type ColumnHeaderSubtitle =
+	| { kind: "status"; value: string; label: string }
+	| { kind: "priority"; value: string; label: string; icon?: string };
 
 export const RESERVED_COLUMN_KEYS: ReadonlySet<string> = new Set<string>(["uncategorised", "done"]);
 
@@ -79,8 +89,12 @@ export function usesStatusMatching(column: ColumnDefinition): boolean {
 	return column.matchMode === "status";
 }
 
+export function usesPriorityMatching(column: ColumnDefinition): boolean {
+	return column.matchMode === "priority";
+}
+
 export function getColumnWriteTags(column: ColumnDefinition): string[] {
-	return usesStatusMatching(column)
+	return usesStatusMatching(column) || usesPriorityMatching(column)
 		? []
 		: usesTagMatching(column)
 		? column.matchTags
@@ -90,6 +104,8 @@ export function getColumnWriteTags(column: ColumnDefinition): string[] {
 export function columnRuleSignature(column: ColumnDefinition): string {
 	return usesStatusMatching(column)
 		? `status:${column.matchStatus ?? ""}`
+		: usesPriorityMatching(column)
+		? `priority:${getColumnPrioritySchema(column) ?? ""}:${column.matchPriority ?? ""}`
 		: usesTagMatching(column)
 		? `tags:${[...getColumnWriteTags(column)].sort().join(",")}`
 		: `name:${getNameModeWriteTag(column)}`;
@@ -98,6 +114,8 @@ export function columnRuleSignature(column: ColumnDefinition): string {
 export interface ColumnMatchContext {
 	tags: Set<string>;
 	status?: string;
+	priority?: string;
+	prioritySchema?: PriorityColumnSchema;
 }
 
 function normalizeColumnMatchContext(context: Set<string> | ColumnMatchContext): ColumnMatchContext {
@@ -108,15 +126,35 @@ export function getColumnStatus(column: ColumnDefinition | undefined): string | 
 	return column && usesStatusMatching(column) ? column.matchStatus : undefined;
 }
 
+export function getColumnPriority(column: ColumnDefinition | undefined): string | undefined {
+	return column && usesPriorityMatching(column) ? column.matchPriority : undefined;
+}
+
+export function getColumnPrioritySchema(column: ColumnDefinition | undefined): PriorityColumnSchema | undefined {
+	return column && usesPriorityMatching(column)
+		? column.matchPropertySchema ?? PropertySchemaOption.TasksPlugin
+		: undefined;
+}
+
 export function getStatusColumnLabel(status: string | undefined): string {
 	return status === " " ? "unchecked" : status ?? "";
 }
 
+export function getPriorityColumnLabel(priority: string | undefined): string {
+	return formatPriorityColumnLabel(priority);
+}
+
 export function matchesColumnDefinition(column: ColumnDefinition, context: Set<string> | ColumnMatchContext): boolean {
-	const { tags: taskTags, status } = normalizeColumnMatchContext(context);
+	const { tags: taskTags, status, priority, prioritySchema } = normalizeColumnMatchContext(context);
 
 	if (usesStatusMatching(column)) {
 		return !!column.matchStatus && status === column.matchStatus;
+	}
+
+	if (usesPriorityMatching(column)) {
+		return !!column.matchPriority
+			&& priority === column.matchPriority
+			&& prioritySchema === getColumnPrioritySchema(column);
 	}
 
 	if (usesTagMatching(column)) {
@@ -161,7 +199,7 @@ export function resolveMatchedColumnDefinition(
 }
 
 export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
-	if (usesStatusMatching(column)) {
+	if (usesStatusMatching(column) || usesPriorityMatching(column)) {
 		return false;
 	}
 	if (usesTagMatching(column)) {
@@ -174,9 +212,22 @@ export function getColumnHeaderTags(column: ColumnDefinition): string[] {
 	return usesTagMatching(column) ? column.matchTags : [];
 }
 
-export function getColumnHeaderSubtitle(column: ColumnDefinition): string | undefined {
+export function getColumnHeaderSubtitle(column: ColumnDefinition): ColumnHeaderSubtitle | undefined {
 	if (usesStatusMatching(column)) {
-		return column.matchStatus;
+		return column.matchStatus
+			? { kind: "status", value: column.matchStatus, label: getStatusColumnLabel(column.matchStatus) }
+			: undefined;
+	}
+	if (usesPriorityMatching(column)) {
+		const priority = getTasksPriorityOption(column.matchPriority);
+		return column.matchPriority
+			? {
+				kind: "priority",
+				value: column.matchPriority,
+				label: priority?.label ?? getPriorityColumnLabel(column.matchPriority),
+				icon: priority?.emoji,
+			}
+			: undefined;
 	}
 	return undefined;
 }
@@ -197,6 +248,8 @@ export function migrateColumnDefinitions(
 					matchMode: "name",
 					matchTags: [],
 					matchStatus: undefined,
+					matchPriority: undefined,
+					matchPropertySchema: undefined,
 				},
 			];
 		}
@@ -213,8 +266,18 @@ export function migrateColumnDefinitions(
 				: createColumnId(label, usedIds);
 
 		const matchMode: ColumnMatchMode =
-			column.matchMode === "tags" || column.matchMode === "status" ? column.matchMode : "name";
+			column.matchMode === "tags" || column.matchMode === "status" || column.matchMode === "priority"
+				? column.matchMode
+				: "name";
 		const matchStatus = typeof column.matchStatus === "string" ? column.matchStatus : undefined;
+		const matchPriority = typeof column.matchPriority === "string" ? column.matchPriority : undefined;
+		const matchPropertySchema: PriorityColumnSchema | undefined =
+			column.matchPropertySchema === PropertySchemaOption.Dataview ||
+			column.matchPropertySchema === PropertySchemaOption.TasksPlugin
+				? column.matchPropertySchema
+				: matchMode === "priority"
+				? PropertySchemaOption.TasksPlugin
+				: undefined;
 
 		return [
 			{
@@ -224,6 +287,8 @@ export function migrateColumnDefinitions(
 				matchMode,
 				matchTags: normalizeMatchTags(Array.isArray(column.matchTags) ? column.matchTags : []),
 				matchStatus,
+				matchPriority,
+				matchPropertySchema,
 			},
 		];
 	});

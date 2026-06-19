@@ -1,5 +1,5 @@
 import { UNIVERSAL_STATUS_PROPERTY_KEY, type TaskProperty } from "./property_schema";
-import { TASKS_PROPERTY_ICONS, getTasksPriorityEmoji } from "./tasks_schema";
+import { TASKS_PROPERTY_ICONS, getTasksPriorityEmoji, getTasksPriorityOption } from "./tasks_schema";
 
 /**
  * Human-readable labels for the numeric Tasks-plugin priority weights
@@ -12,6 +12,10 @@ const PRIORITY_LABELS: Record<number, string> = {
 	2: "Low",
 	1: "Lowest",
 };
+
+export function formatPriorityColumnLabel(value: string | undefined): string {
+	return getTasksPriorityOption(value)?.label ?? (value ? formatPropertyLabel(value) : "");
+}
 
 /**
  * A property formatted for display on a task card.

@@ -26,7 +26,7 @@
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
 	import Icon from "./icon.svelte";
-	import { getStatusColumnLabel } from "../columns/definitions";
+	import type { ColumnHeaderSubtitle } from "../columns/definitions";
 
 	export let column: ColumnTag | DefaultColumns;
 	export let tasks: Task[];
@@ -40,6 +40,7 @@
 	export let onToggleCollapse: () => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	let columnSubtitle: ColumnHeaderSubtitle | undefined;
 
 	function getColumnTitle(
 		col: ColumnTag | DefaultColumns,
@@ -63,8 +64,11 @@
 
 	$: columnColor = isColumnTag(column, columnTagTableStore) ? $columnColourTableStore[column] : undefined;
 	$: columnMatchTags = isColumnTag(column, columnTagTableStore) ? ($columnMatchTagTableStore[column] ?? []) : [];
-	$: columnStatusMarker = isColumnTag(column, columnTagTableStore) ? $columnSubtitleTableStore[column] : undefined;
-	$: columnStatusLabel = getStatusColumnLabel(columnStatusMarker);
+	$: columnSubtitle = isColumnTag(column, columnTagTableStore) ? $columnSubtitleTableStore[column] : undefined;
+	$: columnStatusMarker = columnSubtitle?.kind === "status" ? columnSubtitle.value : undefined;
+	$: columnStatusLabel = columnSubtitle?.kind === "status" ? columnSubtitle.label : "";
+	$: columnPriorityLabel = columnSubtitle?.kind === "priority" ? columnSubtitle.label : "";
+	$: columnPriorityIcon = columnSubtitle?.kind === "priority" ? columnSubtitle.icon : undefined;
 	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
@@ -72,6 +76,7 @@
 	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 	$: showColumnStatus = columnStatusMarker !== undefined && !isCollapsed;
+	$: showColumnPriority = columnSubtitle?.kind === "priority" && !isCollapsed;
 
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
@@ -229,6 +234,17 @@
 						</span>
 					</div>
 				{/if}
+				{#if showColumnPriority}
+					<div class="column-match-priority" title="Priority: {columnPriorityLabel}">
+						<span class="column-match-status-label">Priority</span>
+						<span class="column-priority-preview" aria-label="Priority: {columnPriorityLabel}">
+							{#if columnPriorityIcon}
+								<span class="column-priority-icon" aria-hidden="true">{columnPriorityIcon}</span>
+							{/if}
+							<span>{columnPriorityLabel}</span>
+						</span>
+					</div>
+				{/if}
 				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 				<div
 					class="mode-toggle"
@@ -324,7 +340,8 @@
 					gap: var(--size-2-2) var(--size-4-2);
 
 					.column-match-tags,
-					.column-match-status {
+					.column-match-status,
+					.column-match-priority {
 						order: 1;
 						flex: 0 0 100%;
 					}
@@ -554,7 +571,8 @@
 	}
 
 	.column-match-tags,
-	.column-match-status {
+	.column-match-status,
+	.column-match-priority {
 		font-size: var(--font-ui-small);
 		color: var(--text-muted);
 		overflow: hidden;
@@ -565,7 +583,8 @@
 		flex: 1 1 auto;
 	}
 
-	.column-match-status {
+	.column-match-status,
+	.column-match-priority {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--size-2-2);
@@ -575,6 +594,17 @@
 
 	.column-match-status-label {
 		font-weight: var(--font-medium);
+	}
+
+	.column-priority-preview {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		min-width: 0;
+	}
+
+	.column-priority-icon {
+		line-height: 1;
 	}
 
 	.column-status-preview {

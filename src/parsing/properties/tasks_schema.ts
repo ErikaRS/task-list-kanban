@@ -17,13 +17,19 @@ const DATE_FIELDS = [
 	{ key: "created", label: "Created", emojis: ["➕"] },
 ] as const;
 
-const PRIORITY_VALUES = new Map<string, number>([
-	["🔺", 5],
-	["⏫", 4],
-	["🔼", 3],
-	["🔽", 2],
-	["⏬", 1],
-]);
+export const TASKS_PRIORITY_OPTIONS = [
+	{ value: "highest", label: "Highest", emoji: "🔺", weight: 5 },
+	{ value: "high", label: "High", emoji: "⏫", weight: 4 },
+	{ value: "medium", label: "Medium", emoji: "🔼", weight: 3 },
+	{ value: "low", label: "Low", emoji: "🔽", weight: 2 },
+	{ value: "lowest", label: "Lowest", emoji: "⏬", weight: 1 },
+] as const;
+
+export type TasksPriorityValue = (typeof TASKS_PRIORITY_OPTIONS)[number]["value"];
+
+const PRIORITY_VALUES = new Map<string, number>(
+	TASKS_PRIORITY_OPTIONS.map((option) => [option.emoji, option.weight]),
+);
 
 const METADATA_EMOJIS = [
 	...DATE_FIELDS.flatMap((field) => field.emojis),
@@ -53,6 +59,14 @@ export function getTasksPriorityEmoji(value: number): string | undefined {
 		if (weight === value) return emoji;
 	}
 	return undefined;
+}
+
+export function getTasksPriorityOption(value: string | undefined) {
+	return TASKS_PRIORITY_OPTIONS.find((option) => option.value === value);
+}
+
+export function getTasksPriorityValueFromWeight(weight: number): TasksPriorityValue | undefined {
+	return TASKS_PRIORITY_OPTIONS.find((option) => option.weight === weight)?.value;
 }
 
 type ParsedField = {

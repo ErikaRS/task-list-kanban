@@ -1,21 +1,32 @@
 import { kebab } from "src/parsing/kebab/kebab";
 import { isValidTag } from "src/parsing/tags/tags";
+import { PropertySchemaOption } from "src/parsing/properties/property_schema";
+import { TASKS_PRIORITY_OPTIONS } from "src/parsing/properties/tasks_schema";
 import { RESERVED_COLUMN_KEYS, type ColumnDefinition } from "../columns/columns";
 import {
 	columnRuleSignature,
+	getColumnPrioritySchema,
+	getPriorityColumnLabel,
 	getStatusColumnLabel,
+	usesPriorityMatching,
 	usesStatusMatching,
 	usesTagMatching,
 } from "../columns/definitions";
 
 export function getColumnValidationError(
 	columns: ColumnDefinition[],
-	options: { doneStatusMarkers?: string; ignoredStatusMarkers?: string } = {},
+	options: {
+		doneStatusMarkers?: string;
+		ignoredStatusMarkers?: string;
+		propertySchema?: PropertySchemaOption;
+		originalColumns?: ColumnDefinition[];
+	} = {},
 ): string | null {
 	const errors: string[] = [];
 	const seenSignatures = new Map<string, string>();
 	const doneStatusMarkers = Array.from(options.doneStatusMarkers ?? "");
 	const ignoredStatusMarkers = Array.from(options.ignoredStatusMarkers ?? "");
+	const originalColumnsById = new Map((options.originalColumns ?? []).map((column) => [column.id, column]));
 
 	for (const column of columns) {
 		const label = column.label.trim();
@@ -67,10 +78,52 @@ export function getColumnValidationError(
 			}
 		}
 
+		if (usesPriorityMatching(column)) {
+			const priority = column.matchPriority?.trim();
+			if (!priority) {
+				errors.push(`Column "${label}" must define a priority.`);
+				continue;
+			}
+
+			const originalColumn = originalColumnsById.get(column.id);
+			const priorityRuleUnchanged =
+				!!originalColumn &&
+				usesPriorityMatching(originalColumn) &&
+				columnRuleSignature(originalColumn) === columnRuleSignature(column);
+			const columnPrioritySchema = getColumnPrioritySchema(column);
+			const schemaMatches = options.propertySchema === columnPrioritySchema;
+			if (!schemaMatches) {
+				if (priorityRuleUnchanged) {
+					continue;
+				}
+				if (options.propertySchema === PropertySchemaOption.None) {
+					errors.push(`Column "${label}" uses priority matching, but task properties are disabled.`);
+					continue;
+				}
+				errors.push(`Column "${label}" priority matching requires the ${columnPrioritySchema === PropertySchemaOption.Dataview ? "Dataview" : "Tasks Plugin"} property schema.`);
+				continue;
+			}
+			if (columnPrioritySchema !== PropertySchemaOption.TasksPlugin) {
+				if (priorityRuleUnchanged) {
+					continue;
+				}
+				errors.push(`Column "${label}" priority matching is not supported for the selected property schema yet.`);
+				continue;
+			}
+			if (!TASKS_PRIORITY_OPTIONS.some((option) => option.value === priority)) {
+				errors.push(`Column "${label}" has an unknown priority "${priority}".`);
+				continue;
+			}
+		}
+
 		const signature = columnRuleSignature(column);
 		const existingLabel = seenSignatures.get(signature);
 		if (existingLabel) {
-			const criterion = usesStatusMatching(column) ? "status marker" : "tag";
+			const criterion = usesStatusMatching(column)
+				? "status marker"
+				: usesPriorityMatching(column)
+				? `priority "${getPriorityColumnLabel(column.matchPriority)}"`
+				: "tag";
 			errors.push(`Columns "${existingLabel}" and "${label}" match the same ${criterion}.`);
 		} else {
 			seenSignatures.set(signature, label);

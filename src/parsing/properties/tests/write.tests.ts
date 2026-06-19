@@ -53,6 +53,24 @@ describe("TasksPluginWriteAdapter", () => {
 			"- [x] Finished ^abc123",
 		);
 	});
+
+	it("adds priority before a trailing block link", () => {
+		expect(tasksAdapter.upsertPriority("- [ ] Triage #today ^abc123", "high")).toBe(
+			"- [ ] Triage #today ⏫ ^abc123",
+		);
+	});
+
+	it("replaces the first existing priority", () => {
+		expect(tasksAdapter.upsertPriority("- [ ] Triage ⏫ #today", "low")).toBe(
+			"- [ ] Triage 🔽 #today",
+		);
+	});
+
+	it("removes priority and normalizes adjacent spaces", () => {
+		expect(tasksAdapter.removePriority("- [ ] Triage  ⏫  #today")).toBe(
+			"- [ ] Triage #today",
+		);
+	});
 });
 
 describe("DataviewWriteAdapter", () => {

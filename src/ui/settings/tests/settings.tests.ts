@@ -5,9 +5,11 @@ import {
 	getColumnMatchSpecificity,
 	migrateColumnDefinitions,
 	resolveMatchedColumnDefinition,
+	usesPriorityMatching,
 	usesStatusMatching,
 	usesTagMatching,
 } from "../../columns/definitions";
+import { PropertySchemaOption } from "../../../parsing/properties/property_schema";
 import { getColumnValidationError } from "../column_validation";
 
 describe("getColumnValidationError", () => {
@@ -116,6 +118,63 @@ describe("getColumnValidationError", () => {
 
 		expect(getColumnValidationError(columns)).toBeNull();
 	});
+
+	it("rejects priority-mode columns when task properties are disabled", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+
+		expect(getColumnValidationError(columns, { propertySchema: PropertySchemaOption.None })).toBe(
+			'Column "High" uses priority matching, but task properties are disabled.',
+		);
+	});
+
+	it("rejects priority-mode columns with no priority", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [] },
+		]);
+
+		expect(getColumnValidationError(columns, { propertySchema: PropertySchemaOption.TasksPlugin })).toBe(
+			'Column "High" must define a priority.',
+		);
+	});
+
+	it("rejects duplicate priority-mode values", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+			{ id: "urgent" as ColumnTag, label: "Urgent", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+
+		expect(getColumnValidationError(columns, { propertySchema: PropertySchemaOption.TasksPlugin })).toBe(
+			'Columns "High" and "Urgent" match the same priority "High".',
+		);
+	});
+
+	it("allows an unchanged existing priority column when task properties are disabled", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+		const editedColumns = [{ ...columns[0]!, label: "Urgent" }];
+
+		expect(getColumnValidationError(editedColumns, {
+			propertySchema: PropertySchemaOption.None,
+			originalColumns: columns,
+		})).toBeNull();
+	});
+
+	it("rejects changing an existing priority value while task properties are disabled", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+		const editedColumns = [{ ...columns[0]!, matchPriority: "low" }];
+
+		expect(getColumnValidationError(editedColumns, {
+			propertySchema: PropertySchemaOption.None,
+			originalColumns: columns,
+		})).toBe(
+			'Column "High" uses priority matching, but task properties are disabled.',
+		);
+	});
 });
 
 describe("columnRuleSignature", () => {
@@ -170,6 +229,24 @@ describe("usesStatusMatching", () => {
 	});
 });
 
+describe("usesPriorityMatching", () => {
+	it("returns true only for priority-matched columns", () => {
+		const [nameModeColumn] = migrateColumnDefinitions(["In Progress"]);
+		const [priorityColumn] = migrateColumnDefinitions([
+			{
+				id: "high" as ColumnTag,
+				label: "High",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "high",
+			},
+		]);
+
+		expect(usesPriorityMatching(nameModeColumn!)).toBe(false);
+		expect(usesPriorityMatching(priorityColumn!)).toBe(true);
+	});
+});
+
 describe("resolveMatchedColumnDefinition", () => {
 	it("prefers the most specific matching column", () => {
 		const columns = migrateColumnDefinitions([
@@ -215,6 +292,34 @@ describe("resolveMatchedColumnDefinition", () => {
 
 		expect(matched?.id).toBe("doing");
 	});
+
+	it("matches priority columns from the priority context", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, {
+			tags: new Set(),
+			priority: "high",
+			prioritySchema: PropertySchemaOption.TasksPlugin,
+		});
+
+		expect(matched?.id).toBe("high");
+	});
+
+	it("does not match a priority column from a different property schema", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, {
+			tags: new Set(),
+			priority: "high",
+			prioritySchema: PropertySchemaOption.Dataview,
+		});
+
+		expect(matched).toBeUndefined();
+	});
 });
 
 describe("getColumnMatchSpecificity", () => {
@@ -240,6 +345,14 @@ describe("getColumnMatchSpecificity", () => {
 	it("treats status mode as specificity one", () => {
 		const [column] = migrateColumnDefinitions([
 			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+
+		expect(getColumnMatchSpecificity(column!)).toBe(1);
+	});
+
+	it("treats priority mode as specificity one", () => {
+		const [column] = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
 		]);
 
 		expect(getColumnMatchSpecificity(column!)).toBe(1);

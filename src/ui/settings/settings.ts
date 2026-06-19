@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers, validateStatusMarkerOrder } from "../tasks/task";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
+import { TASKS_PRIORITY_OPTIONS } from "../../parsing/properties/tasks_schema";
 import { shouldIncludeFilePath } from "../tasks/scope";
 import { kebab } from "src/parsing/kebab/kebab";
 import { getTagsFromContent } from "src/parsing/tags/tags";
@@ -22,7 +23,10 @@ import {
 import {
 	columnRuleSignature,
 	createColumnId,
+	getPriorityColumnLabel,
+	getColumnPrioritySchema,
 	getStatusColumnLabel,
+	usesPriorityMatching,
 	usesStatusMatching,
 	usesTagMatching,
 } from "../columns/definitions";
@@ -73,6 +77,8 @@ export class SettingsModal extends Modal {
 		this.validationError = getColumnValidationError(this.settings.columns ?? [], {
 			doneStatusMarkers: this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 			ignoredStatusMarkers: this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			propertySchema: this.settings.propertySchema ?? PropertySchemaOption.None,
+			originalColumns: this.originalSettings.columns,
 		});
 		this.updateValidationBanner();
 	}
@@ -94,6 +100,20 @@ export class SettingsModal extends Modal {
 
 	private shouldUpdateExistingTaskTags(columnId: string): boolean {
 		return this.updateExistingTaskTagsByColumnId.get(columnId) ?? true;
+	}
+
+	private getActivePrioritySchema(): PropertySchemaOption.TasksPlugin | undefined {
+		return this.settings.propertySchema === PropertySchemaOption.TasksPlugin
+			? PropertySchemaOption.TasksPlugin
+			: undefined;
+	}
+
+	private canSelectPriorityMode(column: ColumnDefinition): boolean {
+		return !!this.getActivePrioritySchema() || usesPriorityMatching(column);
+	}
+
+	private canEditPriorityValue(column: ColumnDefinition): boolean {
+		return usesPriorityMatching(column) && getColumnPrioritySchema(column) === this.getActivePrioritySchema();
 	}
 
 	private confirmRemoveColumn(column: ColumnDefinition) {
@@ -320,6 +340,9 @@ export class SettingsModal extends Modal {
 		if (usesStatusMatching(column)) {
 			return column.matchStatus ? `Status: ${getStatusColumnLabel(column.matchStatus)}` : "Needs status";
 		}
+			if (usesPriorityMatching(column)) {
+				return column.matchPriority ? `Priority: ${getPriorityColumnLabel(column.matchPriority)}` : "Needs priority";
+			}
 		if (!usesTagMatching(column)) {
 			return "Matches name";
 		}
@@ -557,20 +580,40 @@ export class SettingsModal extends Modal {
 				value: "status",
 				text: "Status marker",
 			});
+			if (this.canSelectPriorityMode(column)) {
+				matchModeSelect.createEl("option", {
+					value: "priority",
+					text: "Priority",
+				});
+			}
 			matchModeSelect.value = column.matchMode;
 			matchModeSelect.addEventListener("change", () => {
+				const activePrioritySchema = this.getActivePrioritySchema();
 				column.matchMode =
-					matchModeSelect.value === "tags" || matchModeSelect.value === "status"
+					matchModeSelect.value === "tags" ||
+					matchModeSelect.value === "status" ||
+					(matchModeSelect.value === "priority" && activePrioritySchema)
 						? matchModeSelect.value
 						: "name";
 				if (column.matchMode === "name") {
 					column.matchTags = [];
 					column.matchStatus = undefined;
+					column.matchPriority = undefined;
+					column.matchPropertySchema = undefined;
 				} else if (column.matchMode === "status") {
 					column.matchTags = [];
 					column.matchStatus = column.matchStatus ?? " ";
+					column.matchPriority = undefined;
+					column.matchPropertySchema = undefined;
+				} else if (column.matchMode === "priority") {
+					column.matchTags = [];
+					column.matchStatus = undefined;
+					column.matchPriority = column.matchPriority ?? "medium";
+					column.matchPropertySchema = activePrioritySchema;
 				} else {
 					column.matchStatus = undefined;
+					column.matchPriority = undefined;
+					column.matchPropertySchema = undefined;
 					this.focusTagEditorColumnId = column.id;
 				}
 				this.activeColumnPopover = { columnId: column.id, kind: "match" };
@@ -659,6 +702,37 @@ export class SettingsModal extends Modal {
 					updateRenameOption();
 					this.touchSettings();
 				});
+			}
+
+			if (usesPriorityMatching(column)) {
+				const priorityField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-priority" });
+				priorityField.createDiv({ cls: "column-editor-inline-label", text: "Priority" });
+				if (this.canEditPriorityValue(column)) {
+					const prioritySelect = priorityField.createEl("select");
+					prioritySelect.addClass("dropdown");
+					prioritySelect.setAttribute("aria-label", `${column.label} priority`);
+					for (const option of TASKS_PRIORITY_OPTIONS) {
+						prioritySelect.createEl("option", {
+							value: option.value,
+							text: `${option.label} ${option.emoji}`,
+						});
+					}
+					prioritySelect.value = column.matchPriority ?? "medium";
+					prioritySelect.addEventListener("change", () => {
+						column.matchPriority = prioritySelect.value;
+						column.matchPropertySchema = PropertySchemaOption.TasksPlugin;
+						updateRenameOption();
+						this.touchSettings();
+					});
+				} else {
+					const schemaLabel = getColumnPrioritySchema(column) === PropertySchemaOption.Dataview
+						? "Dataview"
+						: "Tasks Plugin";
+					priorityField.createDiv({
+						cls: "setting-item-description",
+						text: `${schemaLabel}: ${getPriorityColumnLabel(column.matchPriority)}. Switch Property schema to ${schemaLabel} to edit this value.`,
+					});
+				}
 			}
 
 			const renameOption = matchPopover.createDiv({ cls: "column-editor-rename-option" });

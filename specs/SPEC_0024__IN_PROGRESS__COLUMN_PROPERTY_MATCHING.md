@@ -43,6 +43,7 @@ interface ColumnDefinition {
   matchTags: string[];
   matchStatus?: string;
   matchPriority?: string;
+  matchPropertySchema?: "tasks" | "dataview";
 }
 ```
 
@@ -51,7 +52,7 @@ The new fields are only meaningful for their corresponding mode:
 - `name`: existing behavior. The column matches a tag derived from the column label.
 - `tags`: existing behavior. The column matches when all configured tags are present.
 - `status`: the column matches the task's universal `status` property, parsed from the checkbox marker.
-- `priority`: the column matches the canonical `priority` property parsed by the active property schema.
+- `priority`: the column matches the canonical `priority` property parsed by the active property schema. Priority columns also store the property schema they were defined for, so Tasks Plugin priority `high` and Dataview priority `high` remain distinct.
 
 The mode belongs to each column. The board does not choose between status columns, priority columns, or tag columns globally.
 
@@ -146,11 +147,11 @@ Column headers should show a compact subtitle for non-name modes:
 - status mode: `Status: /` or `Status: unchecked`
 - priority mode: `Priority: High`
 
-Placement metadata should not be duplicated on cards when it is the reason the task matched the current column:
+Placement metadata should not be duplicated on cards when it is the reason the task matched the current column, except for parsed task properties that are part of the active property display:
 
 - tags used by a matched tags-mode column remain stripped from card tag display
 - status is already represented by the checkbox, so no additional card footer is needed
-- priority should be omitted from the property footer only when the task is currently placed by a priority-mode column
+- priority remains visible in the parsed property footer according to the existing property display setting, even when it is also the reason the task matched a priority-mode column
 
 If a task contains priority metadata but matches a different column mode, its priority remains visible according to the existing property display settings.
 
@@ -169,7 +170,9 @@ Mode-specific controls:
 - Status marker: marker input or selector. It must support the unchecked space marker with a clear label.
 - Priority: schema-aware priority selector. Tasks Plugin shows fixed priority choices. Dataview allows an explicit text value and may offer discovered existing values as suggestions.
 
-Changing a column's mode or match value changes which tasks belong in that column. The existing "Update existing task tags" behavior should become "Update existing tasks to match new column definition" and apply to name, tags, status, and priority modes.
+Changing a column's mode or match value changes which tasks belong in that column. The existing "Update existing task tags" behavior should become "Update existing tasks" and apply to name, tags, status, and priority modes.
+
+The **Priority** mode option should only be offered for new selections when the active property schema supports priority columns. Existing priority-defined columns for another schema remain visible and retain their stored value, but their value control is read-only until the matching property schema is selected again.
 
 ### Data Compatibility
 
@@ -178,6 +181,7 @@ Existing column definitions remain compatible as follows:
 - string columns remain a supported shorthand for name-defined columns
 - existing name-mode and tags-mode columns keep their behavior
 - missing `matchStatus` and `matchPriority` fields default to `undefined`
+- missing `matchPropertySchema` on priority columns defaults to `tasks` for compatibility with Phase 2 boards
 - unknown future modes should degrade safely to name mode during validation/parsing rather than replacing the full settings object with defaults
 
 No automatic board migration creates status or priority columns. Users opt in by editing individual columns.
@@ -298,13 +302,13 @@ Each phase should produce an end-to-end feature slice that can be tested indepen
 
 **Goal:** Users using the Tasks Plugin schema can define and move tasks through priority-defined columns.
 
-1. [ ] Add `priority` mode and `matchPriority` to the column schema.
-2. [ ] Add canonical Tasks priority values and display labels for column settings and headers.
-3. [ ] Extend property write adapters to upsert and remove Tasks Plugin priority emoji.
-4. [ ] Match priority columns against parsed Tasks Plugin priority values.
-5. [ ] Update drag/drop placement so moving into a priority column writes the target priority and moving out removes/replaces source priority placement.
-6. [ ] Omit priority from the card property footer when it is the active placement reason.
-7. [ ] Tests: priority matching for all five Tasks Plugin values, priority write/replace/remove, mixed-mode resolution, property footer omission, validation.
+1. ✅ Add `priority` mode and `matchPriority` to the column schema.
+2. ✅ Add canonical Tasks priority values and display labels for column settings and headers.
+3. ✅ Extend property write adapters to upsert and remove Tasks Plugin priority emoji.
+4. ✅ Match priority columns against parsed Tasks Plugin priority values.
+5. ✅ Update drag/drop placement so moving into a priority column writes the target priority and moving out removes/replaces source priority placement.
+6. ✅ Keep priority visible in parsed card metadata when it is the active placement reason.
+7. ✅ Tests: priority matching for all five Tasks Plugin values, priority write/replace/remove, mixed-mode resolution, property footer omission, validation.
 
 **Deliverable:** With `propertySchema: tasks`, columns like High, Medium, and Low can be static board columns backed by Tasks Plugin priority metadata.
 
@@ -328,7 +332,7 @@ Each phase should produce an end-to-end feature slice that can be tested indepen
 
 **Goal:** Settings changes, docs, and quality gates reflect the generalized column definition model.
 
-1. [ ] Rename user-facing "Update existing task tags" copy to "Update tasks to match new column definition."
+1. [ ] Rename user-facing "Update existing task tags" copy to "Update existing tasks"
 2. [ ] Generalize changed-column migration so name, tags, status, and priority rule changes can update existing matching tasks.
 3. [ ] Audit archive, duplicate, add-task defaults, bulk move, and move-menu paths for mode-specific placement consistency.
 4. [ ] Update `README.md` and any settings help text for status and priority column modes.

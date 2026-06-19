@@ -43,6 +43,18 @@ export function createStatusModeColumns(
 	}));
 }
 
+export function createPriorityModeColumns(
+	definitions: Array<{ id: string; label: string; matchPriority: string }>,
+): ColumnDefinition[] {
+	return definitions.map(({ id, label, matchPriority }) => ({
+		id: id as ColumnTag,
+		label,
+		matchMode: "priority",
+		matchTags: [],
+		matchPriority,
+	}));
+}
+
 export interface TaskParseOptions {
 	columns?: ColumnDefinition[];
 	placementTags?: ColumnPlacementTagTable;

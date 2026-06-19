@@ -100,9 +100,11 @@ const columnDefinitionSchema = z.object({
 	id: z.string(),
 	label: z.string(),
 	color: z.string().optional(),
-	matchMode: z.enum(["name", "tags", "status"]).default("name"),
+	matchMode: z.enum(["name", "tags", "status", "priority"]).default("name"),
 	matchTags: z.array(z.string()).default([]),
 	matchStatus: z.string().optional(),
+	matchPriority: z.string().optional(),
+	matchPropertySchema: z.enum([PropertySchemaOption.TasksPlugin, PropertySchemaOption.Dataview]).optional(),
 });
 
 const manualOrderEntriesSchema = z.array(z.string());
@@ -298,5 +300,7 @@ function createDefaultColumns(labels: string[]): ColumnDefinition[] {
 		matchMode: "name",
 		matchTags: [],
 		matchStatus: undefined,
+		matchPriority: undefined,
+		matchPropertySchema: undefined,
 	}));
 }

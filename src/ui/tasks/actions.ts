@@ -9,7 +9,7 @@ import {
 import type { Task } from "./task";
 import type { Metadata } from "./tasks";
 import type { ColumnDefinition, ColumnTag, DefaultColumns } from "../columns/columns";
-import { getColumnStatus } from "../columns/definitions";
+import { getColumnPriority, getColumnPrioritySchema, getColumnStatus } from "../columns/definitions";
 import { shouldIncludeFilePath } from "./scope";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
@@ -637,14 +637,21 @@ export function createTaskActions({
 
 		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
 			const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
+			const columnDefinition = getColumnDefinitions().find((definition) => definition.id === column);
 			let taskLine = createTaskLine(
 				content,
 				getPlacementTagsForColumn(column),
 				additionalTags,
-				getColumnStatus(getColumnDefinitions().find((definition) => definition.id === column)) ?? " ",
+				getColumnStatus(columnDefinition) ?? " ",
 			);
 
 			if (adapter) {
+				const priority = getColumnPrioritySchema(columnDefinition) === adapter.schema
+					? getColumnPriority(columnDefinition)
+					: undefined;
+				if (priority) {
+					taskLine = adapter.upsertPriority(taskLine, priority);
+				}
 				for (const key of ["due", "scheduled", "start"] as const) {
 					const date = dateProperties[key];
 					if (date) {

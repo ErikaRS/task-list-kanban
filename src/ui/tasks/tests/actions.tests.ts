@@ -221,6 +221,28 @@ describe("task actions", () => {
 
 			expect(contents()).toBe("# Tasks\n- [/] New task");
 		});
+
+		it("uses the priority value when creating a task in a Tasks priority column", async () => {
+			const highColumn: ColumnDefinition = {
+				id: "high" as ColumnTag,
+				label: "High",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "high",
+			};
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks",
+				PropertySchemaOption.TasksPlugin,
+				new Map(),
+				new Map(),
+				{ path: "tasks.md" },
+				[highColumn],
+			);
+
+			await actions.createTask(fileHandle as never, "New task", "high" as ColumnTag);
+
+			expect(contents()).toBe("# Tasks\n- [ ] New task ⏫");
+		});
 	});
 });
 

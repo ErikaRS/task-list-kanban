@@ -189,6 +189,29 @@ describe("createColumnStores reserved key filtering", () => {
 		expect(get(columnTagTable)[columnId]).toBe("Doing");
 		expect(get(columnPlacementTagTable)[columnId]).toEqual([]);
 		expect(get(columnMatchTagTable)[columnId]).toEqual([]);
-		expect(get(columnSubtitleTable)[columnId]).toBe("/");
+		expect(get(columnSubtitleTable)[columnId]).toEqual({ kind: "status", value: "/", label: "/" });
+	});
+
+	it("stores priority columns without placement tags and with a header priority subtitle", () => {
+		const columnId = "col-priority" as ColumnTag;
+		const settingsStore = createSettingsStore();
+		settingsStore.set({
+			...defaultSettings,
+			columns: [
+				{ id: columnId, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+			],
+		});
+		const { columnTagTable, columnPlacementTagTable, columnMatchTagTable, columnSubtitleTable } =
+			createColumnStores(settingsStore);
+
+		expect(get(columnTagTable)[columnId]).toBe("High");
+		expect(get(columnPlacementTagTable)[columnId]).toEqual([]);
+		expect(get(columnMatchTagTable)[columnId]).toEqual([]);
+		expect(get(columnSubtitleTable)[columnId]).toEqual({
+			kind: "priority",
+			value: "high",
+			label: "High",
+			icon: "⏫",
+		});
 	});
 });
