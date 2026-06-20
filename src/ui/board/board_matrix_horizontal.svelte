@@ -62,11 +62,12 @@
 		}
 		return rows.join(" ");
 	})();
+	let headerHeight = 64;
 </script>
 
-<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows}>
+<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px">
 	{#if showSwimlaneHeaders}
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1"></div>
+		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}></div>
 	{/if}
 
 	<!-- 1. Render Column Headers across the top row -->
@@ -203,7 +204,7 @@
 		left: 0;
 		z-index: 3;
 		display: flex;
-		align-items: center;
+		align-items: start;
 		justify-content: center;
 		min-height: 188px;
 		padding: var(--size-4-3) var(--size-2-2);
@@ -212,6 +213,8 @@
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 
 		.swimlane-label {
+			position: sticky;
+			top: calc(var(--header-height) + var(--size-4-3));
 			color: var(--text-normal);
 			font-size: var(--font-ui-medium);
 			font-weight: var(--font-medium);
