@@ -1,29 +1,29 @@
 # Tasks Folder Coverage
 
-- [ ] In-progress task from the dedicated tasks folder #in-progress
+- [/] In-progress task from the dedicated tasks folder #in-progress
 - [x] Archived sample from the tasks folder #archived
-- [ ] Next week task from the tasks folder #next-week
-- [ ] Soonish task from the tasks folder #soonish
-- [ ] This-week task with a wikilink [[Tasks]] #this-week
-- [ ] Review task with an unrelated footer tag #review #UnrelatedTag
+- [/] Next week task from the tasks folder #next-week
+- [/] Soonish task from the tasks folder #soonish
+- [/] This-week task with a wikilink [[Tasks]] #this-week
+- [/] Review task with an unrelated footer tag #review #UnrelatedTag
 - [x] Archived task that used to be moved by hand #archived
 - [x] Archived task from a tag-mapped flow #archived
-- [ ] Later task with an unrelated footer tag #UnrelatedTag #later
-- [ ] Soonish task with an unrelated footer tag #UnrelatedTag #soonish
+- [/] Later task with an unrelated footer tag #UnrelatedTag #later
+- [/] Soonish task with an unrelated footer tag #UnrelatedTag #soonish
 - [x] Another archived task from the tasks folder #archived
-- [ ] Later task with foo in the content #later
-- [ ] Review backlog task from the tasks folder #review
-- [ ] Long-name column task from the tasks folder #this-is-a-very-very-very-very-long-column-name
-- [ ] Review queue item one #review
-- [ ] Review queue item two #review
+- [/] Later task with foo in the content #later
+- [/] Review backlog task from the tasks folder #review
+- [/] Long-name column task from the tasks folder #this-is-a-very-very-very-very-long-column-name
+- [/] Review queue item one #review
+- [/] Review queue item two #review
 
-- [ ] Adding manually #cat #01-later
-- [ ] Yes another test task #review
+- [ ] Adding manually #cat #later
+- [/] Yes another test task #review
 - [x] Later B
-- [ ] Later B #later
-- [ ] Later B #later #Project-B
-- [ ] Later B 2 #later #Project-B
+- [/] Later B #later
+- [/] Later B #later #Project-B
+- [/] Later B 2 #later #Project-B
 - [ ] This is another task #B #C
-- [ ] Another test task #later
-- [ ] Foo bar #next-week
-- [ ] Adding a new task #cat #01-later
+- [/] Another test task #later
+- [/] Foo bar #next-week
+- [ ] Adding a new task #cat #later

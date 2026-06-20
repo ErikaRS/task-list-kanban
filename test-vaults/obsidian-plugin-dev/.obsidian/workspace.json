@@ -124,7 +124,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "tag:#this-is-a-very-very-very-very-long-column-name",
+                "query": "tag:#later",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -145,7 +145,8 @@
               "title": "Bookmarks"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -253,8 +254,9 @@
   },
   "active": "9bd2d0b152e74484",
   "lastOpenFiles": [
-    "periodic/Kanban-1771182407942.md",
+    "periodic/tasks.md",
     "periodic/Kanban-1761679356942.md",
+    "periodic/Kanban-1771182407942.md",
     "Kanban-1781896482430.md",
     "Kanban-1781896508887.md",
     "Untitled 1.md",
@@ -263,7 +265,6 @@
     "periodic/2025-05-02.md",
     "periodic/2025-05-01.md",
     "tasks/Even more tasks.md",
-    "periodic/tasks.md",
     "periodic/2025-10-21.md",
     "periodic/2025-10-27.md",
     "periodic/subfolder/2025-05-02.md",
