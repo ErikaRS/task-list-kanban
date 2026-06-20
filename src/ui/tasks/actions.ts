@@ -37,7 +37,7 @@ import {
 } from "./source_line_editor";
 
 export type TaskActions = {
-	changeColumn: (id: string, column: ColumnTag) => Promise<void>;
+	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
 	markDone: (id: string) => Promise<void>;
 	toggleDone: (id: string) => Promise<void>;
 	setDateProperty: (
@@ -112,6 +112,7 @@ export function createTaskActions({
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
 	getPropertySchemaOption,
+	getStatusMarkerOrder,
 	getCurrentDate,
 	getManualOrder,
 	setManualOrder,
@@ -129,6 +130,7 @@ export function createTaskActions({
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
 	getPropertySchemaOption: () => PropertySchemaOption;
+	getStatusMarkerOrder: () => string;
 	getCurrentDate?: () => Date;
 	getManualOrder: () => ManualOrderStore;
 	setManualOrder: (next: ManualOrderStore) => void;
@@ -366,12 +368,7 @@ export function createTaskActions({
 			await updateRowWithTask(
 				id,
 				(task) => {
-					if (task.done) {
-						task.undone();
-					} else {
-						shouldAddCompletionDate = true;
-						task.done = true;
-					}
+					shouldAddCompletionDate = task.cycleStatus(getStatusMarkerOrder());
 				},
 				(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
 			);

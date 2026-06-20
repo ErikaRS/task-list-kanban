@@ -327,7 +327,7 @@
 				primaryCheckbox.removeAttribute("aria-hidden");
 				primaryCheckbox.setAttribute(
 					"aria-label",
-					task.done ? "Mark as incomplete" : "Mark as complete"
+					"Advance status"
 				);
 				primaryCheckbox.addEventListener('click', handlePrimaryCheckboxClick);
 			}
@@ -413,7 +413,6 @@
 					role="checkbox"
 					aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
 					aria-checked={isSelected}
-					title={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
 					on:click={onToggleSelection}
 					on:keydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {
@@ -441,9 +440,8 @@
 					class:is-checked={displayStatusIsCustom}
 					data-task={displayStatusIsCustom ? task.displayStatus : undefined}
 					role="checkbox"
-					aria-label={task.done ? "Mark as incomplete" : "Mark as complete"}
+					aria-label="Advance status"
 					aria-checked={task.done}
-					title={task.done ? "Mark as incomplete" : "Mark as complete"}
 					on:click={() => void taskActions.toggleDone(task.id)}
 					on:keydown={(e) => {
 						if (e.key === 'Enter' || e.key === ' ') {

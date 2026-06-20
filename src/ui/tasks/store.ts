@@ -166,6 +166,7 @@ export function createTasksStore(
 			requestSave();
 		},
 		getPropertySchemaOption: () => get(settingsStore).propertySchema ?? PropertySchemaOption.None,
+		getStatusMarkerOrder: () => get(settingsStore).statusMarkerOrder ?? "",
 		getManualOrder: () => get(settingsStore).manualOrder ?? {},
 		setManualOrder: (next) => {
 			// Lightweight settings mutation: unlike the settings modal, this must not

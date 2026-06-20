@@ -100,6 +100,110 @@ describe("task actions", () => {
 
 			expect(contents()).toBe("- [ ] Send invoice [completion:: 2026-06-01]");
 		});
+
+		it("cycles open tasks through the configured status marker order", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice",
+				PropertySchemaOption.None,
+				new NoneSchema(),
+				{ statusMarkerOrder: "/!" },
+			);
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [/] Send invoice");
+		});
+
+		it("cycles to an emoji status marker from the configured status marker order", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [/] Send invoice",
+				PropertySchemaOption.None,
+				new NoneSchema(),
+				{ statusMarkerOrder: "/🟣" },
+			);
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [🟣] Send invoice");
+		});
+
+		it("respects an explicit blank marker position in the status marker order", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [/] Send invoice",
+				PropertySchemaOption.None,
+				new NoneSchema(),
+				{ statusMarkerOrder: "/ !" },
+			);
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [ ] Send invoice");
+		});
+
+		it("marks the last configured status marker done and adds completion metadata", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [!] Send invoice",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+				{ statusMarkerOrder: "/!" },
+			);
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [x] Send invoice ✅ 2026-06-15");
+		});
+
+		it("marks statuses outside the configured marker order done immediately", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [?] Send invoice",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+				{ statusMarkerOrder: "/!" },
+			);
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [x] Send invoice ✅ 2026-06-15");
+		});
+
+		it("marks done when the next configured status marker is a done marker", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [/] Send invoice",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+				{ statusMarkerOrder: "/x" },
+			);
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [x] Send invoice ✅ 2026-06-15");
+		});
+	});
+
+	describe("column changes", () => {
+		it("moves a done task to uncategorised as an open task", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [x] Send invoice",
+				PropertySchemaOption.None,
+				new NoneSchema(),
+			);
+
+			await actions.changeColumn(taskId, "uncategorised");
+
+			expect(contents()).toBe("- [ ] Send invoice");
+		});
+
+		it("moves a done task to a custom column as an open task", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [x] Send invoice",
+				PropertySchemaOption.None,
+				new NoneSchema(),
+			);
+
+			await actions.changeColumn(taskId, "next" as ColumnTag);
+
+			expect(contents()).toBe("- [ ] Send invoice #next");
+		});
 	});
 
 	describe("date property updates", () => {
@@ -296,6 +400,7 @@ function setupActionsForLine(
 	line: string,
 	propertySchemaOption: PropertySchemaOption,
 	propertySchema: NoneSchema | TasksPluginSchema | DataviewSchema,
+	options: { statusMarkerOrder?: string } = {},
 ) {
 	const fileHandle = { path: "tasks.md" };
 	const task = parseTask(line, { propertySchema });
@@ -307,6 +412,8 @@ function setupActionsForLine(
 		tasksByTaskId,
 		metadataByTaskId,
 		fileHandle,
+		[],
+		options,
 	);
 
 	return {
@@ -323,6 +430,7 @@ function setupActions(
 	metadataByTaskId = new Map(),
 	fileHandle = { path: "tasks.md" },
 	columnDefinitions: ColumnDefinition[] = [],
+	options: { statusMarkerOrder?: string } = {},
 ) {
 	let fileContents = initialContents;
 	const placementTags = createColumnData(columnDefinitions).columnPlacementTagTable;
@@ -345,6 +453,7 @@ function setupActions(
 		getLastUsedTaskFile: () => null,
 		setLastUsedTaskFile: () => undefined,
 		getPropertySchemaOption: () => propertySchemaOption,
+		getStatusMarkerOrder: () => options.statusMarkerOrder ?? "",
 		getCurrentDate: () => new Date(2026, 5, 15, 12),
 		getManualOrder: () => ({}),
 		setManualOrder: () => undefined,

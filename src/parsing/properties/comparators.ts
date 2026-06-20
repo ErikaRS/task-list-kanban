@@ -110,11 +110,15 @@ export function compareStatusMarkerValues(
 }
 
 function createStatusMarkerRankMap(statusMarkerOrder: string): Map<string, number> {
+	return createMarkerRankMap(getOrderedStatusMarkers(statusMarkerOrder).join(""));
+}
+
+export function getOrderedStatusMarkers(statusMarkerOrder: string): string[] {
 	const orderedMarkers = Array.from(statusMarkerOrder);
 	if (!orderedMarkers.includes(" ")) {
 		orderedMarkers.unshift(" ");
 	}
-	return createMarkerRankMap(orderedMarkers.join(""));
+	return orderedMarkers;
 }
 
 function createMarkerRankMap(markers: string): Map<string, number> {

@@ -350,8 +350,6 @@
 	async function applyColumnChange(taskIds: string[]) {
 		for (const id of taskIds) {
 			switch (column) {
-				case "uncategorised":
-					break;
 				case "done":
 					await taskActions.markDone(id);
 					break;
@@ -364,6 +362,7 @@
 </script>
 
 <!-- The cell is hidden if the column/row is collapsed (unless vertical flow, though horizontal flow is default) -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="tasks-wrapper"
 	class:vertical-flow={isVerticalFlow}
@@ -374,8 +373,6 @@
 	on:dragover={handleDragOver}
 	on:dragleave={handleDragLeave}
 	on:drop={handleDrop}
-	role="region"
-	aria-label="Tasks for {columnTitle}"
 >
 	{#if isColTag}
 		<div class="add-new-controls">

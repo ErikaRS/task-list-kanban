@@ -22,6 +22,7 @@ import { NoneSchema } from "../../parsing/properties/none_schema";
 import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
 import { getSchemaImpl } from "../../parsing/properties";
+import { getOrderedStatusMarkers } from "../../parsing/properties/comparators";
 
 /**
  * A string containing characters that mark tasks as completed.
@@ -375,6 +376,31 @@ export class Task {
 		this._displayStatus = " ";
 	}
 
+	cycleStatus(statusMarkerOrder: string): boolean {
+		if (this.done) {
+			this.undone();
+			return false;
+		}
+
+		const orderedMarkers = getOrderedStatusMarkers(statusMarkerOrder);
+		const currentIndex = orderedMarkers.indexOf(this._displayStatus);
+		const nextMarker = currentIndex >= 0 ? orderedMarkers[currentIndex + 1] : undefined;
+
+		if (!nextMarker) {
+			this.done = true;
+			return true;
+		}
+
+		if (isStatusMatch(nextMarker, this.doneStatusMarkers)) {
+			this.done = true;
+			return true;
+		}
+
+		this._done = false;
+		this._displayStatus = nextMarker;
+		return false;
+	}
+
 	private _displayStatus: string;
 	get displayStatus(): string {
 		return this._displayStatus;
@@ -396,8 +422,24 @@ export class Task {
 	get column(): ColumnTag | DefaultColumns | "archived" | undefined {
 		return this._column;
 	}
-	set column(column: ColumnTag) {
+	set column(column: ColumnTag | DefaultColumns) {
+		if (column === "done") {
+			this.done = true;
+			return;
+		}
+		const wasDone = this._done;
+		if (column === "uncategorised") {
+			this.moveToUncategorised();
+			if (wasDone) {
+				this._displayStatus = " ";
+			}
+			return;
+		}
+
 		this._done = false;
+		if (wasDone) {
+			this._displayStatus = " ";
+		}
 		this.moveToColumn(column);
 	}
 
