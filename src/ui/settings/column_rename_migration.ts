@@ -1,9 +1,14 @@
 import type { TFile, Vault } from "obsidian";
 import { createColumnData, type ColumnDefinition, type ColumnTag } from "../columns/columns";
-import { columnRuleSignature, resolveMatchedColumnDefinition } from "../columns/definitions";
 import type { SettingValues } from "./settings_store";
 import { getTagsFromContent } from "src/parsing/tags/tags";
 import { shouldIncludeFilePath } from "../tasks/scope";
+import {
+	columnRuleSignature,
+	getColumnPrioritySchema,
+	resolveMatchedColumnDefinition,
+	usesPriorityMatching,
+} from "../columns/definitions";
 import {
 	Task,
 	DEFAULT_CANCELLED_STATUS_MARKERS,
@@ -11,7 +16,9 @@ import {
 	DEFAULT_IGNORED_STATUS_MARKERS,
 	isTrackedTaskString,
 } from "../tasks/task";
-import { NoneSchema } from "../../parsing/properties/none_schema";
+import { getSchemaImpl } from "../../parsing/properties";
+import { PropertySchemaOption, type TaskPropertyMap } from "../../parsing/properties/property_schema";
+import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
 
 export interface ChangedColumnMatchRule {
 	id: string;
@@ -57,7 +64,7 @@ export async function applyChangedColumnTagUpdates({
 
 	const newColumnData = createColumnData(newSettings.columns);
 	const oldSettingsScope = resolveScopeSettings(oldSettings, boardFolderPath);
-	const targetColumnIds = new Set(changedColumns.map(({ id }) => id));
+	const changedColumnsById = new Map(changedColumns.map((column) => [column.id, column]));
 	const files = vault
 		.getMarkdownFiles()
 		.filter((file) =>
@@ -73,7 +80,7 @@ export async function applyChangedColumnTagUpdates({
 		await updateFileForChangedColumns(
 			vault,
 			file,
-			targetColumnIds,
+			changedColumnsById,
 			oldSettings.columns,
 			newSettings.columns,
 			newColumnData.columnPlacementTagTable,
@@ -85,7 +92,7 @@ export async function applyChangedColumnTagUpdates({
 async function updateFileForChangedColumns(
 	vault: Vault,
 	file: TFile,
-	targetColumnIds: Set<string>,
+	changedColumnsById: Map<string, ChangedColumnMatchRule>,
 	oldColumnDefinitions: ColumnDefinition[],
 	newColumnDefinitions: ColumnDefinition[],
 	newPlacementTagTable: ReturnType<typeof createColumnData>["columnPlacementTagTable"],
@@ -93,6 +100,8 @@ async function updateFileForChangedColumns(
 ) {
 	const contents = await vault.read(file);
 	const rows = contents.split("\n");
+	const oldPropertySchemaOption = settings.propertySchema ?? PropertySchemaOption.None;
+	const oldPropertySchema = getSchemaImpl(oldPropertySchemaOption);
 	let changed = false;
 
 	for (let i = 0; i < rows.length; i += 1) {
@@ -102,10 +111,21 @@ async function updateFileForChangedColumns(
 		}
 
 		const status = row.match(/^\s*[-*+]\s\[([^\[\]]*)\]\s/)?.[1] || " ";
+		const oldProperties = oldPropertySchema.parseProperties(row);
 		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, {
 			tags: getTagsFromContent(row),
 			status,
+			priority: getPriorityMatchValue(oldPropertySchemaOption, oldProperties),
+			prioritySchema: getPriorityColumnContextSchema(oldPropertySchemaOption),
+			priorities: getPriorityMatchValues(row),
 		});
+		const targetColumnId = matchedColumn?.id;
+		const changedColumn = targetColumnId ? changedColumnsById.get(targetColumnId) : undefined;
+
+		if (!targetColumnId || targetColumnId === "archived" || !changedColumn) {
+			continue;
+		}
+
 		const task = new Task(
 			row,
 			file,
@@ -118,14 +138,9 @@ async function updateFileForChangedColumns(
 				doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 				cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 				ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
-				propertySchema: new NoneSchema(),
+				propertySchema: getSchemaImpl(getMigrationSchema(changedColumn, oldPropertySchemaOption)),
 			}
 		);
-		const targetColumnId = task.column ?? matchedColumn?.id;
-
-		if (!targetColumnId || targetColumnId === "archived" || !targetColumnIds.has(targetColumnId)) {
-			continue;
-		}
 
 		if (!task.done) {
 			task.column = targetColumnId as ColumnTag;
@@ -140,6 +155,54 @@ async function updateFileForChangedColumns(
 	if (changed) {
 		await vault.modify(file, rows.join("\n"));
 	}
+}
+
+function getMigrationSchema(
+	changedColumn: ChangedColumnMatchRule,
+	fallbackSchema: PropertySchemaOption,
+): PropertySchemaOption {
+	if (usesPriorityMatching(changedColumn.newColumn)) {
+		return getColumnPrioritySchema(changedColumn.newColumn) ?? fallbackSchema;
+	}
+	if (usesPriorityMatching(changedColumn.oldColumn)) {
+		return getColumnPrioritySchema(changedColumn.oldColumn) ?? fallbackSchema;
+	}
+	return fallbackSchema;
+}
+
+function getPriorityColumnContextSchema(
+	propertySchemaOption: PropertySchemaOption,
+): PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview | undefined {
+	return propertySchemaOption === PropertySchemaOption.TasksPlugin || propertySchemaOption === PropertySchemaOption.Dataview
+		? propertySchemaOption
+		: undefined;
+}
+
+function getPriorityMatchValue(
+	propertySchemaOption: PropertySchemaOption,
+	properties: TaskPropertyMap,
+): string | undefined {
+	const priority = properties.get("priority");
+	if (propertySchemaOption === PropertySchemaOption.TasksPlugin && typeof priority?.value === "number") {
+		return getTasksPriorityValueFromWeight(priority.value);
+	}
+	if (propertySchemaOption === PropertySchemaOption.Dataview && typeof priority?.value === "string") {
+		return priority.value.trim();
+	}
+	return undefined;
+}
+
+function getPriorityMatchValues(rawLine: string): Partial<Record<PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview, string | undefined>> {
+	return {
+		[PropertySchemaOption.TasksPlugin]: getPriorityMatchValue(
+			PropertySchemaOption.TasksPlugin,
+			getSchemaImpl(PropertySchemaOption.TasksPlugin).parseProperties(rawLine),
+		),
+		[PropertySchemaOption.Dataview]: getPriorityMatchValue(
+			PropertySchemaOption.Dataview,
+			getSchemaImpl(PropertySchemaOption.Dataview).parseProperties(rawLine),
+		),
+	};
 }
 
 function resolveScopeSettings(

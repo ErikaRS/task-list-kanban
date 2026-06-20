@@ -152,7 +152,7 @@ describe("Task", () => {
 			expect(task.content).toBe("Draft #project");
 		});
 
-		it("prefers a multi-tag column over a status column", () => {
+		it("uses column order when a task matches both multi-tag and status columns", () => {
 			const columns = [
 				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
 				...createTagModeColumns([
@@ -161,8 +161,8 @@ describe("Task", () => {
 			];
 			const task = parseTaskWithColumns("- [/] Draft #project/alpha #this-week #note", columns);
 
-			expect(task.column).toBe("active-work");
-			expect(task.content).toBe("Draft #note");
+			expect(task.column).toBe("doing");
+			expect(task.content).toBe("Draft #project/alpha #this-week #note");
 		});
 
 		it("writes the destination marker when moving into a status column", () => {
@@ -314,7 +314,7 @@ describe("Task", () => {
 			expect(task.content).toBe("Draft ⏫ #project");
 		});
 
-		it("prefers a multi-tag column over a priority column", () => {
+		it("uses column order when a task matches both multi-tag and priority columns", () => {
 			const columns = [
 				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
 				...createTagModeColumns([
@@ -325,8 +325,22 @@ describe("Task", () => {
 				propertySchema: new TasksPluginSchema(),
 			});
 
-			expect(task.column).toBe("active-work");
-			expect(task.content).toBe("Draft ⏫ #note");
+			expect(task.column).toBe("high");
+			expect(task.content).toBe("Draft ⏫ #project/alpha #this-week #note");
+		});
+
+		it("matches a Tasks priority column while Dataview properties are active", () => {
+			const columns = [
+				...createPriorityModeColumns([{ id: "highest", label: "Highest", matchPriority: "highest" }]),
+				...createNameModeColumns(["Later"]),
+				...createTagModeColumns([{ id: "later-cat", label: "Later Cat", matchTags: ["later", "cat"] }]),
+			];
+			const task = parseTaskWithColumns("- [ ] Draft 🔺 #later #cat", columns, {
+				propertySchema: new DataviewSchema(),
+			});
+
+			expect(task.column).toBe("highest");
+			expect(task.content).toBe("Draft 🔺 #later #cat");
 		});
 
 		it("keeps priority available as parsed metadata when priority placed the task", () => {

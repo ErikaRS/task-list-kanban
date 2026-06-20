@@ -3,6 +3,7 @@ import { applyChangedColumnTagUpdates, getChangedColumnMatchRules } from "../col
 import type { ColumnTag } from "../../columns/columns";
 import { defaultSettings, ScopeOption, type SettingValues } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
+import { PropertySchemaOption } from "../../../parsing/properties";
 
 describe("getChangedColumnMatchRules", () => {
 	it("detects renamed name-mode columns by stable id", () => {
@@ -226,6 +227,140 @@ describe("applyChangedColumnTagUpdates", () => {
 		});
 
 		expect(contents).toBe("- [ ] Task A #project #doing");
+	});
+
+	it("updates matching tasks when a status marker rule changes", async () => {
+		const oldColumns = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		]);
+		const newColumns = oldColumns.map((column) => ({
+			...column,
+			matchStatus: "!",
+		}));
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [/] Task A #project";
+
+		const vault = {
+			getMarkdownFiles: () => [file],
+			read: async () => contents,
+			modify: async (_file: unknown, nextContents: string) => {
+				contents = nextContents;
+			},
+		} as const;
+
+		await applyChangedColumnTagUpdates({
+			vault: vault as never,
+			oldSettings: { ...defaultSettings, columns: oldColumns },
+			newSettings: { ...defaultSettings, columns: newColumns },
+			boardFolderPath: "projects",
+			updateChoices: { [newColumns[0]!.id]: true },
+		});
+
+		expect(contents).toBe("- [!] Task A #project");
+	});
+
+	it("updates matching tasks when a Tasks priority rule changes", async () => {
+		const oldColumns = migrateColumnDefinitions([
+			{ id: "priority" as ColumnTag, label: "Priority", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+		const newColumns = oldColumns.map((column) => ({
+			...column,
+			matchPriority: "low",
+		}));
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [ ] Task A ⏫ #project";
+
+		const vault = {
+			getMarkdownFiles: () => [file],
+			read: async () => contents,
+			modify: async (_file: unknown, nextContents: string) => {
+				contents = nextContents;
+			},
+		} as const;
+
+		await applyChangedColumnTagUpdates({
+			vault: vault as never,
+			oldSettings: { ...defaultSettings, propertySchema: PropertySchemaOption.TasksPlugin, columns: oldColumns },
+			newSettings: { ...defaultSettings, propertySchema: PropertySchemaOption.TasksPlugin, columns: newColumns },
+			boardFolderPath: "projects",
+			updateChoices: { [newColumns[0]!.id]: true },
+		});
+
+		expect(contents).toBe("- [ ] Task A #project 🔽");
+	});
+
+	it("updates matching tasks when a Dataview priority rule changes", async () => {
+		const oldColumns = migrateColumnDefinitions([
+			{
+				id: "priority" as ColumnTag,
+				label: "Priority",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "High",
+				matchPropertySchema: PropertySchemaOption.Dataview,
+			},
+		]);
+		const newColumns = oldColumns.map((column) => ({
+			...column,
+			matchPriority: "low",
+		}));
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [ ] Task A [priority:: HIGH] #project";
+
+		const vault = {
+			getMarkdownFiles: () => [file],
+			read: async () => contents,
+			modify: async (_file: unknown, nextContents: string) => {
+				contents = nextContents;
+			},
+		} as const;
+
+		await applyChangedColumnTagUpdates({
+			vault: vault as never,
+			oldSettings: { ...defaultSettings, propertySchema: PropertySchemaOption.Dataview, columns: oldColumns },
+			newSettings: { ...defaultSettings, propertySchema: PropertySchemaOption.Dataview, columns: newColumns },
+			boardFolderPath: "projects",
+			updateChoices: { [newColumns[0]!.id]: true },
+		});
+
+		expect(contents).toBe("- [ ] Task A #project [priority:: low]");
+	});
+
+	it("updates a Tasks priority column while Dataview properties are active", async () => {
+		const oldColumns = migrateColumnDefinitions([
+			{
+				id: "priority" as ColumnTag,
+				label: "Priority",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "highest",
+				matchPropertySchema: PropertySchemaOption.TasksPlugin,
+			},
+		]);
+		const newColumns = oldColumns.map((column) => ({
+			...column,
+			matchPriority: "high",
+		}));
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [ ] Task A 🔺 #later";
+
+		const vault = {
+			getMarkdownFiles: () => [file],
+			read: async () => contents,
+			modify: async (_file: unknown, nextContents: string) => {
+				contents = nextContents;
+			},
+		} as const;
+
+		await applyChangedColumnTagUpdates({
+			vault: vault as never,
+			oldSettings: { ...defaultSettings, propertySchema: PropertySchemaOption.Dataview, columns: oldColumns },
+			newSettings: { ...defaultSettings, propertySchema: PropertySchemaOption.Dataview, columns: newColumns },
+			boardFolderPath: "projects",
+			updateChoices: { [newColumns[0]!.id]: true },
+		});
+
+		expect(contents).toBe("- [ ] Task A #later ⏫");
 	});
 
 	it("retags completed tasks when a column rule changes", async () => {

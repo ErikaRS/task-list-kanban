@@ -337,6 +337,51 @@ describe("resolveMatchedColumnDefinition", () => {
 		expect(matched?.id).toBe("bc");
 	});
 
+	it("uses column order instead of tag specificity when tag and status columns both match", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+			{ id: "ab" as ColumnTag, label: "A B", matchMode: "tags", matchTags: ["a", "b"] },
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, { tags: new Set(["a", "b"]), status: "/" });
+
+		expect(matched?.id).toBe("doing");
+	});
+
+	it("uses column order instead of tag specificity when tag and priority columns both match", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+			{ id: "ab" as ColumnTag, label: "A B", matchMode: "tags", matchTags: ["a", "b"] },
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, {
+			tags: new Set(["a", "b"]),
+			priority: "high",
+			prioritySchema: PropertySchemaOption.TasksPlugin,
+		});
+
+		expect(matched?.id).toBe("high");
+	});
+
+	it("matches priority columns against their configured schema", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "highest" as ColumnTag, label: "Highest", matchMode: "priority", matchTags: [], matchPriority: "highest" },
+			{ id: "later" as ColumnTag, label: "Later", matchMode: "name", matchTags: [] },
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, {
+			tags: new Set(["later"]),
+			priority: undefined,
+			prioritySchema: PropertySchemaOption.Dataview,
+			priorities: {
+				[PropertySchemaOption.TasksPlugin]: "highest",
+				[PropertySchemaOption.Dataview]: undefined,
+			},
+		});
+
+		expect(matched?.id).toBe("highest");
+	});
+
 	it("matches status columns from the status context", () => {
 		const columns = migrateColumnDefinitions([
 			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },

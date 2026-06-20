@@ -638,6 +638,7 @@ export function createTaskActions({
 		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
 			const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
 			const columnDefinition = getColumnDefinitions().find((definition) => definition.id === column);
+			const priorityAdapter = getPropertyWriteAdapter(getColumnPrioritySchema(columnDefinition) ?? getPropertySchemaOption());
 			let taskLine = createTaskLine(
 				content,
 				getPlacementTagsForColumn(column),
@@ -645,13 +646,12 @@ export function createTaskActions({
 				getColumnStatus(columnDefinition) ?? " ",
 			);
 
+			const priority = getColumnPriority(columnDefinition);
+			if (priority && priorityAdapter) {
+				taskLine = priorityAdapter.upsertPriority(taskLine, priority);
+			}
+
 			if (adapter) {
-				const priority = getColumnPrioritySchema(columnDefinition) === adapter.schema
-					? getColumnPriority(columnDefinition)
-					: undefined;
-				if (priority) {
-					taskLine = adapter.upsertPriority(taskLine, priority);
-				}
 				for (const key of ["due", "scheduled", "start"] as const) {
 					const date = dateProperties[key];
 					if (date) {

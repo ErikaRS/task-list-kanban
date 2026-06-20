@@ -116,6 +116,7 @@ export interface ColumnMatchContext {
 	status?: string;
 	priority?: string;
 	prioritySchema?: PriorityColumnSchema;
+	priorities?: Partial<Record<PriorityColumnSchema, string | undefined>>;
 }
 
 function normalizeColumnMatchContext(context: Set<string> | ColumnMatchContext): ColumnMatchContext {
@@ -156,7 +157,7 @@ export function normalizePriorityMatchValue(
 }
 
 export function matchesColumnDefinition(column: ColumnDefinition, context: Set<string> | ColumnMatchContext): boolean {
-	const { tags: taskTags, status, priority, prioritySchema } = normalizeColumnMatchContext(context);
+	const { tags: taskTags, status, priority, prioritySchema, priorities } = normalizeColumnMatchContext(context);
 
 	if (usesStatusMatching(column)) {
 		return !!column.matchStatus && status === column.matchStatus;
@@ -164,9 +165,14 @@ export function matchesColumnDefinition(column: ColumnDefinition, context: Set<s
 
 	if (usesPriorityMatching(column)) {
 		const columnPrioritySchema = getColumnPrioritySchema(column);
+		const priorityForSchema = columnPrioritySchema ? priorities?.[columnPrioritySchema] : undefined;
 		return !!column.matchPriority
-			&& normalizePriorityMatchValue(priority, prioritySchema) === normalizePriorityMatchValue(column.matchPriority, columnPrioritySchema)
-			&& prioritySchema === columnPrioritySchema;
+			&& (
+				priorityForSchema !== undefined
+					? normalizePriorityMatchValue(priorityForSchema, columnPrioritySchema) === normalizePriorityMatchValue(column.matchPriority, columnPrioritySchema)
+					: normalizePriorityMatchValue(priority, prioritySchema) === normalizePriorityMatchValue(column.matchPriority, columnPrioritySchema)
+						&& prioritySchema === columnPrioritySchema
+			);
 	}
 
 	if (usesTagMatching(column)) {
@@ -188,6 +194,10 @@ export function getColumnMatchSpecificity(column: ColumnDefinition): number {
 	return usesTagMatching(column) ? getColumnWriteTags(column).length : 1;
 }
 
+function usesTagBasedPlacement(column: ColumnDefinition): boolean {
+	return !usesStatusMatching(column) && !usesPriorityMatching(column);
+}
+
 export function resolveMatchedColumnDefinition(
 	columns: ColumnDefinition[],
 	context: Set<string> | ColumnMatchContext,
@@ -201,7 +211,13 @@ export function resolveMatchedColumnDefinition(
 		}
 
 		const specificity = getColumnMatchSpecificity(column);
-		if (!matchedColumn || specificity > matchedSpecificity) {
+		if (!matchedColumn) {
+			matchedColumn = column;
+			matchedSpecificity = specificity;
+			continue;
+		}
+
+		if (usesTagBasedPlacement(matchedColumn) && usesTagBasedPlacement(column) && specificity > matchedSpecificity) {
 			matchedColumn = column;
 			matchedSpecificity = specificity;
 		}

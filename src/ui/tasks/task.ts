@@ -12,6 +12,7 @@ import {
 	getColumnPrioritySchema,
 	getColumnStatus,
 	isPlacementTag,
+	type PriorityColumnSchema,
 	resolveMatchedColumnDefinition,
 	usesPriorityMatching,
 	usesStatusMatching,
@@ -20,6 +21,7 @@ import { PropertySchemaOption, type PropertySchema, type TaskPropertyMap } from 
 import { NoneSchema } from "../../parsing/properties/none_schema";
 import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
+import { getSchemaImpl } from "../../parsing/properties";
 
 /**
  * A string containing characters that mark tasks as completed.
@@ -278,6 +280,7 @@ export class Task {
 		this._indentation = indentation || "";
 		this.properties = context.propertySchema.parseProperties(rawContent);
 		this.propertySchemaOption = context.propertySchema.id;
+		const priorityMatches = getTaskPriorityMatchValues(rawContent);
 		const matchedColumn = resolveMatchedColumnDefinition(context.columnDefinitions, {
 			tags,
 			status: this._displayStatus,
@@ -287,6 +290,7 @@ export class Task {
 				: this.propertySchemaOption === PropertySchemaOption.Dataview
 				? PropertySchemaOption.Dataview
 				: undefined,
+			priorities: priorityMatches,
 		});
 
 		for (const tag of tags) {
@@ -435,18 +439,17 @@ export class Task {
 		if (sourceColumn && usesStatusMatching(sourceColumn)) {
 			this._displayStatus = " ";
 		}
-		if (sourceColumn && usesPriorityMatching(sourceColumn) && getColumnPrioritySchema(sourceColumn) === this.propertySchemaOption) {
-			this.removePriorityPlacement();
+		const sourcePrioritySchema = getColumnPrioritySchema(sourceColumn);
+		if (sourceColumn && sourcePrioritySchema) {
+			this.removePriorityPlacement(sourcePrioritySchema);
 		}
 		const destinationStatus = destinationColumn ? getColumnStatus(destinationColumn) : undefined;
 		if (destinationStatus) {
 			this._displayStatus = destinationStatus;
 		}
-		const destinationPriority = destinationColumn && getColumnPrioritySchema(destinationColumn) === this.propertySchemaOption
-			? getColumnPriority(destinationColumn)
-			: undefined;
-		if (destinationPriority) {
-			this.writePriorityPlacement(destinationPriority);
+		const destinationPriority = getColumnPriority(destinationColumn);
+		if (destinationPriority && destinationColumn) {
+			this.writePriorityPlacement(destinationPriority, getColumnPrioritySchema(destinationColumn));
 		}
 
 		this._column = column;
@@ -462,8 +465,9 @@ export class Task {
 		if (sourceColumn && usesStatusMatching(sourceColumn)) {
 			this._displayStatus = " ";
 		}
-		if (sourceColumn && usesPriorityMatching(sourceColumn) && getColumnPrioritySchema(sourceColumn) === this.propertySchemaOption) {
-			this.removePriorityPlacement();
+		const sourcePrioritySchema = getColumnPrioritySchema(sourceColumn);
+		if (sourceColumn && sourcePrioritySchema) {
+			this.removePriorityPlacement(sourcePrioritySchema);
 		}
 		this._column = undefined;
 		this._done = false;
@@ -504,14 +508,16 @@ export class Task {
 		}
 	}
 
-	private removePriorityPlacement() {
-		const adapter = getPropertyWriteAdapter(this.propertySchemaOption);
+	private removePriorityPlacement(schema: PriorityColumnSchema | undefined = getPriorityColumnContextSchema(this.propertySchemaOption)) {
+		if (!schema) return;
+		const adapter = getPropertyWriteAdapter(schema);
 		if (!adapter) return;
 		this.transformContentWithPropertyWriter((rawLine) => adapter.removePriority(rawLine));
 	}
 
-	private writePriorityPlacement(priority: string) {
-		const adapter = getPropertyWriteAdapter(this.propertySchemaOption);
+	private writePriorityPlacement(priority: string, schema: PriorityColumnSchema | undefined = getPriorityColumnContextSchema(this.propertySchemaOption)) {
+		if (!schema) return;
+		const adapter = getPropertyWriteAdapter(schema);
 		if (!adapter) return;
 		this.transformContentWithPropertyWriter((rawLine) => adapter.upsertPriority(rawLine, priority));
 	}
@@ -591,8 +597,9 @@ export class Task {
 				: undefined,
 			this.sourceColumnDefinitions,
 		);
-		if (sourceColumn && usesPriorityMatching(sourceColumn) && getColumnPrioritySchema(sourceColumn) === this.propertySchemaOption) {
-			this.removePriorityPlacement();
+		const sourcePrioritySchema = getColumnPrioritySchema(sourceColumn);
+		if (sourceColumn && sourcePrioritySchema) {
+			this.removePriorityPlacement(sourcePrioritySchema);
 		}
 		if (!this._done) {
 			this._displayStatus = "x";
@@ -660,4 +667,25 @@ function getTaskPriorityMatchValue(
 		return priority.value.trim();
 	}
 	return undefined;
+}
+
+function getPriorityColumnContextSchema(
+	propertySchemaOption: PropertySchemaOption,
+): PriorityColumnSchema | undefined {
+	return propertySchemaOption === PropertySchemaOption.TasksPlugin || propertySchemaOption === PropertySchemaOption.Dataview
+		? propertySchemaOption
+		: undefined;
+}
+
+function getTaskPriorityMatchValues(rawLine: string): Partial<Record<PriorityColumnSchema, string | undefined>> {
+	return {
+		[PropertySchemaOption.TasksPlugin]: getTaskPriorityMatchValue(
+			PropertySchemaOption.TasksPlugin,
+			getSchemaImpl(PropertySchemaOption.TasksPlugin).parseProperties(rawLine),
+		),
+		[PropertySchemaOption.Dataview]: getTaskPriorityMatchValue(
+			PropertySchemaOption.Dataview,
+			getSchemaImpl(PropertySchemaOption.Dataview).parseProperties(rawLine),
+		),
+	};
 }

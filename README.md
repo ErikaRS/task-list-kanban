@@ -58,7 +58,8 @@ Column matching options:
 - **Name matching**: a column named `In Progress` matches tags such as `#InProgress`, `#in-progress`, and `#In-Progress`.
 - **Explicit tag matching**: configure one or more required tags for a column. A column with `status/active` and `project/alpha` matches only tasks with both tags.
 - **Status marker matching**: configure a column to match an active checkbox marker such as unchecked `[ ]`, in-progress `[/]`, or blocked `[!]`. Moving a task into that column updates the checkbox marker.
-- **Updating changed match rules**: settings can optionally update existing tasks when a name-matched column is renamed, an explicit tag mapping changes, or a status marker mapping changes.
+- **Priority matching**: configure a column to match Tasks Plugin or Dataview priority metadata when a property schema is enabled. Moving a task into that column writes the matching priority value.
+- **Updating changed match rules**: settings can optionally update existing tasks when a name-matched column is renamed, an explicit tag mapping changes, a status marker mapping changes, or a priority mapping changes.
 
 Column display options:
 - **Colors**: add a hex color like `#FF5733` to show a color bar on the column and its cards.

@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-06
 
 # SPEC 0024 - Column Property Matching
 
@@ -11,7 +12,7 @@ Issue #142 has no body text, but the desired direction is that columns should be
 
 Columns are static and pre-specified. Grouping is dynamic. This means columns by tag, status, or priority make sense; columns by due date do not, because date buckets change continuously and are better handled by sorting, filtering, or future dynamic grouping behavior.
 
-This spec extends the existing column model from [SPEC 0018](complete/SPEC_0018__COMPLETE__COLUMN_TAG_MAPPING.md). It does not replace string/name columns or tags-mode columns, and it does not introduce a board-wide "column type." Each custom column chooses its own definition mode.
+This spec extends the existing column model from [SPEC 0018](SPEC_0018__COMPLETE__COLUMN_TAG_MAPPING.md). It does not replace string/name columns or tags-mode columns, and it does not introduce a board-wide "column type." Each custom column chooses its own definition mode.
 
 ## User Requirements
 
@@ -52,7 +53,7 @@ The new fields are only meaningful for their corresponding mode:
 - `name`: existing behavior. The column matches a tag derived from the column label.
 - `tags`: existing behavior. The column matches when all configured tags are present.
 - `status`: the column matches the task's universal `status` property, parsed from the checkbox marker.
-- `priority`: the column matches the canonical `priority` property parsed by the active property schema. Priority columns also store the property schema they were defined for, so Tasks Plugin priority `high` and Dataview priority `high` remain distinct.
+- `priority`: the column matches the canonical `priority` property parsed by the column's stored property schema. Priority columns store the property schema they were defined for, so Tasks Plugin priority `high` and Dataview priority `high` remain distinct and can be matched independently.
 
 The mode belongs to each column. The board does not choose between status columns, priority columns, or tag columns globally.
 
@@ -72,15 +73,17 @@ Group-by remains the tool for dynamic buckets generated from the current task se
 
 ### Matching and Conflict Resolution
 
-A task may satisfy more than one custom column. For example, it may have `#this-week`, status `/`, and high priority. Matching therefore uses the existing specificity model from tags-mode columns and extends it to property modes:
+A task may satisfy more than one custom column. For example, it may have `#this-week`, status `/`, and high priority.
+
+Column order is the default conflict resolver. If a task matches a status column, a priority column, and a tag-based column, whichever matching column appears first in settings wins.
+
+The existing tag specificity model still applies between tag-based columns only:
 
 - name mode specificity: `1`
 - single-tag tags mode specificity: `1`
 - multi-tag tags mode specificity: number of required tags
-- status mode specificity: `1`
-- priority mode specificity: `1`
 
-The matching column is the highest-specificity match. Equal-specificity ties use column definition order. This preserves current multi-tag behavior and gives users an understandable way to prioritize mixed-mode columns.
+This preserves the useful SPEC 0018 behavior where a multi-tag column such as `#project/alpha` + `#this-week` beats a broader tag/name column, without making tag columns implicitly outrank status or priority columns.
 
 Special task visibility rules still take precedence:
 
@@ -116,7 +119,7 @@ Moving a task into a status-mode column rewrites the checkbox marker to the targ
 
 ### Priority Columns
 
-Priority-mode columns match the parsed `priority` property from the active property schema.
+Priority-mode columns match the parsed `priority` property from the column's stored property schema. The active board property schema still controls property display and date controls, but matching a Tasks Plugin priority column reads Tasks Plugin priority syntax even when Dataview display is active, and matching a Dataview priority column reads Dataview priority fields even when Tasks Plugin display is active.
 
 For the Tasks Plugin schema, priority columns use the canonical five priority levels:
 
@@ -203,8 +206,8 @@ Task placement:
 
 - `- [/] Draft API plan` matches Doing.
 - `- [ ] Draft API plan #this-week` matches This Week.
-- `- [/] Draft API plan #this-week` matches whichever of This Week and Doing appears first, because both have specificity `1`.
-- `- [/] Draft API plan #project/alpha #this-week` matches a multi-tag column requiring both tags if one exists, because specificity `2` beats the status match.
+- `- [/] Draft API plan #this-week` matches whichever of This Week and Doing appears first.
+- `- [/] Draft API plan #project/alpha #this-week` matches whichever of the multi-tag column and Doing appears first, because tag specificity only breaks ties among tag-based columns.
 - `- [ ] Fix release blocker ⏫` matches High Priority when Tasks Plugin schema is active and the column targets High.
 
 ### Moving Between Mixed Column Modes
@@ -328,47 +331,47 @@ Each phase should produce an end-to-end feature slice that can be tested indepen
 
 **Implemented by:** Pending
 
-### Phase 4: Definition Change Migration, Documentation, and Final Audit
+### Phase 4: Definition Change Migration, Documentation, and Final Audit ✅ COMPLETE
 
 **Goal:** Settings changes, docs, and quality gates reflect the generalized column definition model.
 
-1. [ ] Rename user-facing "Update existing task tags" copy to "Update existing tasks"
-2. [ ] Generalize changed-column migration so name, tags, status, and priority rule changes can update existing matching tasks.
-3. [ ] Audit archive, duplicate, add-task defaults, bulk move, and move-menu paths for mode-specific placement consistency.
-4. [ ] Update `README.md` and any settings help text for status and priority column modes.
-5. [ ] Run `npm run build`.
-6. [ ] Run `npm test`.
+1. ✅ Rename user-facing "Update existing task tags" copy to "Update existing tasks"
+2. ✅ Generalize changed-column migration so name, tags, status, and priority rule changes can update existing matching tasks.
+3. ✅ Audit archive, duplicate, add-task defaults, bulk move, and move-menu paths for mode-specific placement consistency.
+4. ✅ Update `README.md` and any settings help text for status and priority column modes.
+5. ✅ Run `npm run build`.
+6. ✅ Run `npm test`.
 
 **Deliverable:** The feature is documented, all placement entry points are consistent, and quality gates pass.
 
-**Implemented by:** Pending
+**Implemented by:** Pending commit
 
 ## Manual Test Cases
 
 ### Status Columns
 
-- [ ] **S1.** Configure a column for unchecked status. Unchecked active tasks appear there.
-- [ ] **S2.** Configure a column for `/`. Tasks with `[/]` appear there.
-- [ ] **S3.** Drag an unchecked task into the `/` column. The source line changes from `[ ]` to `[/]`.
-- [ ] **S4.** Drag a task from a `/` status-defined column into a tag-defined column. The checkbox returns to `[ ]` and the destination tag is written.
-- [ ] **S5.** A status-mode column cannot target a done marker configured in Done markers.
-- [ ] **S6.** A status-mode column cannot target an ignored marker configured in Ignored markers.
+- [x] **S1.** Configure a column for unchecked status. Unchecked active tasks appear there.
+- [x] **S2.** Configure a column for `/`. Tasks with `[/]` appear there.
+- [x] **S3.** Drag an unchecked task into the `/` column. The source line changes from `[ ]` to `[/]`.
+- [x] **S4.** Drag a task from a `/` status-defined column into a tag-defined column. The checkbox returns to `[ ]` and the destination tag is written.
+- [x] **S5.** A status-mode column cannot target a done marker configured in Done markers.
+- [x] **S6.** A status-mode column cannot target an ignored marker configured in Ignored markers.
 
 ### Priority Columns
 
-- [ ] **P1.** With Tasks Plugin schema active, a task containing `⏫` appears in a High priority column.
-- [ ] **P2.** Drag a task into a High priority column. The source line gains `⏫`.
-- [ ] **P3.** Drag a High priority task into a Low priority column. `⏫` is replaced with `🔽`.
-- [ ] **P4.** Drag a priority-matched task into a status or tag column. The source priority property is removed.
-- [ ] **P5.** With Dataview schema active, `[priority:: high]` matches a Dataview priority column for `high`.
-- [ ] **P6.** Dataview priority matching is case-insensitive.
-- [ ] **P7.** Drag a task from a tag-defined column into a priority-defined column. Priority metadata is written and the checkbox marker is unchanged.
+- [x] **P1.** With Tasks Plugin schema active, a task containing `⏫` appears in a High priority column.
+- [x] **P2.** Drag a task into a High priority column. The source line gains `⏫`.
+- [X] **P3.** Drag a High priority task into a Low priority column. `⏫` is replaced with `🔽`.
+- [X] **P4.** Drag a priority-matched task into a status or tag column. The source priority property is removed.
+- [X] **P5.** With Dataview schema active, `[priority:: high]` matches a Dataview priority column for `high`.
+- [X] **P6.** Dataview priority matching is case-insensitive.
+- [X] **P7.** Drag a task from a tag-defined column into a priority-defined column. Priority metadata is written and the checkbox marker is unchanged.
 
 ### Mixed Mode Boards
 
-- [ ] **M1.** A board can contain name, tags, status, and priority columns at the same time.
-- [ ] **M2.** A task matching two equal-specificity columns appears in the one that comes first in settings order.
-- [ ] **M3.** A task matching a multi-tag column and a status column appears in the multi-tag column.
+- [X] **M1.** A board can contain name, tags, status, and priority columns at the same time.
+- [X] **M2.** A task matching two equal-specificity columns appears in the one that comes first in settings order.
+- [x] **M3.** A task matching a multi-tag column and a status column appears in whichever matching column comes first.
 - [ ] **M4.** Reordering columns changes equal-specificity tie resolution but does not rewrite tasks by itself.
 
 ### Settings and Compatibility
