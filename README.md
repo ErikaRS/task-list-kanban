@@ -121,6 +121,7 @@ Status marker settings control how checkbox characters behave:
 - **Done markers**: characters treated as complete. Default: `xX`.
 - **Ignored markers**: characters hidden from the board entirely. Default: empty.
 - **Cancelled markers**: characters used by cancel/restore. Default: `-`.
+- **Status cycle sequence**: characters used to advance the task status when clicking the checkbox on the board.
 
 Examples:
 - `xX` recognizes `[x]` and `[X]` as done.
@@ -139,7 +140,7 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 
 - **Edit**: click task text, edit inline, then click away or press Enter.
 - **Move**: drag a task to another column, or choose a column from the task menu.
-- **Complete**: click the task checkbox to mark a task done and move it to **Done**.
+- **Complete / Cycle Status**: click the task checkbox to mark a task done and move it to **Done**. If a status cycle sequence is configured, clicking the checkbox will instead advance the task status through the specified sequence.
 - **Cancel or restore**: use the task menu to switch between cancelled and active.
 - **Archive**: archive tasks from the task menu or bulk menu. This marks open tasks done and adds the `#archived` tag.
 - **Duplicate**: duplicate a task directly below the original source line.
