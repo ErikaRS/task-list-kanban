@@ -28,6 +28,8 @@ const DATAVIEW_WRITERS: Record<WritableDatePropertyKey, string> = {
 	completion: "completion",
 };
 
+const DATAVIEW_PRIORITY_KEY = "priority";
+
 const TRAILING_BLOCK_LINK_REGEX = /(\s\^[a-zA-Z0-9-]+)$/;
 
 class TasksPluginWriteAdapter implements PropertyWriteAdapter {
@@ -89,12 +91,18 @@ class DataviewWriteAdapter implements PropertyWriteAdapter {
 		return property ? removeProperty(rawLine, property) : rawLine;
 	}
 
-	upsertPriority(rawLine: string, _priority: string): string {
-		return rawLine;
+	upsertPriority(rawLine: string, priority: string): string {
+		const normalizedPriority = priority.trim();
+		if (!normalizedPriority) {
+			return rawLine;
+		}
+		const property = this.propertySchema.parseProperties(rawLine).get(DATAVIEW_PRIORITY_KEY);
+		return upsertProperty(rawLine, property, formatDataviewField(DATAVIEW_PRIORITY_KEY, normalizedPriority));
 	}
 
 	removePriority(rawLine: string): string {
-		return rawLine;
+		const property = this.propertySchema.parseProperties(rawLine).get(DATAVIEW_PRIORITY_KEY);
+		return property ? removeProperty(rawLine, property) : rawLine;
 	}
 }
 

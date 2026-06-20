@@ -150,6 +150,60 @@ describe("getColumnValidationError", () => {
 		);
 	});
 
+	it("allows Dataview priority-mode columns with text values", () => {
+		const columns = migrateColumnDefinitions([
+			{
+				id: "high" as ColumnTag,
+				label: "High",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "high",
+				matchPropertySchema: PropertySchemaOption.Dataview,
+			},
+		]);
+
+		expect(getColumnValidationError(columns, { propertySchema: PropertySchemaOption.Dataview })).toBeNull();
+	});
+
+	it("rejects duplicate Dataview priority-mode values case-insensitively", () => {
+		const columns = migrateColumnDefinitions([
+			{
+				id: "high" as ColumnTag,
+				label: "High",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "High",
+				matchPropertySchema: PropertySchemaOption.Dataview,
+			},
+			{
+				id: "urgent" as ColumnTag,
+				label: "Urgent",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: " high ",
+				matchPropertySchema: PropertySchemaOption.Dataview,
+			},
+		]);
+
+		expect(getColumnValidationError(columns, { propertySchema: PropertySchemaOption.Dataview })).toBe(
+			'Columns "High" and "Urgent" match the same priority "High".',
+		);
+	});
+
+	it("rejects changing a Tasks priority column while Dataview schema is active", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
+		const editedColumns = [{ ...columns[0]!, matchPriority: "low" }];
+
+		expect(getColumnValidationError(editedColumns, {
+			propertySchema: PropertySchemaOption.Dataview,
+			originalColumns: columns,
+		})).toBe(
+			'Column "High" priority matching requires the Tasks Plugin property schema.',
+		);
+	});
+
 	it("allows an unchanged existing priority column when task properties are disabled", () => {
 		const columns = migrateColumnDefinitions([
 			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
@@ -319,6 +373,27 @@ describe("resolveMatchedColumnDefinition", () => {
 		});
 
 		expect(matched).toBeUndefined();
+	});
+
+	it("matches Dataview priority columns case-insensitively", () => {
+		const columns = migrateColumnDefinitions([
+			{
+				id: "high" as ColumnTag,
+				label: "High",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "High",
+				matchPropertySchema: PropertySchemaOption.Dataview,
+			},
+		]);
+
+		const matched = resolveMatchedColumnDefinition(columns, {
+			tags: new Set(),
+			priority: " high ",
+			prioritySchema: PropertySchemaOption.Dataview,
+		});
+
+		expect(matched?.id).toBe("high");
 	});
 });
 

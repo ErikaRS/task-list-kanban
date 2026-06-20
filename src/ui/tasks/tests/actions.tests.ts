@@ -243,6 +243,29 @@ describe("task actions", () => {
 
 			expect(contents()).toBe("# Tasks\n- [ ] New task ⏫");
 		});
+
+		it("uses the priority value when creating a task in a Dataview priority column", async () => {
+			const highColumn: ColumnDefinition = {
+				id: "high" as ColumnTag,
+				label: "High",
+				matchMode: "priority",
+				matchTags: [],
+				matchPriority: "high",
+				matchPropertySchema: PropertySchemaOption.Dataview,
+			};
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks",
+				PropertySchemaOption.Dataview,
+				new Map(),
+				new Map(),
+				{ path: "tasks.md" },
+				[highColumn],
+			);
+
+			await actions.createTask(fileHandle as never, "New task", "high" as ColumnTag);
+
+			expect(contents()).toBe("# Tasks\n- [ ] New task [priority:: high]");
+		});
 	});
 });
 

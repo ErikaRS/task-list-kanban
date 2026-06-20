@@ -102,9 +102,9 @@ export class SettingsModal extends Modal {
 		return this.updateExistingTaskTagsByColumnId.get(columnId) ?? true;
 	}
 
-	private getActivePrioritySchema(): PropertySchemaOption.TasksPlugin | undefined {
-		return this.settings.propertySchema === PropertySchemaOption.TasksPlugin
-			? PropertySchemaOption.TasksPlugin
+	private getActivePrioritySchema(): PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview | undefined {
+		return this.settings.propertySchema === PropertySchemaOption.TasksPlugin || this.settings.propertySchema === PropertySchemaOption.Dataview
+			? this.settings.propertySchema
 			: undefined;
 	}
 
@@ -708,22 +708,38 @@ export class SettingsModal extends Modal {
 				const priorityField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-priority" });
 				priorityField.createDiv({ cls: "column-editor-inline-label", text: "Priority" });
 				if (this.canEditPriorityValue(column)) {
-					const prioritySelect = priorityField.createEl("select");
-					prioritySelect.addClass("dropdown");
-					prioritySelect.setAttribute("aria-label", `${column.label} priority`);
-					for (const option of TASKS_PRIORITY_OPTIONS) {
-						prioritySelect.createEl("option", {
-							value: option.value,
-							text: `${option.label} ${option.emoji}`,
+					if (getColumnPrioritySchema(column) === PropertySchemaOption.Dataview) {
+						const priorityInput = priorityField.createEl("input", {
+							type: "text",
+							value: column.matchPriority ?? "",
+							placeholder: "high",
+						});
+						priorityInput.addClass("column-editor-inline-input");
+						priorityInput.setAttribute("aria-label", `${column.label} priority`);
+						priorityInput.addEventListener("input", () => {
+							column.matchPriority = priorityInput.value;
+							column.matchPropertySchema = PropertySchemaOption.Dataview;
+							updateRenameOption();
+							this.touchSettings();
+						});
+					} else {
+						const prioritySelect = priorityField.createEl("select");
+						prioritySelect.addClass("dropdown");
+						prioritySelect.setAttribute("aria-label", `${column.label} priority`);
+						for (const option of TASKS_PRIORITY_OPTIONS) {
+							prioritySelect.createEl("option", {
+								value: option.value,
+								text: `${option.label} ${option.emoji}`,
+							});
+						}
+						prioritySelect.value = column.matchPriority ?? "medium";
+						prioritySelect.addEventListener("change", () => {
+							column.matchPriority = prioritySelect.value;
+							column.matchPropertySchema = PropertySchemaOption.TasksPlugin;
+							updateRenameOption();
+							this.touchSettings();
 						});
 					}
-					prioritySelect.value = column.matchPriority ?? "medium";
-					prioritySelect.addEventListener("change", () => {
-						column.matchPriority = prioritySelect.value;
-						column.matchPropertySchema = PropertySchemaOption.TasksPlugin;
-						updateRenameOption();
-						this.touchSettings();
-					});
 				} else {
 					const schemaLabel = getColumnPrioritySchema(column) === PropertySchemaOption.Dataview
 						? "Dataview"

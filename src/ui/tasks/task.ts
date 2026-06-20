@@ -284,6 +284,8 @@ export class Task {
 			priority: getTaskPriorityMatchValue(this.propertySchemaOption, this.properties),
 			prioritySchema: this.propertySchemaOption === PropertySchemaOption.TasksPlugin
 				? PropertySchemaOption.TasksPlugin
+				: this.propertySchemaOption === PropertySchemaOption.Dataview
+				? PropertySchemaOption.Dataview
 				: undefined,
 		});
 
@@ -653,6 +655,9 @@ function getTaskPriorityMatchValue(
 	const priority = properties.get("priority");
 	if (propertySchemaOption === PropertySchemaOption.TasksPlugin && typeof priority?.value === "number") {
 		return getTasksPriorityValueFromWeight(priority.value);
+	}
+	if (propertySchemaOption === PropertySchemaOption.Dataview && typeof priority?.value === "string") {
+		return priority.value.trim();
 	}
 	return undefined;
 }

@@ -318,11 +318,11 @@ Each phase should produce an end-to-end feature slice that can be tested indepen
 
 **Goal:** Users using the Dataview schema can define priority columns with text values.
 
-1. [ ] Add Dataview priority matching using trimmed, case-insensitive text comparison.
-2. [ ] Extend the Dataview write adapter to upsert and remove `[priority:: value]` while preserving existing inline-field replacement behavior.
-3. [ ] Add schema-aware settings UI so Dataview priority mode accepts a text value and can suggest values discovered from current tasks.
-4. [ ] Ensure switching property schema leaves invalid priority columns visible in settings with validation errors instead of silently deleting them.
-5. [ ] Tests: Dataview priority match casing, upsert/replace/remove, schema switch validation, discovered-value suggestions if implemented.
+1. ✅ Add Dataview priority matching using trimmed, case-insensitive text comparison.
+2. ✅ Extend the Dataview write adapter to upsert and remove `[priority:: value]` while preserving existing inline-field replacement behavior.
+3. ✅ Add schema-aware settings UI so Dataview priority mode accepts a text value. Discovered-value suggestions are deferred.
+4. ✅ Ensure switching property schema leaves invalid priority columns visible in settings with validation errors instead of silently deleting them.
+5. ✅ Tests: Dataview priority match casing, upsert/replace/remove, schema switch validation, discovered-value suggestions if implemented.
 
 **Deliverable:** With `propertySchema: dataview`, columns can be backed by Dataview priority values such as `high`, `medium`, `low`, or user-defined labels.
 

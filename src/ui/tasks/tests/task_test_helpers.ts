@@ -9,7 +9,7 @@ import {
 	Task,
 } from "../task";
 import { NoneSchema } from "src/parsing/properties/none_schema";
-import type { PropertySchema } from "src/parsing/properties/property_schema";
+import { PropertySchemaOption, type PropertySchema } from "src/parsing/properties/property_schema";
 
 export function createNameModeColumns(labels: string[]): ColumnDefinition[] {
 	return labels.map((label) => ({
@@ -44,14 +44,15 @@ export function createStatusModeColumns(
 }
 
 export function createPriorityModeColumns(
-	definitions: Array<{ id: string; label: string; matchPriority: string }>,
+	definitions: Array<{ id: string; label: string; matchPriority: string; matchPropertySchema?: PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview }>,
 ): ColumnDefinition[] {
-	return definitions.map(({ id, label, matchPriority }) => ({
+	return definitions.map(({ id, label, matchPriority, matchPropertySchema }) => ({
 		id: id as ColumnTag,
 		label,
 		matchMode: "priority",
 		matchTags: [],
 		matchPriority,
+		matchPropertySchema,
 	}));
 }
 

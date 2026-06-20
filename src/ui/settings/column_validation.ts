@@ -7,6 +7,7 @@ import {
 	columnRuleSignature,
 	getColumnPrioritySchema,
 	getPriorityColumnLabel,
+	normalizePriorityMatchValue,
 	getStatusColumnLabel,
 	usesPriorityMatching,
 	usesStatusMatching,
@@ -103,14 +104,7 @@ export function getColumnValidationError(
 				errors.push(`Column "${label}" priority matching requires the ${columnPrioritySchema === PropertySchemaOption.Dataview ? "Dataview" : "Tasks Plugin"} property schema.`);
 				continue;
 			}
-			if (columnPrioritySchema !== PropertySchemaOption.TasksPlugin) {
-				if (priorityRuleUnchanged) {
-					continue;
-				}
-				errors.push(`Column "${label}" priority matching is not supported for the selected property schema yet.`);
-				continue;
-			}
-			if (!TASKS_PRIORITY_OPTIONS.some((option) => option.value === priority)) {
+			if (columnPrioritySchema === PropertySchemaOption.TasksPlugin && !TASKS_PRIORITY_OPTIONS.some((option) => option.value === priority)) {
 				errors.push(`Column "${label}" has an unknown priority "${priority}".`);
 				continue;
 			}
@@ -122,7 +116,7 @@ export function getColumnValidationError(
 			const criterion = usesStatusMatching(column)
 				? "status marker"
 				: usesPriorityMatching(column)
-				? `priority "${getPriorityColumnLabel(column.matchPriority)}"`
+				? `priority "${getPriorityColumnLabel(normalizePriorityMatchValue(column.matchPriority, getColumnPrioritySchema(column)))}"`
 				: "tag";
 			errors.push(`Columns "${existingLabel}" and "${label}" match the same ${criterion}.`);
 		} else {

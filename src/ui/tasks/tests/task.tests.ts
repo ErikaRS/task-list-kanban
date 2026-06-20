@@ -25,6 +25,7 @@ import {
 } from "./task_test_helpers";
 import { TasksPluginSchema } from "src/parsing/properties/tasks_schema";
 import { DataviewSchema } from "src/parsing/properties/dataview_schema";
+import { PropertySchemaOption } from "src/parsing/properties/property_schema";
 
 describe("Task", () => {
 	describe("basic parsing and serialization", () => {
@@ -334,6 +335,64 @@ describe("Task", () => {
 			});
 
 			expect(task.properties.get("priority")?.value).toBe(4);
+		});
+	});
+
+	describe("Dataview priority-mode columns", () => {
+		const dataviewPriorityColumns = createPriorityModeColumns([
+			{ id: "high", label: "High", matchPriority: "high", matchPropertySchema: PropertySchemaOption.Dataview },
+			{ id: "low", label: "Low", matchPriority: "low", matchPropertySchema: PropertySchemaOption.Dataview },
+		]);
+
+		it("matches Dataview priority values case-insensitively", () => {
+			const task = parseTaskWithColumns("- [ ] Triage release [priority:: HIGH] #project", dataviewPriorityColumns, {
+				propertySchema: new DataviewSchema(),
+			});
+
+			expect(task.column).toBe("high");
+			expect(task.serialise()).toBe("- [ ] Triage release [priority:: HIGH] #project");
+		});
+
+		it("writes the destination Dataview priority when moving into a priority column", () => {
+			const columns = [
+				...createNameModeColumns(["Backlog"]),
+				...createPriorityModeColumns([
+					{ id: "high", label: "High", matchPriority: "high", matchPropertySchema: PropertySchemaOption.Dataview },
+				]),
+			];
+			const task = parseTaskWithColumns("- [ ] Something #tag #backlog", columns, {
+				propertySchema: new DataviewSchema(),
+			});
+
+			task.column = "high" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag [priority:: high]");
+		});
+
+		it("replaces the Dataview priority when moving between priority columns", () => {
+			const task = parseTaskWithColumns("- [ ] Something #tag [priority:: high]", dataviewPriorityColumns, {
+				propertySchema: new DataviewSchema(),
+			});
+
+			task.column = "low" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag [priority:: low]");
+		});
+
+		it("removes source Dataview priority when moving from a priority column to a tag column", () => {
+			const columns = [
+				...createPriorityModeColumns([
+					{ id: "high", label: "High", matchPriority: "high", matchPropertySchema: PropertySchemaOption.Dataview },
+				]),
+				...createNameModeColumns(["Backlog"]),
+			];
+			const task = parseTaskWithColumns("- [ ] Something #tag [priority:: high]", columns, {
+				propertySchema: new DataviewSchema(),
+			});
+
+			task.column = "backlog" as ColumnTag;
+
+			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
 		});
 	});
 

@@ -115,4 +115,22 @@ describe("DataviewWriteAdapter", () => {
 			"- [ ] Send invoice ^abc123",
 		);
 	});
+
+	it("adds priority fields before a trailing block link", () => {
+		expect(dataviewAdapter.upsertPriority("- [ ] Triage #today ^abc123", "high")).toBe(
+			"- [ ] Triage #today [priority:: high] ^abc123",
+		);
+	});
+
+	it("replaces existing priority fields in place", () => {
+		expect(dataviewAdapter.upsertPriority("- [ ] Triage [priority:: high] #today", "low")).toBe(
+			"- [ ] Triage [priority:: low] #today",
+		);
+	});
+
+	it("removes priority fields and normalizes adjacent spaces", () => {
+		expect(dataviewAdapter.removePriority("- [ ] Triage  [priority:: high]  #today")).toBe(
+			"- [ ] Triage #today",
+		);
+	});
 });

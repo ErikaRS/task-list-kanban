@@ -105,7 +105,7 @@ export function columnRuleSignature(column: ColumnDefinition): string {
 	return usesStatusMatching(column)
 		? `status:${column.matchStatus ?? ""}`
 		: usesPriorityMatching(column)
-		? `priority:${getColumnPrioritySchema(column) ?? ""}:${column.matchPriority ?? ""}`
+		? `priority:${getColumnPrioritySchema(column) ?? ""}:${normalizePriorityMatchValue(column.matchPriority, getColumnPrioritySchema(column)) ?? ""}`
 		: usesTagMatching(column)
 		? `tags:${[...getColumnWriteTags(column)].sort().join(",")}`
 		: `name:${getNameModeWriteTag(column)}`;
@@ -144,6 +144,17 @@ export function getPriorityColumnLabel(priority: string | undefined): string {
 	return formatPriorityColumnLabel(priority);
 }
 
+export function normalizePriorityMatchValue(
+	priority: string | undefined,
+	schema: PriorityColumnSchema | undefined,
+): string | undefined {
+	const trimmed = priority?.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	return schema === PropertySchemaOption.Dataview ? trimmed.toLowerCase() : trimmed;
+}
+
 export function matchesColumnDefinition(column: ColumnDefinition, context: Set<string> | ColumnMatchContext): boolean {
 	const { tags: taskTags, status, priority, prioritySchema } = normalizeColumnMatchContext(context);
 
@@ -152,9 +163,10 @@ export function matchesColumnDefinition(column: ColumnDefinition, context: Set<s
 	}
 
 	if (usesPriorityMatching(column)) {
+		const columnPrioritySchema = getColumnPrioritySchema(column);
 		return !!column.matchPriority
-			&& priority === column.matchPriority
-			&& prioritySchema === getColumnPrioritySchema(column);
+			&& normalizePriorityMatchValue(priority, prioritySchema) === normalizePriorityMatchValue(column.matchPriority, columnPrioritySchema)
+			&& prioritySchema === columnPrioritySchema;
 	}
 
 	if (usesTagMatching(column)) {
