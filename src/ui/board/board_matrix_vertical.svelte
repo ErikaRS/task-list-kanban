@@ -59,10 +59,12 @@
 		"max-content",
 		...matrix.primaryAxis.map(() => "max-content"),
 	].join(" ");
+
+	let headerHeight = 64;
 </script>
 
 {#if !showSwimlaneHeaders && ungroupedSecondaryBucket}
-	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows}>
+	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows} style:--header-height="0px">
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
 			<div
 				class="row-header-wrapper"
@@ -125,8 +127,9 @@
 		class="matrix-vertical transposed-grid"
 		style:grid-template-columns={groupedGridTemplateColumns}
 		style:grid-template-rows={groupedGridTemplateRows}
+		style:--header-height="{headerHeight}px"
 	>
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1"></div>
+		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}></div>
 
 		{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
 			<div

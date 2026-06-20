@@ -317,12 +317,19 @@
 				width: 12px;
 				height: auto;
 				margin: 0;
+				z-index: 3;
 			}
 
 			.header {
-				margin-right: 0;
-				padding-left: var(--size-4-3);
+				margin: calc(-1 * var(--size-4-2)) calc(-1 * var(--size-4-3)) calc(-1 * var(--size-2-2));
+				padding: var(--size-4-2) var(--size-4-3) var(--size-2-2);
+				width: calc(100% + 2 * var(--size-4-3));
 				box-sizing: border-box;
+
+				position: sticky;
+				top: var(--header-height, 0px);
+				z-index: 2;
+				background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
 			}
 
 			.column-meta,
@@ -437,6 +444,7 @@
 			min-width: 0;
 			display: flex;
 			flex-direction: column;
+			align-items: flex-start;
 			gap: 2px;
 			flex: 1 1 auto;
 		}
@@ -449,6 +457,9 @@
 			text-overflow: ellipsis;
 			white-space: nowrap;
 			line-height: 1.2;
+			position: sticky;
+			left: calc(var(--sticky-left-offset, 0px) + var(--column-header-x-padding, var(--size-4-4)));
+			max-width: 100%;
 		}
 
 		.task-count {
