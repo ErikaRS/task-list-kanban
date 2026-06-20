@@ -19,7 +19,7 @@
 
 - [ ] Adding manually #cat #later
 - [/] Yes another test task #review
-- [x] Later B
+- [ ] Later B [priority:: high] #review #in-progress
 - [/] Later B #later
 - [/] Later B #later #Project-B
 - [/] Later B 2 #later #Project-B
