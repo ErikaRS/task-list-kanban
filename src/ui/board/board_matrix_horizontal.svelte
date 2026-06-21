@@ -65,7 +65,7 @@
 	let headerHeight = 64;
 </script>
 
-<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px">
+<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="{showSwimlaneHeaders ? '56px' : '0px'}">
 	{#if showSwimlaneHeaders}
 		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}></div>
 	{/if}
