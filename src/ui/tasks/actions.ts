@@ -35,6 +35,7 @@ import {
 	updateRow,
 	writeFileRows,
 } from "./source_line_editor";
+import { parseSourceTaskLine } from "./source_block";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
@@ -49,6 +50,20 @@ export type TaskActions = {
 	updateContent: (id: string, content: string) => Promise<void>;
 	updateSourceBlockRow: (id: string, rowIndex: number, content: string) => Promise<void>;
 	toggleSourceTaskStatus: (id: string, rowIndex: number) => Promise<void>;
+	addSourceBlockRow: (
+		id: string,
+		rowIndex: number,
+		location: "child" | "sibling",
+		kind: "task" | "raw",
+	) => Promise<void>;
+	deleteSourceBlockRow: (id: string, rowIndex: number) => Promise<void>;
+	moveSourceBlockRow: (
+		id: string,
+		draggedRowIndex: number,
+		targetRowIndex: number,
+		position: "before" | "after",
+		targetDepth: number,
+	) => Promise<void>;
 	viewFile: (id: string, event?: MouseEvent | KeyboardEvent) => Promise<void>;
 	archiveTasks: (ids: string[]) => Promise<void>;
 	cancelTasks: (ids: string[]) => Promise<void>;
@@ -414,6 +429,128 @@ export function createTaskActions({
 			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow);
 		},
 
+		async addSourceBlockRow(id, rowIndex, location, kind) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) {
+				return;
+			}
+
+			const { fileHandle } = entry.metadata;
+			const rows = await readFileRows(vault, fileHandle);
+			const row = rows[rowIndex];
+			if (row == null) {
+				return;
+			}
+
+			const block = getNodeBlock(rows, rowIndex);
+			let targetIndex = block.start;
+			let indentation = block.indentation;
+
+			if (location === "child") {
+				// We append as a child, so we insert at the end of the block
+				targetIndex = block.end;
+				// Detect step char
+				let stepChar = "  ";
+				for (const r of rows) {
+					if (r) {
+						const match = r.match(/^(\s+)/);
+						if (match && match[1]) {
+							stepChar = match[1].includes("\t") ? "\t" : "  ";
+							break;
+						}
+					}
+				}
+				indentation = block.indentation + stepChar;
+			} else {
+				// sibling: insert at the end of the block
+				targetIndex = block.end;
+			}
+
+			// bullet style
+			let bullet = "-";
+			const bulletMatch = row.match(/^(\s*)([-*+])/);
+			if (bulletMatch?.[2]) {
+				bullet = bulletMatch[2];
+			}
+
+			const text = kind === "task" ? "New subtask" : "New note";
+			const newLine = kind === "task"
+				? `${indentation}${bullet} [ ] ${text}`
+				: `${indentation}${bullet} ${text}`;
+
+			rows.splice(targetIndex, 0, newLine);
+			await writeFileRows(vault, fileHandle, rows);
+		},
+
+		async deleteSourceBlockRow(id, rowIndex) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) {
+				return;
+			}
+
+			const { fileHandle } = entry.metadata;
+			const rows = await readFileRows(vault, fileHandle);
+
+			const block = getNodeBlock(rows, rowIndex);
+			rows.splice(block.start, block.end - block.start);
+			await writeFileRows(vault, fileHandle, rows);
+		},
+
+		async moveSourceBlockRow(id, draggedRowIndex, targetRowIndex, position, targetDepth) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) {
+				return;
+			}
+
+			const { fileHandle } = entry.metadata;
+			const rows = await readFileRows(vault, fileHandle);
+
+			const draggedBlock = getNodeBlock(rows, draggedRowIndex);
+			const parentCardRow = rows[entry.task.rowIndex];
+			if (parentCardRow == null) {
+				return;
+			}
+			const parentCardIndentation = parentCardRow.match(/^\s*/)?.[0] ?? "";
+
+			// Detect step char
+			let stepChar = "  ";
+			for (const r of rows) {
+				if (r) {
+					const match = r.match(/^(\s+)/);
+					if (match && match[1]) {
+						stepChar = match[1].includes("\t") ? "\t" : "  ";
+						break;
+					}
+				}
+			}
+
+			const safeTargetDepth = Math.max(1, targetDepth);
+			const newRootIndentation = parentCardIndentation + stepChar.repeat(safeTargetDepth);
+			const blockRows = rows.slice(draggedBlock.start, draggedBlock.end).map((row) => {
+				if (row == null) return "";
+				const rowIndentation = row.match(/^\s*/)?.[0] ?? "";
+				const relativeIndentation = rowIndentation.slice(draggedBlock.indentation.length);
+				const nextIndentation = newRootIndentation + relativeIndentation;
+				return nextIndentation + row.slice(rowIndentation.length);
+			});
+
+			const targetBlock = getNodeBlock(rows, targetRowIndex);
+			let insertIndex = position === "before" ? targetBlock.start : targetBlock.end;
+
+			// Remove dragged block
+			rows.splice(draggedBlock.start, blockRows.length);
+
+			// Adjust insertIndex
+			if (draggedBlock.start < insertIndex) {
+				insertIndex -= blockRows.length;
+			}
+
+			// Insert block
+			rows.splice(insertIndex, 0, ...blockRows);
+
+			await writeFileRows(vault, fileHandle, rows);
+		},
+
 		async setDateProperty(id, key, date) {
 			await updateSourceRow(
 				id,
@@ -734,4 +871,25 @@ function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean
 	}
 
 	return task.column === column;
+}
+
+export function getNodeBlock(rows: string[], rowIndex: number): { start: number; end: number; indentation: string } {
+	const rootRow = rows[rowIndex];
+	if (rootRow == null) return { start: rowIndex, end: rowIndex, indentation: "" };
+
+	const indentation = rootRow.match(/^\s*/)?.[0] ?? "";
+
+	let end = rowIndex + 1;
+	while (end < rows.length) {
+		const row = rows[end];
+		if (row == null || row === "") {
+			break;
+		}
+		const rowIndentation = row.match(/^\s*/)?.[0] ?? "";
+		if (!rowIndentation.startsWith(indentation) || rowIndentation.length <= indentation.length) {
+			break;
+		}
+		end++;
+	}
+	return { start: rowIndex, end, indentation };
 }

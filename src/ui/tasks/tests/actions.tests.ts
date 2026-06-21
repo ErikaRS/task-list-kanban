@@ -349,6 +349,52 @@ describe("task actions", () => {
 		});
 	});
 
+	describe("subtask block operations", () => {
+		it("adds a subtask or raw note as sibling or child", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] Child",
+			);
+
+			// Add sibling task below Child (rowIndex = 1)
+			await actions.addSourceBlockRow(taskId, 1, "sibling", "task");
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child\n  - [ ] New subtask");
+
+			// Add child raw note under Child (rowIndex = 1)
+			await actions.addSourceBlockRow(taskId, 1, "child", "raw");
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child\n    - New note\n  - [ ] New subtask");
+		});
+
+		it("deletes a subtask and all of its descendants", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] A\n    - [ ] B\n  - [ ] C",
+			);
+
+			// Delete A (rowIndex = 1), which should also delete B (rowIndex = 2)
+			await actions.deleteSourceBlockRow(taskId, 1);
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] C");
+		});
+
+		it("moves a subtask up/down and shifts indentation", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] A\n    - [ ] B\n  - [ ] C",
+			);
+
+			// Move C (rowIndex = 3) up, and shift indentation to targetDepth = 2 (become child of A/B)
+			await actions.moveSourceBlockRow(taskId, 3, 2, "before", 2);
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] A\n    - [ ] C\n    - [ ] B");
+		});
+
+		it("restricts targetDepth to at least 1 to prevent escaping parent card", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] A\n    - [ ] B\n  - [ ] C",
+			);
+
+			// Attempt to move C (rowIndex = 3) to targetDepth = 0 (clamped to 1, stays under Parent)
+			await actions.moveSourceBlockRow(taskId, 3, 2, "before", 0);
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] A\n  - [ ] C\n    - [ ] B");
+		});
+	});
+
 	describe("date property updates", () => {
 		it("sets and clears Tasks-plugin date properties", async () => {
 			const { actions, taskId, contents } = setupActionsForLine(

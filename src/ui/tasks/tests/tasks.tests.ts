@@ -7,6 +7,7 @@ import {
 	DEFAULT_DONE_STATUS_MARKERS,
 	DEFAULT_IGNORED_STATUS_MARKERS,
 } from "../task";
+import { getVisibleSourceTaskDescendants } from "../source_block";
 import type { ColumnDefinition, ColumnPlacementTagTable } from "../../columns/columns";
 
 const columns: ColumnDefinition[] = [
@@ -140,6 +141,37 @@ describe("updateMapsFromFile", () => {
 		);
 
 		expect(tasks.map((task) => task.content)).toEqual(["Space parent", "Mixed child"]);
+	});
+
+	it("correctly identifies visible source task descendants for completion percentage", async () => {
+		const { tasks } = await parseFileTasks(
+			[
+				"- [ ] A #todo",
+				"  - B", // raw
+				"    - [ ] C #todo", // visible task
+				"      - [-] D #todo", // ignored task (not visible)
+				"    - [x] E #todo", // visible task (completed)
+				"  - F", // raw
+				"    - [ ] G #todo", // visible task
+			].join("\n"),
+			{ treatNestedTasksAsSubtasks: true, ignoredStatusMarkers: "-" },
+		);
+
+		expect(tasks).toHaveLength(1);
+		const parentTask = tasks[0];
+		const descendants = getVisibleSourceTaskDescendants(parentTask.sourceChildren);
+
+		// Descendants should only contain C, E, and G. Not B, D, F.
+		expect(descendants.map((d) => d.content)).toEqual(["C #todo", "E #todo", "G #todo"]);
+
+		// Check counts
+		const totalCount = descendants.length;
+		const completedCount = descendants.filter((node) => parentTask.isSourceTaskStatusDone(node.status)).length;
+		const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+		expect(totalCount).toBe(3);
+		expect(completedCount).toBe(1); // E is completed
+		expect(percentage).toBe(33);
 	});
 });
 

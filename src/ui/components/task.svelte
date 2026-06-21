@@ -3,6 +3,7 @@
 	import { isDraggingStore } from "../dnd/store";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
+	import { getVisibleSourceTaskDescendants } from "../tasks/source_block";
 	import TaskLineRow from "./TaskLineRow.svelte";
 	import TaskSourceRows from "./TaskSourceRows.svelte";
 	import TaskStatusMarker from "./TaskStatusMarker.svelte";
@@ -41,6 +42,7 @@
 	export let isPinned: boolean = false;
 	export let showDragHandle: boolean = false;
 	export let onUnpin: () => void = () => {};
+	export let treatNestedTasksAsSubtasks: boolean = false;
 
 	function handleContentBlur() {
 		isEditing = false;
@@ -67,6 +69,10 @@
 
 	let isEditing = false;
 	let isDragging = false;
+	let isSubtasksCollapsed = false;
+	function toggleSubtasksCollapse() {
+		isSubtasksCollapsed = !isSubtasksCollapsed;
+	}
 	$: displayStatusIsCustom = task.displayStatus !== " ";
 
 	function handleDragStart(e: DragEvent) {
@@ -388,6 +394,10 @@
 		Array.from(task.properties?.entries() ?? []).filter(([key]) => editableDatePropertyKeys.has(key)),
 	);
 
+	$: visibleSubtasks = getVisibleSourceTaskDescendants(task.sourceChildren);
+	$: totalSubtasksCount = visibleSubtasks.length;
+	$: completedSubtasksCount = visibleSubtasks.filter(node => task.isSourceTaskStatusDone(node.status)).length;
+	$: completionPercentage = totalSubtasksCount > 0 ? Math.round((completedSubtasksCount / totalSubtasksCount) * 100) : 0;
 </script>
 
 	<div
@@ -469,6 +479,21 @@
 					tabindex="0"
 				></div>
 			{/if}
+			{#if treatNestedTasksAsSubtasks && totalSubtasksCount > 0}
+				<div class="task-progress-wrapper" class:is-complete={completionPercentage === 100}>
+					<button
+						type="button"
+						class="subtask-collapse-btn"
+						class:collapsed={isSubtasksCollapsed}
+						on:click|stopPropagation={toggleSubtasksCollapse}
+						aria-label={isSubtasksCollapsed ? "Expand subtasks" : "Collapse subtasks"}
+					>{isSubtasksCollapsed ? "▶" : "▼"}</button>
+					<div class="task-progress-bar-container">
+						<div class="task-progress-bar" style="width: {completionPercentage}%"></div>
+					</div>
+					<span class="task-progress-text">{completedSubtasksCount}/{totalSubtasksCount} ({completionPercentage}%)</span>
+				</div>
+			{/if}
 		</div>
 		<svelte:fragment slot="actions">
 			{#if isManualOrder && isPinned}
@@ -498,14 +523,30 @@
 		</svelte:fragment>
 	</TaskLineRow>
 
-	{#if task.sourceChildren.length > 0}
-		<TaskSourceRows
-			{task}
-			{taskActions}
-			nodes={task.sourceChildren}
-			{isSelectionMode}
-			depth={1}
-		/>
+	{#if !isSubtasksCollapsed}
+		{#if task.sourceChildren.length > 0}
+			<TaskSourceRows
+				{app}
+				{task}
+				{taskActions}
+				nodes={task.sourceChildren}
+				{isSelectionMode}
+				depth={1}
+			/>
+		{/if}
+
+		{#if treatNestedTasksAsSubtasks}
+			<div class="add-subtask-container">
+				<button
+					type="button"
+					class="add-subtask-btn"
+					on:click|stopPropagation={() => void taskActions.addSourceBlockRow(task.id, task.rowIndex, "child", "task")}
+				>
+					<span aria-hidden="true">+</span>
+					Subtask
+				</button>
+			</div>
+		{/if}
 	{/if}
 
 	{#if shouldconsolidateTags}
@@ -914,5 +955,123 @@
 
 	:global(.task-row-content .content-preview .task-list-item > *:not(input[type="checkbox"])) {
 		min-width: 0;
+	}
+
+	.task-progress-wrapper {
+		display: flex;
+		align-items: center;
+		gap: var(--size-4-2);
+		margin-top: var(--size-2-2);
+		margin-bottom: var(--size-2-1);
+
+		&.is-complete {
+			.task-progress-bar {
+				background-color: hsl(140, 75%, 45%);
+				background-image: linear-gradient(90deg, hsl(140, 75%, 40%) 0%, hsl(140, 75%, 50%) 100%);
+				box-shadow: 0 0 6px hsl(140, 75%, 45%, 0.3);
+			}
+			.task-progress-text {
+				color: hsl(140, 75%, 45%);
+				font-weight: var(--font-bold);
+			}
+		}
+	}
+
+	.task-progress-bar-container {
+		flex: 1;
+		height: 6px;
+		background-color: var(--background-modifier-border);
+		border-radius: 3px;
+		overflow: hidden;
+		box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+	}
+
+	.task-progress-bar {
+		height: 100%;
+		background-color: var(--interactive-accent);
+		background-image: linear-gradient(
+			90deg,
+			hsla(var(--accent-h, 210), var(--accent-s, 75%), calc(var(--accent-l, 50%) - 5%), 0.95) 0%,
+			var(--interactive-accent) 100%
+		);
+		border-radius: 3px;
+		transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, background-image 0.3s ease;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+	}
+
+	.task-progress-text {
+		font-size: var(--font-ui-smaller);
+		color: var(--text-muted);
+		font-weight: var(--font-medium);
+		white-space: nowrap;
+		transition: color 0.3s ease;
+	}
+
+	.subtask-collapse-btn {
+		background: transparent !important;
+		border: none !important;
+		box-shadow: none !important;
+		padding: 0 !important;
+		color: var(--text-muted);
+		font-size: 10px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--task-line-marker-size, 20px);
+		height: 14px;
+		line-height: 1;
+		flex-shrink: 0;
+		transition: color 0.15s ease;
+
+		/* Shift to the left under the checkbox */
+		margin-left: calc(-1 * (var(--task-line-marker-size, 20px) + var(--task-line-column-gap, var(--size-2-3))));
+		margin-right: var(--task-line-column-gap, var(--size-2-3));
+
+		&:hover {
+			color: var(--text-normal);
+			background: transparent !important;
+		}
+	}
+
+	.add-subtask-container {
+		padding: var(--size-2-2) var(--size-4-2) var(--size-2-2) calc(var(--size-4-2) + 8px);
+	}
+
+	.add-subtask-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2-1);
+		align-self: flex-start;
+		cursor: pointer;
+		border: 0;
+		border-radius: var(--radius-s);
+		box-shadow: none;
+		margin: 0;
+		min-height: 22px;
+		padding: 0;
+		background: transparent;
+		color: var(--text-accent);
+		font-size: var(--font-ui-smaller);
+		font-weight: var(--font-medium);
+		line-height: 1.2;
+
+		span {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			font-size: var(--font-ui-small);
+			line-height: 1;
+		}
+
+		&:hover:not(:disabled) {
+			color: var(--text-accent-hover);
+			background: transparent;
+		}
+
+		&:active:not(:disabled) {
+			color: var(--text-accent-hover);
+			background: transparent;
+		}
 	}
 </style>

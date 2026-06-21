@@ -8,3 +8,11 @@ type DraggingData = {
 };
 
 export const isDraggingStore = writable<DraggingData | null>(null);
+
+type SubtaskDraggingData = {
+	taskId: string;
+	draggedRowIndex: number;
+	draggedIndentation: string;
+};
+
+export const subtaskDraggingStore = writable<SubtaskDraggingData | null>(null);

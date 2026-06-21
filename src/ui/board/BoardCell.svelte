@@ -47,6 +47,7 @@
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
 	export let accentColor: string | undefined = undefined;
+	export let treatNestedTasksAsSubtasks: boolean = false;
 	// Manual ordering. `isManualOrder` controls marker display; `reorderEnabled`
 	// controls whether the drag handle can mutate this cell's order.
 	export let isManualOrder: boolean = false;
@@ -441,6 +442,7 @@
 						{propertySchemaOption}
 						{consolidateTags}
 						{excludedTags}
+						{treatNestedTasksAsSubtasks}
 						displayColumn={column}
 						displaySecondaryId={cell.secondaryId}
 						isSelectionMode={isSelectMode}
@@ -538,22 +540,42 @@
 			position: relative;
 
 			&.drop-before::before,
+			&.drop-after::before {
+				content: "";
+				position: absolute;
+				left: 8px;
+				right: 8px;
+				height: 2px;
+				background: var(--column-color, var(--interactive-accent));
+				pointer-events: none;
+			}
+
+			&.drop-before::after,
 			&.drop-after::after {
 				content: "";
 				position: absolute;
-				left: 0;
-				right: 0;
-				height: 2px;
+				left: 4px;
+				width: 10px;
+				height: 10px;
+				border-radius: 999px;
 				background: var(--column-color, var(--interactive-accent));
-				border-radius: 1px;
+				pointer-events: none;
 			}
 
 			&.drop-before::before {
-				top: calc(-1 * var(--size-4-1));
+				top: calc(-1 * var(--size-4-1) - 1px);
+			}
+
+			&.drop-before::after {
+				top: calc(-1 * var(--size-4-1) - 5px);
+			}
+
+			&.drop-after::before {
+				bottom: calc(-1 * var(--size-4-1) - 1px);
 			}
 
 			&.drop-after::after {
-				bottom: calc(-1 * var(--size-4-1));
+				bottom: calc(-1 * var(--size-4-1) - 5px);
 			}
 		}
 

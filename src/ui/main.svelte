@@ -488,6 +488,7 @@
 		uncategorizedColumnName,
 		doneColumnName,
 		propertyDisplay = PropertyDisplayMode.None,
+		treatNestedTasksAsSubtasks = false,
 	} = $settingsStore);
 
 	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
@@ -1019,6 +1020,7 @@
 						{isManualOrder}
 						{manualOrder}
 						{reorderEnabled}
+						{treatNestedTasksAsSubtasks}
 					/>
 				{:else}
 					<BoardMatrixVertical
@@ -1042,6 +1044,7 @@
 						{isManualOrder}
 						{manualOrder}
 						{reorderEnabled}
+						{treatNestedTasksAsSubtasks}
 					/>
 				{/if}
 			</div>

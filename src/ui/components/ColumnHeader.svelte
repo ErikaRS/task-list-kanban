@@ -460,25 +460,25 @@
 		}
 
 		.collapse-btn {
-			background: transparent;
-			border: none;
+			background: transparent !important;
+			border: none !important;
+			box-shadow: none !important;
 			cursor: pointer;
 			color: var(--text-muted);
-			padding: 0;
-			width: 20px;
+			padding: 0 !important;
+			width: 14px;
 			height: 24px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			border-radius: var(--radius-s);
-			font-size: var(--font-ui-smaller);
+			font-size: 10px;
 			line-height: 1;
 			flex-shrink: 0;
-			transition: color 0.15s ease, background 0.15s ease;
+			transition: color 0.15s ease;
 
 			&:hover {
 				color: var(--text-normal);
-				background: var(--background-modifier-hover);
+				background: transparent !important;
 			}
 
 			&:focus-visible {

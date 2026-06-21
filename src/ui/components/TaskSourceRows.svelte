@@ -1,9 +1,11 @@
 <script lang="ts">
+	import type { App } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import type { SourceBlockNode } from "../tasks/source_block";
 	import type { Task } from "../tasks/task";
 	import TaskSourceRow from "./TaskSourceRow.svelte";
 
+	export let app: App;
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let nodes: SourceBlockNode[] = [];
@@ -13,6 +15,7 @@
 
 {#each nodes as node (node.rowIndex)}
 	<TaskSourceRow
+		{app}
 		{task}
 		{taskActions}
 		{node}
@@ -21,6 +24,7 @@
 	>
 		{#if node.sourceChildren.length > 0}
 			<svelte:self
+				{app}
 				{task}
 				{taskActions}
 				nodes={node.sourceChildren}

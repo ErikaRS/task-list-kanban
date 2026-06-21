@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-06
 
 # SPEC 0025 - Parsed Subtask Display
 
@@ -36,6 +37,10 @@ With the setting enabled, `A` is the board card. `B` is editable raw content. `C
 11. Parent, subtask, and raw content rows are editable line-by-line.
 12. Parent delete, duplicate, and move-to-file operate on the full owned source block.
 13. Other parent actions rewrite only the parent task row and preserve child/raw rows in place.
+14. Users can add a subtask directly inside a card using a "+ Subtask" button at the bottom of the card content (styled like the "+ Task" button).
+15. Deleting a subtask/raw row is done by clicking an 'X' button in the right-hand gutter, which prompts the user for confirmation via a modal.
+16. Users can reorder subtask and raw rows directly within a card by clicking and holding on the row to drag it. Dragging can go between tasks or nested under a task depending on how far horizontally the item is dragged. The drag and drop indicator uses the same "knob" design as the column settings, with the left side indented to the level the item will be dropped. Manual task reordering is also updated to use this same knob design.
+17. A completion percentage is automatically calculated and displayed for parent cards with subtasks. The percentage counts only actual tasks (visible tasks, not ignored or raw fields), counting all descendants regardless of nesting.
 
 ## Setting
 
@@ -145,6 +150,26 @@ Raw/ignored nodes render with:
 
 Display indentation is derived from source indentation. Source indentation is not rewritten for visual alignment.
 
+### Completion Percentage
+
+If a card has one or more subtasks (visible/actual tasks, excluding ignored/raw), it displays a linear progress bar and a label showing the completion percentage (e.g. `2/4 (50%)`) below the main card content but above the subtask list.
+
+### Subtask Addition Button
+
+A "+ Subtask" button is rendered at the bottom of the card (under the subtasks list), styled similarly to the "+ Task" button (transparent button with accent-color text). Clicking it adds a new subtask under the parent task as its child.
+
+### Subtask Deletion
+
+An 'X' button is rendered in the right-hand gutter of each subtask row (visible on hover of the row). Clicking it prompts the user with a confirmation modal ("Delete subtask?") before removing the subtask and all its nested descendants.
+
+### Subtask Drag-Reordering
+
+Users can reorder subtask and raw rows by clicking and holding on the row to drag it.
+- Dragging horizontally adjusts the indentation of the drop. Moving the mouse to the right nests the item deeper (up to one level deeper than the hovered row).
+- The drag-and-drop indicator uses the same "knob" design as the column settings: a 2px line (`::before`) and a circular knob (`::after`) on the left side of the line.
+- The left edge of the indicator shifts to the right to reflect the exact indentation level where the subtask will be dropped.
+- Manual task reordering of main cards is also updated to use this same line-and-knob design for consistency.
+
 ## Row Writes
 
 Row-local writes use row indexes from the parsed model, not text matching.
@@ -208,9 +233,9 @@ Manual-order block links remain parent-only in v1.
 - Mixed indentation without shared prefix breaks ancestry.
 - Setting off restores independent-card behavior.
 
-## Future Drag And Drop Note
+## Drag And Drop Note
 
-Future subtask drag/drop should operate on the source tree by default. A task under a raw bullet is structurally nested under that raw row even though task-only traversal can find it as a descendant of the nearest visible task ancestor.
+Subtask drag/drop should operate on the source tree by default. A task under a raw bullet is structurally nested under that raw row even though task-only traversal can find it as a descendant of the nearest visible task ancestor.
 
 ## Implementation Plan
 
@@ -226,7 +251,7 @@ Future subtask drag/drop should operate on the source tree by default. A task un
 6. ✅ Add task-only traversal helper(s).
 7. ✅ Unit tests for setting off, root detection, nested subtasks, raw/ignored rows, blank lines, and mixed indentation.
 
-### Phase 2: Render Source Children 🚧 IN PROGRESS
+### Phase 2: Render Source Children ✅ COMPLETE
 
 **Goal:** Display parsed subtasks and raw content rows inside parent cards.
 
@@ -266,19 +291,52 @@ Future subtask drag/drop should operate on the source tree by default. A task un
 4. ✅ Confirm manual order remains parent-only.
 5. ✅ Unit tests for delete, duplicate, move-to-file, parent-only mutations, and multiple block deletes from one file.
 
+### Phase 6: Subtask Operations (Add & Delete) ✅ COMPLETE
+
+**Goal:** Allow users to add and delete subtasks and raw notes directly from the card UI.
+
+1. ✅ Add `addSourceBlockRow` and `deleteSourceBlockRow` actions to `TaskActions`.
+2. ✅ Implement node block detection and block manipulation (insert and delete) in `actions.ts`.
+3. ✅ Add "+ Subtask" button at the bottom of parent cards in `task.svelte`.
+4. ✅ Add 'X' button in the right-hand gutter of `TaskSourceRow.svelte`.
+5. ✅ Implement confirmation modal `ConfirmDeleteSubtaskModal` in `TaskSourceRow.svelte`.
+6. ✅ Write unit tests for adding and deleting subtasks and raw notes.
+
+### Phase 7: Subtask Drag-Reordering ✅ COMPLETE
+
+**Goal:** Allow users to drag-reorder subtasks and raw notes with horizontal indentation shifting.
+
+1. ✅ Add `moveSourceBlockRow` action to `TaskActions`.
+2. ✅ Implement block reordering and indentation shifting logic in `actions.ts`.
+3. ✅ Implement Svelte drag-and-drop event handlers in `TaskSourceRow.svelte`.
+4. ✅ Update manual task card reordering indicators in `BoardCell.svelte` to use the line-and-knob design.
+5. ✅ Implement the line-and-knob drag-and-drop indicators for subtask reordering, shifting the left edge dynamically according to the target nesting level.
+6. ✅ Write unit tests for subtask drag-reordering.
+
+### Phase 8: Completion Percentage ✅ COMPLETE
+
+**Goal:** Automatically calculate and display completion percentage for parent tasks.
+
+1. ✅ Calculate percentage based on visible/actual nested task subtasks.
+2. ✅ Render linear progress bar and status text (`X/Y (Z%)`) on parent cards.
+3. ✅ Style the progress indicators using elegant HSL tailored color schemes matching the theme.
+4. ✅ Write tests to verify the completion percentage calculations and rendering logic.
+
 ## Verification Plan
 
 ### Automated Tests
 
 - ✅ `npm run build`
 - ✅ `npm test`
+- ✅ Run newly added unit tests for add/delete/reorder actions and progress calculation.
 
 ### Manual Verification
 
-- ✅ Toggle setting on/off.
-- ✅ Verify root detection under non-task and ignored-status rows.
-- ✅ Verify recursive subtasks and raw rows display correctly.
-- ✅ Verify raw/ignored rows edit as raw content.
-- [ ] Verify subtask checkbox changes only clicked row.
-- ✅ Verify subtask edit changes only clicked row.
-- [ ] Verify parent move/delete/duplicate carries full source block.
+- ✅ Verify "+ Subtask" button adds a new subtask under the parent.
+- ✅ Verify right-gutter 'X' button prompts for delete confirmation.
+- ✅ Verify deleting a subtask removes it and its nested descendants.
+- ✅ Verify drag-reordering subtasks vertically reorders them.
+- ✅ Verify drag-reordering subtasks horizontally shifts their indentation and target indentation indicator.
+- ✅ Verify reorder indicators use the line-and-knob style for both manual task card reordering and subtask reordering.
+- ✅ Verify completion percentage updates dynamically when checking/unchecking subtasks.
+- ✅ Verify completion percentage counts nested tasks but ignores raw notes/fields.

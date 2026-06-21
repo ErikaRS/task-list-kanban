@@ -36,6 +36,7 @@
 	export let isManualOrder: boolean = false;
 	export let manualOrder: ManualOrderStore = {};
 	export let reorderEnabled: boolean = false;
+	export let treatNestedTasksAsSubtasks: boolean = false;
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [
@@ -128,6 +129,7 @@
 					{propertySchemaOption}
 					{consolidateTags}
 					{excludedTags}
+					{treatNestedTasksAsSubtasks}
 					isVerticalFlow={false}
 					{targetTaskFile}
 					{targetFileIsDefault}
