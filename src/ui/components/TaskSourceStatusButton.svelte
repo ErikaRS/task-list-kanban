@@ -38,7 +38,7 @@
 	on:click|stopPropagation={toggleStatus}
 	on:keydown|stopPropagation={handleKeydown}
 >
-	<TaskStatusMarker status={node.status} {isDone} {isChecked} size={14} />
+	<TaskStatusMarker status={node.status} {isDone} size={16} />
 </button>
 
 <style lang="scss">
