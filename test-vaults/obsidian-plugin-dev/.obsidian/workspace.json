@@ -164,7 +164,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "8c1274d83bfae6bb",
@@ -268,9 +269,9 @@
   },
   "active": "9bd2d0b152e74484",
   "lastOpenFiles": [
-    "tasks/Even more tasks.md",
-    "periodic/Kanban-1761679356942.md",
     "periodic/tasks.md",
+    "periodic/Kanban-1761679356942.md",
+    "tasks/Even more tasks.md",
     "periodic/Kanban-1771182407942.md",
     "Kanban-1781896482430.md",
     "Kanban-1781896508887.md",
