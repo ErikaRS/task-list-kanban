@@ -175,6 +175,7 @@ const settingsObject = z.object({
 	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
 	sortProperty: z.string().nullable().default(null).optional(),
 	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
+	groupDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
 	// Cell-local manual ordering: group bucket id -> column id -> `path::blockLink`.
 	// Stored alongside display settings in the board's frontmatter (the plugin has
 	// no separate data file), but kept as its own field so it is never conflated
@@ -219,6 +220,7 @@ export interface SettingValues {
 	columnOrderMode?: ColumnOrderMode;
 	sortProperty?: string | null;
 	sortDirection?: SortDirection;
+	groupDirection?: SortDirection;
 	manualOrder?: ManualOrderStore;
 }
 
@@ -254,6 +256,7 @@ export const defaultSettings: SettingValues = {
 	columnOrderMode: ColumnOrderMode.FileOrder,
 	sortProperty: null,
 	sortDirection: "asc",
+	groupDirection: "asc",
 	manualOrder: {},
 };
 

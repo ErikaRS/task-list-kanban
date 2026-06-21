@@ -69,6 +69,26 @@ describe("tag-prefix grouping", () => {
 		expect(buckets[0]?.isDefault).toBe(true);
 	});
 
+	it("reverses tag buckets including Unassigned when descending", () => {
+		const tasks = [
+			parseTask("- [ ] Alpha work #Project-Alpha"),
+			parseTask("- [ ] Beta work #Project-Beta"),
+			parseTask("- [ ] No project #tag"),
+		];
+
+		const buckets = deriveGroupBuckets(
+			tasks,
+			{ kind: "tag-prefix", prefix: "Project-" },
+			[],
+			"",
+			"",
+			"desc",
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["Unassigned", "Beta", "Alpha"]);
+		expect(buckets[0]?.isDefault).toBe(true);
+	});
+
 	// Mirrors the work performed by the `updateSwimlaneTag` action, which resolves
 	// the task's current group tag and then rewrites it onto the new swimlane.
 	describe("swimlane reassignment (updateSwimlaneTag path)", () => {
@@ -155,6 +175,28 @@ describe("property grouping", () => {
 		expect(taskBelongsToGroup(early, buckets[0]!)).toBe(true);
 		expect(taskBelongsToGroup(missing, buckets[2]!)).toBe(true);
 		expect(buckets[2]?.isDefault).toBe(true);
+	});
+
+	it("reverses property buckets including missing values when descending", () => {
+		const early = taskWithProperty(new Date("2026-01-01"), "due");
+		const late = taskWithProperty(new Date("2026-03-01"), "due");
+		const missing = taskWithProperty(null, "due");
+
+		const buckets = deriveGroupBuckets(
+			[late, missing, early],
+			{ kind: "property", key: "due" },
+			[],
+			"",
+			"",
+			"desc",
+		);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual([
+			"Unassigned",
+			"2026-03-01",
+			"2026-01-01",
+		]);
+		expect(buckets[0]?.isDefault).toBe(true);
 	});
 
 	it("orders Tasks priority buckets highest first and labels them with markers", () => {

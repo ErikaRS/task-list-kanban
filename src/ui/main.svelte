@@ -567,6 +567,7 @@
 	$: groupSelectValue = $settingsStore.groupSource?.kind === "property"
 		? `prop:${$settingsStore.groupSource.key}`
 		: $settingsStore.groupSource?.kind ?? "none";
+	$: isDirectionalGroup = ($settingsStore.groupSource?.kind ?? "none") !== "none";
 
 	function onSortChange(value: string) {
 		if (value.startsWith("prop:")) {
@@ -611,6 +612,7 @@
 				$settingsStore.excludedTags ?? [],
 				$settingsStore.statusMarkerOrder ?? "",
 				$settingsStore.doneStatusMarkers ?? "",
+				$settingsStore.groupDirection ?? "asc",
 			);
 			const assignGroupId = createGroupAssigner(groupBuckets, groupSource, $settingsStore.excludedTags ?? []);
 			taskActions.pruneManualOrder(collectPresentManualOrderKeys($tasksStore, assignGroupId));
@@ -630,6 +632,12 @@
 	function toggleSortDirection() {
 		$settingsStore.sortDirection =
 			($settingsStore.sortDirection ?? "asc") === "asc" ? "desc" : "asc";
+		requestSave();
+	}
+
+	function toggleGroupDirection() {
+		$settingsStore.groupDirection =
+			($settingsStore.groupDirection ?? "asc") === "asc" ? "desc" : "asc";
 		requestSave();
 	}
 
@@ -932,6 +940,21 @@
 							</optgroup>
 						{/if}
 					</select>
+					{#if isDirectionalGroup}
+						<button
+							class="sort-direction-btn"
+							on:click={toggleGroupDirection}
+							aria-label="Toggle group direction"
+							title={($settingsStore.groupDirection ?? "asc") === "asc" ? "Group ascending" : "Group descending"}
+						>
+							<Icon
+								name={($settingsStore.groupDirection ?? "asc") === "asc"
+									? "arrow-up-narrow-wide"
+									: "arrow-down-wide-narrow"}
+								size={16}
+							/>
+						</button>
+					{/if}
 					<select
 						class="dropdown sort-by-select"
 						value={sortSelectValue}

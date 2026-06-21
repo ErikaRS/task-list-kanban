@@ -145,6 +145,11 @@ describe("Invalid field resilience", () => {
 		expect(parsed.groupSource).toEqual({ kind: "property", key: "priority" });
 	});
 
+	it("parses group direction and recovers invalid values", () => {
+		expect(parseSettings({ columns: ["MyColumn"], groupDirection: "desc" }).groupDirection).toBe("desc");
+		expect(parseSettings({ columns: ["MyColumn"], groupDirection: "sideways" }).groupDirection).toBe("asc");
+	});
+
 	it("parses task-name column ordering", () => {
 		const parsed = parseSettings({
 			columns: ["MyColumn"],

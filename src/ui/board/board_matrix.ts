@@ -157,6 +157,7 @@ export function deriveBoardMatrix(
 		settings.excludedTags,
 		settings.statusMarkerOrder ?? "",
 		settings.doneStatusMarkers ?? "",
+		settings.groupDirection ?? "asc",
 	);
 	const assignTaskToBucket = createGroupAssigner(groupBuckets, groupSource, settings.excludedTags);
 	const secondaryAxis: AxisBucket<SecondaryBucketId>[] = groupBuckets.map((bucket) => ({

@@ -1,5 +1,9 @@
 import type { Task } from "./task";
-import { compareStatusMarkerValues, compareValues } from "../../parsing/properties/comparators";
+import {
+	compareStatusMarkerValues,
+	compareValues,
+	type SortDirection,
+} from "../../parsing/properties/comparators";
 import { UNIVERSAL_STATUS_PROPERTY_KEY, type TaskProperty } from "../../parsing/properties/property_schema";
 
 export const DEFAULT_GROUP_BUCKET_ID = "__default__";
@@ -24,6 +28,7 @@ export function deriveGroupBuckets(
 	excludedTags: string[] = [],
 	statusMarkerOrder = "",
 	doneStatusMarkers = "",
+	groupDirection: SortDirection = "asc",
 ): GroupBucket[] {
 	if (source.kind === "file") {
 		const paths = [...new Set(tasks.map((task) => task.path))].sort((a, b) =>
@@ -42,13 +47,15 @@ export function deriveGroupBuckets(
 			];
 		}
 
-		return paths.map((path) => ({
+		const buckets = paths.map((path) => ({
 			id: createFileGroupBucketId(path),
 			label: path,
 			value: path,
 			source,
 			isDefault: false,
 		}));
+
+		return applyGroupDirection(buckets, groupDirection);
 	}
 
 	if (source.kind === "tag-prefix") {
@@ -100,7 +107,7 @@ export function deriveGroupBuckets(
 			isDefault: true,
 		});
 
-		return buckets;
+		return applyGroupDirection(buckets, groupDirection);
 	}
 
 	if (source.kind === "property") {
@@ -123,34 +130,34 @@ export function deriveGroupBuckets(
 			}
 		}
 
-			const buckets: GroupBucket[] = Array.from(valueMap.values())
-				.sort((a, b) => comparePropertyGroupValues(
-					source.key,
-					a.value,
-					b.value,
-					statusMarkerOrder,
-					doneStatusMarkers,
-				))
-				.map((entry) => ({
-					id: createPropertyGroupBucketId(source.key, entry.value),
-					label: entry.label,
-					value: entry.value,
-					source,
-					isDefault: false,
-				}));
+		const buckets: GroupBucket[] = Array.from(valueMap.values())
+			.sort((a, b) => comparePropertyGroupValues(
+				source.key,
+				a.value,
+				b.value,
+				statusMarkerOrder,
+				doneStatusMarkers,
+			))
+			.map((entry) => ({
+				id: createPropertyGroupBucketId(source.key, entry.value),
+				label: entry.label,
+				value: entry.value,
+				source,
+				isDefault: false,
+			}));
 
-			if (hasMissingValue || buckets.length === 0) {
-				buckets.push({
-					id: createPropertyMissingGroupBucketId(source.key),
-					label: "Unassigned",
-					value: null,
-					source,
-					isDefault: true,
-				});
-			}
-
-			return buckets;
+		if (hasMissingValue || buckets.length === 0) {
+			buckets.push({
+				id: createPropertyMissingGroupBucketId(source.key),
+				label: "Unassigned",
+				value: null,
+				source,
+				isDefault: true,
+			});
 		}
+
+		return applyGroupDirection(buckets, groupDirection);
+	}
 
 	return [
 		{
@@ -161,6 +168,10 @@ export function deriveGroupBuckets(
 			isDefault: true,
 		},
 	];
+}
+
+function applyGroupDirection<T>(buckets: T[], groupDirection: SortDirection): T[] {
+	return groupDirection === "desc" ? [...buckets].reverse() : buckets;
 }
 
 export function taskBelongsToGroup(task: Task, bucket: GroupBucket, excludedTags: string[] = []): boolean {

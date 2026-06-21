@@ -374,6 +374,26 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.cells["uncategorised"]!["file:fileB"]!.tasks).toHaveLength(0);
 	});
 
+	it("reverses file group axis when group direction is descending", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			groupSource: { kind: "file" },
+			groupDirection: "desc",
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			{ column: "col-1", path: "fileA", rowIndex: 1, done: false } as unknown as Task,
+			{ column: "col-1", path: "fileB", rowIndex: 1, done: false } as unknown as Task,
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+
+		expect(matrix.secondaryAxis.map((bucket) => bucket.id)).toEqual(["file:fileB", "file:fileA"]);
+	});
+
 	it("namespaces file groups away from the default bucket id", () => {
 		const settings: SettingValues = {
 			...defaultSettings,
@@ -419,5 +439,31 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.secondaryAxis.at(-1)?.id).toBe("property:due:__missing__");
 		expect(matrix.secondaryAxis.at(-1)?.meta?.isDefault).toBe(true);
 		expect(matrix.cells["col-1"]!["property:due:__missing__"]!.tasks.map((task) => task.id)).toEqual(["missing"]);
+	});
+
+	it("reverses property group axis including missing values when group direction is descending", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			groupSource: { kind: "property", key: "due" },
+			groupDirection: "desc",
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] }
+		];
+
+		const tasks = [
+			taskWithProperty({ id: "late", path: "f", rowIndex: 1 }, { key: "due", value: new Date("2026-03-01") }),
+			taskWithProperty({ id: "missing", path: "f", rowIndex: 2 }),
+			taskWithProperty({ id: "early", path: "f", rowIndex: 3 }, { key: "due", value: new Date("2026-01-01") }),
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+
+		expect(matrix.secondaryAxis.map((bucket) => bucket.label)).toEqual([
+			"Unassigned",
+			"2026-03-01",
+			"2026-01-01",
+		]);
+		expect(matrix.secondaryAxis[0]?.meta?.isDefault).toBe(true);
 	});
 });
