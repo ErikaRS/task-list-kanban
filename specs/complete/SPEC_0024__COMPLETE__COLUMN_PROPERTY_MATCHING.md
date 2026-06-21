@@ -372,18 +372,18 @@ Each phase should produce an end-to-end feature slice that can be tested indepen
 - [X] **M1.** A board can contain name, tags, status, and priority columns at the same time.
 - [X] **M2.** A task matching two equal-specificity columns appears in the one that comes first in settings order.
 - [x] **M3.** A task matching a multi-tag column and a status column appears in whichever matching column comes first.
-- [ ] **M4.** Reordering columns changes equal-specificity tie resolution but does not rewrite tasks by itself.
+- [x] **M4.** Reordering columns changes equal-specificity tie resolution but does not rewrite tasks by itself.
 
 ### Settings and Compatibility
 
-- [ ] **V1.** String columns load as name-defined columns with unchanged behavior.
-- [ ] **V2.** Existing tags-mode columns load with unchanged behavior.
-- [ ] **V3.** Duplicate status markers are blocked.
-- [ ] **V4.** Duplicate priority values for the active schema are blocked.
-- [ ] **V5.** Priority mode is blocked or shown invalid when property schema is None.
-- [ ] **V6.** Changing a status column's marker with "Update tasks to match new column definition" checked updates existing tasks.
-- [ ] **V7.** Changing a priority column's value with "Update tasks to match new column definition" checked updates existing tasks.
-- [ ] **V8.** Cancelling the settings dialog after changing status or priority placement rules does not modify task files.
+- [x] **V1.** String columns load as name-defined columns with unchanged behavior.
+- [x] **V2.** Existing tags-mode columns load with unchanged behavior.
+- [x] **V3.** Duplicate status markers are blocked.
+- [x] **V4.** Duplicate priority values for the active schema are blocked.
+- [x] **V5.** Priority mode is blocked or shown invalid when property schema is None.
+- [x] **V6.** Changing a status column's marker with "Update tasks to match new column definition" checked updates existing tasks.
+- [x] **V7.** Changing a priority column's value with "Update tasks to match new column definition" checked updates existing tasks.
+- [x] **V8.** Cancelling the settings dialog after changing status or priority placement rules does not modify task files.
 
 ## Open Questions
 
