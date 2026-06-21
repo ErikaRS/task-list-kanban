@@ -7,7 +7,7 @@ Use it to:
 - move tasks between columns with tags
 - edit, complete, cancel, archive, duplicate, and bulk-update tasks
 - filter by content, tag, or file
-- group tasks into swimlanes by file or tag
+- group tasks into swimlanes by file or tag, then flip group order to put the lanes you need first
 - sort tasks by file order, parsed task properties, or manual pinned order
 - display, sort, group, and edit Tasks Plugin or Dataview date metadata
 
@@ -177,7 +177,10 @@ Use **Group by** in the board header to split tasks into swimlanes.
 
 - In horizontal layouts, groups appear as board-wide swimlane rows.
 - In vertical layouts, groups appear as columns across the top of the transposed grid.
+- Use the group direction control to switch grouped boards between ascending and descending group order.
 - Dragging tasks between swimlanes updates the relevant file, tag, or property.
+
+Group and column headers stay visible while scrolling grouped boards, making large swimlane views easier to scan.
 
 #### Group By File
 
