@@ -116,7 +116,9 @@
 	.source-row-preview {
 		display: block;
 		width: 100%;
+		height: auto;
 		min-height: var(--task-line-row-height, 1.5rem);
+		appearance: none;
 		padding: 0;
 		border: none;
 		background: transparent;

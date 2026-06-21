@@ -10,6 +10,13 @@
 
 - [ ] Testing nested tasks 🔺
 	- [ ] This is a task ⏫ 
-	- Testing raw content
-		- [/] This is another task #later
+	- Testing raw content to edit!
+		- [ ] This is another task #later #cat
 	- [a] And ignored status markers 
+	- [ ]  New content!
+
+- [D] Ignored parent
+	- [ ] Nested task under ignored parent 🔺 
+
+- Non-task parent
+	- [ ] Nested task under non-task parent 🔺 

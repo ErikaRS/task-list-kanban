@@ -275,10 +275,10 @@ Future subtask drag/drop should operate on the source tree by default. A task un
 
 ### Manual Verification
 
-- [ ] Toggle setting on/off.
-- [ ] Verify root detection under non-task and ignored-status rows.
-- [ ] Verify recursive subtasks and raw rows display correctly.
-- [ ] Verify raw/ignored rows edit as raw content.
+- ✅ Toggle setting on/off.
+- ✅ Verify root detection under non-task and ignored-status rows.
+- ✅ Verify recursive subtasks and raw rows display correctly.
+- ✅ Verify raw/ignored rows edit as raw content.
 - [ ] Verify subtask checkbox changes only clicked row.
-- [ ] Verify subtask edit changes only clicked row.
+- ✅ Verify subtask edit changes only clicked row.
 - [ ] Verify parent move/delete/duplicate carries full source block.
