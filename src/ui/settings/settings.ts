@@ -947,6 +947,18 @@ export class SettingsModal extends Modal {
 					});
 			});
 
+		new Setting(taskPropertiesSection)
+			.setName("Treat nested tasks as subtasks")
+			.setDesc("Display nested task rows inside their root task card instead of as separate cards.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.settings.treatNestedTasksAsSubtasks ?? false)
+					.onChange((value) => {
+						this.settings.treatNestedTasksAsSubtasks = value;
+						this.updateDirtyBanner();
+					});
+			});
+
 		// Validation for default task file — shared between scope dropdown and text input
 		let defaultTaskFileInputEl: HTMLInputElement | null = null;
 		let defaultTaskFileErrorEl: HTMLElement | null = null;

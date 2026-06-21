@@ -29,7 +29,7 @@ import {
 	type ManualOrderStore,
 } from "./manual_order";
 import {
-	deleteRows,
+	deleteRowBlocks,
 	readFileRows,
 	transformSourceRow,
 	updateRow,
@@ -47,6 +47,8 @@ export type TaskActions = {
 	) => Promise<void>;
 	clearDateProperty: (id: string, key: WritableDatePropertyKey) => Promise<void>;
 	updateContent: (id: string, content: string) => Promise<void>;
+	updateSourceBlockRow: (id: string, rowIndex: number, content: string) => Promise<void>;
+	toggleSourceTaskStatus: (id: string, rowIndex: number) => Promise<void>;
 	viewFile: (id: string, event?: MouseEvent | KeyboardEvent) => Promise<void>;
 	archiveTasks: (ids: string[]) => Promise<void>;
 	cancelTasks: (ids: string[]) => Promise<void>;
@@ -186,6 +188,12 @@ export function createTaskActions({
 			metadata.rowIndex,
 			transform,
 		);
+	}
+
+	function getTaskWithMetadata(id: string): { task: Task; metadata: Metadata } | null {
+		const metadata = metadataByTaskId.get(id);
+		const task = tasksByTaskId.get(id);
+		return task && metadata ? { task, metadata } : null;
 	}
 
 	/**
@@ -378,6 +386,34 @@ export function createTaskActions({
 			await updateRowWithTask(id, (task) => (task.content = content));
 		},
 
+		async updateSourceBlockRow(id, rowIndex, content) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) {
+				return;
+			}
+
+			const nextRow = entry.task.updateSourceBlockRowContent(rowIndex, content);
+			if (nextRow == null) {
+				return;
+			}
+
+			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow);
+		},
+
+		async toggleSourceTaskStatus(id, rowIndex) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) {
+				return;
+			}
+
+			const nextRow = entry.task.cycleSourceTaskRowStatus(rowIndex, getStatusMarkerOrder());
+			if (nextRow == null) {
+				return;
+			}
+
+			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow);
+		},
+
 		async setDateProperty(id, key, date) {
 			await updateSourceRow(
 				id,
@@ -411,7 +447,17 @@ export function createTaskActions({
 		},
 
 		async deleteTask(id) {
-			await updateRowWithTask(id, (task) => task.delete());
+			const entry = getTaskWithMetadata(id);
+			if (!entry) {
+				return;
+			}
+
+			await deleteRowBlocks(vault, entry.metadata.fileHandle, [
+				{
+					rowIndex: entry.metadata.rowIndex,
+					lineCount: entry.task.sourceBlockLineCount,
+				},
+			]);
 		},
 
 		async updateSwimlaneTag(ids, newTag, prefix, excludedTags) {
@@ -428,19 +474,23 @@ export function createTaskActions({
 		},
 
 		async duplicateTask(id) {
-			const metadata = metadataByTaskId.get(id);
-			if (!metadata) return;
+			const entry = getTaskWithMetadata(id);
+			if (!entry) return;
 
-			const { fileHandle, rowIndex } = metadata;
+			const { fileHandle, rowIndex } = entry.metadata;
 			const rows = await readFileRows(vault, fileHandle);
 
 			if (rowIndex >= rows.length) return;
 
-			const originalLine = rows[rowIndex];
+			const sourceBlockRows = rows.slice(rowIndex, rowIndex + entry.task.sourceBlockLineCount);
+			const originalLine = sourceBlockRows[0];
 			if (!originalLine) return;
 
-			const newLine = createDuplicateLine(originalLine);
-			rows.splice(rowIndex + 1, 0, newLine);
+			const duplicatedRows = [
+				createDuplicateLine(originalLine),
+				...sourceBlockRows.slice(1),
+			];
+			rows.splice(rowIndex + sourceBlockRows.length, 0, ...duplicatedRows);
 			await writeFileRows(vault, fileHandle, rows);
 		},
 
@@ -460,27 +510,25 @@ export function createTaskActions({
 
 			const destinationRows = await readFileRows(vault, destinationFile);
 			for (const { task } of moves) {
-				destinationRows.push(
-					taskIsInColumn(task, destinationColumn)
-						? task.serialise()
-						: task.serialiseForColumn(destinationColumn),
-				);
+				const serializedParent = taskIsInColumn(task, destinationColumn)
+					? task.serialise()
+					: task.serialiseForColumn(destinationColumn);
+				destinationRows.push(...task.sourceBlockRows(serializedParent));
 			}
 			await writeFileRows(vault, destinationFile, destinationRows);
 
-			const movesBySourceFile = new Map<TFile, Metadata[]>();
-			for (const { metadata } of moves) {
+			const movesBySourceFile = new Map<TFile, Array<{ rowIndex: number; lineCount: number }>>();
+			for (const { task, metadata } of moves) {
 				const sourceMoves = movesBySourceFile.get(metadata.fileHandle) ?? [];
-				sourceMoves.push(metadata);
+				sourceMoves.push({
+					rowIndex: metadata.rowIndex,
+					lineCount: task.sourceBlockLineCount,
+				});
 				movesBySourceFile.set(metadata.fileHandle, sourceMoves);
 			}
 
 			for (const [sourceFile, sourceMoves] of movesBySourceFile) {
-				await deleteRows(
-					vault,
-					sourceFile,
-					sourceMoves.map(({ rowIndex }) => rowIndex),
-				);
+				await deleteRowBlocks(vault, sourceFile, sourceMoves);
 			}
 		},
 

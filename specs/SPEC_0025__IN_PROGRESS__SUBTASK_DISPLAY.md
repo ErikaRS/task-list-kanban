@@ -214,64 +214,64 @@ Future subtask drag/drop should operate on the source tree by default. A task un
 
 ## Implementation Plan
 
-### Phase 1: Parsed Model And Board Roots
+### Phase 1: Parsed Model And Board Roots ✅ COMPLETE
 
 **Goal:** Build board card roots with source trees.
 
-1. [ ] Add setting schema, default, UI, and parser option.
-2. [ ] Add `SourceTaskNode` and `SourceRawNode` types.
-3. [ ] Add source block helpers to `Task`.
-4. [ ] Parse source tree and create cards only for root-most visible tasks.
-5. [ ] Exclude nested visible task nodes from independent board cards.
-6. [ ] Add task-only traversal helper(s).
-7. [ ] Unit tests for setting off, root detection, nested subtasks, raw/ignored rows, blank lines, and mixed indentation.
+1. ✅ Add setting schema, default, UI, and parser option.
+2. ✅ Add `SourceTaskNode` and `SourceRawNode` types.
+3. ✅ Add source block helpers to `Task`.
+4. ✅ Parse source tree and create cards only for root-most visible tasks.
+5. ✅ Exclude nested visible task nodes from independent board cards.
+6. ✅ Add task-only traversal helper(s).
+7. ✅ Unit tests for setting off, root detection, nested subtasks, raw/ignored rows, blank lines, and mixed indentation.
 
-### Phase 2: Render Source Children
+### Phase 2: Render Source Children 🚧 IN PROGRESS
 
 **Goal:** Display parsed subtasks and raw content rows inside parent cards.
 
-1. [ ] Add recursive child row component.
-2. [ ] Render visible task nodes with checkbox/status controls.
-3. [ ] Render raw/ignored nodes without checkbox/status controls.
-4. [ ] Preserve source order and visual nesting.
-5. [ ] Manual test display with nested tasks, raw bullets, ignored rows, and done subtasks.
+1. ✅ Add recursive child row component.
+2. ✅ Render visible task nodes with checkbox/status controls.
+3. ✅ Render raw/ignored nodes without checkbox/status controls.
+4. ✅ Preserve source order and visual nesting.
+5. ✅ Manual test display with nested tasks, raw bullets, ignored rows, and done subtasks.
 
-### Phase 3: Row-Local Editing
+### Phase 3: Row-Local Editing ✅ COMPLETE
 
 **Goal:** Edit any displayed child row independently.
 
-1. [ ] Add row-local text edit action keyed by source row index.
-2. [ ] Edit subtask rows without changing parent/siblings.
-3. [ ] Edit raw rows without adding task behavior.
-4. [ ] Reparse after writes.
-5. [ ] Unit tests for subtask/raw/nested row edits.
+1. ✅ Add row-local text edit action keyed by source row index.
+2. ✅ Edit subtask rows without changing parent/siblings.
+3. ✅ Edit raw rows without adding task behavior.
+4. ✅ Reparse after writes.
+5. ✅ Unit tests for subtask/raw/nested row edits.
 
-### Phase 4: Row-Local Subtask Status Cycling
+### Phase 4: Row-Local Subtask Status Cycling ✅ COMPLETE
 
 **Goal:** Click subtask checkboxes to cycle only that subtask row.
 
-1. [ ] Add row-local status cycle action.
-2. [ ] Use configured status marker order and marker settings.
-3. [ ] Rewrite only the clicked subtask row.
-4. [ ] Reparse after writes.
-5. [ ] Unit tests for row-local cycling, parent isolation, ignored-marker transition, and done subtasks.
+1. ✅ Add row-local status cycle action.
+2. ✅ Use configured status marker order and marker settings.
+3. ✅ Rewrite only the clicked subtask row.
+4. ✅ Reparse after writes.
+5. ✅ Unit tests for row-local cycling, parent isolation, ignored-marker transition, and done subtasks.
 
-### Phase 5: Block-Aware Parent Actions
+### Phase 5: Block-Aware Parent Actions ✅ COMPLETE
 
 **Goal:** Parent board actions preserve or move full owned source blocks.
 
-1. [ ] Add block splice helper where needed.
-2. [ ] Update delete, duplicate, and move-to-file for full blocks.
-3. [ ] Confirm parent-only actions rewrite only parent rows.
-4. [ ] Confirm manual order remains parent-only.
-5. [ ] Unit tests for delete, duplicate, move-to-file, parent-only mutations, and multiple block deletes from one file.
+1. ✅ Add block splice helper where needed.
+2. ✅ Update delete, duplicate, and move-to-file for full blocks.
+3. ✅ Confirm parent-only actions rewrite only parent rows.
+4. ✅ Confirm manual order remains parent-only.
+5. ✅ Unit tests for delete, duplicate, move-to-file, parent-only mutations, and multiple block deletes from one file.
 
 ## Verification Plan
 
 ### Automated Tests
 
-- [ ] `npm run build`
-- [ ] `npm test`
+- ✅ `npm run build`
+- ✅ `npm test`
 
 ### Manual Verification
 

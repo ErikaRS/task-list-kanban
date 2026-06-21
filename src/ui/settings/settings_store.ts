@@ -172,6 +172,7 @@ const settingsObject = z.object({
 	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
 	propertySchema: z.nativeEnum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
 	propertyDisplay: z.nativeEnum(PropertyDisplayMode).catch(PropertyDisplayMode.None).optional(),
+	treatNestedTasksAsSubtasks: z.boolean().default(false).optional(),
 	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
 	sortProperty: z.string().nullable().default(null).optional(),
 	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
@@ -217,6 +218,7 @@ export interface SettingValues {
 	groupSource?: GroupSource;
 	propertySchema?: PropertySchemaOption;
 	propertyDisplay?: PropertyDisplayMode;
+	treatNestedTasksAsSubtasks?: boolean;
 	columnOrderMode?: ColumnOrderMode;
 	sortProperty?: string | null;
 	sortDirection?: SortDirection;
@@ -253,6 +255,7 @@ export const defaultSettings: SettingValues = {
 	groupSource: { kind: "none" },
 	propertySchema: PropertySchemaOption.None,
 	propertyDisplay: PropertyDisplayMode.None,
+	treatNestedTasksAsSubtasks: false,
 	columnOrderMode: ColumnOrderMode.FileOrder,
 	sortProperty: null,
 	sortDirection: "asc",

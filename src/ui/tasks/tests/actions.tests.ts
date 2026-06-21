@@ -1,10 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
+import { writable } from "svelte/store";
 import { PropertySchemaOption } from "../../../parsing/properties";
 import { DataviewSchema } from "../../../parsing/properties/dataview_schema";
 import { NoneSchema } from "../../../parsing/properties/none_schema";
 import { TasksPluginSchema } from "../../../parsing/properties/tasks_schema";
 import { createColumnData, type ColumnDefinition, type ColumnTag } from "../../columns/columns";
 import { createTaskActions } from "../actions";
+import { updateMapsFromFile, type Metadata } from "../tasks";
+import {
+	DEFAULT_CANCELLED_STATUS_MARKERS,
+	DEFAULT_DONE_STATUS_MARKERS,
+	DEFAULT_IGNORED_STATUS_MARKERS,
+	type Task,
+} from "../task";
 import { createTaskLine } from "../task_creation";
 import { parseTask } from "./task_test_helpers";
 
@@ -203,6 +211,131 @@ describe("task actions", () => {
 			await actions.changeColumn(taskId, "next" as ColumnTag);
 
 			expect(contents()).toBe("- [ ] Send invoice #next");
+		});
+	});
+
+	describe("nested source block actions", () => {
+		it("updates subtask and raw source rows without changing siblings", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] Child\n  - raw note",
+			);
+
+			await actions.updateSourceBlockRow(taskId, 1, "Updated child #tag");
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Updated child #tag\n  - raw note");
+
+			await actions.updateSourceBlockRow(taskId, 2, "- updated raw");
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Updated child #tag\n  - updated raw");
+		});
+
+		it("edits ignored task rows as task content", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [-] Ignored child",
+				{ ignoredStatusMarkers: "-" },
+			);
+
+			await actions.updateSourceBlockRow(taskId, 1, "Still ignored");
+
+			expect(contents()).toBe("- [ ] Parent\n  - [-] Still ignored");
+		});
+
+		it("cycles only the clicked subtask status", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] Child\n  - [ ] Sibling",
+				{ statusMarkerOrder: "/" },
+			);
+
+			await actions.toggleSourceTaskStatus(taskId, 1);
+
+			expect(contents()).toBe("- [ ] Parent\n  - [/] Child\n  - [ ] Sibling");
+		});
+
+		it("cycles a subtask into an ignored marker row-local", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [/] Child",
+				{
+					statusMarkerOrder: "/-",
+					ignoredStatusMarkers: "-",
+				},
+			);
+
+			await actions.toggleSourceTaskStatus(taskId, 1);
+
+			expect(contents()).toBe("- [ ] Parent\n  - [-] Child");
+		});
+
+		it("reopens done subtasks without touching the parent", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [x] Child",
+			);
+
+			await actions.toggleSourceTaskStatus(taskId, 1);
+
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child");
+		});
+
+		it("cycles a custom done subtask marker back to the start", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [D] Child",
+				{
+					doneStatusMarkers: "D",
+					statusMarkerOrder: "/D",
+				},
+			);
+
+			await actions.toggleSourceTaskStatus(taskId, 1);
+
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child");
+		});
+
+		it("deletes the full owned source block for a parent card", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [ ] Child\n- [ ] Sibling",
+			);
+
+			await actions.deleteTask(taskId);
+
+			expect(contents()).toBe("- [ ] Sibling");
+		});
+
+		it("duplicates the full owned source block and resets only the parent copy", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [x] Parent ^abc123\n  - [x] Child\n- [ ] Sibling",
+			);
+
+			await actions.duplicateTask(taskId);
+
+			expect(contents()).toBe(
+				"- [x] Parent ^abc123\n  - [x] Child\n- [ ] Parent\n  - [x] Child\n- [ ] Sibling",
+			);
+		});
+
+		it("moves full owned source blocks to another file and retags only the parent row", async () => {
+			const sourceFile = { path: "source.md" };
+			const destinationFile = { path: "done.md" };
+			const fileContents = new Map([
+				["source.md", "- [ ] Parent\n  - [ ] Child\n- [ ] Sibling"],
+				["done.md", "# Done"],
+			]);
+			const tasksByTaskId = new Map<string, Task>();
+			const metadataByTaskId = new Map<string, Metadata>();
+
+			await parseNestedFileIntoMaps({
+				fileHandle: sourceFile,
+				fileContents,
+				tasksByTaskId,
+				metadataByTaskId,
+			});
+			const task = Array.from(tasksByTaskId.values())[0]!;
+			const actions = setupActionsWithFileMap({
+				fileContents,
+				tasksByTaskId,
+				metadataByTaskId,
+			});
+
+			await actions.moveTasksToFile([task.id], destinationFile as never, "done");
+
+			expect(fileContents.get("source.md")).toBe("- [ ] Sibling");
+			expect(fileContents.get("done.md")).toBe("# Done\n- [x] Parent\n  - [ ] Child");
 		});
 	});
 
@@ -423,6 +556,41 @@ function setupActionsForLine(
 	};
 }
 
+async function setupNestedActions(
+	initialContents: string,
+	options: { statusMarkerOrder?: string; doneStatusMarkers?: string; ignoredStatusMarkers?: string } = {},
+) {
+	const fileHandle = { path: "tasks.md" };
+	const fileContents = new Map([[fileHandle.path, initialContents]]);
+	const tasksByTaskId = new Map<string, Task>();
+	const metadataByTaskId = new Map<string, Metadata>();
+
+	await parseNestedFileIntoMaps({
+		fileHandle,
+		fileContents,
+		tasksByTaskId,
+		metadataByTaskId,
+		doneStatusMarkers: options.doneStatusMarkers,
+		ignoredStatusMarkers: options.ignoredStatusMarkers,
+	});
+	const task = Array.from(tasksByTaskId.values())[0]!;
+	const { actions, contents } = setupActions(
+		initialContents,
+		PropertySchemaOption.None,
+		tasksByTaskId,
+		metadataByTaskId as never,
+		fileHandle,
+		[],
+		{ statusMarkerOrder: options.statusMarkerOrder },
+	);
+
+	return {
+		actions,
+		taskId: task.id,
+		contents,
+	};
+}
+
 function setupActions(
 	initialContents: string,
 	propertySchemaOption: PropertySchemaOption,
@@ -464,4 +632,76 @@ function setupActions(
 		fileHandle,
 		contents: () => fileContents,
 	};
+}
+
+async function parseNestedFileIntoMaps({
+	fileHandle,
+	fileContents,
+	tasksByTaskId,
+	metadataByTaskId,
+	doneStatusMarkers,
+	ignoredStatusMarkers,
+}: {
+	fileHandle: { path: string };
+	fileContents: Map<string, string>;
+	tasksByTaskId: Map<string, Task>;
+	metadataByTaskId: Map<string, Metadata>;
+	doneStatusMarkers?: string;
+	ignoredStatusMarkers?: string;
+}) {
+	await updateMapsFromFile({
+		fileHandle: fileHandle as never,
+		tasksByTaskId,
+		metadataByTaskId,
+		taskIdsByFileHandle: new Map(),
+		vault: {
+			read: vi.fn(async (file: { path: string }) => fileContents.get(file.path) ?? ""),
+		} as never,
+		columnDefinitionsStore: writable([]),
+		columnPlacementTagTableStore: writable({}),
+		consolidateTags: false,
+		doneStatusMarkers: doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+		cancelledStatusMarkers: DEFAULT_CANCELLED_STATUS_MARKERS,
+		ignoredStatusMarkers: ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		excludedTaskTags: new Set(),
+		propertySchema: new NoneSchema(),
+		treatNestedTasksAsSubtasks: true,
+	});
+}
+
+function setupActionsWithFileMap({
+	fileContents,
+	tasksByTaskId,
+	metadataByTaskId,
+	statusMarkerOrder = "",
+}: {
+	fileContents: Map<string, string>;
+	tasksByTaskId: Map<string, Task>;
+	metadataByTaskId: Map<string, Metadata>;
+	statusMarkerOrder?: string;
+}) {
+	return createTaskActions({
+		tasksByTaskId,
+		metadataByTaskId: metadataByTaskId as never,
+		vault: {
+			read: async (file: { path: string }) => fileContents.get(file.path) ?? "",
+			modify: async (file: { path: string }, nextContents: string) => {
+				fileContents.set(file.path, nextContents);
+			},
+		} as never,
+		workspace: {} as never,
+		getFilenameFilter: () => null,
+		getExcludeFilter: () => null,
+		getBoardFolderPath: () => null,
+		getPlacementTagsForColumn: (column) => [column],
+		getColumnDefinitions: () => [],
+		getDefaultTaskFile: () => null,
+		getLastUsedTaskFile: () => null,
+		setLastUsedTaskFile: () => undefined,
+		getPropertySchemaOption: () => PropertySchemaOption.None,
+		getStatusMarkerOrder: () => statusMarkerOrder,
+		getCurrentDate: () => new Date(2026, 5, 15, 12),
+		getManualOrder: () => ({}),
+		setManualOrder: () => undefined,
+	});
 }

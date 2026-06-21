@@ -25,8 +25,8 @@
 		clearColumnSelections,
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
-	import Icon from "./icon.svelte";
 	import type { ColumnHeaderSubtitle } from "../columns/definitions";
+	import TaskStatusMarker from "./TaskStatusMarker.svelte";
 
 	export let column: ColumnTag | DefaultColumns;
 	export let tasks: Task[];
@@ -163,10 +163,6 @@
 	}
 
 	$: showContextMenu = column === "done" || (isSelectMode && selectedCount > 0);
-
-	function shouldRenderStatusAsText(status: string): boolean {
-		return status.length > 1 || /\p{Extended_Pictographic}/u.test(status);
-	}
 </script>
 
 <div
@@ -212,25 +208,9 @@
 						<span class="column-match-status-label">Status</span>
 						<span
 							class="column-status-preview"
-							class:uses-status-marker={columnStatusMarker !== " "}
-							class:markdown-rendered={columnStatusMarker !== " "}
-							class:markdown-preview-view={columnStatusMarker !== " "}
-							class:task-list-item={columnStatusMarker !== " "}
-							class:is-checked={columnStatusMarker !== " "}
-							data-task={columnStatusMarker !== " " ? columnStatusMarker : undefined}
 							aria-label="Status: {columnStatusLabel}"
 						>
-							{#if columnStatusMarker === " "}
-								<Icon name="lucide-square" size={18} opacity={0.5} />
-							{:else if shouldRenderStatusAsText(columnStatusMarker ?? "")}
-								<span class="status-text-marker">{columnStatusMarker}</span>
-							{:else}
-								<span
-									class="task-list-item-checkbox source-status-checkbox"
-									data-task={columnStatusMarker}
-									aria-hidden="true"
-								></span>
-							{/if}
+							<TaskStatusMarker status={columnStatusMarker ?? " "} size={18} />
 						</span>
 					</div>
 				{/if}
@@ -635,30 +615,6 @@
 		list-style: none !important;
 		color: var(--text-normal);
 		vertical-align: middle;
-	}
-
-	.column-status-preview .source-status-checkbox,
-	.column-status-preview .status-text-marker {
-		display: inline-flex !important;
-		position: static !important;
-		align-items: center !important;
-		justify-content: center !important;
-		width: 18px !important;
-		height: 18px !important;
-		min-width: 18px !important;
-		min-height: 18px !important;
-		max-width: 18px !important;
-		max-height: 18px !important;
-		margin: 0 !important;
-		padding: 0 !important;
-		pointer-events: none;
-		text-indent: 0 !important;
-		line-height: 1 !important;
-		vertical-align: middle !important;
-	}
-
-	.column-status-preview .status-text-marker {
-		font-size: 15px;
 	}
 
 	.selection-info {

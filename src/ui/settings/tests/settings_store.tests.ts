@@ -279,6 +279,17 @@ describe("Property display configuration", () => {
 	});
 });
 
+describe("Nested subtask display configuration", () => {
+	it("defaults to off", () => {
+		expect(parseSettings({}).treatNestedTasksAsSubtasks).toBe(false);
+	});
+
+	it("parses and serializes the setting", () => {
+		expect(parseSettings({ treatNestedTasksAsSubtasks: true }).treatNestedTasksAsSubtasks).toBe(true);
+		expect(serializeSettings({ treatNestedTasksAsSubtasks: true }).treatNestedTasksAsSubtasks).toBe(true);
+	});
+});
+
 describe("Column width configuration", () => {
 	it.each([
 		[{ columns: ["Todo", "In Progress", "Done"] }, 300],

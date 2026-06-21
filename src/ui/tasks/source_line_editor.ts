@@ -72,3 +72,17 @@ export async function deleteRows(
 	}
 	await writeFileRows(vault, fileHandle, rows);
 }
+
+export async function deleteRowBlocks(
+	vault: Vault,
+	fileHandle: TFile,
+	blocks: Array<{ rowIndex: number; lineCount: number }>,
+): Promise<void> {
+	const rows = await readFileRows(vault, fileHandle);
+	for (const block of [...blocks].sort((a, b) => b.rowIndex - a.rowIndex)) {
+		if (block.rowIndex < rows.length && block.lineCount > 0) {
+			rows.splice(block.rowIndex, block.lineCount);
+		}
+	}
+	await writeFileRows(vault, fileHandle, rows);
+}

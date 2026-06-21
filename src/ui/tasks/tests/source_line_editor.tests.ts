@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+	deleteRowBlocks,
 	deleteRows,
 	transformSourceRow,
 	updateRow,
@@ -38,6 +39,17 @@ describe("source line editor", () => {
 		await deleteRows(vault as never, file as never, [1, 3]);
 
 		expect(contents()).toBe("zero\ntwo");
+	});
+
+	it("deletes row blocks from bottom to top", async () => {
+		const { vault, file, contents } = createEditableFile("zero\none\ntwo\nthree\nfour");
+
+		await deleteRowBlocks(vault as never, file as never, [
+			{ rowIndex: 1, lineCount: 2 },
+			{ rowIndex: 4, lineCount: 1 },
+		]);
+
+		expect(contents()).toBe("zero\nthree");
 	});
 });
 

@@ -23,6 +23,11 @@ import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
 import { getSchemaImpl } from "../../parsing/properties";
 import { getOrderedStatusMarkers } from "../../parsing/properties/comparators";
+import {
+	flattenSourceBlockNodes,
+	parseSourceTaskLine,
+	type SourceBlockNode,
+} from "./source_block";
 
 /**
  * A string containing characters that mark tasks as completed.
@@ -244,14 +249,39 @@ export interface TaskParseContext {
 	propertySchema: PropertySchema;
 }
 
+function getNextStatusMarker(
+	currentStatus: string,
+	doneStatusMarkers: string,
+	statusMarkerOrder: string,
+): { status: string; done: boolean } {
+	if (isStatusMatch(currentStatus, doneStatusMarkers)) {
+		return { status: " ", done: false };
+	}
+
+	const orderedMarkers = getOrderedStatusMarkers(statusMarkerOrder);
+	const currentIndex = orderedMarkers.indexOf(currentStatus);
+	const nextMarker = currentIndex >= 0 ? orderedMarkers[currentIndex + 1] : undefined;
+
+	if (!nextMarker || isStatusMatch(nextMarker, doneStatusMarkers)) {
+		return {
+			status: Array.from(doneStatusMarkers)[0] ?? "x",
+			done: true,
+		};
+	}
+
+	return { status: nextMarker, done: false };
+}
+
 export class Task {
 	readonly properties: TaskPropertyMap;
+	readonly sourceChildren: SourceBlockNode[];
 
 	constructor(
 		rawContent: TaskString,
 		fileHandle: { path: string },
 		readonly rowIndex: number,
 		context: TaskParseContext,
+		sourceChildren: SourceBlockNode[] = [],
 	) {
 		const [, blockLink] = rawContent.match(blockLinkRegexp) ?? [];
 		this.blockLink = blockLink;
@@ -271,6 +301,7 @@ export class Task {
 			throw new Error("Content not found in raw content");
 		}
 
+		this.sourceChildren = sourceChildren;
 		const tags = getTagsFromContent(content);
 
 		this._id = sha256(content + fileHandle.path + rowIndex).toString();
@@ -377,27 +408,18 @@ export class Task {
 	}
 
 	cycleStatus(statusMarkerOrder: string): boolean {
-		if (this.done) {
-			this.undone();
-			return false;
-		}
-
-		const orderedMarkers = getOrderedStatusMarkers(statusMarkerOrder);
-		const currentIndex = orderedMarkers.indexOf(this._displayStatus);
-		const nextMarker = currentIndex >= 0 ? orderedMarkers[currentIndex + 1] : undefined;
-
-		if (!nextMarker) {
-			this.done = true;
-			return true;
-		}
-
-		if (isStatusMatch(nextMarker, this.doneStatusMarkers)) {
+		const next = getNextStatusMarker(
+			this._displayStatus,
+			this.doneStatusMarkers,
+			statusMarkerOrder,
+		);
+		if (next.done) {
 			this.done = true;
 			return true;
 		}
 
 		this._done = false;
-		this._displayStatus = nextMarker;
+		this._displayStatus = next.status;
 		return false;
 	}
 
@@ -608,6 +630,62 @@ export class Task {
 			.trimEnd();
 	}
 
+	get sourceBlockLineCount(): number {
+		return 1 + flattenSourceBlockNodes(this.sourceChildren).length;
+	}
+
+	sourceBlockRows(serializedParent = this.serialise()): string[] {
+		return [
+			serializedParent,
+			...flattenSourceBlockNodes(this.sourceChildren).map((node) => node.rawLine),
+		];
+	}
+
+	updateSourceBlockRowContent(rowIndex: number, content: string): string | null {
+		const node = this.findSourceBlockNode(rowIndex);
+		if (!node) {
+			return null;
+		}
+
+		if (node.kind === "raw") {
+			return `${node.indentation}${content}`;
+		}
+
+		const parsed = parseSourceTaskLine(node.rawLine);
+		if (!parsed) {
+			return null;
+		}
+
+		return `${parsed.indentation}${parsed.bullet} [${parsed.status}] ${content}`;
+	}
+
+	cycleSourceTaskRowStatus(rowIndex: number, statusMarkerOrder: string): string | null {
+		const node = this.findSourceBlockNode(rowIndex);
+		if (!node || node.kind !== "task") {
+			return null;
+		}
+
+		const parsed = parseSourceTaskLine(node.rawLine);
+		if (!parsed) {
+			return null;
+		}
+
+		const next = getNextStatusMarker(
+			parsed.status || " ",
+			this.doneStatusMarkers,
+			statusMarkerOrder,
+		);
+		return `${parsed.indentation}${parsed.bullet} [${next.status}] ${parsed.content}`;
+	}
+
+	isSourceTaskStatusDone(status: string): boolean {
+		return isStatusMatch(status, this.doneStatusMarkers);
+	}
+
+	private findSourceBlockNode(rowIndex: number): SourceBlockNode | null {
+		return flattenSourceBlockNodes(this.sourceChildren).find((node) => node.rowIndex === rowIndex) ?? null;
+	}
+
 	serialiseForColumn(column: ColumnTag | DefaultColumns): string {
 		const originalColumn = this._column;
 		const originalDone = this._done;
@@ -670,17 +748,13 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 		return false;
 	}
 
-	if (!taskStringRegex.test(input)) {
+	const parsed = parseSourceTaskLine(input);
+	if (!parsed) {
 		return false;
 	}
 
-	// Extract the checkbox status and check if it's ignored
-	const match = input.match(taskStringRegex);
-	if (match) {
-		const [, , status] = match;
-		if (isStatusMatch(status, ignoredStatusMarkers)) {
-			return false;
-		}
+	if (isStatusMatch(parsed.status, ignoredStatusMarkers)) {
+		return false;
 	}
 
 	return true;

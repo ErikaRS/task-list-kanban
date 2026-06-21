@@ -3,6 +3,8 @@
 	import { isDraggingStore } from "../dnd/store";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
+	import TaskSourceRows from "./TaskSourceRows.svelte";
+	import TaskStatusMarker from "./TaskStatusMarker.svelte";
 	import TaskMenu from "./task_menu.svelte";
 	import TaskDateFields from "./TaskDateFields.svelte";
 	import Icon from "./icon.svelte";
@@ -65,10 +67,6 @@
 	let isEditing = false;
 	let isDragging = false;
 	$: displayStatusIsCustom = task.displayStatus !== " ";
-
-	function shouldRenderStatusAsText(status: string): boolean {
-		return status.length > 1 || /\p{Extended_Pictographic}/u.test(status);
-	}
 
 	function handleDragStart(e: DragEvent) {
 		handleContentBlur();
@@ -434,11 +432,6 @@
 					class="icon-button toggle-done-task"
 					class:is-done={task.done}
 					class:usesStatusMarker={displayStatusIsCustom}
-					class:markdown-rendered={displayStatusIsCustom}
-					class:markdown-preview-view={displayStatusIsCustom}
-					class:task-list-item={displayStatusIsCustom}
-					class:is-checked={displayStatusIsCustom}
-					data-task={displayStatusIsCustom ? task.displayStatus : undefined}
 					role="checkbox"
 					aria-label="Advance status"
 					aria-checked={task.done}
@@ -451,23 +444,7 @@
 					}}
 					tabindex="0"
 				>
-					{#if displayStatusIsCustom}
-						{#if shouldRenderStatusAsText(task.displayStatus)}
-							<span class="status-text-marker">{task.displayStatus}</span>
-						{:else}
-							<span
-								class="task-list-item-checkbox source-status-checkbox"
-								data-task={task.displayStatus}
-								aria-hidden="true"
-							></span>
-						{/if}
-					{:else}
-						<Icon
-							name={task.done ? "lucide-check-square" : "lucide-square"}
-							size={18}
-							opacity={task.done ? 1 : 0.5}
-						/>
-					{/if}
+					<TaskStatusMarker status={task.displayStatus} isDone={task.done} size={16} />
 				</button>
 			{/if}
 		</div>
@@ -519,6 +496,16 @@
 			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
 		</div>
 	</div>
+
+	{#if task.sourceChildren.length > 0}
+		<TaskSourceRows
+			{task}
+			{taskActions}
+			nodes={task.sourceChildren}
+			{isSelectionMode}
+			depth={1}
+		/>
+	{/if}
 
 	{#if shouldconsolidateTags}
 		<div class="task-tags">
@@ -654,9 +641,8 @@
 					align-items: center;
 					justify-content: center;
 					flex-shrink: 0;
-					width: 18px;
-					height: 18px;
-					margin-top: 2px;
+					width: 20px;
+					height: 1.5rem;
 				}
 
 			.task-row-content {
@@ -692,8 +678,8 @@
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			width: 22px;
-			height: 22px;
+			width: 20px;
+			height: 20px;
 			padding: 0;
 			border: none;
 			background: transparent;
@@ -701,6 +687,7 @@
 			border-radius: var(--radius-s);
 			transition: opacity 0.2s ease;
 			box-shadow: none;
+			overflow: visible;
 
 			&:hover,
 			&:active {
@@ -736,24 +723,6 @@
 				color: var(--text-normal);
 			}
 
-			&.usesStatusMarker .source-status-checkbox,
-			&.usesStatusMarker .status-text-marker {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				width: 18px;
-				height: 18px;
-				min-width: 18px;
-				min-height: 18px;
-				margin: 0 !important;
-				padding: 0 !important;
-				pointer-events: none;
-				line-height: 1;
-			}
-
-			&.usesStatusMarker .status-text-marker {
-				font-size: 15px;
-			}
 		}
 
 		.drag-handle {

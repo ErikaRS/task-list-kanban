@@ -19,6 +19,7 @@ function getMarkerSettings(settings: SettingValues) {
 			(settings.excludedTaskTags ?? []).map((t) => t.trim().toLowerCase())
 		),
 		propertySchema: getSchemaImpl(settings.propertySchema ?? PropertySchemaOption.None),
+		treatNestedTasksAsSubtasks: settings.treatNestedTasksAsSubtasks ?? false,
 	};
 }
 
