@@ -648,6 +648,17 @@ export class Task {
 		}
 
 		if (node.kind === "raw") {
+			if (content === "") {
+				return "";
+			}
+
+			const rawListItemMatch = node.rawLine
+				.slice(node.indentation.length)
+				.match(/^([-*+]\s+)(.+)$/);
+			if (rawListItemMatch && !/^[-*+]\s+/.test(content)) {
+				return `${node.indentation}${rawListItemMatch[1]}${content}`;
+			}
+
 			return `${node.indentation}${content}`;
 		}
 

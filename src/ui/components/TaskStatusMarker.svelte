@@ -14,7 +14,7 @@
 
 {#if isCustom}
 	<span
-		class="task-status-marker markdown-rendered markdown-preview-view task-list-item is-checked"
+		class="task-status-marker markdown-rendered markdown-preview-view is-checked"
 		class:is-done={isDone}
 		class:is-fallback-checked={resolvedIsChecked}
 		data-task={status}

@@ -3,6 +3,7 @@
 	import { isDraggingStore } from "../dnd/store";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
+	import TaskLineRow from "./TaskLineRow.svelte";
 	import TaskSourceRows from "./TaskSourceRows.svelte";
 	import TaskStatusMarker from "./TaskStatusMarker.svelte";
 	import TaskMenu from "./task_menu.svelte";
@@ -401,8 +402,8 @@
 		on:dragend={handleDragEnd}
 >
 	<!-- Task row -->
-	<div class="task-row">
-		<div class="task-row-left">
+	<TaskLineRow variant="card" hasActions>
+		<svelte:fragment slot="marker">
 			{#if isSelectionMode}
 				<!-- Selection checkbox (square icons) -->
 				<button
@@ -447,7 +448,7 @@
 					<TaskStatusMarker status={task.displayStatus} isDone={task.done} size={16} />
 				</button>
 			{/if}
-		</div>
+		</svelte:fragment>
 		<div class="task-row-content">
 			{#if isEditing}
 				<textarea
@@ -469,7 +470,7 @@
 				></div>
 			{/if}
 		</div>
-		<div class="task-row-right">
+		<svelte:fragment slot="actions">
 			{#if isManualOrder && isPinned}
 				<button
 					class="icon-button pin-marker"
@@ -494,8 +495,8 @@
 				</span>
 			{/if}
 			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
-		</div>
-	</div>
+		</svelte:fragment>
+	</TaskLineRow>
 
 	{#if task.sourceChildren.length > 0}
 		<TaskSourceRows
@@ -595,6 +596,7 @@
 <style lang="scss">
 	.task {
 		--task-accent: var(--task-accent-color, var(--background-modifier-border-hover));
+		--task-content-line-height: 1.5rem;
 		--task-footer-line-height: 1.15;
 		--task-footer-block-padding: 2px;
 		position: relative;
@@ -629,49 +631,24 @@
 			background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary));
 		}
 
-		// Task row
-			.task-row {
-				padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) calc(var(--size-4-2) + 8px);
-				display: flex;
-				gap: var(--size-2-3);
-				align-items: flex-start;
+		.task-row-content {
+			min-width: 0; // Allow text to wrap properly
 
-				.task-row-left {
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					flex-shrink: 0;
-					width: 20px;
-					height: 1.5rem;
-				}
-
-			.task-row-content {
-				flex: 1;
-				min-width: 0; // Allow text to wrap properly
-
-				textarea {
-					cursor: text;
-					background-color: var(--color-base-25);
-					width: 100%;
-				}
-
-				.content-preview {
-					min-height: 1.5rem;
-
-					&:focus {
-						box-shadow: 0 0 0 3px
-							var(--background-modifier-border-focus);
-					}
-				}
+			textarea {
+				cursor: text;
+				background-color: var(--color-base-25);
+				width: 100%;
 			}
 
-				.task-row-right {
-					display: flex;
-					align-items: center;
-					flex-shrink: 0;
-					margin-top: -4px;
+			.content-preview {
+				min-height: var(--task-content-line-height);
+
+				&:focus {
+					box-shadow: 0 0 0 3px
+						var(--background-modifier-border-focus);
 				}
 			}
+		}
 
 		// Icon button styling
 		.icon-button {

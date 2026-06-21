@@ -6,6 +6,7 @@
 		type SourceBlockNode,
 	} from "../tasks/source_block";
 	import type { Task } from "../tasks/task";
+	import TaskLineRow from "./TaskLineRow.svelte";
 	import TaskSourceStatusButton from "./TaskSourceStatusButton.svelte";
 
 	export let task: Task;
@@ -16,13 +17,9 @@
 
 	let isEditing = false;
 
-	$: editText = getSourceNodeText(node).replaceAll("<br />", "\n");
 	$: rawListItemText = node.kind === "raw" ? getRawListItemText(node) : null;
+	$: editText = (rawListItemText ?? getSourceNodeText(node)).replaceAll("<br />", "\n");
 	$: previewText = (rawListItemText ?? editText).replaceAll("<br />", "\n");
-
-	function depthClass(value: number): string {
-		return `source-row-depth-${Math.min(value, 12)}`;
-	}
 
 	function startEditing() {
 		isEditing = true;
@@ -73,12 +70,12 @@
 </script>
 
 <div
-	class={`source-row ${depthClass(depth)}`}
+	class="source-row"
 	class:is-ignored-task={node.kind === "task" && node.taskVisibility === "ignored"}
 	class:is-raw-list-item={rawListItemText !== null}
 >
-	<div class="source-row-main">
-		<div class="source-row-left">
+	<TaskLineRow {depth}>
+		<svelte:fragment slot="marker">
 			{#if node.kind === "task"}
 				<TaskSourceStatusButton
 					{task}
@@ -88,80 +85,45 @@
 				/>
 			{:else if rawListItemText !== null}
 				<span class="source-row-bullet" aria-hidden="true"></span>
-			{:else}
-				<span class="source-row-spacer" aria-hidden="true"></span>
 			{/if}
-		</div>
-		<div class="source-row-content">
-			{#if isEditing}
-				<textarea
-					use:focusAndAutosize
-					on:keydown={handleTextareaKeydown}
-					on:blur={finishEditing}
-					value={editText}
-				></textarea>
-			{:else}
-				<button
-					type="button"
-					class="source-row-preview"
-					on:click|stopPropagation={startEditing}
-					on:keydown|stopPropagation={handlePreviewKeydown}
-				>
-					{previewText}
-				</button>
-			{/if}
-		</div>
-	</div>
+		</svelte:fragment>
+		{#if isEditing}
+			<textarea
+				use:focusAndAutosize
+				on:keydown={handleTextareaKeydown}
+				on:blur={finishEditing}
+				value={editText}
+			></textarea>
+		{:else}
+			<button
+				type="button"
+				class="source-row-preview"
+				on:click|stopPropagation={startEditing}
+				on:keydown|stopPropagation={handlePreviewKeydown}
+			>
+				{previewText}
+			</button>
+		{/if}
+	</TaskLineRow>
 	<slot />
 </div>
 
 <style lang="scss">
 	.source-row {
-		--source-row-base-padding-left: calc(var(--size-4-2) + 8px);
-		--source-row-indent-step: 1.65rem;
-	}
-
-	.source-row-main {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--size-2-2);
-		padding: 0 var(--size-4-2) var(--size-2-1) var(--source-row-base-padding-left);
-	}
-
-	@for $depth from 1 through 12 {
-		.source-row-depth-#{$depth} > .source-row-main {
-			padding-left: calc(
-				var(--source-row-base-padding-left) + (#{$depth} * var(--source-row-indent-step))
-			);
-		}
-	}
-
-	.source-row-left {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		width: 20px;
-		height: 20px;
-		margin-top: 1px;
-	}
-
-	.source-row-content {
-		flex: 1;
-		min-width: 0;
+		--source-row-line-height: 1.3;
 	}
 
 	.source-row-preview {
 		display: block;
 		width: 100%;
-		min-height: 1.35rem;
+		min-height: var(--task-line-row-height, 1.5rem);
 		padding: 0;
 		border: none;
 		background: transparent;
 		box-shadow: none;
 		color: var(--text-normal);
 		font: inherit;
-		line-height: 1.3;
+		line-height: var(--source-row-line-height);
 		text-align: left;
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
@@ -187,22 +149,12 @@
 		resize: none;
 	}
 
-	.source-row-spacer {
-		display: inline-block;
-		width: 22px;
-		height: 22px;
-	}
-
 	.source-row-bullet {
-		display: inline-block;
-		width: 7px;
-		height: 7px;
+		display: block;
+		width: 8px;
+		height: 8px;
 		border-radius: 50%;
 		background: var(--text-muted);
-	}
-
-	.is-raw-list-item .source-row-main {
-		gap: var(--size-2-3);
 	}
 
 	.is-ignored-task .source-row-preview {

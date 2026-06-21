@@ -227,6 +227,16 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [ ] Parent\n  - [ ] Updated child #tag\n  - updated raw");
 		});
 
+		it("preserves raw list bullets when editing raw list item text", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - raw note",
+			);
+
+			await actions.updateSourceBlockRow(taskId, 1, "updated raw");
+
+			expect(contents()).toBe("- [ ] Parent\n  - updated raw");
+		});
+
 		it("edits ignored task rows as task content", async () => {
 			const { actions, taskId, contents } = await setupNestedActions(
 				"- [ ] Parent\n  - [-] Ignored child",
