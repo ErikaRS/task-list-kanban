@@ -45,16 +45,15 @@ describe("compareByProperty", () => {
 		expect(compareByProperty(a, b, "key", "asc")).toBeLessThan(0);
 	});
 
-	it("sorts missing values last regardless of direction", () => {
+	it("sorts missing values last ascending and first descending", () => {
 		const present = taskWith("value");
 		const missing = taskWith(null);
 
 		expect(compareByProperty(present, missing, "key", "asc")).toBeLessThan(0);
 		expect(compareByProperty(missing, present, "key", "asc")).toBeGreaterThan(0);
 
-		// Direction does not promote missing values ahead of present ones.
-		expect(compareByProperty(present, missing, "key", "desc")).toBeLessThan(0);
-		expect(compareByProperty(missing, present, "key", "desc")).toBeGreaterThan(0);
+		expect(compareByProperty(present, missing, "key", "desc")).toBeGreaterThan(0);
+		expect(compareByProperty(missing, present, "key", "desc")).toBeLessThan(0);
 	});
 
 	it("treats two missing values as equal", () => {

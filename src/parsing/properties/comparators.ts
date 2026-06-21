@@ -40,8 +40,8 @@ export function compareValues(
 /**
  * Compares two tasks by a parsed property value.
  *
- * Missing values always sort last regardless of direction, matching the spec's
- * "missing values last" rule. The direction only flips the ordering of present
+ * Missing values sort after present values when ascending and before present
+ * values when descending. The direction also flips the ordering of present
  * values.
  */
 export function compareByProperty(
@@ -55,8 +55,8 @@ export function compareByProperty(
 	const bValue = b.properties.get(key)?.value ?? null;
 
 	if (aValue === null && bValue === null) return 0;
-	if (aValue === null) return 1;
-	if (bValue === null) return -1;
+	if (aValue === null) return direction === "desc" ? -1 : 1;
+	if (bValue === null) return direction === "desc" ? 1 : -1;
 
 	if (key === UNIVERSAL_STATUS_PROPERTY_KEY) {
 		return compareStatusMarkerValues(

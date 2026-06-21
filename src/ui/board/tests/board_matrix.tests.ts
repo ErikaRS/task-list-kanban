@@ -92,7 +92,7 @@ describe("deriveBoardMatrix", () => {
 		expect(sorted.map((t) => t.rowIndex)).toEqual([2, 1, 3]);
 	});
 
-	it("respects descending property sort", () => {
+	it("puts missing property values first when sorting descending", () => {
 		const settings: SettingValues = {
 			...defaultSettings,
 			columnOrderMode: ColumnOrderMode.Property,
@@ -106,13 +106,13 @@ describe("deriveBoardMatrix", () => {
 		const tasks = [
 			taskWithProperty({ path: "f", rowIndex: 1 }, { key: "due", value: new Date("2024-01-01") }),
 			taskWithProperty({ path: "f", rowIndex: 2 }, { key: "due", value: new Date("2024-03-01") }),
-			taskWithProperty({ path: "f", rowIndex: 3 }), // missing still last
+			taskWithProperty({ path: "f", rowIndex: 3 }), // missing due -> first
 		];
 
 		const matrix = deriveBoardMatrix(tasks, columns, settings);
 		const sorted = matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks;
 
-		expect(sorted.map((t) => t.rowIndex)).toEqual([2, 1, 3]);
+		expect(sorted.map((t) => t.rowIndex)).toEqual([3, 2, 1]);
 	});
 
 	it("sorts status by configured marker order with unchecked first by default", () => {
