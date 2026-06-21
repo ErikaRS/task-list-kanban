@@ -14,21 +14,28 @@
 
 {#if isCustom}
 	<span
-		class="task-status-marker markdown-rendered markdown-preview-view is-checked"
-		class:is-done={isDone}
-		class:is-fallback-checked={resolvedIsChecked}
-		data-task={status}
+		class="task-status-marker markdown-rendered markdown-preview-view markdown-source-view mod-cm6"
 		style:--task-status-marker-size={markerSize}
 	>
-		{#if shouldRenderStatusAsText(status)}
-			<span class="status-text-marker">{status}</span>
-		{:else}
-			<span
-				class="task-list-item-checkbox source-status-checkbox"
-				data-task={status}
-				aria-hidden="true"
-			></span>
-		{/if}
+		<span
+			class="task-list-item HyperMD-task-line"
+			class:is-checked={resolvedIsChecked}
+			data-task={status}
+		>
+			{#if shouldRenderStatusAsText(status)}
+				<span class="status-text-marker">{status}</span>
+			{:else}
+				<input
+					type="checkbox"
+					class="task-list-item-checkbox source-status-checkbox"
+					data-task={status}
+					checked={resolvedIsChecked}
+					tabindex="-1"
+					aria-hidden="true"
+					style="pointer-events: none;"
+				/>
+			{/if}
+		</span>
 	</span>
 {:else}
 	<Icon
@@ -40,7 +47,7 @@
 
 <style lang="scss">
 	.task-status-marker {
-		display: inline-flex;
+		display: inline-flex !important;
 		align-items: center;
 		justify-content: center;
 		width: var(--task-status-marker-size);
@@ -54,6 +61,10 @@
 		line-height: 1 !important;
 		list-style: none !important;
 		vertical-align: middle;
+
+		.task-list-item.HyperMD-task-line {
+			display: contents !important;
+		}
 
 		.source-status-checkbox,
 		.status-text-marker {
@@ -79,24 +90,14 @@
 
 		.source-status-checkbox {
 			position: relative !important;
-			border: 2px solid var(--checkbox-border-color, var(--background-modifier-border-hover));
-			border-radius: var(--checkbox-radius, 4px);
-			background: var(--checkbox-marker-color, transparent);
-		}
-
-		&.is-fallback-checked .source-status-checkbox {
-			border-color: var(--checkbox-color, var(--interactive-accent));
-			background: var(--checkbox-color, var(--interactive-accent));
-		}
-
-		&.is-fallback-checked .source-status-checkbox::after {
-			content: "";
-			display: block;
-			width: calc(var(--task-status-marker-size) * 0.28);
-			height: calc(var(--task-status-marker-size) * 0.5);
-			border: solid var(--checkbox-check-color, var(--text-on-accent));
-			border-width: 0 2px 2px 0;
-			transform: translateY(-1px) rotate(45deg);
+			top: 0 !important;
+			left: 0 !important;
+			transform: none !important;
+			margin: 0 !important;
+			padding: 0 !important;
+			appearance: none !important;
+			-webkit-appearance: none !important;
+			box-sizing: border-box !important;
 		}
 	}
 </style>
