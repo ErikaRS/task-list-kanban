@@ -28,7 +28,7 @@
 		--task-line-base-padding-left: calc(var(--size-4-2) + 8px);
 		--task-line-indent-step: 1.65rem;
 		--task-line-marker-size: 20px;
-		--task-line-row-height: 1.5rem;
+		--task-line-row-height: 1.3em;
 		--task-line-column-gap: var(--size-2-2);
 		--task-line-block-padding: 0 var(--size-4-2) var(--size-2-1)
 			calc(
@@ -48,6 +48,7 @@
 
 		&.card-variant {
 			--task-line-column-gap: var(--size-2-3);
+			--task-line-row-height: var(--task-content-line-height, 1.5rem);
 			--task-line-block-padding: var(--size-4-2) var(--size-4-2)
 				var(--size-4-2)
 				calc(
