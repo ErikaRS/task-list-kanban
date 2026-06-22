@@ -118,6 +118,7 @@ Release notes should be informative and comprehensive, covering all changes sinc
 - Include **links to issues** that are fixed: `Fixes [#456](issue-URL)`
 - Include messages about **large refactorings** at the end (e.g., changing out significant components)
 - **Omit small refactorings** (e.g., local code restructuring, minor cleanups)
+- **Omit intermediate bug fixes** for bugs that were introduced and resolved within the same release cycle (e.g., UI alignment fixes on a feature that is first being introduced in this release). Release notes should represent the perspective of a user upgrading from the previous tagged release.
 
 **Example:**
 ```markdown
