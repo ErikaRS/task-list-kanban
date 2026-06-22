@@ -33,3 +33,18 @@ export function serializeBoardFilterState(state: BoardFilterState): string {
 		fileText: state.fileText,
 	});
 }
+
+export function shouldApplyIncomingBoardFilterState(
+	currentState: BoardFilterState,
+	incomingState: BoardFilterState,
+	lastPersistedStateKey: string,
+	hydrated: boolean,
+): boolean {
+	if (!hydrated) {
+		return true;
+	}
+
+	const currentStateKey = serializeBoardFilterState(currentState);
+	const incomingStateKey = serializeBoardFilterState(incomingState);
+	return currentStateKey === lastPersistedStateKey && incomingStateKey !== lastPersistedStateKey;
+}

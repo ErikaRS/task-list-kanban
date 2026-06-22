@@ -34,6 +34,7 @@
 	import {
 		readBoardFilterState,
 		serializeBoardFilterState,
+		shouldApplyIncomingBoardFilterState,
 		writeBoardFilterState,
 	} from "./filters/filter_state";
 
@@ -406,15 +407,32 @@
 	let hydrated = false;
 	let lastPersistedFilterStateKey = "";
 
+	function getCurrentFilterState() {
+		return {
+			contentText: filterText,
+			tagValues: selectedTags,
+			fileText: fileFilter,
+		};
+	}
+
+	function applyFilterState(filterState: ReturnType<typeof readBoardFilterState>) {
+		filterText = filterState.contentText;
+		selectedTags = filterState.tagValues;
+		fileFilter = filterState.fileText;
+		lastPersistedFilterStateKey = serializeBoardFilterState(filterState);
+		hydrated = true;
+	}
+
 	onMount(() => {
 		const unsubscribe = settingsStore.subscribe(settings => {
-			if (!hydrated) {
-				const filterState = readBoardFilterState(settings);
-				filterText = filterState.contentText;
-				selectedTags = filterState.tagValues;
-				fileFilter = filterState.fileText;
-				lastPersistedFilterStateKey = serializeBoardFilterState(filterState);
-				hydrated = true;
+			const filterState = readBoardFilterState(settings);
+			if (shouldApplyIncomingBoardFilterState(
+				getCurrentFilterState(),
+				filterState,
+				lastPersistedFilterStateKey,
+				hydrated,
+			)) {
+				applyFilterState(filterState);
 			}
 		});
 
@@ -423,11 +441,7 @@
 
 	function saveFilterState() {
 		if (hydrated) {
-			const filterState = {
-				contentText: filterText,
-				tagValues: selectedTags,
-				fileText: fileFilter,
-			};
+			const filterState = getCurrentFilterState();
 			const nextFilterStateKey = serializeBoardFilterState(filterState);
 			if (nextFilterStateKey === lastPersistedFilterStateKey) {
 				return;
