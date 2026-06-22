@@ -12,7 +12,7 @@
 	- [ ] This is a task ⏫ 
 	- Testing raw content to edit!
 		- [/] This is another task #later #cat
-	- [x] And ignored status markers 
+	- [a] And ignored status markers 
 	- [D] And ignored status markers, again
 	- [ ]  New content!
 
