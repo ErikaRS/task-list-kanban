@@ -1039,39 +1039,42 @@
 	}
 
 	.add-subtask-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--size-2-1);
-		align-self: flex-start;
-		cursor: pointer;
-		border: 0;
-		border-radius: var(--radius-s);
-		box-shadow: none;
-		margin: 0;
-		min-height: 22px;
-		padding: 0;
-		background: transparent;
-		color: var(--text-accent);
-		font-size: var(--font-ui-smaller);
-		font-weight: var(--font-medium);
-		line-height: 1.2;
+		display: inline-flex !important;
+		align-items: center !important;
+		gap: var(--size-2-1) !important;
+		align-self: flex-start !important;
+		cursor: pointer !important;
+		border: 0 !important;
+		border-radius: var(--radius-s) !important;
+		box-shadow: none !important;
+		margin: 0 !important;
+		min-height: 22px !important;
+		padding: 0 !important;
+		background: transparent !important;
+		background-color: transparent !important;
+		color: var(--text-accent) !important;
+		font-size: var(--font-ui-smaller) !important;
+		font-weight: var(--font-medium) !important;
+		line-height: 1.2 !important;
 
 		span {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			font-size: var(--font-ui-small);
-			line-height: 1;
+			display: inline-flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			font-size: var(--font-ui-small) !important;
+			line-height: 1 !important;
 		}
 
 		&:hover:not(:disabled) {
-			color: var(--text-accent-hover);
-			background: transparent;
+			color: var(--text-accent-hover) !important;
+			background: transparent !important;
+			background-color: transparent !important;
 		}
 
 		&:active:not(:disabled) {
-			color: var(--text-accent-hover);
-			background: transparent;
+			color: var(--text-accent-hover) !important;
+			background: transparent !important;
+			background-color: transparent !important;
 		}
 	}
 </style>

@@ -19,6 +19,7 @@
 </script>
 
 <button 
+	class="clickable-icon"
 	bind:this={element} 
 	on:click 
 	on:keydown={handleKeydown}
@@ -28,20 +29,28 @@
 
 <style lang="scss">
 	button {
-		width: 24px;
-		height: 24px;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		border-radius: var(--radius-s);
-		transition: background linear 100ms;
-		cursor: pointer;
-		background: unset;
-		padding: 0;
+		width: 24px !important;
+		height: 24px !important;
+		display: flex !important;
+		justify-content: center !important;
+		align-items: center !important;
+		border-radius: var(--radius-s) !important;
+		transition: background linear 100ms !important;
+		cursor: pointer !important;
+		background: transparent !important;
+		background-color: transparent !important;
+		border: none !important;
+		box-shadow: none !important;
+		padding: 0 !important;
+		margin: 0 !important;
+
+		&:hover {
+			background-color: var(--background-modifier-hover) !important;
+		}
 
 		&:focus-visible {
-			outline: 2px solid var(--background-modifier-border-focus);
-			outline-offset: 2px;
+			outline: 2px solid var(--background-modifier-border-focus) !important;
+			outline-offset: 2px !important;
 		}
 	}
 </style>

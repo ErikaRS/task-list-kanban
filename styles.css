@@ -732,3 +732,36 @@ If your plugin does not need CSS, delete this file.
 		max-width: 100%;
 	}
 }
+
+/* Styling resets to prevent Obsidian themes from overriding buttons clunkily */
+.task-list-kanban-view button.add-new-btn,
+.task-list-kanban-view button.add-subtask-btn,
+.task-list-kanban-view button.collapse-btn,
+.task-list-kanban-view button.subtask-collapse-btn,
+.task-list-kanban-view button.clickable-icon {
+	background: transparent !important;
+	background-color: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	outline: none !important;
+}
+
+.task-list-kanban-view button.add-new-btn,
+.task-list-kanban-view button.add-subtask-btn,
+.task-list-kanban-view button.collapse-btn,
+.task-list-kanban-view button.subtask-collapse-btn {
+	padding: 0 !important;
+	margin: 0 !important;
+}
+
+.task-list-kanban-view button.add-new-btn:hover:not(:disabled),
+.task-list-kanban-view button.add-subtask-btn:hover:not(:disabled),
+.task-list-kanban-view button.collapse-btn:hover:not(:disabled),
+.task-list-kanban-view button.subtask-collapse-btn:hover:not(:disabled) {
+	background: transparent !important;
+	background-color: transparent !important;
+}
+
+.task-list-kanban-view button.clickable-icon:hover {
+	background-color: var(--background-modifier-hover) !important;
+}

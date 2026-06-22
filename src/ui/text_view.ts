@@ -181,6 +181,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	async onOpen() {
+		this.contentEl.addClass("task-list-kanban-view");
 		this.component = new Main({
 			target: this.contentEl,
 			props: {
@@ -199,6 +200,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	async onClose() {
+		this.contentEl.removeClass("task-list-kanban-view");
 		this.component?.$destroy();
 		this.destroySettingsStore();
 	}
