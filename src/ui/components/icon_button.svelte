@@ -3,7 +3,7 @@
 
 	export let icon: string;
 
-	let element: HTMLSpanElement;
+	let element: HTMLElement;
 	$: {
 		if (element) {
 			setIcon(element, icon);
@@ -18,39 +18,39 @@
 	}
 </script>
 
-<button 
+<div 
 	class="clickable-icon"
+	role="button"
 	bind:this={element} 
 	on:click 
 	on:keydown={handleKeydown}
 	tabindex="0"
 	{...$$restProps}
-></button>
+></div>
 
 <style lang="scss">
-	button {
-		width: 24px !important;
-		height: 24px !important;
-		display: flex !important;
-		justify-content: center !important;
-		align-items: center !important;
-		border-radius: var(--radius-s) !important;
-		transition: background linear 100ms !important;
-		cursor: pointer !important;
-		background: transparent !important;
-		background-color: transparent !important;
-		border: none !important;
-		box-shadow: none !important;
-		padding: 0 !important;
-		margin: 0 !important;
+	div {
+		width: 24px;
+		height: 24px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border-radius: var(--radius-s);
+		transition: background linear 100ms;
+		cursor: pointer;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0;
+		margin: 0;
 
 		&:hover {
-			background-color: var(--background-modifier-hover) !important;
+			background-color: var(--background-modifier-hover);
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--background-modifier-border-focus) !important;
-			outline-offset: 2px !important;
+			outline: 2px solid var(--background-modifier-border-focus);
+			outline-offset: 2px;
 		}
 	}
 </style>

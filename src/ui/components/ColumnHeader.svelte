@@ -173,12 +173,20 @@
 	style:--column-color={columnColor}
 >
 	<div class="header">
-		<button
+		<span
 			class="collapse-btn"
+			role="button"
+			tabindex="0"
 			on:click={onToggleCollapse}
+			on:keydown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					onToggleCollapse();
+				}
+			}}
 			aria-expanded={!isCollapsed}
 			aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
-		>{collapseIcon}</button>
+		>{collapseIcon}</span>
 		<div class="column-title-group">
 			<h2 id="column-title-{column}" title={columnTitle}>{columnTitle}</h2>
 		</div>
@@ -460,12 +468,12 @@
 		}
 
 		.collapse-btn {
-			background: transparent !important;
-			border: none !important;
-			box-shadow: none !important;
+			background: transparent;
+			border: none;
+			box-shadow: none;
 			cursor: pointer;
 			color: var(--text-muted);
-			padding: 0 !important;
+			padding: 0;
 			width: 14px;
 			height: 24px;
 			display: flex;
@@ -478,7 +486,7 @@
 
 			&:hover {
 				color: var(--text-normal);
-				background: transparent !important;
+				background: transparent;
 			}
 
 			&:focus-visible {

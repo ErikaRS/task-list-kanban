@@ -377,21 +377,30 @@
 >
 	{#if isColTag}
 		<div class="add-new-controls">
-			<button
+			<div
 				class="add-new-btn"
+				class:disabled={!!pendingNewTask}
+				role="button"
+				tabindex={pendingNewTask ? -1 : 0}
 				aria-label="Add new task to {columnTitle}"
-				disabled={!!pendingNewTask}
-				on:click={handleAddNewClick}
+				aria-disabled={!!pendingNewTask}
+				on:click={!pendingNewTask ? handleAddNewClick : undefined}
+				on:keydown={(e) => {
+					if (!pendingNewTask && (e.key === 'Enter' || e.key === ' ')) {
+						e.preventDefault();
+						handleAddNewClick();
+					}
+				}}
 			>
 				<span aria-hidden="true">+</span>
 				Task
-			</button>
+			</div>
 			<IconButton
-				class="add-new-picker-btn"
+				class="add-new-picker-btn {pendingNewTask ? 'disabled' : ''}"
 				icon="lucide-chevron-down"
 				aria-label="Choose file for new task in {columnTitle}"
 				disabled={!!pendingNewTask}
-				on:click={handleChooseTaskFileClick}
+				on:click={!pendingNewTask ? handleChooseTaskFileClick : undefined}
 			/>
 		</div>
 		{#if effectiveTargetTaskFile}
@@ -598,70 +607,84 @@
 		}
 
 		.add-new-btn {
-			display: inline-flex !important;
-			align-items: center !important;
-			gap: var(--size-2-1) !important;
-			align-self: flex-start !important;
-			cursor: pointer !important;
-			border: 0 !important;
-			border-radius: var(--radius-s) !important;
-			box-shadow: none !important;
-			margin: 0 !important;
-			min-height: 26px !important;
-			padding: 0 !important;
-			background: transparent !important;
-			background-color: transparent !important;
-			color: var(--text-accent) !important;
-			font-size: var(--font-ui-small) !important;
-			font-weight: var(--font-medium) !important;
-			line-height: 1.2 !important;
+			display: inline-flex;
+			align-items: center;
+			gap: var(--size-2-1);
+			align-self: flex-start;
+			cursor: pointer;
+			border: 0;
+			border-radius: var(--radius-s);
+			box-shadow: none;
+			margin: 0;
+			min-height: 26px;
+			padding: 0;
+			background: transparent;
+			background-color: transparent;
+			color: var(--text-accent);
+			font-size: var(--font-ui-small);
+			font-weight: var(--font-medium);
+			line-height: 1.2;
 
 			span {
-				display: inline-flex !important;
-				align-items: center !important;
-				justify-content: center !important;
-				font-size: var(--font-ui-medium) !important;
-				line-height: 1 !important;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				font-size: var(--font-ui-medium);
+				line-height: 1;
+			}
+
+			&.disabled {
+				cursor: not-allowed;
+				opacity: 0.5;
+				color: var(--text-muted);
+				pointer-events: none;
 			}
 		}
 
 		.add-new-controls {
-			display: inline-flex !important;
-			align-items: center !important;
-			gap: var(--size-2-1) !important;
-			align-self: flex-start !important;
-			border: 0 !important;
-			background: transparent !important;
-			box-shadow: none !important;
+			display: inline-flex;
+			align-items: center;
+			gap: var(--size-2-1);
+			align-self: flex-start;
+			border: 0;
+			background: transparent;
+			box-shadow: none;
 		}
 
 		:global(.add-new-picker-btn) {
-			flex-shrink: 0 !important;
-			width: 22px !important;
-			height: 26px !important;
-			border: 0 !important;
-			border-radius: var(--radius-s) !important;
-			box-shadow: none !important;
-			margin: 0 !important;
-			background-color: transparent !important;
-			color: var(--text-accent) !important;
+			flex-shrink: 0;
+			width: 22px;
+			height: 26px;
+			border: 0;
+			border-radius: var(--radius-s);
+			box-shadow: none;
+			margin: 0;
+			background-color: transparent;
+			color: var(--text-accent);
+
+			&.disabled {
+				cursor: not-allowed;
+				opacity: 0.5;
+				color: var(--text-muted);
+				pointer-events: none;
+			}
 		}
 
 		.add-new-btn,
 		:global(.add-new-picker-btn) {
-			background-color: transparent !important;
+			background-color: transparent;
 		}
 
-		.add-new-btn:hover:not(:disabled),
-		:global(.add-new-picker-btn:hover:not(:disabled)) {
-			background-color: transparent !important;
-			color: var(--text-accent-hover) !important;
+		.add-new-btn:hover:not(.disabled),
+		:global(.add-new-picker-btn:hover:not(.disabled)) {
+			background-color: transparent;
+			color: var(--text-accent-hover);
 		}
 
-		.add-new-btn:active:not(:disabled),
-		:global(.add-new-picker-btn:active:not(:disabled)) {
-			background-color: transparent !important;
-			color: var(--text-accent-hover) !important;
+		.add-new-btn:active:not(.disabled),
+		:global(.add-new-picker-btn:active:not(.disabled)) {
+			background-color: transparent;
+			color: var(--text-accent-hover);
 		}
 
 		.file-indicator {

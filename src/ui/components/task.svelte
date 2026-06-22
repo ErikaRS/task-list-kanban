@@ -481,13 +481,20 @@
 			{/if}
 			{#if treatNestedTasksAsSubtasks && totalSubtasksCount > 0}
 				<div class="task-progress-wrapper" class:is-complete={completionPercentage === 100}>
-					<button
-						type="button"
+					<span
 						class="subtask-collapse-btn"
 						class:collapsed={isSubtasksCollapsed}
+						role="button"
+						tabindex="0"
 						on:click|stopPropagation={toggleSubtasksCollapse}
+						on:keydown|stopPropagation={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								toggleSubtasksCollapse();
+							}
+						}}
 						aria-label={isSubtasksCollapsed ? "Expand subtasks" : "Collapse subtasks"}
-					>{isSubtasksCollapsed ? "▶" : "▼"}</button>
+					>{isSubtasksCollapsed ? "▶" : "▼"}</span>
 					<div class="task-progress-bar-container">
 						<div class="task-progress-bar" style="width: {completionPercentage}%"></div>
 					</div>
@@ -537,14 +544,21 @@
 
 		{#if treatNestedTasksAsSubtasks}
 			<div class="add-subtask-container">
-				<button
-					type="button"
+				<div
 					class="add-subtask-btn"
+					role="button"
+					tabindex="0"
 					on:click|stopPropagation={() => void taskActions.addSourceBlockRow(task.id, task.rowIndex, "child", "task")}
+					on:keydown|stopPropagation={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							void taskActions.addSourceBlockRow(task.id, task.rowIndex, "child", "task");
+						}
+					}}
 				>
 					<span aria-hidden="true">+</span>
 					Subtask
-				</button>
+				</div>
 			</div>
 		{/if}
 	{/if}
@@ -1008,10 +1022,10 @@
 	}
 
 	.subtask-collapse-btn {
-		background: transparent !important;
-		border: none !important;
-		box-shadow: none !important;
-		padding: 0 !important;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		padding: 0;
 		color: var(--text-muted);
 		font-size: 10px;
 		cursor: pointer;
@@ -1030,7 +1044,7 @@
 
 		&:hover {
 			color: var(--text-normal);
-			background: transparent !important;
+			background: transparent;
 		}
 	}
 
@@ -1039,42 +1053,42 @@
 	}
 
 	.add-subtask-btn {
-		display: inline-flex !important;
-		align-items: center !important;
-		gap: var(--size-2-1) !important;
-		align-self: flex-start !important;
-		cursor: pointer !important;
-		border: 0 !important;
-		border-radius: var(--radius-s) !important;
-		box-shadow: none !important;
-		margin: 0 !important;
-		min-height: 22px !important;
-		padding: 0 !important;
-		background: transparent !important;
-		background-color: transparent !important;
-		color: var(--text-accent) !important;
-		font-size: var(--font-ui-smaller) !important;
-		font-weight: var(--font-medium) !important;
-		line-height: 1.2 !important;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2-1);
+		align-self: flex-start;
+		cursor: pointer;
+		border: 0;
+		border-radius: var(--radius-s);
+		box-shadow: none;
+		margin: 0;
+		min-height: 22px;
+		padding: 0;
+		background: transparent;
+		background-color: transparent;
+		color: var(--text-accent);
+		font-size: var(--font-ui-smaller);
+		font-weight: var(--font-medium);
+		line-height: 1.2;
 
 		span {
-			display: inline-flex !important;
-			align-items: center !important;
-			justify-content: center !important;
-			font-size: var(--font-ui-small) !important;
-			line-height: 1 !important;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			font-size: var(--font-ui-small);
+			line-height: 1;
 		}
 
-		&:hover:not(:disabled) {
-			color: var(--text-accent-hover) !important;
-			background: transparent !important;
-			background-color: transparent !important;
+		&:hover {
+			color: var(--text-accent-hover);
+			background: transparent;
+			background-color: transparent;
 		}
 
-		&:active:not(:disabled) {
-			color: var(--text-accent-hover) !important;
-			background: transparent !important;
-			background-color: transparent !important;
+		&:active {
+			color: var(--text-accent-hover);
+			background: transparent;
+			background-color: transparent;
 		}
 	}
 </style>
