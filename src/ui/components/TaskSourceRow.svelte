@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Modal, type App } from "obsidian";
+	import { onDestroy } from "svelte";
+	import { Modal, Component, Keymap, MarkdownRenderer, type App } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import {
 		getSourceNodeText,
@@ -26,6 +27,9 @@
 	let dropAfter = false;
 	let dragIndicatorDepth = depth;
 
+	let previewContainerEl: HTMLDivElement | undefined;
+	let markdownComponent: Component | undefined;
+
 	$: rawListItemText = node.kind === "raw" ? getRawListItemText(node) : null;
 	$: editText = (rawListItemText ?? getSourceNodeText(node)).replaceAll("<br />", "\n");
 	$: previewText = (rawListItemText ?? editText).replaceAll("<br />", "\n");
@@ -35,6 +39,144 @@
 		dropBefore = false;
 		dropAfter = false;
 	}
+
+	const interactiveTagNames = new Set([
+		"a",
+		"button",
+		"input",
+		"select",
+		"textarea",
+		"label",
+		"summary",
+		"details",
+	]);
+
+	function eventHasInteractiveTarget(e?: Event): boolean {
+		const path = e?.composedPath() || [];
+		const currentTarget = e?.currentTarget;
+		for (const element of path) {
+			if (!(element instanceof HTMLElement)) {
+				continue;
+			}
+
+			if (currentTarget instanceof HTMLElement && element === currentTarget) {
+				continue;
+			}
+
+			if (interactiveTagNames.has(element.tagName.toLowerCase())) {
+				return true;
+			}
+
+			if (element.isContentEditable) {
+				return true;
+			}
+
+			const role = element.getAttribute("role");
+			if (role === "button" || role === "checkbox" || role === "link") {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	function handleFocus(e?: Event) {
+		if (eventHasInteractiveTarget(e)) {
+			return;
+		}
+
+		startEditing();
+	}
+
+	async function renderMarkdown() {
+		if (!previewContainerEl) return;
+
+		if (markdownComponent) {
+			markdownComponent.unload();
+		}
+
+		previewContainerEl.empty();
+		markdownComponent = new Component();
+
+		await MarkdownRenderer.render(
+			app,
+			previewText,
+			previewContainerEl,
+			task.path,
+			markdownComponent
+		);
+
+		setupLinkHandlers();
+		postProcessRenderedContent();
+	}
+
+	function setupLinkHandlers() {
+		if (!previewContainerEl) return;
+
+		const internalLinks = previewContainerEl.querySelectorAll("a.internal-link");
+
+		internalLinks.forEach((link) => {
+			const anchorEl = link as HTMLAnchorElement;
+
+			anchorEl.addEventListener("click", (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				const linkTarget = anchorEl.getAttribute("data-href");
+				if (linkTarget && app) {
+					app.workspace.openLinkText(
+						linkTarget,
+						task.path,
+						Keymap.isModEvent(e),
+					);
+				}
+			});
+
+			anchorEl.addEventListener("mouseover", (e) => {
+				const linkTarget = anchorEl.getAttribute("data-href");
+				if (linkTarget && app && previewContainerEl) {
+					app.workspace.trigger("hover-link", {
+						event: e,
+						source: "kanban-view",
+						hoverParent: previewContainerEl,
+						targetEl: anchorEl,
+						linktext: linkTarget,
+						sourcePath: task.path,
+					});
+				}
+			});
+		});
+	}
+
+	function postProcessRenderedContent() {
+		if (!previewContainerEl) return;
+
+		function stopPropagation(e: Event) {
+			e.stopPropagation();
+		}
+
+		previewContainerEl.querySelectorAll('a:not(.internal-link)').forEach((a) => {
+			const anchor = a as HTMLAnchorElement;
+			anchor.target = '_blank';
+			anchor.rel = 'noopener noreferrer';
+			anchor.addEventListener('click', stopPropagation);
+			anchor.addEventListener('keypress', stopPropagation);
+		});
+
+		// Remove heavy/interactive embeds that don't work well in small cards
+		previewContainerEl.querySelectorAll('iframe, audio, video').forEach((el) => {
+			el.remove();
+		});
+	}
+
+	$: if (previewText && previewContainerEl && !isEditing) {
+		void renderMarkdown();
+	}
+
+	onDestroy(() => {
+		if (markdownComponent) {
+			markdownComponent.unload();
+		}
+	});
 
 	function startEditing() {
 		isEditing = true;
@@ -60,6 +202,9 @@
 
 	function handlePreviewKeydown(e: KeyboardEvent) {
 		if (e.key === "Enter" || e.key === " ") {
+			if (eventHasInteractiveTarget(e)) {
+				return;
+			}
 			e.preventDefault();
 			startEditing();
 		}
@@ -230,14 +375,14 @@
 				value={editText}
 			></textarea>
 		{:else}
-			<button
-				type="button"
-				class="source-row-preview"
-				on:click|stopPropagation={startEditing}
-				on:keydown|stopPropagation={handlePreviewKeydown}
-			>
-				{previewText}
-			</button>
+			<div
+				role="button"
+				tabindex="0"
+				class="source-row-preview markdown-rendered"
+				bind:this={previewContainerEl}
+				on:mouseup={handleFocus}
+				on:keydown={handlePreviewKeydown}
+			></div>
 		{/if}
 		<svelte:fragment slot="actions">
 			{#if !isSelectionMode}
@@ -362,6 +507,10 @@
 		&:focus-visible {
 			outline: 2px solid var(--background-modifier-border-focus);
 			outline-offset: 2px;
+		}
+
+		:global(p) {
+			margin: 0;
 		}
 	}
 
