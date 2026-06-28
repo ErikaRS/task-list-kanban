@@ -1,5 +1,5 @@
 import type { Task } from "../../ui/tasks/task";
-import { UNIVERSAL_STATUS_PROPERTY_KEY } from "./property_schema";
+import { PropertySchemaOption, UNIVERSAL_STATUS_PROPERTY_KEY } from "./property_schema";
 
 export enum ColumnOrderMode {
 	FileOrder = "file",
@@ -13,6 +13,7 @@ export type SortDirection = "asc" | "desc";
 export interface PropertyCompareOptions {
 	statusMarkerOrder?: string;
 	doneStatusMarkers?: string;
+	propertySchema?: PropertySchemaOption;
 }
 
 /**
@@ -37,6 +38,28 @@ export function compareValues(
 	return String(a).localeCompare(String(b));
 }
 
+export function getPriorityWeight(value: string | number | Date): number | null {
+	if (typeof value === "number") {
+		return value;
+	}
+	if (typeof value === "string") {
+		const lower = value.toLowerCase().trim();
+		switch (lower) {
+			case "highest":
+				return 5;
+			case "high":
+				return 4;
+			case "medium":
+				return 3;
+			case "low":
+				return 2;
+			case "lowest":
+				return 1;
+		}
+	}
+	return null;
+}
+
 /**
  * Compares two tasks by a parsed property value.
  *
@@ -54,6 +77,10 @@ export function compareByProperty(
 	const aValue = a.properties.get(key)?.value ?? null;
 	const bValue = b.properties.get(key)?.value ?? null;
 
+	if (key === "priority") {
+		return comparePriorityValues(aValue, bValue, direction, options.propertySchema);
+	}
+
 	if (aValue === null && bValue === null) return 0;
 	if (aValue === null) return direction === "desc" ? -1 : 1;
 	if (bValue === null) return direction === "desc" ? 1 : -1;
@@ -70,6 +97,39 @@ export function compareByProperty(
 
 	const result = compareValues(aValue, bValue);
 	return direction === "desc" ? -result : result;
+}
+
+function comparePriorityValues(
+	a: string | number | Date | null,
+	b: string | number | Date | null,
+	direction: SortDirection,
+	propertySchema: PropertySchemaOption | undefined,
+): number {
+	const schema = propertySchema ?? inferPrioritySchema(a, b);
+	if (a === null && b === null) return 0;
+	if (schema === PropertySchemaOption.Dataview) {
+		if (a === null) return 1;
+		if (b === null) return -1;
+	} else {
+		const aWeight = a === null ? 2.5 : getPriorityWeight(a) ?? 0;
+		const bWeight = b === null ? 2.5 : getPriorityWeight(b) ?? 0;
+		const result = aWeight - bWeight;
+		return direction === "desc" ? -result : result;
+	}
+
+	const aWeight = getPriorityWeight(a) ?? 0;
+	const bWeight = getPriorityWeight(b) ?? 0;
+	const result = aWeight - bWeight;
+	return direction === "desc" ? -result : result;
+}
+
+function inferPrioritySchema(
+	a: string | number | Date | null,
+	b: string | number | Date | null,
+): PropertySchemaOption {
+	return typeof a === "number" || typeof b === "number"
+		? PropertySchemaOption.TasksPlugin
+		: PropertySchemaOption.Dataview;
 }
 
 export function compareStatusMarkerValues(

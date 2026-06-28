@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { compareByProperty } from "../comparators";
 import type { Task } from "../../../ui/tasks/task";
-import { UNIVERSAL_STATUS_PROPERTY_KEY } from "../property_schema";
+import { PropertySchemaOption, UNIVERSAL_STATUS_PROPERTY_KEY } from "../property_schema";
 
 function taskWith(value: string | number | Date | null): Task {
 	const properties = new Map();
@@ -123,5 +123,50 @@ describe("compareByProperty", () => {
 			"desc",
 			{ statusMarkerOrder: "/x", doneStatusMarkers: "xX" },
 		)).toBeGreaterThan(0);
+	});
+
+	it("orders priority values numerically when they are textual", () => {
+		const high = taskWithKey("priority", "high");
+		const medium = taskWithKey("priority", "medium");
+		const low = taskWithKey("priority", "low");
+
+		// Ascending: low (2) < medium (3) < high (4)
+		expect(compareByProperty(low, medium, "priority", "asc")).toBeLessThan(0);
+		expect(compareByProperty(medium, high, "priority", "asc")).toBeLessThan(0);
+		expect(compareByProperty(high, low, "priority", "asc")).toBeGreaterThan(0);
+
+		// Descending: high (4) > medium (3) > low (2)
+		expect(compareByProperty(high, medium, "priority", "desc")).toBeLessThan(0);
+		expect(compareByProperty(medium, low, "priority", "desc")).toBeLessThan(0);
+	});
+
+	it("orders priority values numerically when they are mixed text and numbers", () => {
+		const highText = taskWithKey("priority", "High");
+		const lowNum = taskWithKey("priority", 2);
+
+		expect(compareByProperty(lowNum, highText, "priority", "asc")).toBeLessThan(0);
+		expect(compareByProperty(highText, lowNum, "priority", "asc")).toBeGreaterThan(0);
+	});
+
+	it("sorts missing Dataview priorities after present priorities", () => {
+		const high = taskWithKey("priority", "high");
+		const missing = taskWithKey("priority", null);
+
+		expect(compareByProperty(high, missing, "priority", "desc", {
+			propertySchema: PropertySchemaOption.Dataview,
+		})).toBeLessThan(0);
+		expect(compareByProperty(missing, high, "priority", "desc", {
+			propertySchema: PropertySchemaOption.Dataview,
+		})).toBeGreaterThan(0);
+	});
+
+	it("sorts missing Tasks priorities after medium and before low", () => {
+		const medium = taskWithKey("priority", 3);
+		const missing = taskWithKey("priority", null);
+		const low = taskWithKey("priority", 2);
+		const options = { propertySchema: PropertySchemaOption.TasksPlugin };
+
+		expect(compareByProperty(medium, missing, "priority", "desc", options)).toBeLessThan(0);
+		expect(compareByProperty(missing, low, "priority", "desc", options)).toBeLessThan(0);
 	});
 });

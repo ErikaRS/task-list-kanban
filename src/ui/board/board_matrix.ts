@@ -91,6 +91,7 @@ export function deriveBoardMatrix(
 				sortDirection,
 				settings.statusMarkerOrder ?? "",
 				settings.doneStatusMarkers ?? "",
+				settings.propertySchema,
 			);
 		} else {
 			sortTasksByFile(bucketTasks);
@@ -231,9 +232,10 @@ function sortTasksByProperty(
 	direction: SortDirection,
 	statusMarkerOrder: string,
 	doneStatusMarkers: string,
+	propertySchema: SettingValues["propertySchema"],
 ) {
 	tasks.sort((a, b) => {
-		const result = compareByProperty(a, b, key, direction, { statusMarkerOrder, doneStatusMarkers });
+		const result = compareByProperty(a, b, key, direction, { statusMarkerOrder, doneStatusMarkers, propertySchema });
 		return result !== 0 ? result : compareByFile(a, b);
 	});
 }

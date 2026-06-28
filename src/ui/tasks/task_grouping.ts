@@ -2,6 +2,7 @@ import type { Task } from "./task";
 import {
 	compareStatusMarkerValues,
 	compareValues,
+	getPriorityWeight,
 	type SortDirection,
 } from "../../parsing/properties/comparators";
 import { UNIVERSAL_STATUS_PROPERTY_KEY, type TaskProperty } from "../../parsing/properties/property_schema";
@@ -322,38 +323,14 @@ function comparePropertyGroupValues(
 }
 
 function comparePriorityGroupValues(a: string | number | Date, b: string | number | Date): number {
-	const aRank = priorityRank(a);
-	const bRank = priorityRank(b);
+	const aRank = getPriorityWeight(a);
+	const bRank = getPriorityWeight(b);
 	if (aRank !== null && bRank !== null && aRank !== bRank) {
 		return bRank - aRank;
 	}
 	if (aRank !== null && bRank === null) return -1;
 	if (aRank === null && bRank !== null) return 1;
 	return compareValues(a, b);
-}
-
-function priorityRank(value: string | number | Date): number | null {
-	if (typeof value === "number") {
-		return value;
-	}
-	if (typeof value !== "string") {
-		return null;
-	}
-
-	switch (value.trim().toLowerCase()) {
-		case "highest":
-			return 5;
-		case "high":
-			return 4;
-		case "medium":
-			return 3;
-		case "low":
-			return 2;
-		case "lowest":
-			return 1;
-		default:
-			return null;
-	}
 }
 
 function formatPropertyGroupLabel(property: TaskProperty): string {
