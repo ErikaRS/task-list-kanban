@@ -7,6 +7,7 @@
 - [x] Two types of done
 - [X] Two types of done
 - [ ] Second this-week task from periodic/tasks #this-week 🔺 #later
+	- This is yet another sub-bullet
 
 - [ ] Testing nested tasks 🔺
 	- [ ] This is a task ⏫ 
