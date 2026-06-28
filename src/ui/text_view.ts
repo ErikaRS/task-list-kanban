@@ -46,6 +46,7 @@ export class KanbanView extends TextFileView {
 	private readonly tasksStore: Writable<Task[]>;
 	private readonly taskActions: TaskActions;
 	private readonly initialiseTasksStore: () => void;
+	private readonly pendingSelfTaskFileWrites: string[] = [];
 
 	component: Main | undefined;
 	icon = "kanban-square";
@@ -108,7 +109,8 @@ export class KanbanView extends TextFileView {
 			() => this.excludeFilter,
 			() => this.boardFolderPath,
 			this.settingsStore,
-			() => this.requestSave()
+			() => this.requestSave(),
+			(fileHandle, nextContent) => this.prepareTaskWriteContent(fileHandle, nextContent)
 		);
 
 		this.tasksStore = tasksStore;
@@ -168,12 +170,29 @@ export class KanbanView extends TextFileView {
 
 	setViewData(data: string, clear?: boolean): void {
 		this.data = data;
+
+		const selfWriteIndex = this.pendingSelfTaskFileWrites.indexOf(data);
+		if (selfWriteIndex !== -1) {
+			this.pendingSelfTaskFileWrites.splice(selfWriteIndex, 1);
+			return;
+		}
+
 		this.settingsStore.set(this.getInitialSettings(data));
 		this.initialiseTasksStore();
 	}
 
 	private getInitialSettings(data: string): SettingValues {
 		return parseKanbanSettingsFromViewData(data);
+	}
+
+	private prepareTaskWriteContent(fileHandle: { path: string }, nextContent: string): string {
+		if (fileHandle.path !== this.file?.path) {
+			return nextContent;
+		}
+
+		const preparedContent = writeKanbanSettingsToViewData(nextContent, get(this.settingsStore));
+		this.pendingSelfTaskFileWrites.push(preparedContent);
+		return preparedContent;
 	}
 
 	clear(): void {

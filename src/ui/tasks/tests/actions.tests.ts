@@ -189,6 +189,31 @@ describe("task actions", () => {
 	});
 
 	describe("column changes", () => {
+		it("prepares task writes before saving markdown back to the vault", async () => {
+			const taskLine = "- [ ] Send invoice";
+			const initialContents = "---\nkanban_plugin: old\n---\n" + taskLine;
+			const fileHandle = { path: "board.md" };
+			const task = parseTask(taskLine, { propertySchema: new NoneSchema() });
+			const tasksByTaskId = new Map([[task.id, task]]);
+			const metadataByTaskId = new Map([[task.id, { fileHandle, rowIndex: 3 }]]) as never;
+			const { actions, contents } = setupActions(
+				initialContents,
+				PropertySchemaOption.None,
+				tasksByTaskId,
+				metadataByTaskId,
+				fileHandle,
+				[],
+				{
+					prepareFileContentsForWrite: (_file, nextContents) =>
+						nextContents.replace("kanban_plugin: old", "kanban_plugin: current"),
+				},
+			);
+
+			await actions.changeColumn(task.id, "next" as ColumnTag);
+
+			expect(contents()).toBe("---\nkanban_plugin: current\n---\n- [ ] Send invoice #next");
+		});
+
 		it("moves a done task to uncategorised as an open task", async () => {
 			const { actions, taskId, contents } = setupActionsForLine(
 				"- [x] Send invoice",
@@ -654,7 +679,10 @@ function setupActions(
 	metadataByTaskId = new Map(),
 	fileHandle = { path: "tasks.md" },
 	columnDefinitions: ColumnDefinition[] = [],
-	options: { statusMarkerOrder?: string } = {},
+	options: {
+		statusMarkerOrder?: string;
+		prepareFileContentsForWrite?: Parameters<typeof createTaskActions>[0]["prepareFileContentsForWrite"];
+	} = {},
 ) {
 	let fileContents = initialContents;
 	const placementTags = createColumnData(columnDefinitions).columnPlacementTagTable;
@@ -681,6 +709,7 @@ function setupActions(
 		getCurrentDate: () => new Date(2026, 5, 15, 12),
 		getManualOrder: () => ({}),
 		setManualOrder: () => undefined,
+		prepareFileContentsForWrite: options.prepareFileContentsForWrite,
 	});
 
 	return {

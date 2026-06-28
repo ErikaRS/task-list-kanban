@@ -168,8 +168,19 @@
 		});
 	}
 
+	let lastRenderedMarkdownKey = "";
+	$: if (isEditing) {
+		lastRenderedMarkdownKey = "";
+	}
 	$: if (previewText && previewContainerEl && !isEditing) {
-		void renderMarkdown();
+		const markdownKey = JSON.stringify({
+			source: previewText,
+			path: task.path,
+		});
+		if (markdownKey !== lastRenderedMarkdownKey) {
+			lastRenderedMarkdownKey = markdownKey;
+			void renderMarkdown();
+		}
 	}
 
 	onDestroy(() => {

@@ -8,6 +8,7 @@ import type { SettingValues } from "../settings/settings_store";
 import { shouldIncludeFilePath } from "./scope";
 import { getSchemaImpl } from "../../parsing/properties/index";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
+import type { PrepareFileContentsForWrite } from "./source_line_editor";
 
 function getMarkerSettings(settings: SettingValues) {
 	return {
@@ -33,7 +34,8 @@ export function createTasksStore(
 	getExcludeFilter: () => string[] | null,
 	getBoardFolderPath: () => string | null,
 	settingsStore: Writable<SettingValues>,
-	requestSave: () => void
+	requestSave: () => void,
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): {
 	tasksStore: Writable<Task[]>;
 	taskActions: TaskActions;
@@ -175,6 +177,7 @@ export function createTasksStore(
 			settingsStore.update((s) => ({ ...s, manualOrder: next }));
 			requestSave();
 		},
+		prepareFileContentsForWrite,
 	});
 
 	return { tasksStore, taskActions, initialise };

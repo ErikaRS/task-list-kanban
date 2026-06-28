@@ -34,6 +34,7 @@ import {
 	transformSourceRow,
 	updateRow,
 	writeFileRows,
+	type PrepareFileContentsForWrite,
 } from "./source_line_editor";
 import { parseSourceTaskLine } from "./source_block";
 
@@ -133,6 +134,7 @@ export function createTaskActions({
 	getCurrentDate,
 	getManualOrder,
 	setManualOrder,
+	prepareFileContentsForWrite,
 }: {
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
@@ -151,6 +153,7 @@ export function createTaskActions({
 	getCurrentDate?: () => Date;
 	getManualOrder: () => ManualOrderStore;
 	setManualOrder: (next: ManualOrderStore) => void;
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite;
 }): TaskActions {
 	function resolveFileIfValid(filePath: string | null): TFile | null {
 		if (!filePath) return null;
@@ -184,7 +187,8 @@ export function createTaskActions({
 			vault,
 			metadata.fileHandle,
 			metadata.rowIndex,
-			newTaskString
+			newTaskString,
+			prepareFileContentsForWrite,
 		);
 	}
 
@@ -202,6 +206,7 @@ export function createTaskActions({
 			metadata.fileHandle,
 			metadata.rowIndex,
 			transform,
+			prepareFileContentsForWrite,
 		);
 	}
 
@@ -269,7 +274,7 @@ export function createTaskActions({
 			}
 
 			if (changed) {
-				await writeFileRows(vault, fileHandle, rows);
+				await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 			}
 		}
 
@@ -412,7 +417,7 @@ export function createTaskActions({
 				return;
 			}
 
-			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow);
+			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow, prepareFileContentsForWrite);
 		},
 
 		async toggleSourceTaskStatus(id, rowIndex) {
@@ -426,7 +431,7 @@ export function createTaskActions({
 				return;
 			}
 
-			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow);
+			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow, prepareFileContentsForWrite);
 		},
 
 		async addSourceBlockRow(id, rowIndex, location, kind) {
@@ -479,7 +484,7 @@ export function createTaskActions({
 				: `${indentation}${bullet} ${text}`;
 
 			rows.splice(targetIndex, 0, newLine);
-			await writeFileRows(vault, fileHandle, rows);
+			await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 		},
 
 		async deleteSourceBlockRow(id, rowIndex) {
@@ -493,7 +498,7 @@ export function createTaskActions({
 
 			const block = getNodeBlock(rows, rowIndex);
 			rows.splice(block.start, block.end - block.start);
-			await writeFileRows(vault, fileHandle, rows);
+			await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 		},
 
 		async moveSourceBlockRow(id, draggedRowIndex, targetRowIndex, position, targetDepth) {
@@ -548,7 +553,7 @@ export function createTaskActions({
 			// Insert block
 			rows.splice(insertIndex, 0, ...blockRows);
 
-			await writeFileRows(vault, fileHandle, rows);
+			await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 		},
 
 		async setDateProperty(id, key, date) {
@@ -594,7 +599,7 @@ export function createTaskActions({
 					rowIndex: entry.metadata.rowIndex,
 					lineCount: entry.task.sourceBlockLineCount,
 				},
-			]);
+			], prepareFileContentsForWrite);
 		},
 
 		async updateSwimlaneTag(ids, newTag, prefix, excludedTags) {
@@ -628,7 +633,7 @@ export function createTaskActions({
 				...sourceBlockRows.slice(1),
 			];
 			rows.splice(rowIndex + sourceBlockRows.length, 0, ...duplicatedRows);
-			await writeFileRows(vault, fileHandle, rows);
+			await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 		},
 
 		async moveTasksToFile(ids, destinationFile, destinationColumn) {
@@ -652,7 +657,7 @@ export function createTaskActions({
 					: task.serialiseForColumn(destinationColumn);
 				destinationRows.push(...task.sourceBlockRows(serializedParent));
 			}
-			await writeFileRows(vault, destinationFile, destinationRows);
+			await writeFileRows(vault, destinationFile, destinationRows, prepareFileContentsForWrite);
 
 			const movesBySourceFile = new Map<TFile, Array<{ rowIndex: number; lineCount: number }>>();
 			for (const { task, metadata } of moves) {
@@ -665,7 +670,7 @@ export function createTaskActions({
 			}
 
 			for (const [sourceFile, sourceMoves] of movesBySourceFile) {
-				await deleteRowBlocks(vault, sourceFile, sourceMoves);
+				await deleteRowBlocks(vault, sourceFile, sourceMoves, prepareFileContentsForWrite);
 			}
 		},
 
@@ -847,6 +852,7 @@ export function createTaskActions({
 				file,
 				undefined,
 				taskLine,
+				prepareFileContentsForWrite,
 			);
 		},
 	};

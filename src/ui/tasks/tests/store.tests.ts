@@ -85,7 +85,7 @@ describe("createTasksStore", () => {
 		expect(snapshots.at(-1)).toEqual([]);
 	});
 
-	it("keeps unchanged task instances across file modify refreshes", async () => {
+	it("reparses unchanged task source across file modify refreshes", async () => {
 		const file = createFile("tasks.md");
 		const contents = new Map([["tasks.md", "- [ ] Keep me fresh #todo"]]);
 		const vault = createVault([file], contents);
@@ -98,12 +98,14 @@ describe("createTasksStore", () => {
 
 		vault.emit("modify", file);
 		await settleStoreUpdates();
-		expect(taskSnapshots.at(-1)?.[0]).toBe(firstTask);
+		expect(taskSnapshots.at(-1)?.[0]).not.toBe(firstTask);
+		expect(taskSnapshots.at(-1)?.[0]?.content).toBe("Keep me fresh");
 
+		const secondTask = taskSnapshots.at(-1)?.[0];
 		contents.set("tasks.md", "- [ ] Keep me refreshed #todo");
 		vault.emit("modify", file);
 		await settleStoreUpdates();
-		expect(taskSnapshots.at(-1)?.[0]).not.toBe(firstTask);
+		expect(taskSnapshots.at(-1)?.[0]).not.toBe(secondTask);
 		expect(taskSnapshots.at(-1)?.[0]?.content).toBe("Keep me refreshed");
 	});
 });

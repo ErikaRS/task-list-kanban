@@ -171,20 +171,9 @@ function cacheParsedTask({
 	metadataByTaskId: Map<string, Metadata>;
 	newTaskIds: Set<string>;
 }) {
-	const previous = tasksByTaskId.get(task.id);
 	newTaskIds.add(task.id);
-	tasksByTaskId.set(task.id, previous && hasSameSourceBlock(previous, task) ? previous : task);
+	tasksByTaskId.set(task.id, task);
 	metadataByTaskId.set(task.id, { rowIndex, fileHandle });
-}
-
-function hasSameSourceBlock(left: Task, right: Task): boolean {
-	const leftRows = left.sourceBlockRows();
-	const rightRows = right.sourceBlockRows();
-	if (leftRows.length !== rightRows.length) {
-		return false;
-	}
-
-	return leftRows.every((row, index) => row === rightRows[index]);
 }
 
 type BuildSourceTreeOptions = {

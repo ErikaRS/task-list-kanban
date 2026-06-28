@@ -33,6 +33,20 @@ describe("source line editor", () => {
 		expect(contents()).toBe("one\ntwo");
 	});
 
+	it("prepares outgoing contents before modifying the vault", async () => {
+		const { vault, file, contents } = createEditableFile("---\nold: true\n---\none");
+
+		await updateRow(
+			vault as never,
+			file as never,
+			3,
+			"two",
+			(_file, nextContents) => nextContents.replace("old: true", "new: true"),
+		);
+
+		expect(contents()).toBe("---\nnew: true\n---\ntwo");
+	});
+
 	it("deletes rows from bottom to top", async () => {
 		const { vault, file, contents } = createEditableFile("zero\none\ntwo\nthree");
 

@@ -1,5 +1,10 @@
 import type { TFile, Vault } from "obsidian";
 
+export type PrepareFileContentsForWrite = (
+	fileHandle: TFile,
+	nextContents: string,
+) => string;
+
 export async function readFileRows(
 	vault: Vault,
 	fileHandle: TFile,
@@ -11,8 +16,15 @@ export async function writeFileRows(
 	vault: Vault,
 	fileHandle: TFile,
 	rows: string[],
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): Promise<void> {
-	await vault.modify(fileHandle, rows.join("\n"));
+	const nextContents = rows.join("\n");
+	await vault.modify(
+		fileHandle,
+		prepareFileContentsForWrite
+			? prepareFileContentsForWrite(fileHandle, nextContents)
+			: nextContents,
+	);
 }
 
 export async function transformSourceRow(
@@ -20,6 +32,7 @@ export async function transformSourceRow(
 	fileHandle: TFile,
 	rowIndex: number,
 	transform: (row: string) => string,
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): Promise<boolean> {
 	const rows = await readFileRows(vault, fileHandle);
 	const row = rows[rowIndex];
@@ -33,7 +46,7 @@ export async function transformSourceRow(
 	}
 
 	rows[rowIndex] = nextRow;
-	await writeFileRows(vault, fileHandle, rows);
+	await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 	return true;
 }
 
@@ -42,6 +55,7 @@ export async function updateRow(
 	fileHandle: TFile,
 	row: number | undefined,
 	newText: string,
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): Promise<boolean> {
 	const rows = await readFileRows(vault, fileHandle);
 
@@ -55,7 +69,7 @@ export async function updateRow(
 	} else {
 		rows[rowIndex] = newText;
 	}
-	await writeFileRows(vault, fileHandle, rows);
+	await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 	return true;
 }
 
@@ -63,6 +77,7 @@ export async function deleteRows(
 	vault: Vault,
 	fileHandle: TFile,
 	rowIndexes: number[],
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): Promise<void> {
 	const rows = await readFileRows(vault, fileHandle);
 	for (const rowIndex of [...rowIndexes].sort((a, b) => b - a)) {
@@ -70,13 +85,14 @@ export async function deleteRows(
 			rows.splice(rowIndex, 1);
 		}
 	}
-	await writeFileRows(vault, fileHandle, rows);
+	await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 }
 
 export async function deleteRowBlocks(
 	vault: Vault,
 	fileHandle: TFile,
 	blocks: Array<{ rowIndex: number; lineCount: number }>,
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): Promise<void> {
 	const rows = await readFileRows(vault, fileHandle);
 	for (const block of [...blocks].sort((a, b) => b.rowIndex - a.rowIndex)) {
@@ -84,5 +100,5 @@ export async function deleteRowBlocks(
 			rows.splice(block.rowIndex, block.lineCount);
 		}
 	}
-	await writeFileRows(vault, fileHandle, rows);
+	await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
 }
