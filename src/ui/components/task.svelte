@@ -354,8 +354,20 @@
 	}
 
 	// Re-render when task content, status, or the property-display mode changes
+	let lastRenderedMarkdownKey = "";
+	$: if (isEditing) {
+		lastRenderedMarkdownKey = "";
+	}
 	$: if (task && task.content && task.displayStatus && propertyDisplay && !isEditing && previewContainerEl) {
-		void renderMarkdown(isSelectionMode);
+		const markdownKey = JSON.stringify({
+			source: renderTaskMarkdown(),
+			path: task.path,
+			selectionMode: isSelectionMode,
+		});
+		if (markdownKey !== lastRenderedMarkdownKey) {
+			lastRenderedMarkdownKey = markdownKey;
+			void renderMarkdown(isSelectionMode);
+		}
 	}
 
 	// Cleanup on destroy

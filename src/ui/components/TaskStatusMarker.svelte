@@ -9,7 +9,7 @@
 
 	$: isCustom = status !== " ";
 	$: markerSize = `${size}px`;
-	$: resolvedIsChecked = isChecked ?? isDone;
+	$: resolvedIsChecked = isChecked ?? (isCustom || isDone);
 </script>
 
 {#if isCustom}
