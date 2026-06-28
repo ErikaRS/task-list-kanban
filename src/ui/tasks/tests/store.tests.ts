@@ -4,6 +4,7 @@ import { TFile } from "obsidian";
 import { createTasksStore } from "../store";
 import { defaultSettings, type SettingValues } from "../../settings/settings_store";
 import type { ColumnDefinition, ColumnPlacementTagTable } from "../../columns/columns";
+import type { Task } from "../task";
 
 vi.mock("obsidian", () => {
 	class TFile {
@@ -83,6 +84,28 @@ describe("createTasksStore", () => {
 		await settleStoreUpdates();
 		expect(snapshots.at(-1)).toEqual([]);
 	});
+
+	it("keeps unchanged task instances across file modify refreshes", async () => {
+		const file = createFile("tasks.md");
+		const contents = new Map([["tasks.md", "- [ ] Keep me fresh #todo"]]);
+		const vault = createVault([file], contents);
+		const { initialise, taskSnapshots } = createStoreHarness(vault, () => null);
+
+		initialise();
+		await settleStoreUpdates();
+		const firstTask = taskSnapshots.at(-1)?.[0];
+		expect(firstTask?.content).toBe("Keep me fresh");
+
+		vault.emit("modify", file);
+		await settleStoreUpdates();
+		expect(taskSnapshots.at(-1)?.[0]).toBe(firstTask);
+
+		contents.set("tasks.md", "- [ ] Keep me refreshed #todo");
+		vault.emit("modify", file);
+		await settleStoreUpdates();
+		expect(taskSnapshots.at(-1)?.[0]).not.toBe(firstTask);
+		expect(taskSnapshots.at(-1)?.[0]?.content).toBe("Keep me refreshed");
+	});
 });
 
 function createFile(path: string): TFile {
@@ -110,11 +133,13 @@ function createStoreHarness(
 		() => undefined,
 	);
 	const snapshots: Array<Array<{ content: string }>> = [];
+	const taskSnapshots: Task[][] = [];
 	tasksStore.subscribe((tasks) => {
+		taskSnapshots.push(tasks);
 		snapshots.push(tasks.map((task) => ({ content: task.content })));
 	});
 
-	return { initialise, snapshots };
+	return { initialise, snapshots, taskSnapshots };
 }
 
 function createVault(files: TFile[], contents: Map<string, string>) {
