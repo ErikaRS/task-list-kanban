@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import matter from "gray-matter";
+import { load } from "js-yaml";
 import {
 	parseKanbanSettingsFromViewData,
 	writeKanbanSettingsToViewData,
@@ -34,16 +34,16 @@ describe("kanban frontmatter helpers", () => {
 		].join("\n");
 
 		const output = writeKanbanSettingsToViewData(input, settings);
-		const parsed = matter(output);
+		const parsed = readFrontmatter(output);
 
-		expect(parsed.data.title).toBe("Bob's Board");
-		expect(parsed.data.published).toBe(true);
-		expect(parsed.data.tags).toEqual(["kanban"]);
-		expect(parsed.data.nested).toEqual({ owner: "Erika" });
-		expect(typeof parsed.data.kanban_plugin).toBe("string");
+		expect(parsed.title).toBe("Bob's Board");
+		expect(parsed.published).toBe(true);
+		expect(parsed.tags).toEqual(["kanban"]);
+		expect(parsed.nested).toEqual({ owner: "Erika" });
+		expect(typeof parsed.kanban_plugin).toBe("string");
 		expect(parseKanbanSettingsFromViewData(output).scope).toBe(ScopeOption.Everywhere);
 		expect(parseKanbanSettingsFromViewData(output).lastContentFilter).toBe("Bob's plan");
-		expect(parsed.content).toContain("- [ ] Keep body text");
+		expect(output).toContain("- [ ] Keep body text");
 	});
 
 	it("accepts object-shaped kanban settings from older or hand-edited files", () => {
@@ -58,3 +58,17 @@ describe("kanban frontmatter helpers", () => {
 		expect(parseKanbanSettingsFromViewData(input).scope).toBe(ScopeOption.Everywhere);
 	});
 });
+
+function readFrontmatter(data: string): Record<string, unknown> {
+	const closingDelimiter = data.indexOf("\n---", 4);
+	if (closingDelimiter === -1) {
+		return {};
+	}
+
+	const parsed = load(data.slice(4, closingDelimiter));
+	if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+		return parsed as Record<string, unknown>;
+	}
+
+	return {};
+}
