@@ -1330,82 +1330,82 @@
 
 			.tag-group-input-row {
 				--tag-group-control-height: 34px;
-				display: grid;
-				grid-template-columns: auto 240px auto;
-				align-items: start;
-				gap: var(--size-4-2);
+				display: grid !important;
+				grid-template-columns: auto 240px auto !important;
+				align-items: start !important;
+				gap: var(--size-4-2) !important;
 
 				.tag-group-mode-toggle {
-					display: inline-flex;
-					align-items: stretch;
-					border: var(--input-border-width, 1px) solid var(--background-modifier-border);
-					border-radius: var(--input-radius);
-					overflow: hidden;
-					background: var(--background-modifier-form-field, var(--background-primary));
-					flex: 0 0 auto;
-					height: var(--tag-group-control-height);
+					display: inline-flex !important;
+					align-items: stretch !important;
+					border: var(--input-border-width, 1px) solid var(--background-modifier-border) !important;
+					border-radius: var(--input-radius) !important;
+					overflow: hidden !important;
+					background: var(--background-modifier-form-field, var(--background-primary)) !important;
+					flex: 0 0 auto !important;
+					height: var(--tag-group-control-height) !important;
 
 					button {
-						display: inline-flex;
-						align-items: center;
-						justify-content: center;
-						height: 100%;
-						min-height: 0;
-						margin: 0;
-						border: 0;
-						border-radius: 0;
-						box-shadow: none;
-						background: transparent;
-						color: var(--text-muted);
-						font-size: var(--font-ui-smaller);
-						line-height: 1;
-						padding: var(--size-2-1) var(--size-2-3);
-						cursor: pointer;
+						display: inline-flex !important;
+						align-items: center !important;
+						justify-content: center !important;
+						height: 100% !important;
+						min-height: 0 !important;
+						margin: 0 !important;
+						border: 0 !important;
+						border-radius: 0 !important;
+						box-shadow: none !important;
+						background: transparent !important;
+						color: var(--text-muted) !important;
+						font-size: var(--font-ui-smaller) !important;
+						line-height: 1 !important;
+						padding: var(--size-2-1) var(--size-2-3) !important;
+						cursor: pointer !important;
 
 						&:hover {
-							color: var(--text-normal);
-							background: var(--background-modifier-hover);
+							color: var(--text-normal) !important;
+							background: var(--background-modifier-hover) !important;
 						}
 
 						&.active {
-							background: var(--interactive-accent);
-							color: var(--text-on-accent);
+							background: var(--interactive-accent) !important;
+							color: var(--text-on-accent) !important;
 						}
 
 						&:focus,
 						&:active {
-							box-shadow: none;
+							box-shadow: none !important;
 						}
 
 						&:focus-visible {
-							outline: 2px solid var(--background-modifier-border-focus);
-							outline-offset: -2px;
+							outline: 2px solid var(--background-modifier-border-focus) !important;
+							outline-offset: -2px !important;
 						}
 
 						+ button {
-							border-left: var(--input-border-width, 1px) solid var(--background-modifier-border);
+							border-left: var(--input-border-width, 1px) solid var(--background-modifier-border) !important;
 						}
 					}
 				}
 
 				.tag-group-input {
-					width: 240px;
-					flex: 0 0 auto;
+					width: 240px !important;
+					flex: 0 0 auto !important;
 					--compact-tag-select-height: var(--tag-group-control-height);
 					--compact-tag-select-font-size: var(--font-ui-small);
 				}
 
 				.grouping-prefix-input {
-					width: 100%;
-					height: var(--tag-group-control-height);
-					font-size: var(--font-ui-small);
+					width: 100% !important;
+					height: var(--tag-group-control-height) !important;
+					font-size: var(--font-ui-small) !important;
 				}
 
 				.grouping-save-btn {
-					align-self: flex-start;
-					height: var(--tag-group-control-height);
-					padding: var(--size-2-1) var(--size-2-3);
-					font-size: var(--font-ui-smaller);
+					align-self: flex-start !important;
+					height: var(--tag-group-control-height) !important;
+					padding: var(--size-2-1) var(--size-2-3) !important;
+					font-size: var(--font-ui-smaller) !important;
 				}
 			}
 
