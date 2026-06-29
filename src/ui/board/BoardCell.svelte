@@ -221,11 +221,13 @@
 		} else if (isTagSwimlaneDrop) {
 			const source = secondaryAxisBucket.meta?.source;
 			const prefix = source?.kind === "tag-prefix" ? (source.prefix ?? "") : "";
+			const includeTags = source?.kind === "tag-prefix" ? source.includeTags : undefined;
 			await taskActions.updateSwimlaneTag(
 				droppedIds,
 				secondaryAxisBucket.meta?.value ?? null,
 				prefix,
 				excludedTags,
+				includeTags,
 			);
 			await applyColumnChange(droppedIds);
 		} else {

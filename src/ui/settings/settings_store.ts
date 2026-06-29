@@ -85,7 +85,11 @@ const groupSourceSchema = z
 	.union([
 		z.object({ kind: z.literal("none") }),
 		z.object({ kind: z.literal("file") }),
-		z.object({ kind: z.literal("tag-prefix"), prefix: z.string().optional() }),
+		z.object({
+			kind: z.literal("tag-prefix"),
+			prefix: z.string().optional(),
+			includeTags: z.array(z.string()).optional(),
+		}),
 		z.object({ kind: z.literal("property"), key: z.string() }),
 	])
 	.catch({ kind: "none" as const });

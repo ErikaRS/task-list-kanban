@@ -190,7 +190,8 @@ Tasks are grouped by source Markdown file.
 
 Tasks are grouped by tag, optionally limited to a configured prefix.
 
-- Saved groupings let you reuse common tag grouping setups.
+- Use the include list in the grouping controls to show only specific tag swimlanes. Included swimlanes keep the configured order, and tasks without an included grouping tag appear in **Unassigned**.
+- Saved groupings let you reuse common tag grouping setups, including prefixes and include lists.
 
 ## Screenshot Refresh Candidates
 

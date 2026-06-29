@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	createGroupAssigner,
 	deriveGroupBuckets,
 	getTaskTagGroupValue,
 	taskBelongsToGroup,
@@ -89,6 +90,83 @@ describe("tag-prefix grouping", () => {
 		expect(buckets[0]?.isDefault).toBe(true);
 	});
 
+	it("derives include-list buckets in configured order including empty swimlanes", () => {
+		const tasks = [
+			parseTask("- [ ] Beta work #Project-Beta"),
+			parseTask("- [ ] Other work #Project-Gamma"),
+		];
+
+		const buckets = deriveGroupBuckets(tasks, {
+			kind: "tag-prefix",
+			prefix: "Project-",
+			includeTags: ["Project-Beta", "Project-Alpha"],
+		});
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["Beta", "Alpha", "Unassigned"]);
+		expect(buckets.map((bucket) => bucket.value)).toEqual(["Project-Beta", "Project-Alpha", null]);
+	});
+
+	it("normalizes include-list suffixes against the active prefix", () => {
+		const task = parseTask("- [ ] Alpha work #Project-Alpha");
+
+		const buckets = deriveGroupBuckets([task], {
+			kind: "tag-prefix",
+			prefix: "Project-",
+			includeTags: ["Alpha"],
+		});
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["Alpha", "Unassigned"]);
+		expect(getTaskTagGroupValue(task, {
+			kind: "tag-prefix",
+			prefix: "Project-",
+			includeTags: ["Alpha"],
+		})).toBe("Project-Alpha");
+	});
+
+	it("assigns tasks to the earliest matching include-list tag", () => {
+		const task = parseTask("- [ ] Cross-project #Project-Beta #Project-Alpha");
+		const source = {
+			kind: "tag-prefix" as const,
+			prefix: "Project-",
+			includeTags: ["Project-Beta", "Project-Alpha"],
+		};
+		const buckets = deriveGroupBuckets([task], source);
+		const assignGroupId = createGroupAssigner(buckets, source);
+
+		expect(getTaskTagGroupValue(task, source)).toBe("Project-Beta");
+		expect(assignGroupId(task)).toBe(buckets[0]?.id);
+		expect(taskBelongsToGroup(task, buckets[0]!)).toBe(true);
+		expect(taskBelongsToGroup(task, buckets[1]!)).toBe(false);
+	});
+
+	it("assigns tasks without an included tag to Unassigned", () => {
+		const task = parseTask("- [ ] Gamma work #Project-Gamma");
+		const source = {
+			kind: "tag-prefix" as const,
+			prefix: "Project-",
+			includeTags: ["Project-Alpha", "Project-Beta"],
+		};
+		const buckets = deriveGroupBuckets([task], source);
+		const assignGroupId = createGroupAssigner(buckets, source);
+
+		expect(getTaskTagGroupValue(task, source)).toBeNull();
+		expect(assignGroupId(task)).toBe(buckets.at(-1)?.id);
+		expect(taskBelongsToGroup(task, buckets.at(-1)!)).toBe(true);
+	});
+
+	it("does not create included buckets for excluded tags", () => {
+		const task = parseTask("- [ ] Alpha work #Project-Alpha");
+		const source = {
+			kind: "tag-prefix" as const,
+			prefix: "Project-",
+			includeTags: ["Project-Alpha", "Project-Beta"],
+		};
+		const buckets = deriveGroupBuckets([task], source, ["Project-Alpha"]);
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["Beta", "Unassigned"]);
+		expect(getTaskTagGroupValue(task, source, ["Project-Alpha"])).toBeNull();
+	});
+
 	// Mirrors the work performed by the `updateSwimlaneTag` action, which resolves
 	// the task's current group tag and then rewrites it onto the new swimlane.
 	describe("swimlane reassignment (updateSwimlaneTag path)", () => {
@@ -97,8 +175,9 @@ describe("tag-prefix grouping", () => {
 			newTag: string | null,
 			prefix: string,
 			excludedTags: string[] = [],
+			includeTags?: string[],
 		) {
-			const oldTag = getTaskTagGroupValue(task, { kind: "tag-prefix", prefix }, excludedTags);
+			const oldTag = getTaskTagGroupValue(task, { kind: "tag-prefix", prefix, includeTags }, excludedTags);
 			task.replaceTag(oldTag, newTag);
 		}
 
@@ -135,6 +214,15 @@ describe("tag-prefix grouping", () => {
 			expect(task.tags.has("status/active")).toBe(true);
 			expect(task.tags.has("Sprint-2")).toBe(true);
 			expect(task.tags.has("Sprint-1")).toBe(false);
+		});
+
+		it("removes the included source tag when moving a multi-group task", () => {
+			const task = parseTask("- [ ] Ship it #Sprint-1 #Sprint-2 #column");
+			moveTaskToSwimlane(task, "Sprint-3", "Sprint-", [], ["Sprint-2", "Sprint-1"]);
+
+			expect(task.tags.has("Sprint-1")).toBe(true);
+			expect(task.tags.has("Sprint-2")).toBe(false);
+			expect(task.tags.has("Sprint-3")).toBe(true);
 		});
 	});
 });

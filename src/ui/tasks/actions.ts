@@ -81,6 +81,7 @@ export type TaskActions = {
 		newTag: string | null,
 		prefix: string,
 		excludedTags: string[],
+		includeTags?: string[],
 	) => Promise<void>;
 	pickFileForNewTask: (
 		column: ColumnTag,
@@ -602,12 +603,12 @@ export function createTaskActions({
 			], prepareFileContentsForWrite);
 		},
 
-		async updateSwimlaneTag(ids, newTag, prefix, excludedTags) {
+		async updateSwimlaneTag(ids, newTag, prefix, excludedTags, includeTags) {
 			for (const id of ids) {
 				await updateRowWithTask(id, (task) => {
 					const oldTag = getTaskTagGroupValue(
 						task,
-						{ kind: "tag-prefix", prefix },
+						{ kind: "tag-prefix", prefix, includeTags },
 						excludedTags,
 					);
 					task.replaceTag(oldTag, newTag);

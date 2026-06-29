@@ -15,15 +15,18 @@
 	import {
 		createGroupAssigner,
 		deriveGroupBuckets,
+		normalizeTagIncludeList,
 		normalizeTagPrefix,
+		type GroupSource,
 	} from "./tasks/task_grouping";
 	import SelectTag from "./components/select/select_tag.svelte";
+	import CompactTagSelect from "./components/select/compact_tag_select.svelte";
 	import IconButton from "./components/icon_button.svelte";
 	import Icon from "./components/icon.svelte";
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { type SavedGrouping, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
@@ -37,6 +40,10 @@
 		shouldApplyIncomingBoardFilterState,
 		writeBoardFilterState,
 	} from "./filters/filter_state";
+
+	type TagPrefixGroupSource = Extract<GroupSource, { kind: "tag-prefix" }>;
+	type SavedTagGrouping = SavedGrouping & { source: TagPrefixGroupSource };
+	type TagGroupInputMode = "prefix" | "include";
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
@@ -112,20 +119,49 @@
 
 	$: savedFilters = $settingsStore.savedFilters ?? [];
 	$: savedGroupings = $settingsStore.savedGroupings ?? [];
-	$: savedTagGroupings = savedGroupings.filter(g => g.source.kind === "tag-prefix");
+	$: savedTagGroupings = savedGroupings.filter(
+		(g): g is SavedTagGrouping => g.source.kind === "tag-prefix",
+	);
+	$: availableTags = [...tags].sort((a, b) => a.localeCompare(b));
 
 	let activeContentFilterId: string | undefined;
 	let activeTagFilterId: string | undefined;
 	let activeFileFilterId: string | undefined;
 	let activeSavedGroupingId: string | undefined;
 	let rememberedSavedTagGroupingId: string | undefined;
+	let tagGroupInputMode: TagGroupInputMode = "prefix";
 
 	$: {
 		const src = $settingsStore.groupSource;
 		const matching = src?.kind === "tag-prefix" ? savedTagGroupings.find(g =>
-			normalizeTagPrefix(g.source.prefix) === normalizeTagPrefix(src.prefix)
+			tagGroupSourcesMatch(g.source, src)
 		) : undefined;
 		activeSavedGroupingId = matching?.id;
+	}
+
+	function normalizedTagGroupSource(source: TagPrefixGroupSource) {
+		const prefix = normalizeTagPrefix(source.prefix);
+		const includeTags = normalizeTagIncludeList(source.includeTags, prefix);
+		return { kind: "tag-prefix" as const, prefix, includeTags };
+	}
+
+	function tagGroupSourcesMatch(
+		a: TagPrefixGroupSource,
+		b: TagPrefixGroupSource,
+	): boolean {
+		const left = normalizedTagGroupSource(a);
+		const right = normalizedTagGroupSource(b);
+		if (left.prefix !== right.prefix) return false;
+		if (left.includeTags.length !== right.includeTags.length) return false;
+		return left.includeTags.every((tag, index) =>
+			tag.toLowerCase() === right.includeTags[index]?.toLowerCase()
+		);
+	}
+
+	function tagGroupInputModeForSource(source: GroupSource | undefined): TagGroupInputMode {
+		return source?.kind === "tag-prefix" && (source.includeTags?.length ?? 0) > 0
+			? "include"
+			: "prefix";
 	}
 
 	function getRememberedSavedTagGrouping() {
@@ -166,16 +202,52 @@
 		// Don't create a duplicate entry for a grouping that is already saved.
 		if (activeSavedGroupingId) return;
 
-		const name = src.kind === "tag-prefix" && src.prefix ? src.prefix :
-			(src.kind === "tag-prefix" ? "Tags" : "Files");
+		const normalizedSource = normalizedTagGroupSource(src);
+		const name = normalizedSource.prefix ? normalizedSource.prefix :
+			(normalizedSource.includeTags.length > 0 ? normalizedSource.includeTags.join(", ") : "Tags");
 
 		const newGrouping = {
 			id: crypto.randomUUID(),
 			name,
-			source: { ...src },
+			source: normalizedSource,
 		};
 		$settingsStore.savedGroupings = [...savedGroupings, newGrouping];
 		rememberedSavedTagGroupingId = newGrouping.id;
+		requestSave();
+	}
+
+	function updateTagGroupPrefix(prefix: string) {
+		const src = $settingsStore.groupSource;
+		if (!src || src.kind !== "tag-prefix") return;
+		$settingsStore.groupSource = {
+			kind: "tag-prefix",
+			prefix,
+		};
+		activeSavedGroupingId = undefined;
+		requestSave();
+	}
+
+	function updateTagGroupIncludeTags(includeTags: string[]) {
+		const src = $settingsStore.groupSource;
+		if (!src || src.kind !== "tag-prefix") return;
+		$settingsStore.groupSource = {
+			kind: "tag-prefix",
+			prefix: "",
+			includeTags: normalizeTagIncludeList(includeTags),
+		};
+		activeSavedGroupingId = undefined;
+		requestSave();
+	}
+
+	function setTagGroupInputMode(mode: TagGroupInputMode) {
+		const src = $settingsStore.groupSource;
+		if (!src || src.kind !== "tag-prefix" || tagGroupInputMode === mode) return;
+
+		tagGroupInputMode = mode;
+		$settingsStore.groupSource = mode === "prefix"
+			? { kind: "tag-prefix", prefix: src.prefix ?? "" }
+			: { kind: "tag-prefix", prefix: "", includeTags: src.includeTags ?? [] };
+		activeSavedGroupingId = undefined;
 		requestSave();
 	}
 
@@ -183,6 +255,7 @@
 		const grouping = savedGroupings.find(g => g.id === id);
 		if (grouping) {
 			$settingsStore.groupSource = { ...grouping.source };
+			tagGroupInputMode = tagGroupInputModeForSource(grouping.source);
 			requestSave();
 		}
 	}
@@ -424,6 +497,8 @@
 	}
 
 	onMount(() => {
+		tagGroupInputMode = tagGroupInputModeForSource($settingsStore.groupSource);
+
 		const unsubscribe = settingsStore.subscribe(settings => {
 			const filterState = readBoardFilterState(settings);
 			if (shouldApplyIncomingBoardFilterState(
@@ -887,18 +962,46 @@
 				<div class="board-header-controls">
 					{#if $settingsStore.groupSource?.kind === "tag-prefix"}
 						<div class="grouping-controls">
-							<div class="grouping-prefix-row">
-								<input
-									type="text"
-									class="grouping-prefix-input"
-									placeholder="Prefix (e.g. Sprint-)"
-									value={$settingsStore.groupSource.prefix ?? ""}
-									on:input={(e) => {
-										$settingsStore.groupSource = { kind: "tag-prefix", prefix: e.currentTarget.value };
-										activeSavedGroupingId = undefined;
-										requestSave();
-									}}
-								/>
+							<div class="tag-group-input-row">
+								<div class="tag-group-mode-toggle">
+									<button
+										type="button"
+										class:active={tagGroupInputMode === "prefix"}
+										aria-pressed={tagGroupInputMode === "prefix"}
+										on:click={() => setTagGroupInputMode("prefix")}
+									>
+										Prefix
+									</button>
+									<button
+										type="button"
+										class:active={tagGroupInputMode === "include"}
+										aria-pressed={tagGroupInputMode === "include"}
+										on:click={() => setTagGroupInputMode("include")}
+									>
+										Include
+									</button>
+								</div>
+								<div class="tag-group-input">
+									{#if tagGroupInputMode === "prefix"}
+										<input
+											type="text"
+											class="grouping-prefix-input"
+											placeholder="Prefix (e.g. Sprint-)"
+											value={$settingsStore.groupSource.prefix ?? ""}
+											aria-label="Tag group prefix"
+											on:input={(e) => updateTagGroupPrefix(e.currentTarget.value)}
+										/>
+									{:else}
+										<CompactTagSelect
+											items={availableTags}
+											value={$settingsStore.groupSource.includeTags ?? []}
+											maxSelected={0}
+											placeholder="Choose tags"
+											ariaLabel="Included tag swimlanes"
+											on:change={(e) => updateTagGroupIncludeTags(e.detail)}
+										/>
+									{/if}
+								</div>
 								<button
 									class="filter-action-btn save-btn grouping-save-btn"
 									on:click={saveCurrentGrouping}
@@ -933,9 +1036,15 @@
 							if (val === "file") {
 								$settingsStore.groupSource = { kind: "file" };
 							} else if (val === "tag-prefix") {
-								$settingsStore.groupSource = $settingsStore.groupSource?.kind === "tag-prefix"
-									? { kind: "tag-prefix", prefix: $settingsStore.groupSource.prefix }
+								const nextGroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
+									? {
+										kind: "tag-prefix",
+										prefix: $settingsStore.groupSource.prefix,
+										includeTags: $settingsStore.groupSource.includeTags,
+									}
 									: createTagGroupSourceFromMemory();
+								$settingsStore.groupSource = nextGroupSource;
+								tagGroupInputMode = tagGroupInputModeForSource(nextGroupSource);
 							} else if (val.startsWith("prop:")) {
 								$settingsStore.groupSource = { kind: "property", key: val.slice("prop:".length) };
 							} else {
@@ -1161,6 +1270,8 @@
 		}
 
 		.board-header {
+			position: relative;
+			z-index: 50;
 			display: flex;
 			justify-content: flex-end;
 			align-items: flex-start;
@@ -1213,24 +1324,71 @@
 				gap: var(--size-2-2);
 			}
 
-			.grouping-prefix-row {
+			.tag-group-input-row {
+				--tag-group-control-height: 34px;
 				display: flex;
-				align-items: center;
+				align-items: flex-start;
 				gap: var(--size-4-2);
 
+				.tag-group-mode-toggle {
+					display: inline-flex;
+					align-items: stretch;
+					border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+					border-radius: var(--input-radius);
+					overflow: hidden;
+					background: var(--background-modifier-form-field, var(--background-primary));
+					flex: 0 0 auto;
+					height: var(--tag-group-control-height);
+
+					button {
+						border: 0;
+						border-radius: 0;
+						box-shadow: none;
+						background: transparent;
+						color: var(--text-muted);
+						font-size: var(--font-ui-smaller);
+						padding: var(--size-2-1) var(--size-2-3);
+						cursor: pointer;
+
+						&:hover {
+							color: var(--text-normal);
+							background: var(--background-modifier-hover);
+						}
+
+						&.active {
+							background: var(--interactive-accent);
+							color: var(--text-on-accent);
+						}
+
+						+ button {
+							border-left: var(--input-border-width, 1px) solid var(--background-modifier-border);
+						}
+					}
+				}
+
+				.tag-group-input {
+					width: 240px;
+					flex: 0 0 auto;
+					--compact-tag-select-height: var(--tag-group-control-height);
+					--compact-tag-select-font-size: var(--font-ui-small);
+				}
+
 				.grouping-prefix-input {
-					width: 140px;
+					width: 100%;
+					height: var(--tag-group-control-height);
 					font-size: var(--font-ui-small);
 				}
 
 				.grouping-save-btn {
+					align-self: flex-start;
+					height: var(--tag-group-control-height);
 					padding: var(--size-2-1) var(--size-2-3);
 					font-size: var(--font-ui-smaller);
 				}
 			}
 
 			.saved-groups {
-				margin-left: var(--size-4-2);
+				margin-left: calc(var(--size-4-2) + 2px);
 				margin-bottom: 0;
 
 				details {

@@ -145,6 +145,43 @@ describe("Invalid field resilience", () => {
 		expect(parsed.groupSource).toEqual({ kind: "property", key: "priority" });
 	});
 
+	it("parses tag groupSource include tags", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			groupSource: {
+				kind: "tag-prefix",
+				prefix: "Project-",
+				includeTags: ["Project-Beta", "Project-Alpha"],
+			},
+		});
+
+		expect(parsed.groupSource).toEqual({
+			kind: "tag-prefix",
+			prefix: "Project-",
+			includeTags: ["Project-Beta", "Project-Alpha"],
+		});
+	});
+
+	it("round-trips saved tag groupings with include tags in order", () => {
+		const parsed = roundtripSettings({
+			savedGroupings: [{
+				id: "projects",
+				name: "Projects",
+				source: {
+					kind: "tag-prefix",
+					prefix: "Project-",
+					includeTags: ["Project-Beta", "Project-Alpha"],
+				},
+			}],
+		});
+
+		expect(parsed.savedGroupings?.[0]?.source).toEqual({
+			kind: "tag-prefix",
+			prefix: "Project-",
+			includeTags: ["Project-Beta", "Project-Alpha"],
+		});
+	});
+
 	it("parses group direction and recovers invalid values", () => {
 		expect(parseSettings({ columns: ["MyColumn"], groupDirection: "desc" }).groupDirection).toBe("desc");
 		expect(parseSettings({ columns: ["MyColumn"], groupDirection: "sideways" }).groupDirection).toBe("asc");

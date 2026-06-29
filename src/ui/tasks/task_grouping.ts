@@ -12,7 +12,7 @@ export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 export type GroupSource =
 	| { kind: "none" }
 	| { kind: "file" }
-	| { kind: "tag-prefix"; prefix?: string }
+	| { kind: "tag-prefix"; prefix?: string; includeTags?: string[] }
 	| { kind: "property"; key: string };
 
 export interface GroupBucket {
@@ -62,6 +62,34 @@ export function deriveGroupBuckets(
 	if (source.kind === "tag-prefix") {
 		const prefix = normalizeTagPrefix(source.prefix);
 		const excludeSet = createNormalizedTagSet(excludedTags);
+		const includedTags = normalizeTagIncludeList(source.includeTags, prefix)
+			.filter((tag) => !isTagExcluded(tag, excludeSet));
+
+		if (includedTags.length > 0) {
+			const buckets: GroupBucket[] = includedTags.map((fullTag) => {
+				const label = prefix && fullTag.toLowerCase().startsWith(prefix)
+					? fullTag.slice(prefix.length)
+					: fullTag;
+				return {
+					id: createTagPrefixGroupBucketId(prefix, fullTag.toLowerCase()),
+					label,
+					value: fullTag,
+					source: { kind: "tag-prefix", prefix, includeTags: includedTags },
+					isDefault: false,
+				};
+			});
+
+			buckets.push({
+				id: createTagPrefixUnassignedGroupBucketId(prefix),
+				label: "Unassigned",
+				value: null,
+				source: { kind: "tag-prefix", prefix, includeTags: includedTags },
+				isDefault: true,
+			});
+
+			return applyGroupDirection(buckets, groupDirection);
+		}
+
 		const tagMap = new Map<string, string>();
 
 		for (const task of tasks) {
@@ -200,16 +228,36 @@ export function getTaskTagGroupValue(
 	source: Extract<GroupSource, { kind: "tag-prefix" }>,
 	excludedTags: string[] = [],
 ): string | null {
-	return resolveTaskGroupTag(task, normalizeTagPrefix(source.prefix), createNormalizedTagSet(excludedTags));
+	const prefix = normalizeTagPrefix(source.prefix);
+	return resolveTaskGroupTag(
+		task,
+		prefix,
+		createNormalizedTagSet(excludedTags),
+		normalizeTagIncludeList(source.includeTags, prefix),
+	);
 }
 
-function resolveTaskGroupTag(task: Task, prefix: string, excludeSet: Set<string>): string | null {
+function resolveTaskGroupTag(
+	task: Task,
+	prefix: string,
+	excludeSet: Set<string>,
+	includeTags: string[] = [],
+): string | null {
 	const candidateTags = Array.from(task.tags)
 		.filter((tag) => !isTagExcluded(tag, excludeSet))
 		.filter((tag) => {
 			if (!prefix) return true;
 			return tag.toLowerCase().startsWith(prefix) && tag.slice(prefix.length).length > 0;
 		});
+
+	if (includeTags.length > 0) {
+		const candidateByLowercase = new Map(candidateTags.map((tag) => [tag.toLowerCase(), tag]));
+		for (const includeTag of includeTags) {
+			const matchedTag = candidateByLowercase.get(includeTag.toLowerCase());
+			if (matchedTag) return matchedTag;
+		}
+		return null;
+	}
 
 	// Pick the alphabetically first matching tag so swimlane assignment is
 	// deterministic regardless of the order tags appear in the source line.
@@ -235,6 +283,7 @@ export function createGroupAssigner(
 	if (source.kind === "tag-prefix") {
 		const prefix = normalizeTagPrefix(source.prefix);
 		const excludeSet = createNormalizedTagSet(excludedTags);
+		const includedTags = normalizeTagIncludeList(source.includeTags, prefix);
 		const idByValue = new Map<string, string>();
 		for (const bucket of buckets) {
 			if (!bucket.isDefault && typeof bucket.value === "string") {
@@ -242,7 +291,7 @@ export function createGroupAssigner(
 			}
 		}
 		return (task) => {
-			const groupTag = resolveTaskGroupTag(task, prefix, excludeSet);
+			const groupTag = resolveTaskGroupTag(task, prefix, excludeSet, includedTags);
 			if (groupTag === null) return defaultBucketId;
 			return idByValue.get(groupTag.toLowerCase()) ?? defaultBucketId;
 		};
@@ -360,8 +409,33 @@ export function normalizeTagPrefix(prefix: string | undefined): string {
 	return prefix?.trim().replace(/^#/, "").toLowerCase() ?? "";
 }
 
+export function normalizeTagName(tag: string): string {
+	return tag.trim().replace(/^#/, "");
+}
+
+export function normalizeTagIncludeList(tags: string[] | undefined, normalizedPrefix = ""): string[] {
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+
+	for (const rawTag of tags ?? []) {
+		const tag = normalizeTagName(rawTag);
+		if (!tag) continue;
+
+		const fullTag = normalizedPrefix && !tag.toLowerCase().startsWith(normalizedPrefix)
+			? `${normalizedPrefix}${tag}`
+			: tag;
+		const key = fullTag.toLowerCase();
+		if (seen.has(key)) continue;
+
+		seen.add(key);
+		normalized.push(fullTag);
+	}
+
+	return normalized;
+}
+
 function createNormalizedTagSet(tags: string[]): Set<string> {
-	return new Set(tags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase()).filter(Boolean));
+	return new Set(tags.map((tag) => normalizeTagName(tag).toLowerCase()).filter(Boolean));
 }
 
 function isTagExcluded(tag: string, excludeSet: Set<string>): boolean {
