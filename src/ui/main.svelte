@@ -1289,6 +1289,8 @@
 			.board-header-controls {
 				display: flex;
 				align-items: flex-start;
+				justify-content: flex-end;
+				flex-wrap: wrap;
 				gap: var(--size-4-2);
 				min-height: 54px; /* prevent shifting when saved groups is toggled */
 
@@ -1321,13 +1323,16 @@
 				display: flex;
 				flex-direction: column;
 				align-items: flex-start;
+				flex: 0 0 auto;
 				gap: var(--size-2-2);
+				min-width: max-content;
 			}
 
 			.tag-group-input-row {
 				--tag-group-control-height: 34px;
-				display: flex;
-				align-items: flex-start;
+				display: grid;
+				grid-template-columns: auto 240px auto;
+				align-items: start;
 				gap: var(--size-4-2);
 
 				.tag-group-mode-toggle {
@@ -1341,12 +1346,19 @@
 					height: var(--tag-group-control-height);
 
 					button {
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						height: 100%;
+						min-height: 0;
+						margin: 0;
 						border: 0;
 						border-radius: 0;
 						box-shadow: none;
 						background: transparent;
 						color: var(--text-muted);
 						font-size: var(--font-ui-smaller);
+						line-height: 1;
 						padding: var(--size-2-1) var(--size-2-3);
 						cursor: pointer;
 
@@ -1358,6 +1370,16 @@
 						&.active {
 							background: var(--interactive-accent);
 							color: var(--text-on-accent);
+						}
+
+						&:focus,
+						&:active {
+							box-shadow: none;
+						}
+
+						&:focus-visible {
+							outline: 2px solid var(--background-modifier-border-focus);
+							outline-offset: -2px;
 						}
 
 						+ button {
