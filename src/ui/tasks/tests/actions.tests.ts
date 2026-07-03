@@ -361,7 +361,7 @@ describe("task actions", () => {
 				metadataByTaskId,
 			});
 			const task = Array.from(tasksByTaskId.values())[0]!;
-			const actions = setupActionsWithFileMap({
+			const { actions } = setupActionsWithFileMap({
 				fileContents,
 				tasksByTaskId,
 				metadataByTaskId,
@@ -459,6 +459,106 @@ describe("task actions", () => {
 			await actions.setDateProperty(taskId, "start", "2026-06-15");
 
 			expect(contents()).toBe("- [ ] Send invoice");
+		});
+	});
+
+	describe("batched multi-task updates", () => {
+		async function setupMultiFileTasks(files: Record<string, string>) {
+			const fileContents = new Map(Object.entries(files));
+			const tasksByTaskId = new Map<string, Task>();
+			const metadataByTaskId = new Map<string, Metadata>();
+
+			for (const path of Object.keys(files)) {
+				await parseNestedFileIntoMaps({
+					fileHandle: { path },
+					fileContents,
+					tasksByTaskId,
+					metadataByTaskId,
+				});
+			}
+
+			return { fileContents, tasksByTaskId, metadataByTaskId };
+		}
+
+		it("writes each file once when retagging tasks across files", async () => {
+			const { fileContents, tasksByTaskId, metadataByTaskId } = await setupMultiFileTasks({
+				"a.md": "- [ ] One #sprint-1\n- [ ] Two #sprint-1",
+				"b.md": "- [ ] Three #sprint-1",
+			});
+			const { actions, writeCount } = setupActionsWithFileMap({
+				fileContents,
+				tasksByTaskId,
+				metadataByTaskId,
+			});
+
+			await actions.updateSwimlaneTag(
+				Array.from(tasksByTaskId.keys()),
+				"sprint-2",
+				"sprint-",
+				[],
+			);
+
+			expect(fileContents.get("a.md")).toBe("- [ ] One #sprint-2\n- [ ] Two #sprint-2");
+			expect(fileContents.get("b.md")).toBe("- [ ] Three #sprint-2");
+			expect(writeCount()).toBe(2);
+		});
+
+		it("writes once when updating a swimlane property for several tasks in one file", async () => {
+			const { fileContents, tasksByTaskId, metadataByTaskId } = await setupMultiFileTasks({
+				"a.md": "- [ ] One 📅 2026-06-01\n- [ ] Two 📅 2026-06-02",
+			});
+			const { actions, writeCount } = setupActionsWithFileMap({
+				fileContents,
+				tasksByTaskId,
+				metadataByTaskId,
+				propertySchemaOption: PropertySchemaOption.TasksPlugin,
+			});
+
+			await actions.updateSwimlaneProperty(
+				Array.from(tasksByTaskId.keys()),
+				"due",
+				new Date(Date.UTC(2026, 5, 15)),
+			);
+
+			expect(fileContents.get("a.md")).toBe(
+				"- [ ] One 📅 2026-06-15\n- [ ] Two 📅 2026-06-15",
+			);
+			expect(writeCount()).toBe(1);
+		});
+
+		it("moves tasks to done in one write, adding completion dates only to open tasks", async () => {
+			const { fileContents, tasksByTaskId, metadataByTaskId } = await setupMultiFileTasks({
+				"a.md": "- [ ] One\n- [x] Two ✅ 2026-06-01",
+			});
+			const { actions, writeCount } = setupActionsWithFileMap({
+				fileContents,
+				tasksByTaskId,
+				metadataByTaskId,
+				propertySchemaOption: PropertySchemaOption.TasksPlugin,
+			});
+
+			await actions.moveTasksToColumn(Array.from(tasksByTaskId.keys()), "done");
+
+			expect(fileContents.get("a.md")).toBe(
+				"- [x] One ✅ 2026-06-15\n- [x] Two ✅ 2026-06-01",
+			);
+			expect(writeCount()).toBe(1);
+		});
+
+		it("skips the write entirely when nothing changes", async () => {
+			const { fileContents, tasksByTaskId, metadataByTaskId } = await setupMultiFileTasks({
+				"a.md": "- [x] One\n- [x] Two",
+			});
+			const { actions, writeCount } = setupActionsWithFileMap({
+				fileContents,
+				tasksByTaskId,
+				metadataByTaskId,
+			});
+
+			await actions.moveTasksToColumn(Array.from(tasksByTaskId.keys()), "done");
+
+			expect(fileContents.get("a.md")).toBe("- [x] One\n- [x] Two");
+			expect(writeCount()).toBe(0);
 		});
 	});
 
@@ -845,18 +945,22 @@ function setupActionsWithFileMap({
 	tasksByTaskId,
 	metadataByTaskId,
 	statusMarkerOrder = "",
+	propertySchemaOption = PropertySchemaOption.None,
 }: {
 	fileContents: Map<string, string>;
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
 	statusMarkerOrder?: string;
+	propertySchemaOption?: PropertySchemaOption;
 }) {
-	return createTaskActions({
+	let writeCount = 0;
+	const actions = createTaskActions({
 		tasksByTaskId,
 		metadataByTaskId: metadataByTaskId as never,
 		vault: {
 			read: async (file: { path: string }) => fileContents.get(file.path) ?? "",
 			modify: async (file: { path: string }, nextContents: string) => {
+				writeCount += 1;
 				fileContents.set(file.path, nextContents);
 			},
 		} as never,
@@ -869,10 +973,12 @@ function setupActionsWithFileMap({
 		getDefaultTaskFile: () => null,
 		getLastUsedTaskFile: () => null,
 		setLastUsedTaskFile: () => undefined,
-		getPropertySchemaOption: () => PropertySchemaOption.None,
+		getPropertySchemaOption: () => propertySchemaOption,
 		getStatusMarkerOrder: () => statusMarkerOrder,
 		getCurrentDate: () => new Date(2026, 5, 15, 12),
 		getManualOrder: () => ({}),
 		setManualOrder: () => undefined,
 	});
+
+	return { actions, writeCount: () => writeCount };
 }

@@ -32,7 +32,7 @@ import {
 import {
 	deleteRowBlocks,
 	readFileRows,
-	transformSourceRow,
+	transformSourceRows,
 	updateRow,
 	writeFileRows,
 	type PrepareFileContentsForWrite,
@@ -41,6 +41,12 @@ import { parseSourceTaskLine } from "./source_block";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
+	/**
+	 * Moves tasks to a column, batching writes per file. Moving to "done"
+	 * marks the tasks done (adding completion metadata where enabled) instead
+	 * of retagging them.
+	 */
+	moveTasksToColumn: (ids: string[], column: ColumnTag | DefaultColumns) => Promise<void>;
 	markDone: (id: string) => Promise<void>;
 	toggleDone: (id: string) => Promise<void>;
 	setDateProperty: (
@@ -179,47 +185,69 @@ export function createTaskActions({
 		return resolveFileIfValid(getDefaultTaskFile()) ?? resolveFileIfValid(getLastUsedTaskFile());
 	}
 
-	async function updateRowWithTask(
-		id: string,
+	function collectTaskEntriesByFile(
+		ids: string[],
+	): Map<TFile, { task: Task; metadata: Metadata }[]> {
+		const byFile = new Map<TFile, { task: Task; metadata: Metadata }[]>();
+		for (const id of ids) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) continue;
+			const list = byFile.get(entry.metadata.fileHandle) ?? [];
+			list.push(entry);
+			byFile.set(entry.metadata.fileHandle, list);
+		}
+		return byFile;
+	}
+
+	/**
+	 * Applies `updater` to each task and writes the re-serialised lines back,
+	 * reading and writing each affected file exactly once. Tasks are processed
+	 * in order, so a `transformSerialized` closure may rely on state set by
+	 * `updater` for the same task.
+	 */
+	async function updateRowsWithTasks(
+		ids: string[],
 		updater: (task: Task) => void,
 		transformSerialized?: (newTaskString: string) => string,
 	) {
-		const metadata = metadataByTaskId.get(id);
-		const task = tasksByTaskId.get(id);
-
-		if (!metadata || !task) {
-			return;
+		for (const [fileHandle, entries] of collectTaskEntriesByFile(ids)) {
+			const edits = entries.map(({ task, metadata }) => {
+				updater(task);
+				const serialized = task.serialise();
+				const newRow = transformSerialized
+					? transformSerialized(serialized)
+					: serialized;
+				return { rowIndex: metadata.rowIndex, transform: () => newRow };
+			});
+			await transformSourceRows(vault, fileHandle, edits, prepareFileContentsForWrite);
 		}
-
-		updater(task);
-
-		const serialized = task.serialise();
-		const newTaskString = transformSerialized ? transformSerialized(serialized) : serialized;
-		await updateRow(
-			vault,
-			metadata.fileHandle,
-			metadata.rowIndex,
-			newTaskString,
-			prepareFileContentsForWrite,
-		);
 	}
 
-	async function updateSourceRow(
-		id: string,
+	/**
+	 * Applies a raw line transform to each task's source row, reading and
+	 * writing each affected file exactly once.
+	 */
+	async function transformTaskSourceRows(
+		ids: string[],
 		transform: (row: string) => string,
 	) {
-		const metadata = metadataByTaskId.get(id);
-		if (!metadata) {
-			return;
+		const byFile = new Map<TFile, Metadata[]>();
+		for (const id of ids) {
+			const metadata = metadataByTaskId.get(id);
+			if (!metadata) continue;
+			const list = byFile.get(metadata.fileHandle) ?? [];
+			list.push(metadata);
+			byFile.set(metadata.fileHandle, list);
 		}
 
-		await transformSourceRow(
-			vault,
-			metadata.fileHandle,
-			metadata.rowIndex,
-			transform,
-			prepareFileContentsForWrite,
-		);
+		for (const [fileHandle, fileMetadata] of byFile) {
+			await transformSourceRows(
+				vault,
+				fileHandle,
+				fileMetadata.map(({ rowIndex }) => ({ rowIndex, transform })),
+				prepareFileContentsForWrite,
+			);
+		}
 	}
 
 	function getTaskWithMetadata(id: string): { task: Task; metadata: Metadata } | null {
@@ -295,7 +323,23 @@ export function createTaskActions({
 
 	return {
 		async changeColumn(id, column) {
-			await updateRowWithTask(id, (task) => (task.column = column));
+			await updateRowsWithTasks([id], (task) => (task.column = column));
+		},
+
+		async moveTasksToColumn(ids, column) {
+			if (column === "done") {
+				let shouldAddCompletionDate = false;
+				await updateRowsWithTasks(
+					ids,
+					(task) => {
+						shouldAddCompletionDate = !task.done;
+						task.done = true;
+					},
+					(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
+				);
+			} else {
+				await updateRowsWithTasks(ids, (task) => (task.column = column));
+			}
 		},
 
 		async reorderTask(groupId, columnTag, displayOrderIds, draggedId, targetIndex) {
@@ -393,8 +437,8 @@ export function createTaskActions({
 
 		async markDone(id) {
 			let shouldAddCompletionDate = false;
-			await updateRowWithTask(
-				id,
+			await updateRowsWithTasks(
+				[id],
 				(task) => {
 					shouldAddCompletionDate = !task.done;
 					task.done = true;
@@ -405,8 +449,8 @@ export function createTaskActions({
 
 		async toggleDone(id) {
 			let shouldAddCompletionDate = false;
-			await updateRowWithTask(
-				id,
+			await updateRowsWithTasks(
+				[id],
 				(task) => {
 					shouldAddCompletionDate = task.cycleStatus(getStatusMarkerOrder());
 				},
@@ -415,7 +459,7 @@ export function createTaskActions({
 		},
 
 		async updateContent(id, content) {
-			await updateRowWithTask(id, (task) => (task.content = content));
+			await updateRowsWithTasks([id], (task) => (task.content = content));
 		},
 
 		async updateSourceBlockRow(id, rowIndex, content) {
@@ -569,35 +613,29 @@ export function createTaskActions({
 		},
 
 		async setDateProperty(id, key, date) {
-			await updateSourceRow(
-				id,
+			await transformTaskSourceRows(
+				[id],
 				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.upsertDate(row, key, date) ?? row,
 			);
 		},
 
 		async clearDateProperty(id, key) {
-			await updateSourceRow(
-				id,
+			await transformTaskSourceRows(
+				[id],
 				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.removeDate(row, key) ?? row,
 			);
 		},
 
 		async archiveTasks(ids) {
-			for (const id of ids) {
-				await updateRowWithTask(id, (task) => task.archive());
-			}
+			await updateRowsWithTasks(ids, (task) => task.archive());
 		},
 
 		async cancelTasks(ids) {
-			for (const id of ids) {
-				await updateRowWithTask(id, (task) => task.cancel());
-			}
+			await updateRowsWithTasks(ids, (task) => task.cancel());
 		},
 
 		async restoreTasks(ids) {
-			for (const id of ids) {
-				await updateRowWithTask(id, (task) => task.restore());
-			}
+			await updateRowsWithTasks(ids, (task) => task.restore());
 		},
 
 		async deleteTask(id) {
@@ -615,16 +653,14 @@ export function createTaskActions({
 		},
 
 		async updateSwimlaneTag(ids, newTag, prefix, excludedTags, includeTags) {
-			for (const id of ids) {
-				await updateRowWithTask(id, (task) => {
-					const oldTag = getTaskTagGroupValue(
-						task,
-						{ kind: "tag-prefix", prefix, includeTags },
-						excludedTags,
-					);
-					task.replaceTag(oldTag, newTag);
-				});
-			}
+			await updateRowsWithTasks(ids, (task) => {
+				const oldTag = getTaskTagGroupValue(
+					task,
+					{ kind: "tag-prefix", prefix, includeTags },
+					excludedTags,
+				);
+				task.replaceTag(oldTag, newTag);
+			});
 		},
 
 		async updateSwimlaneProperty(ids, key, value) {
@@ -634,9 +670,7 @@ export function createTaskActions({
 			const transform = createSwimlanePropertyTransform(adapter, key, value);
 			if (!transform) return;
 
-			for (const id of ids) {
-				await updateSourceRow(id, transform);
-			}
+			await transformTaskSourceRows(ids, transform);
 		},
 
 		async duplicateTask(id) {

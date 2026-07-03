@@ -27,6 +27,44 @@ export async function writeFileRows(
 	);
 }
 
+export type RowEdit = {
+	rowIndex: number;
+	transform: (row: string) => string;
+};
+
+/**
+ * Applies several single-row transforms to a file with one read and at most
+ * one write (skipped when no row changes). All row indexes refer to the same
+ * revision of the file; that stays valid because edits replace lines in place
+ * and never add or remove rows.
+ */
+export async function transformSourceRows(
+	vault: Vault,
+	fileHandle: TFile,
+	edits: RowEdit[],
+	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
+): Promise<boolean> {
+	const rows = await readFileRows(vault, fileHandle);
+
+	let changed = false;
+	for (const { rowIndex, transform } of edits) {
+		const row = rows[rowIndex];
+		if (row == null) {
+			continue;
+		}
+		const nextRow = transform(row);
+		if (nextRow !== row) {
+			rows[rowIndex] = nextRow;
+			changed = true;
+		}
+	}
+
+	if (changed) {
+		await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
+	}
+	return changed;
+}
+
 export async function transformSourceRow(
 	vault: Vault,
 	fileHandle: TFile,
@@ -34,20 +72,12 @@ export async function transformSourceRow(
 	transform: (row: string) => string,
 	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 ): Promise<boolean> {
-	const rows = await readFileRows(vault, fileHandle);
-	const row = rows[rowIndex];
-	if (row == null) {
-		return false;
-	}
-
-	const nextRow = transform(row);
-	if (nextRow === row) {
-		return false;
-	}
-
-	rows[rowIndex] = nextRow;
-	await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
-	return true;
+	return transformSourceRows(
+		vault,
+		fileHandle,
+		[{ rowIndex, transform }],
+		prepareFileContentsForWrite,
+	);
 }
 
 export async function updateRow(

@@ -352,16 +352,7 @@
 	}
 
 	async function applyColumnChange(taskIds: string[]) {
-		for (const id of taskIds) {
-			switch (column) {
-				case "done":
-					await taskActions.markDone(id);
-					break;
-				default:
-					await taskActions.changeColumn(id, column);
-					break;
-			}
-		}
+		await taskActions.moveTasksToColumn(taskIds, column);
 	}
 </script>
 

@@ -101,9 +101,7 @@
 				menu.addItem((i) => {
 					i.setTitle(`Move ${selectedCount} selected to ${resolveDefaultColumnName("done", uncategorizedColumnName, doneColumnName)}`).onClick(
 						async () => {
-							for (const id of selectedIds) {
-								await taskActions.markDone(id);
-							}
+							await taskActions.moveTasksToColumn(selectedIds, "done");
 							clearColumnSelections(columnTaskIds);
 						},
 					);
@@ -117,9 +115,7 @@
 				menu.addItem((i) => {
 					i.setTitle(`Move ${selectedCount} selected to ${label}`).onClick(
 						async () => {
-							for (const id of selectedIds) {
-								await taskActions.changeColumn(id, tagAsColumn);
-							}
+							await taskActions.moveTasksToColumn(selectedIds, tagAsColumn);
 							clearColumnSelections(columnTaskIds);
 						},
 					);
