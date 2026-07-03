@@ -42,8 +42,9 @@
 		return property?.value instanceof Date ? formatLocalDate(property.value) : "";
 	}
 
+	// Draft initialization happens in the showDateInputs transition block
+	// above, which covers this path and task-edit-mode entry alike.
 	function openDateEditor() {
-		draftDateValues = { ...dateValues };
 		isDateEditing = true;
 	}
 
