@@ -19,7 +19,6 @@ import {
 	getPropertyWriteAdapter,
 	PropertySchemaOption,
 	type EditableDatePropertyKey,
-	type WritableDatePropertyKey,
 } from "../../parsing/properties";
 import { createSwimlanePropertyTransform } from "./swimlane_property";
 import { showFilePickerMenu, type DefaultFileEntry } from "../components/file_picker_menu";
@@ -51,16 +50,11 @@ export type TaskActions = {
 	moveTasksToColumn: (ids: string[], column: ColumnTag | DefaultColumns) => Promise<void>;
 	markDone: (id: string) => Promise<void>;
 	toggleDone: (id: string) => Promise<void>;
-	setDateProperty: (
-		id: string,
-		key: EditableDatePropertyKey,
-		date: string,
-	) => Promise<void>;
-	clearDateProperty: (id: string, key: WritableDatePropertyKey) => Promise<void>;
 	/**
-	 * Applies several date edits to one task in a single write. An empty value
-	 * clears that date. Separate writes per field would go through the task id,
-	 * which is a hash of the row content and goes stale after the first write.
+	 * Applies one or more date edits to one task in a single write. An empty
+	 * value clears that date. Separate writes per field would go through the
+	 * task id, which is a hash of the row content and goes stale after the
+	 * first write.
 	 */
 	applyDateEdits: (
 		id: string,
@@ -632,20 +626,6 @@ export function createTaskActions({
 			rows.splice(insertIndex, 0, ...blockRows);
 
 			await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
-		},
-
-		async setDateProperty(id, key, date) {
-			await editTaskSourceRows(
-				[id],
-				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.upsertDate(row, key, date) ?? row,
-			);
-		},
-
-		async clearDateProperty(id, key) {
-			await editTaskSourceRows(
-				[id],
-				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.removeDate(row, key) ?? row,
-			);
 		},
 
 		async applyDateEdits(id, edits) {

@@ -429,10 +429,10 @@ describe("task actions", () => {
 				new TasksPluginSchema(),
 			);
 
-			await actions.setDateProperty(taskId, "due", "2026-06-15");
+			await actions.applyDateEdits(taskId, [{ key: "due", value: "2026-06-15" }]);
 			expect(contents()).toBe("- [ ] Send invoice 📅 2026-06-15 ^abc123");
 
-			await actions.clearDateProperty(taskId, "due");
+			await actions.applyDateEdits(taskId, [{ key: "due", value: "" }]);
 			expect(contents()).toBe("- [ ] Send invoice ^abc123");
 		});
 
@@ -443,10 +443,10 @@ describe("task actions", () => {
 				new DataviewSchema(),
 			);
 
-			await actions.setDateProperty(taskId, "scheduled", "2026-06-15");
+			await actions.applyDateEdits(taskId, [{ key: "scheduled", value: "2026-06-15" }]);
 			expect(contents()).toBe("- [ ] Send invoice [scheduled:: 2026-06-15] ^abc123");
 
-			await actions.clearDateProperty(taskId, "scheduled");
+			await actions.applyDateEdits(taskId, [{ key: "scheduled", value: "" }]);
 			expect(contents()).toBe("- [ ] Send invoice ^abc123");
 		});
 
@@ -478,7 +478,7 @@ describe("task actions", () => {
 				new NoneSchema(),
 			);
 
-			await actions.setDateProperty(taskId, "start", "2026-06-15");
+			await actions.applyDateEdits(taskId, [{ key: "start", value: "2026-06-15" }]);
 
 			expect(contents()).toBe("- [ ] Send invoice");
 		});
