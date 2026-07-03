@@ -1,7 +1,7 @@
 import {
 	Keymap,
 	MarkdownView,
-	Menu,
+	Notice,
 	TFile,
 	type Vault,
 	type Workspace,
@@ -22,6 +22,7 @@ import {
 	type WritableDatePropertyKey,
 } from "../../parsing/properties";
 import { createSwimlanePropertyTransform } from "./swimlane_property";
+import { showFilePickerMenu, type DefaultFileEntry } from "../components/file_picker_menu";
 import {
 	buildOrderEntries,
 	computeDropPlan,
@@ -77,7 +78,7 @@ export type TaskActions = {
 	archiveTasks: (ids: string[]) => Promise<void>;
 	cancelTasks: (ids: string[]) => Promise<void>;
 	restoreTasks: (ids: string[]) => Promise<void>;
-	deleteTask: (ids: string) => Promise<void>;
+	deleteTask: (id: string) => Promise<void>;
 	duplicateTask: (id: string) => Promise<void>;
 	moveTasksToFile: (
 		ids: string[],
@@ -200,6 +201,21 @@ export function createTaskActions({
 		return byFile;
 	}
 
+	/**
+	 * Surfaces silently-skipped work: ids the board handed us that no longer
+	 * resolve to a task (usually because the file changed underneath the
+	 * board and the store has not caught up yet).
+	 */
+	function notifyMissingTasks(requestedCount: number, foundCount: number) {
+		if (foundCount >= requestedCount) return;
+		const missing = requestedCount - foundCount;
+		new Notice(
+			missing === 1
+				? "A task could not be updated because it is out of sync with its file."
+				: `${missing} tasks could not be updated because they are out of sync with their files.`,
+		);
+	}
+
 	// There are two ways an action may modify a task's source line, with very
 	// different fidelity. `rewriteTaskRows` re-serialises the whole line from
 	// the Task model, which normalises formatting the user may not have
@@ -220,7 +236,12 @@ export function createTaskActions({
 		updater: (task: Task) => void,
 		transformSerialized?: (newTaskString: string) => string,
 	) {
-		for (const [fileHandle, entries] of collectTaskEntriesByFile(ids)) {
+		const entriesByFile = collectTaskEntriesByFile(ids);
+		notifyMissingTasks(
+			ids.length,
+			Array.from(entriesByFile.values()).reduce((sum, entries) => sum + entries.length, 0),
+		);
+		for (const [fileHandle, entries] of entriesByFile) {
 			const edits = entries.map(({ task, metadata }) => {
 				updater(task);
 				const serialized = task.serialise();
@@ -243,13 +264,16 @@ export function createTaskActions({
 		transform: (row: string) => string,
 	) {
 		const byFile = new Map<TFile, Metadata[]>();
+		let foundCount = 0;
 		for (const id of ids) {
 			const metadata = metadataByTaskId.get(id);
 			if (!metadata) continue;
+			foundCount += 1;
 			const list = byFile.get(metadata.fileHandle) ?? [];
 			list.push(metadata);
 			byFile.set(metadata.fileHandle, list);
 		}
+		notifyMissingTasks(ids.length, foundCount);
 
 		for (const [fileHandle, fileMetadata] of byFile) {
 			await transformSourceRows(
@@ -521,18 +545,7 @@ export function createTaskActions({
 			if (location === "child") {
 				// We append as a child, so we insert at the end of the block
 				targetIndex = block.end;
-				// Detect step char
-				let stepChar = "  ";
-				for (const r of rows) {
-					if (r) {
-						const match = r.match(/^(\s+)/);
-						if (match && match[1]) {
-							stepChar = match[1].includes("\t") ? "\t" : "  ";
-							break;
-						}
-					}
-				}
-				indentation = block.indentation + stepChar;
+				indentation = block.indentation + detectIndentationStep(rows);
 			} else {
 				// sibling: insert at the end of the block
 				targetIndex = block.end;
@@ -583,18 +596,7 @@ export function createTaskActions({
 				return;
 			}
 			const parentCardIndentation = parentCardRow.match(/^\s*/)?.[0] ?? "";
-
-			// Detect step char
-			let stepChar = "  ";
-			for (const r of rows) {
-				if (r) {
-					const match = r.match(/^(\s+)/);
-					if (match && match[1]) {
-						stepChar = match[1].includes("\t") ? "\t" : "  ";
-						break;
-					}
-				}
-			}
+			const stepChar = detectIndentationStep(rows);
 
 			const safeTargetDepth = Math.max(1, targetDepth);
 			const newRootIndentation = parentCardIndentation + stepChar.repeat(safeTargetDepth);
@@ -652,6 +654,7 @@ export function createTaskActions({
 		async deleteTask(id) {
 			const entry = getTaskWithMetadata(id);
 			if (!entry) {
+				notifyMissingTasks(1, 0);
 				return;
 			}
 
@@ -686,7 +689,10 @@ export function createTaskActions({
 
 		async duplicateTask(id) {
 			const entry = getTaskWithMetadata(id);
-			if (!entry) return;
+			if (!entry) {
+				notifyMissingTasks(1, 0);
+				return;
+			}
 
 			const { fileHandle, rowIndex } = entry.metadata;
 			const rows = await readFileRows(vault, fileHandle);
@@ -747,6 +753,7 @@ export function createTaskActions({
 			const metadata = metadataByTaskId.get(id);
 
 			if (!metadata) {
+				new Notice("Could not open the task's file; the board may be out of sync.");
 				return;
 			}
 
@@ -794,13 +801,12 @@ export function createTaskActions({
 
 			// Resolve the default task file if configured
 			const defaultTaskFilePath = getDefaultTaskFile();
-			let defaultFileState: { file: TFile } | { error: string } | null =
-				null;
+			let defaultFileEntry: DefaultFileEntry | null = null;
 			if (defaultTaskFilePath) {
 				const abstractFile =
 					vault.getAbstractFileByPath(defaultTaskFilePath);
 				if (!(abstractFile instanceof TFile)) {
-					defaultFileState = {
+					defaultFileEntry = {
 						error: `★ ${defaultTaskFilePath} (not found)`,
 					};
 				} else if (
@@ -811,84 +817,20 @@ export function createTaskActions({
 						getBoardFolderPath()
 					)
 				) {
-					defaultFileState = {
+					defaultFileEntry = {
 						error: `★ ${defaultTaskFilePath} (outside scope)`,
 					};
 				} else {
-					defaultFileState = { file: abstractFile };
+					defaultFileEntry = { file: abstractFile };
 				}
 			}
 
-			function createMenu(folder: Folder, parentMenu: Menu | undefined) {
-				const menu = new Menu();
-				menu.addItem((i) => {
-					i.setTitle(parentMenu ? `← back` : "Choose a file")
-						.setDisabled(!parentMenu)
-						.onClick(() => {
-							parentMenu?.showAtPosition({ x: x, y: y });
-						});
-				});
-
-				// Show default file as first item in root menu
-				if (!parentMenu && defaultFileState) {
-					if ("file" in defaultFileState) {
-						const df = defaultFileState.file;
-						menu.addItem((i) => {
-							i.setTitle(`★ ${df.path}`).onClick(() => {
-								onFileSelectedWithPersist(df);
-							});
-						});
-					} else {
-						menu.addItem((i) => {
-							i.setTitle(defaultFileState.error).setDisabled(
-								true
-							);
-						});
-					}
-					menu.addSeparator();
-				}
-
-				for (const [label, folderItem] of Object.entries(folder)) {
-					menu.addItem((i) => {
-						i.setTitle(
-							folderItem instanceof TFile ? label : label + " →"
-						).onClick(() => {
-							if (folderItem instanceof TFile) {
-								onFileSelectedWithPersist(folderItem);
-							} else {
-								createMenu(folderItem, menu);
-							}
-						});
-					});
-				}
-
-				menu.showAtPosition({ x: x, y: y });
-			}
-
-			interface Folder {
-				[label: string]: Folder | TFile;
-			}
-			const folder: Folder = {};
-
-			for (const file of files) {
-				const segments = file.path.split("/");
-
-				let currFolder = folder;
-				for (const [i, segment] of segments.entries()) {
-					if (i === segments.length - 1) {
-						currFolder[segment] = file;
-					} else {
-						const nextFolder = currFolder[segment] || {};
-						if (nextFolder instanceof TFile) {
-							continue;
-						}
-						currFolder[segment] = nextFolder;
-						currFolder = nextFolder;
-					}
-				}
-			}
-
-			createMenu(folder, undefined);
+			showFilePickerMenu({
+				files,
+				position: { x, y },
+				defaultFileEntry,
+				onFileSelected: onFileSelectedWithPersist,
+			});
 		},
 
 		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
@@ -946,6 +888,21 @@ function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean
 	}
 
 	return task.column === column;
+}
+
+/**
+ * Detects the indentation step used in a file: a tab when the first indented
+ * row uses tabs, otherwise two spaces.
+ */
+function detectIndentationStep(rows: string[]): string {
+	for (const row of rows) {
+		if (!row) continue;
+		const match = row.match(/^(\s+)/);
+		if (match?.[1]) {
+			return match[1].includes("\t") ? "\t" : "  ";
+		}
+	}
+	return "  ";
 }
 
 export function getNodeBlock(rows: string[], rowIndex: number): { start: number; end: number; indentation: string } {

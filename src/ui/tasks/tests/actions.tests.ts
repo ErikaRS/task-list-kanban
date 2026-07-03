@@ -19,6 +19,7 @@ import { parseTask } from "./task_test_helpers";
 vi.mock("obsidian", () => ({
 	Keymap: { isModEvent: () => false },
 	MarkdownView: class MarkdownView {},
+	Notice: class Notice {},
 	Menu: class Menu {
 		addItem() {
 			return this;

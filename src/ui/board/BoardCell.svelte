@@ -1,17 +1,13 @@
 <script lang="ts">
 	import { type App, TFile } from "obsidian";
 	import type { AxisBucket, BoardCell, SecondaryBucketId } from "./board_matrix";
-	import {
-		type ColumnTagTable,
-		isColumnTag,
-	} from "../columns/columns";
+	import type { ColumnTagTable } from "../columns/columns";
 	import { deriveCellCreationMetadata } from "./cell_creation";
 	import type { TaskActions } from "../tasks/actions";
 	import { deriveDropPlan } from "./drop_plan";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
-	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
-	import IconButton from "../components/icon_button.svelte";
+	import NewTaskControls from "./NewTaskControls.svelte";
 	import { isDraggingStore } from "../dnd/store";
 	import {
 		selectionModeStore,
@@ -25,7 +21,7 @@
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
 	import { PropertyDisplayMode } from "../settings/settings_store";
-	import { getPropertyWriteAdapter, PropertySchemaOption, type EditableDatePropertyKey } from "../../parsing/properties";
+	import { getPropertyWriteAdapter, PropertySchemaOption } from "../../parsing/properties";
 	import {
 		computePinnedIds,
 		type ManualOrderKey,
@@ -72,8 +68,6 @@
 	$: effectiveTargetFileIsDefault = fileGroupTargetFile
 		? false
 		: targetFileIsDefault;
-
-	$: isColTag = isColumnTag(column, columnTagTableStore);
 
 	// Selection state
 	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
@@ -235,108 +229,6 @@
 		clearColumnSelections(droppedIds);
 	}
 
-	// Inline task creation
-	let pendingNewTask: TFile | null = null;
-	let pendingCancelled = false;
-	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
-	let newTaskInputEl: HTMLDivElement | undefined;
-	const emptyDateValues: DateFieldValues = { due: "", scheduled: "", start: "" };
-	let newTaskDateValues: DateFieldValues = { ...emptyDateValues };
-	$: canEditNewTaskDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
-
-	async function handleNewTaskSave(event?: FocusEvent) {
-		const nextTarget = event?.relatedTarget;
-		if (nextTarget instanceof Node && newTaskInputEl?.contains(nextTarget)) {
-			return;
-		}
-
-		if (pendingCancelled) {
-			pendingCancelled = false;
-			pendingNewTask = null;
-			newTaskDateValues = { ...emptyDateValues };
-			return;
-		}
-
-		const content = newTaskTextAreaEl?.value?.trim();
-		const file = pendingNewTask;
-		const targetColumn = column;
-		pendingNewTask = null;
-
-		if (!content || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
-			newTaskDateValues = { ...emptyDateValues };
-			return;
-		}
-
-		await taskActions.createTask(
-			file,
-			content,
-			targetColumn,
-			creationMetadata.additionalTags,
-			newTaskDateValues,
-		);
-		newTaskDateValues = { ...emptyDateValues };
-	}
-
-	function handleNewTaskKeydown(e: KeyboardEvent) {
-		if (e.key === "Escape") {
-			e.preventDefault();
-			pendingCancelled = true;
-			newTaskTextAreaEl?.blur();
-		} else if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			newTaskTextAreaEl?.blur();
-		}
-	}
-
-	$: if (pendingNewTask && newTaskTextAreaEl) {
-		newTaskTextAreaEl.focus();
-	}
-
-	function handleAddNewClick(e: MouseEvent | KeyboardEvent) {
-		const targetColumn = column;
-		if (!isColumnTag(targetColumn, columnTagTableStore)) {
-			return;
-		}
-
-		newTaskDateValues = { ...emptyDateValues };
-		if (fileGroupTargetFile) {
-			pendingNewTask = fileGroupTargetFile;
-			return;
-		}
-
-		taskActions.pickFileForNewTask(targetColumn, e, (file) => {
-			newTaskDateValues = { ...emptyDateValues };
-			pendingNewTask = file;
-		});
-	}
-
-	function handleChooseTaskFileClick(e: MouseEvent | KeyboardEvent) {
-		const targetColumn = column;
-		if (!isColumnTag(targetColumn, columnTagTableStore)) {
-			return;
-		}
-
-		taskActions.pickFileForNewTask(
-			targetColumn,
-			e,
-			(file) => {
-				newTaskDateValues = { ...emptyDateValues };
-				pendingNewTask = file;
-			},
-			true,
-		);
-	}
-
-	function handleNewTaskDateChange(
-		key: EditableDatePropertyKey,
-		value: string,
-	) {
-		newTaskDateValues = {
-			...newTaskDateValues,
-			[key]: value,
-		};
-	}
-
 	function groupIdsBySecondaryId(
 		taskIds: string[],
 		taskSecondaryIds: Record<string, string>,
@@ -369,63 +261,18 @@
 	on:dragleave={handleDragLeave}
 	on:drop={handleDrop}
 >
-	{#if isColTag}
-		<div class="add-new-controls">
-			<div
-				class="add-new-btn"
-				class:disabled={!!pendingNewTask}
-				role="button"
-				tabindex={pendingNewTask ? -1 : 0}
-				aria-label="Add new task to {columnTitle}"
-				aria-disabled={!!pendingNewTask}
-				on:click={!pendingNewTask ? handleAddNewClick : undefined}
-				on:keydown={(e) => {
-					if (!pendingNewTask && (e.key === 'Enter' || e.key === ' ')) {
-						e.preventDefault();
-						handleAddNewClick(e);
-					}
-				}}
-			>
-				<span aria-hidden="true">+</span>
-				Task
-			</div>
-			<IconButton
-				class="add-new-picker-btn {pendingNewTask ? 'disabled' : ''}"
-				icon="lucide-chevron-down"
-				aria-label="Choose file for new task in {columnTitle}"
-				disabled={!!pendingNewTask}
-				on:click={(e) => {
-					if (!pendingNewTask) handleChooseTaskFileClick(e);
-				}}
-			/>
-		</div>
-		{#if effectiveTargetTaskFile}
-			<div class="file-indicator">
-				<span class="file-indicator-arrow">→</span>
-				<span class="file-indicator-name" title={effectiveTargetTaskFile.path}>{effectiveTargetTaskFile.name}</span>
-				{#if effectiveTargetFileIsDefault}
-					<span class="file-indicator-label">(default)</span>
-				{/if}
-			</div>
-		{/if}
-	{/if}
-	{#if pendingNewTask}
-		<div class="new-task-input" bind:this={newTaskInputEl} on:focusout={handleNewTaskSave}>
-			<textarea
-				bind:this={newTaskTextAreaEl}
-				on:keydown={handleNewTaskKeydown}
-				placeholder="Task name..."
-			></textarea>
-			{#if canEditNewTaskDates}
-				<div class="new-task-date-fields">
-					<DateInputFields
-						values={newTaskDateValues}
-						onDateChange={handleNewTaskDateChange}
-					/>
-				</div>
-			{/if}
-		</div>
-	{/if}
+	<NewTaskControls
+		{taskActions}
+		{column}
+		{columnTagTableStore}
+		{columnTitle}
+		additionalTags={creationMetadata.additionalTags}
+		{fileGroupTargetFile}
+		targetTaskFile={effectiveTargetTaskFile}
+		targetFileIsDefault={effectiveTargetFileIsDefault}
+		{propertySchemaOption}
+		{isVerticalFlow}
+	/>
 	<div class="tasks">
 		{#each tasks as task (task.id)}
 			<div
@@ -507,20 +354,6 @@
 			.task-slot {
 				flex: 0 0 var(--column-width, 300px);
 			}
-
-			.new-task-input {
-				order: 4;
-				width: var(--column-width, 300px);
-				box-sizing: border-box;
-			}
-
-			.add-new-controls {
-				order: 2;
-			}
-
-			.file-indicator {
-				order: 3;
-			}
 		}
 
 		&.drop-active {
@@ -584,126 +417,5 @@
 			}
 		}
 
-		.new-task-input {
-			margin-top: var(--size-4-3);
-			background-color: var(--background-primary);
-			border-radius: var(--radius-s);
-			border: var(--border-width) solid var(--background-modifier-border);
-			padding: var(--size-4-2);
-
-			textarea {
-				cursor: text;
-				background-color: var(--color-base-25);
-				width: 100%;
-			}
-		}
-
-		.new-task-date-fields {
-			margin-top: var(--size-2-3);
-		}
-
-		.add-new-btn {
-			display: inline-flex;
-			align-items: center;
-			gap: var(--size-2-1);
-			align-self: flex-start;
-			cursor: pointer;
-			border: 0;
-			border-radius: var(--radius-s);
-			box-shadow: none;
-			margin: 0;
-			min-height: 26px;
-			padding: 0;
-			background: transparent;
-			background-color: transparent;
-			color: var(--text-accent);
-			font-size: var(--font-ui-small);
-			font-weight: var(--font-medium);
-			line-height: 1.2;
-
-			span {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				font-size: var(--font-ui-medium);
-				line-height: 1;
-			}
-
-			&.disabled {
-				cursor: not-allowed;
-				opacity: 0.5;
-				color: var(--text-muted);
-				pointer-events: none;
-			}
-		}
-
-		.add-new-controls {
-			display: inline-flex;
-			align-items: center;
-			gap: var(--size-2-1);
-			align-self: flex-start;
-			border: 0;
-			background: transparent;
-			box-shadow: none;
-		}
-
-		:global(.add-new-picker-btn) {
-			flex-shrink: 0;
-			width: 22px;
-			height: 26px;
-			border: 0;
-			border-radius: var(--radius-s);
-			box-shadow: none;
-			margin: 0;
-			background-color: transparent;
-			color: var(--text-accent);
-
-			&.disabled {
-				cursor: not-allowed;
-				opacity: 0.5;
-				color: var(--text-muted);
-				pointer-events: none;
-			}
-		}
-
-		.add-new-btn,
-		:global(.add-new-picker-btn) {
-			background-color: transparent;
-		}
-
-		.add-new-btn:hover:not(.disabled),
-		:global(.add-new-picker-btn:hover:not(.disabled)) {
-			background-color: transparent;
-			color: var(--text-accent-hover);
-		}
-
-		.add-new-btn:active:not(.disabled),
-		:global(.add-new-picker-btn:active:not(.disabled)) {
-			background-color: transparent;
-			color: var(--text-accent-hover);
-		}
-
-		.file-indicator {
-			display: flex;
-			align-items: center;
-			gap: var(--size-2-1);
-			font-size: var(--font-ui-small);
-			color: var(--text-muted);
-			margin-top: var(--size-2-1);
-
-			.file-indicator-arrow {
-				flex-shrink: 0;
-			}
-
-			.file-indicator-name {
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.file-indicator-label {
-				white-space: nowrap;
-			}
-		}
 	}
 </style>
