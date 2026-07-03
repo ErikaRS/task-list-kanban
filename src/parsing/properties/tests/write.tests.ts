@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PropertySchemaOption } from "../property_schema";
-import { formatLocalDate, getPropertyWriteAdapter } from "../write";
+import { formatLocalDate, getPropertyWriteAdapter, getWritablePropertyTarget } from "../write";
 
 const tasksAdapter = getPropertyWriteAdapter(PropertySchemaOption.TasksPlugin)!;
 const dataviewAdapter = getPropertyWriteAdapter(PropertySchemaOption.Dataview)!;
@@ -8,6 +8,25 @@ const dataviewAdapter = getPropertyWriteAdapter(PropertySchemaOption.Dataview)!;
 describe("formatLocalDate", () => {
 	it("formats local calendar dates as YYYY-MM-DD", () => {
 		expect(formatLocalDate(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
+	});
+});
+
+describe("getWritablePropertyTarget", () => {
+	it("targets the editable date keys", () => {
+		expect(getWritablePropertyTarget("due")).toEqual({ kind: "date", key: "due" });
+		expect(getWritablePropertyTarget("scheduled")).toEqual({ kind: "date", key: "scheduled" });
+		expect(getWritablePropertyTarget("start")).toEqual({ kind: "date", key: "start" });
+	});
+
+	it("targets priority", () => {
+		expect(getWritablePropertyTarget("priority")).toEqual({ kind: "priority" });
+	});
+
+	it("rejects keys without a writer", () => {
+		expect(getWritablePropertyTarget("completion")).toBeNull();
+		expect(getWritablePropertyTarget("created")).toBeNull();
+		expect(getWritablePropertyTarget("status")).toBeNull();
+		expect(getWritablePropertyTarget("someInlineField")).toBeNull();
 	});
 });
 

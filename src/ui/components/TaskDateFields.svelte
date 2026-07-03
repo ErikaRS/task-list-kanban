@@ -4,13 +4,13 @@
 		getPropertyByKey,
 		getPropertyWriteAdapter,
 		PropertySchemaOption,
-		type WritableDatePropertyKey,
+		type EditableDatePropertyKey,
 	} from "../../parsing/properties";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import DateInputFields from "./DateInputFields.svelte";
 
-	type EditableDateKey = Exclude<WritableDatePropertyKey, "completion">;
+	type EditableDateKey = EditableDatePropertyKey;
 
 	export let task: Task;
 	export let taskActions: TaskActions;

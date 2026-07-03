@@ -1,21 +1,20 @@
 import {
 	getTasksPriorityOption,
 	getTasksPriorityValueFromWeight,
+	getWritablePropertyTarget,
 	parseDateOnly,
 	PropertySchemaOption,
 	type PropertyWriteAdapter,
-	type WritableDatePropertyKey,
 } from "../../parsing/properties";
 
-const WRITABLE_SWIMLANE_DATE_KEYS = new Set<string>(["due", "scheduled", "start"]);
-
 /**
- * Property keys whose swimlane value can be written back to a task line.
- * Cross-lane drops on other property groups (status, created, arbitrary
- * Dataview keys, …) are rejected because there is no writer for them.
+ * Whether tasks dropped into a swimlane grouped by `key` can have that
+ * property written back. Lanes for other property groups (status, created,
+ * arbitrary Dataview keys, …) are rejected as drop targets because there is
+ * no writer for them.
  */
 export function isWritableSwimlanePropertyKey(key: string): boolean {
-	return WRITABLE_SWIMLANE_DATE_KEYS.has(key) || key === "priority";
+	return getWritablePropertyTarget(key) !== null;
 }
 
 /**
@@ -29,24 +28,24 @@ export function createSwimlanePropertyTransform(
 	key: string,
 	value: string | number | Date | null,
 ): ((row: string) => string) | null {
-	if (WRITABLE_SWIMLANE_DATE_KEYS.has(key)) {
-		const dateKey = key as Exclude<WritableDatePropertyKey, "completion">;
+	const target = getWritablePropertyTarget(key);
+	if (!target) {
+		return null;
+	}
+
+	if (target.kind === "date") {
 		if (value === null) {
-			return (row) => adapter.removeDate(row, dateKey);
+			return (row) => adapter.removeDate(row, target.key);
 		}
 		const date = formatSwimlaneDateValue(value);
-		return date === null ? null : (row) => adapter.upsertDate(row, dateKey, date);
+		return date === null ? null : (row) => adapter.upsertDate(row, target.key, date);
 	}
 
-	if (key === "priority") {
-		if (value === null) {
-			return (row) => adapter.removePriority(row);
-		}
-		const priority = formatSwimlanePriorityValue(adapter, value);
-		return priority === null ? null : (row) => adapter.upsertPriority(row, priority);
+	if (value === null) {
+		return (row) => adapter.removePriority(row);
 	}
-
-	return null;
+	const priority = formatSwimlanePriorityValue(adapter, value);
+	return priority === null ? null : (row) => adapter.upsertPriority(row, priority);
 }
 
 function formatSwimlaneDateValue(value: string | number | Date): string | null {

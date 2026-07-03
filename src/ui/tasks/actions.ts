@@ -18,6 +18,7 @@ import {
 	formatLocalDate,
 	getPropertyWriteAdapter,
 	PropertySchemaOption,
+	type EditableDatePropertyKey,
 	type WritableDatePropertyKey,
 } from "../../parsing/properties";
 import { createSwimlanePropertyTransform } from "./swimlane_property";
@@ -51,7 +52,7 @@ export type TaskActions = {
 	toggleDone: (id: string) => Promise<void>;
 	setDateProperty: (
 		id: string,
-		key: Exclude<WritableDatePropertyKey, "completion">,
+		key: EditableDatePropertyKey,
 		date: string,
 	) => Promise<void>;
 	clearDateProperty: (id: string, key: WritableDatePropertyKey) => Promise<void>;
@@ -111,7 +112,7 @@ export type TaskActions = {
 		content: string,
 		column: ColumnTag,
 		additionalTags?: string[],
-		dateProperties?: Partial<Record<Exclude<WritableDatePropertyKey, "completion">, string>>,
+		dateProperties?: Partial<Record<EditableDatePropertyKey, string>>,
 	) => Promise<void>;
 	getTargetFile: () => TFile | null;
 	/**

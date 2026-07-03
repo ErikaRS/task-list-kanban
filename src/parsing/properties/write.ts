@@ -3,7 +3,36 @@ import { PropertySchemaOption, type PropertySchema, type TaskProperty } from "./
 import { TasksPluginSchema, getTasksPriorityOption } from "./tasks_schema";
 
 export type WritableDatePropertyKey = "due" | "scheduled" | "start" | "completion";
-type EditableDatePropertyKey = Exclude<WritableDatePropertyKey, "completion">;
+export type EditableDatePropertyKey = Exclude<WritableDatePropertyKey, "completion">;
+
+// Record keys force this set to stay in sync with EditableDatePropertyKey:
+// adding a key to the type without listing it here (or vice versa) is a
+// compile error.
+const EDITABLE_DATE_PROPERTY_KEY_SET: Record<EditableDatePropertyKey, true> = {
+	due: true,
+	scheduled: true,
+	start: true,
+};
+
+export type WritablePropertyTarget =
+	| { kind: "date"; key: EditableDatePropertyKey }
+	| { kind: "priority" };
+
+/**
+ * Single source of truth for which property keys the write adapters can
+ * upsert or remove on a task line. Drives both the swimlane drop
+ * affordance (can this lane be a drop target?) and the write dispatch
+ * (which adapter method applies).
+ */
+export function getWritablePropertyTarget(key: string): WritablePropertyTarget | null {
+	if (key in EDITABLE_DATE_PROPERTY_KEY_SET) {
+		return { kind: "date", key: key as EditableDatePropertyKey };
+	}
+	if (key === "priority") {
+		return { kind: "priority" };
+	}
+	return null;
+}
 
 export interface PropertyWriteAdapter {
 	schema: PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview;

@@ -1,9 +1,9 @@
 <script context="module" lang="ts">
 	// Type exports must live in the module script; instance scripts may only
 	// export props.
-	import type { WritableDatePropertyKey } from "../../parsing/properties";
+	import type { EditableDatePropertyKey } from "../../parsing/properties";
 
-	export type EditableDateKey = Exclude<WritableDatePropertyKey, "completion">;
+	export type EditableDateKey = EditableDatePropertyKey;
 	export type DateFieldValues = Record<EditableDateKey, string>;
 </script>
 

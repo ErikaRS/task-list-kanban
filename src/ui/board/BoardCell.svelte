@@ -25,7 +25,7 @@
 	} from "../selection/task_selection_store";
 	import type { Readable } from "svelte/store";
 	import { PropertyDisplayMode } from "../settings/settings_store";
-	import { getPropertyWriteAdapter, PropertySchemaOption, type WritableDatePropertyKey } from "../../parsing/properties";
+	import { getPropertyWriteAdapter, PropertySchemaOption, type EditableDatePropertyKey } from "../../parsing/properties";
 	import {
 		computePinnedIds,
 		type ManualOrderKey,
@@ -328,7 +328,7 @@
 	}
 
 	function handleNewTaskDateChange(
-		key: Exclude<WritableDatePropertyKey, "completion">,
+		key: EditableDatePropertyKey,
 		value: string,
 	) {
 		newTaskDateValues = {
