@@ -199,13 +199,22 @@ export function createTaskActions({
 		return byFile;
 	}
 
+	// There are two ways an action may modify a task's source line, with very
+	// different fidelity. `rewriteTaskRows` re-serialises the whole line from
+	// the Task model, which normalises formatting the user may not have
+	// touched (tag placement, spacing). `editTaskSourceRows` applies a
+	// targeted string transform and preserves the rest of the line
+	// byte-for-byte. Prefer the surgical path; rewrite only when the change
+	// inherently goes through the Task model (column, status, content).
+
 	/**
-	 * Applies `updater` to each task and writes the re-serialised lines back,
-	 * reading and writing each affected file exactly once. Tasks are processed
-	 * in order, so a `transformSerialized` closure may rely on state set by
-	 * `updater` for the same task.
+	 * REWRITE path: applies `updater` to each task and replaces its source
+	 * line with the re-serialised result, reading and writing each affected
+	 * file exactly once. Tasks are processed in order, so a
+	 * `transformSerialized` closure may rely on state set by `updater` for
+	 * the same task.
 	 */
-	async function updateRowsWithTasks(
+	async function rewriteTaskRows(
 		ids: string[],
 		updater: (task: Task) => void,
 		transformSerialized?: (newTaskString: string) => string,
@@ -224,10 +233,11 @@ export function createTaskActions({
 	}
 
 	/**
-	 * Applies a raw line transform to each task's source row, reading and
-	 * writing each affected file exactly once.
+	 * EDIT path: applies a surgical string transform to each task's raw
+	 * source row, reading and writing each affected file exactly once.
+	 * Everything the transform does not touch is preserved byte-for-byte.
 	 */
-	async function transformTaskSourceRows(
+	async function editTaskSourceRows(
 		ids: string[],
 		transform: (row: string) => string,
 	) {
@@ -323,13 +333,13 @@ export function createTaskActions({
 
 	return {
 		async changeColumn(id, column) {
-			await updateRowsWithTasks([id], (task) => (task.column = column));
+			await rewriteTaskRows([id], (task) => (task.column = column));
 		},
 
 		async moveTasksToColumn(ids, column) {
 			if (column === "done") {
 				let shouldAddCompletionDate = false;
-				await updateRowsWithTasks(
+				await rewriteTaskRows(
 					ids,
 					(task) => {
 						shouldAddCompletionDate = !task.done;
@@ -338,7 +348,7 @@ export function createTaskActions({
 					(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
 				);
 			} else {
-				await updateRowsWithTasks(ids, (task) => (task.column = column));
+				await rewriteTaskRows(ids, (task) => (task.column = column));
 			}
 		},
 
@@ -437,7 +447,7 @@ export function createTaskActions({
 
 		async markDone(id) {
 			let shouldAddCompletionDate = false;
-			await updateRowsWithTasks(
+			await rewriteTaskRows(
 				[id],
 				(task) => {
 					shouldAddCompletionDate = !task.done;
@@ -449,7 +459,7 @@ export function createTaskActions({
 
 		async toggleDone(id) {
 			let shouldAddCompletionDate = false;
-			await updateRowsWithTasks(
+			await rewriteTaskRows(
 				[id],
 				(task) => {
 					shouldAddCompletionDate = task.cycleStatus(getStatusMarkerOrder());
@@ -459,7 +469,7 @@ export function createTaskActions({
 		},
 
 		async updateContent(id, content) {
-			await updateRowsWithTasks([id], (task) => (task.content = content));
+			await rewriteTaskRows([id], (task) => (task.content = content));
 		},
 
 		async updateSourceBlockRow(id, rowIndex, content) {
@@ -613,29 +623,29 @@ export function createTaskActions({
 		},
 
 		async setDateProperty(id, key, date) {
-			await transformTaskSourceRows(
+			await editTaskSourceRows(
 				[id],
 				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.upsertDate(row, key, date) ?? row,
 			);
 		},
 
 		async clearDateProperty(id, key) {
-			await transformTaskSourceRows(
+			await editTaskSourceRows(
 				[id],
 				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.removeDate(row, key) ?? row,
 			);
 		},
 
 		async archiveTasks(ids) {
-			await updateRowsWithTasks(ids, (task) => task.archive());
+			await rewriteTaskRows(ids, (task) => task.archive());
 		},
 
 		async cancelTasks(ids) {
-			await updateRowsWithTasks(ids, (task) => task.cancel());
+			await rewriteTaskRows(ids, (task) => task.cancel());
 		},
 
 		async restoreTasks(ids) {
-			await updateRowsWithTasks(ids, (task) => task.restore());
+			await rewriteTaskRows(ids, (task) => task.restore());
 		},
 
 		async deleteTask(id) {
@@ -653,7 +663,7 @@ export function createTaskActions({
 		},
 
 		async updateSwimlaneTag(ids, newTag, prefix, excludedTags, includeTags) {
-			await updateRowsWithTasks(ids, (task) => {
+			await rewriteTaskRows(ids, (task) => {
 				const oldTag = getTaskTagGroupValue(
 					task,
 					{ kind: "tag-prefix", prefix, includeTags },
@@ -670,7 +680,7 @@ export function createTaskActions({
 			const transform = createSwimlanePropertyTransform(adapter, key, value);
 			if (!transform) return;
 
-			await transformTaskSourceRows(ids, transform);
+			await editTaskSourceRows(ids, transform);
 		},
 
 		async duplicateTask(id) {
