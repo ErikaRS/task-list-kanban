@@ -1,10 +1,20 @@
 <script context="module" lang="ts">
 	// Type exports must live in the module script; instance scripts may only
 	// export props.
-	import type { EditableDatePropertyKey } from "../../parsing/properties";
+	import {
+		EDITABLE_DATE_PROPERTY_KEYS,
+		type EditableDatePropertyKey,
+	} from "../../parsing/properties";
 
 	export type EditableDateKey = EditableDatePropertyKey;
 	export type DateFieldValues = Record<EditableDateKey, string>;
+
+	// Record keys force a label for every editable date key.
+	const dateFieldLabels: Record<EditableDateKey, string> = {
+		due: "Due",
+		scheduled: "Scheduled",
+		start: "Start",
+	};
 </script>
 
 <script lang="ts">
@@ -12,28 +22,19 @@
 	export let onDateChange: (key: EditableDateKey, value: string) => void | Promise<void>;
 	export let showDoneButton = false;
 	export let onDone: () => void = () => {};
-
-	const editableDateFields: Array<{
-		key: EditableDateKey;
-		label: string;
-	}> = [
-		{ key: "due", label: "Due" },
-		{ key: "scheduled", label: "Scheduled" },
-		{ key: "start", label: "Start" },
-	];
 </script>
 
 <div class="date-input-fields" role="group" aria-label="Edit task dates" draggable="false">
-	{#each editableDateFields as field (field.key)}
+	{#each EDITABLE_DATE_PROPERTY_KEYS as key (key)}
 		<label class="date-input-field">
-			<span>{field.label}</span>
+			<span>{dateFieldLabels[key]}</span>
 			<input
 				type="date"
-				value={values[field.key]}
+				value={values[key]}
 				on:mousedown|stopPropagation
 				on:mouseup|stopPropagation
 				on:click|stopPropagation
-				on:change={(event) => onDateChange(field.key, event.currentTarget.value)}
+				on:change={(event) => onDateChange(key, event.currentTarget.value)}
 				on:keydown|stopPropagation
 			/>
 		</label>

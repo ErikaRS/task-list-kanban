@@ -14,6 +14,14 @@ const EDITABLE_DATE_PROPERTY_KEY_SET: Record<EditableDatePropertyKey, true> = {
 	start: true,
 };
 
+/**
+ * Canonical ordered list of the editable date keys. Declaration order above
+ * is the order the UI renders date fields in.
+ */
+export const EDITABLE_DATE_PROPERTY_KEYS = Object.keys(
+	EDITABLE_DATE_PROPERTY_KEY_SET,
+) as readonly EditableDatePropertyKey[];
+
 export type WritablePropertyTarget =
 	| { kind: "date"; key: EditableDatePropertyKey }
 	| { kind: "priority" };

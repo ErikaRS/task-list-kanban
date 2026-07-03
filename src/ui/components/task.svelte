@@ -15,7 +15,7 @@
 	import { onDestroy } from "svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
-	import { getPropertyWriteAdapter } from "../../parsing/properties/write";
+	import { EDITABLE_DATE_PROPERTY_KEYS, getPropertyWriteAdapter } from "../../parsing/properties/write";
 	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
 	import { renderTaskMarkdownSource } from "./task_markdown";
 
@@ -129,7 +129,7 @@
 	let previewContainerEl: HTMLDivElement | undefined;
 	let markdownComponent: Component | undefined;
 	let isEditingDates = false;
-	const editableDatePropertyKeys = new Set(["due", "scheduled", "start"]);
+	const editableDatePropertyKeys = new Set<string>(EDITABLE_DATE_PROPERTY_KEYS);
 
 	const interactiveTagNames = new Set([
 		"a",

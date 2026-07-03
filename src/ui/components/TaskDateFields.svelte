@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		EDITABLE_DATE_PROPERTY_KEYS,
 		formatLocalDate,
 		getPropertyByKey,
 		getPropertyWriteAdapter,
@@ -18,23 +19,13 @@
 	export let isTaskEditing = false;
 	export let isEditingDates = false;
 
-	const editableDateFields: Array<{
-		key: EditableDateKey;
-		label: string;
-		shortLabel: string;
-	}> = [
-		{ key: "due", label: "Due", shortLabel: "Due" },
-		{ key: "scheduled", label: "Scheduled", shortLabel: "Sched" },
-		{ key: "start", label: "Start", shortLabel: "Start" },
-	];
-
 	let isDateEditing = false;
 	let draftDateValues: Record<EditableDateKey, string> = { due: "", scheduled: "", start: "" };
 	let wasShowingDateInputs = false;
 
 	$: dateEditingEnabled = getPropertyWriteAdapter(propertySchemaOption) !== null;
 	$: dateValues = Object.fromEntries(
-		editableDateFields.map((field) => [field.key, getDateValue(field.key)]),
+		EDITABLE_DATE_PROPERTY_KEYS.map((key) => [key, getDateValue(key)]),
 	) as Record<EditableDateKey, string>;
 	$: showDateInputs = dateEditingEnabled && (isTaskEditing || isDateEditing);
 	$: showReadChips = dateEditingEnabled && !showDateInputs;
@@ -73,8 +64,8 @@
 	}
 
 	async function saveDraftDates() {
-		const edits = editableDateFields
-			.map(({ key }) => ({ key, value: draftDateValues[key] ?? "" }))
+		const edits = EDITABLE_DATE_PROPERTY_KEYS
+			.map((key) => ({ key, value: draftDateValues[key] ?? "" }))
 			.filter(({ key, value }) => value !== dateValues[key]);
 		isDateEditing = false;
 		if (edits.length > 0) {
