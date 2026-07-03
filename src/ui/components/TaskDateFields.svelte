@@ -56,6 +56,15 @@
 		isDateEditing = true;
 	}
 
+	// When the inputs are only visible because the task text is being edited,
+	// clicking one blurs the textarea, which ends task editing and would
+	// unmount the inputs mid-click. Pinning isDateEditing on first interaction
+	// keeps the editor open until Done. Capture-phase, because the inputs stop
+	// mousedown propagation; mousedown also fires before the textarea's blur.
+	function pinDateEditing() {
+		isDateEditing = true;
+	}
+
 	function handleDraftDateChange(key: EditableDateKey, value: string) {
 		draftDateValues = {
 			...draftDateValues,
@@ -64,19 +73,13 @@
 	}
 
 	async function saveDraftDates() {
-		for (const field of editableDateFields) {
-			const key = field.key;
-			const nextValue = draftDateValues[key] ?? "";
-			if (nextValue === dateValues[key]) {
-				continue;
-			}
-			if (nextValue) {
-				await taskActions.setDateProperty(task.id, key, nextValue);
-			} else {
-				await taskActions.clearDateProperty(task.id, key);
-			}
-		}
+		const edits = editableDateFields
+			.map(({ key }) => ({ key, value: draftDateValues[key] ?? "" }))
+			.filter(({ key, value }) => value !== dateValues[key]);
 		isDateEditing = false;
+		if (edits.length > 0) {
+			await taskActions.applyDateEdits(task.id, edits);
+		}
 	}
 </script>
 
@@ -101,7 +104,14 @@
 		</button>
 	</div>
 {:else if showDateInputs}
-	<div class="task-date-fields edit-mode">
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<div
+		class="task-date-fields edit-mode"
+		role="group"
+		aria-label="Edit task dates"
+		on:mousedown|capture={pinDateEditing}
+		on:focusin={pinDateEditing}
+	>
 		<DateInputFields
 			values={draftDateValues}
 			onDateChange={handleDraftDateChange}

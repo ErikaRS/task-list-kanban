@@ -57,6 +57,15 @@ export type TaskActions = {
 		date: string,
 	) => Promise<void>;
 	clearDateProperty: (id: string, key: WritableDatePropertyKey) => Promise<void>;
+	/**
+	 * Applies several date edits to one task in a single write. An empty value
+	 * clears that date. Separate writes per field would go through the task id,
+	 * which is a hash of the row content and goes stale after the first write.
+	 */
+	applyDateEdits: (
+		id: string,
+		edits: ReadonlyArray<{ key: EditableDatePropertyKey; value: string }>,
+	) => Promise<void>;
 	updateContent: (id: string, content: string) => Promise<void>;
 	updateSourceBlockRow: (id: string, rowIndex: number, content: string) => Promise<void>;
 	toggleSourceTaskStatus: (id: string, rowIndex: number) => Promise<void>;
@@ -637,6 +646,19 @@ export function createTaskActions({
 				[id],
 				(row) => getPropertyWriteAdapter(getPropertySchemaOption())?.removeDate(row, key) ?? row,
 			);
+		},
+
+		async applyDateEdits(id, edits) {
+			if (edits.length === 0) return;
+			await editTaskSourceRows([id], (row) => {
+				const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
+				if (!adapter) return row;
+				return edits.reduce(
+					(line, { key, value }) =>
+						value ? adapter.upsertDate(line, key, value) : adapter.removeDate(line, key),
+					row,
+				);
+			});
 		},
 
 		async archiveTasks(ids) {

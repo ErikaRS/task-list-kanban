@@ -450,6 +450,27 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [ ] Send invoice ^abc123");
 		});
 
+		it("applies several date edits in one write, treating empty values as clears", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice 📅 2026-06-01 ⏳ 2026-05-20 ^abc123",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			// A single call must handle all fields: separate per-field writes
+			// would look up the task id again after the row content (and thus
+			// the content-hashed id) had already changed.
+			await actions.applyDateEdits(taskId, [
+				{ key: "due", value: "2026-06-15" },
+				{ key: "scheduled", value: "" },
+				{ key: "start", value: "2026-06-10" },
+			]);
+
+			expect(contents()).toBe(
+				"- [ ] Send invoice 📅 2026-06-15 🛫 2026-06-10 ^abc123",
+			);
+		});
+
 		it("leaves date property updates unchanged when schema is none", async () => {
 			const { actions, taskId, contents } = setupActionsForLine(
 				"- [ ] Send invoice",

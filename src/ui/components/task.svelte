@@ -609,14 +609,17 @@
 	{/if}
 	{#if dateEditingEnabled}
 		<div class="task-properties task-date-properties">
+			<!-- A single persistent instance: swapping instances across if/else
+			     branches destroys the editor's internal state the moment it
+			     opens, snapping the UI back to read mode. -->
+			<TaskDateFields
+				{task}
+				{taskActions}
+				{propertySchemaOption}
+				isTaskEditing={isEditing}
+				bind:isEditingDates
+			/>
 			{#if !isEditingDates}
-				<TaskDateFields
-					{task}
-					{taskActions}
-					{propertySchemaOption}
-					isTaskEditing={isEditing}
-					bind:isEditingDates
-				/>
 				{#each dateDisplayProperties as prop (prop.key)}
 					<span class="task-property" class:dataview-property={propertySchemaOption === PropertySchemaOption.Dataview}>
 						{#if prop.icon}
@@ -627,14 +630,6 @@
 						<span class="task-property-value">{prop.value}</span>
 					</span>
 				{/each}
-			{:else}
-				<TaskDateFields
-					{task}
-					{taskActions}
-					{propertySchemaOption}
-					isTaskEditing={isEditing}
-					bind:isEditingDates
-				/>
 			{/if}
 		</div>
 	{/if}
