@@ -99,7 +99,7 @@ export type TaskActions = {
 	) => Promise<void>;
 	pickFileForNewTask: (
 		column: ColumnTag,
-		e: MouseEvent,
+		e: MouseEvent | KeyboardEvent,
 		onFileSelected: (file: TFile) => void,
 		forceShowPicker?: boolean,
 	) => void;

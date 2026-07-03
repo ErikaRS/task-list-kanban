@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { App, TFile } from "obsidian";
 	import type { Readable } from "svelte/store";
-	import type { BoardMatrix } from "./board_matrix";
+	import { getBoardCell, type BoardMatrix, type PrimaryBucketId } from "./board_matrix";
 	import type {
 		ColumnTagTable,
 		ColumnColourTable,
@@ -29,7 +29,7 @@
 	export let excludedTags: string[] = [];
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault: boolean = false;
-	export let onToggleCollapse: (columnId: string) => void;
+	export let onToggleCollapse: (columnId: PrimaryBucketId) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
 	export let isManualOrder: boolean = false;
@@ -46,7 +46,7 @@
 
 	$: showSwimlaneHeaders =
 		matrix.secondaryAxis.length > 1 ||
-		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0].meta?.isDefault);
+		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
 	$: ungroupedSecondaryBucket = matrix.secondaryAxis[0];
 	$: ungroupedGridTemplateRows = matrix.primaryAxis
@@ -99,7 +99,7 @@
 			>
 				<BoardCell
 					{app}
-					cell={matrix.cells[pBucket.id][ungroupedSecondaryBucket.id]}
+					cell={getBoardCell(matrix, pBucket.id, ungroupedSecondaryBucket.id)}
 					primaryTasks={tasksByPrimary[pBucket.id] ?? []}
 					secondaryAxisBucket={ungroupedSecondaryBucket}
 					primaryAxisLabel={pBucket.label}
@@ -177,7 +177,7 @@
 				>
 					<BoardCell
 						{app}
-						cell={matrix.cells[pBucket.id][sBucket.id]}
+						cell={getBoardCell(matrix, pBucket.id, sBucket.id)}
 						primaryTasks={tasksByPrimary[pBucket.id] ?? []}
 						secondaryAxisBucket={sBucket}
 						primaryAxisLabel={pBucket.label}

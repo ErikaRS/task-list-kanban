@@ -5,7 +5,8 @@
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"build": "tsc -noEmit -skipLibCheck && npm run check:svelte && node esbuild.config.mjs production",
+		"check:svelte": "svelte-check --tsconfig tsconfig.json --threshold error",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"test": "vitest run"
 	},
@@ -25,6 +26,7 @@
 		"esbuild-svelte": "^0.8.1",
 		"obsidian": "latest",
 		"svelte": "^5.56.0",
+		"svelte-check": "^4.7.1",
 		"svelte-preprocess": "^5.1.4",
 		"tslib": "2.6.2",
 		"typescript": "5.4.5",

@@ -236,9 +236,10 @@
 			const source = secondaryAxisBucket.meta?.source;
 			const prefix = source?.kind === "tag-prefix" ? (source.prefix ?? "") : "";
 			const includeTags = source?.kind === "tag-prefix" ? source.includeTags : undefined;
+			const tagValue = secondaryAxisBucket.meta?.value;
 			await taskActions.updateSwimlaneTag(
 				droppedIds,
-				secondaryAxisBucket.meta?.value ?? null,
+				typeof tagValue === "string" ? tagValue : null,
 				prefix,
 				excludedTags,
 				includeTags,
@@ -289,9 +290,10 @@
 
 		const content = newTaskTextAreaEl?.value?.trim();
 		const file = pendingNewTask;
+		const targetColumn = column;
 		pendingNewTask = null;
 
-		if (!content || !file || !isColTag) {
+		if (!content || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
 			newTaskDateValues = { ...emptyDateValues };
 			return;
 		}
@@ -299,7 +301,7 @@
 		await taskActions.createTask(
 			file,
 			content,
-			column,
+			targetColumn,
 			creationMetadata.additionalTags,
 			newTaskDateValues,
 		);
@@ -321,8 +323,9 @@
 		newTaskTextAreaEl.focus();
 	}
 
-	function handleAddNewClick(e: MouseEvent) {
-		if (!isColTag) {
+	function handleAddNewClick(e: MouseEvent | KeyboardEvent) {
+		const targetColumn = column;
+		if (!isColumnTag(targetColumn, columnTagTableStore)) {
 			return;
 		}
 
@@ -332,19 +335,20 @@
 			return;
 		}
 
-		taskActions.pickFileForNewTask(column, e, (file) => {
+		taskActions.pickFileForNewTask(targetColumn, e, (file) => {
 			newTaskDateValues = { ...emptyDateValues };
 			pendingNewTask = file;
 		});
 	}
 
-	function handleChooseTaskFileClick(e: MouseEvent) {
-		if (!isColTag) {
+	function handleChooseTaskFileClick(e: MouseEvent | KeyboardEvent) {
+		const targetColumn = column;
+		if (!isColumnTag(targetColumn, columnTagTableStore)) {
 			return;
 		}
 
 		taskActions.pickFileForNewTask(
-			column,
+			targetColumn,
 			e,
 			(file) => {
 				newTaskDateValues = { ...emptyDateValues };
@@ -418,7 +422,7 @@
 				on:keydown={(e) => {
 					if (!pendingNewTask && (e.key === 'Enter' || e.key === ' ')) {
 						e.preventDefault();
-						handleAddNewClick();
+						handleAddNewClick(e);
 					}
 				}}
 			>
@@ -430,7 +434,9 @@
 				icon="lucide-chevron-down"
 				aria-label="Choose file for new task in {columnTitle}"
 				disabled={!!pendingNewTask}
-				on:click={!pendingNewTask ? handleChooseTaskFileClick : undefined}
+				on:click={(e) => {
+					if (!pendingNewTask) handleChooseTaskFileClick(e);
+				}}
 			/>
 		</div>
 		{#if effectiveTargetTaskFile}

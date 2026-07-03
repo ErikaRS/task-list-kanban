@@ -1036,7 +1036,7 @@
 							if (val === "file") {
 								$settingsStore.groupSource = { kind: "file" };
 							} else if (val === "tag-prefix") {
-								const nextGroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
+								const nextGroupSource: GroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
 									? {
 										kind: "tag-prefix",
 										prefix: $settingsStore.groupSource.prefix,

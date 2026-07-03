@@ -49,7 +49,13 @@
 		switch (col) {
 			case "done":
 			case "uncategorised":
-				return resolveDefaultColumnName(col, uncategorizedColumnName, doneColumnName);
+				// The case match cannot narrow away the branded ColumnTag type,
+				// but only the default-column literals reach this branch.
+				return resolveDefaultColumnName(
+					col as DefaultColumns,
+					uncategorizedColumnName,
+					doneColumnName,
+				);
 			default:
 				return columnTagTable[col];
 		}

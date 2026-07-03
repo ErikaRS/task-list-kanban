@@ -307,7 +307,7 @@
 		e.stopPropagation();
 		isDraggedOver = true;
 
-		const rect = e.currentTarget.getBoundingClientRect();
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const relativeY = e.clientY - rect.top;
 		dropBefore = relativeY < rect.height / 2;
 		dropAfter = !dropBefore;

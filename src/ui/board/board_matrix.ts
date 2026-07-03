@@ -215,6 +215,26 @@ export function deriveBoardMatrix(
 	};
 }
 
+/**
+ * Looks up a cell by axis ids. `deriveBoardMatrix` populates every
+ * (primary, secondary) pair, so the fallback only guards against axis ids
+ * from a stale render.
+ */
+export function getBoardCell(
+	matrix: BoardMatrix,
+	primaryId: PrimaryBucketId,
+	secondaryId: SecondaryBucketId,
+): BoardCell {
+	return (
+		matrix.cells[primaryId]?.[secondaryId] ?? {
+			primaryId,
+			secondaryId,
+			tasks: [],
+			isEmpty: true,
+		}
+	);
+}
+
 function sortTasksByFile(tasks: Task[]) {
 	tasks.sort(compareByFile);
 }

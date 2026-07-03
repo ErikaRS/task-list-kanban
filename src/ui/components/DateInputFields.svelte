@@ -1,10 +1,13 @@
-<script lang="ts">
+<script context="module" lang="ts">
+	// Type exports must live in the module script; instance scripts may only
+	// export props.
 	import type { WritableDatePropertyKey } from "../../parsing/properties";
 
-	type EditableDateKey = Exclude<WritableDatePropertyKey, "completion">;
-
+	export type EditableDateKey = Exclude<WritableDatePropertyKey, "completion">;
 	export type DateFieldValues = Record<EditableDateKey, string>;
+</script>
 
+<script lang="ts">
 	export let values: DateFieldValues;
 	export let onDateChange: (key: EditableDateKey, value: string) => void | Promise<void>;
 	export let showDoneButton = false;

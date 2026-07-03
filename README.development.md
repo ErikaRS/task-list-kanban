@@ -2,7 +2,7 @@
 
 ## Tech Stack
 - **Language**: TypeScript (strict mode)
-- **UI Framework**: Svelte 4
+- **UI Framework**: Svelte 5 (compiled in Svelte 4 component-API compatibility mode)
 - **Build Tool**: ESBuild
 - **Testing**: Vitest
 - **Plugin Framework**: Obsidian API
@@ -20,7 +20,7 @@ Starts ESBuild in watch mode for live development. Built files go to root direct
 ```bash
 npm run build
 ```
-Runs TypeScript type checking (`tsc -noEmit -skipLibCheck`) then builds optimized bundle with ESBuild. Always run this before releasing to catch type errors.
+Runs TypeScript type checking (`tsc -noEmit -skipLibCheck`), then Svelte component type checking (`npm run check:svelte`, i.e. `svelte-check` gated on errors), then builds the optimized bundle with ESBuild. Always run this before releasing to catch type errors — `tsc` alone does not check `.svelte` files.
 
 **Test**
 ```bash
