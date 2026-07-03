@@ -17,7 +17,11 @@ import { createTaskLine } from "./task_creation";
 import {
 	formatLocalDate,
 	getPropertyWriteAdapter,
+	getTasksPriorityOption,
+	getTasksPriorityValueFromWeight,
+	parseDateOnly,
 	PropertySchemaOption,
+	type PropertyWriteAdapter,
 	type WritableDatePropertyKey,
 } from "../../parsing/properties";
 import {
@@ -82,6 +86,16 @@ export type TaskActions = {
 		prefix: string,
 		excludedTags: string[],
 		includeTags?: string[],
+	) => Promise<void>;
+	/**
+	 * Rewrites only the grouped property on each task's source line when it is
+	 * dropped into a property swimlane. A `null` value (the Unassigned lane)
+	 * removes the property.
+	 */
+	updateSwimlaneProperty: (
+		ids: string[],
+		key: string,
+		value: string | number | Date | null,
 	) => Promise<void>;
 	pickFileForNewTask: (
 		column: ColumnTag,
@@ -616,6 +630,18 @@ export function createTaskActions({
 			}
 		},
 
+		async updateSwimlaneProperty(ids, key, value) {
+			const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
+			if (!adapter) return;
+
+			const transform = createSwimlanePropertyTransform(adapter, key, value);
+			if (!transform) return;
+
+			for (const id of ids) {
+				await updateSourceRow(id, transform);
+			}
+		},
+
 		async duplicateTask(id) {
 			const entry = getTaskWithMetadata(id);
 			if (!entry) return;
@@ -866,6 +892,73 @@ export function createTaskActions({
 
 		return adapter.addCompletionDateIfMissing(rawLine, formatLocalDate(getCurrentDate?.() ?? new Date()));
 	}
+}
+
+const WRITABLE_SWIMLANE_DATE_KEYS = new Set<string>(["due", "scheduled", "start"]);
+
+/**
+ * Property keys whose swimlane value can be written back to a task line.
+ * Cross-lane drops on other property groups (status, created, arbitrary
+ * Dataview keys, …) are rejected because there is no writer for them.
+ */
+export function isWritableSwimlanePropertyKey(key: string): boolean {
+	return WRITABLE_SWIMLANE_DATE_KEYS.has(key) || key === "priority";
+}
+
+function createSwimlanePropertyTransform(
+	adapter: PropertyWriteAdapter,
+	key: string,
+	value: string | number | Date | null,
+): ((row: string) => string) | null {
+	if (WRITABLE_SWIMLANE_DATE_KEYS.has(key)) {
+		const dateKey = key as Exclude<WritableDatePropertyKey, "completion">;
+		if (value === null) {
+			return (row) => adapter.removeDate(row, dateKey);
+		}
+		const date = formatSwimlaneDateValue(value);
+		return date === null ? null : (row) => adapter.upsertDate(row, dateKey, date);
+	}
+
+	if (key === "priority") {
+		if (value === null) {
+			return (row) => adapter.removePriority(row);
+		}
+		const priority = formatSwimlanePriorityValue(adapter, value);
+		return priority === null ? null : (row) => adapter.upsertPriority(row, priority);
+	}
+
+	return null;
+}
+
+function formatSwimlaneDateValue(value: string | number | Date): string | null {
+	if (value instanceof Date) {
+		// Date-only property values are parsed at UTC midnight, so format in UTC
+		// to match the lane label instead of shifting a day in negative-offset
+		// timezones.
+		return value.toISOString().slice(0, 10);
+	}
+	if (typeof value === "string" && parseDateOnly(value)) {
+		return value;
+	}
+	return null;
+}
+
+function formatSwimlanePriorityValue(
+	adapter: PropertyWriteAdapter,
+	value: string | number | Date,
+): string | null {
+	if (adapter.schema === PropertySchemaOption.TasksPlugin) {
+		// Tasks-plugin priority buckets carry the numeric weight; the writer
+		// expects the named value ("high", "low", …).
+		if (typeof value === "number") {
+			return getTasksPriorityValueFromWeight(value) ?? null;
+		}
+		return typeof value === "string"
+			? getTasksPriorityOption(value)?.value ?? null
+			: null;
+	}
+
+	return value instanceof Date ? null : String(value);
 }
 
 function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean {

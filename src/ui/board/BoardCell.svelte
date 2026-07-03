@@ -6,7 +6,7 @@
 		isColumnTag,
 	} from "../columns/columns";
 	import { deriveCellCreationMetadata } from "./cell_creation";
-	import type { TaskActions } from "../tasks/actions";
+	import { isWritableSwimlanePropertyKey, type TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
@@ -163,7 +163,21 @@
 		!!draggingData &&
 		secondaryAxisBucket.meta?.source?.kind === "tag-prefix" &&
 		draggingData.fromSecondaryId !== cell.secondaryId;
-	$: canDrop = isSameSwimlaneColumnDrop || isFileSwimlaneDrop || isTagSwimlaneDrop;
+	$: propertySwimlaneSource =
+		secondaryAxisBucket.meta?.source?.kind === "property"
+			? secondaryAxisBucket.meta.source
+			: null;
+	$: isPropertySwimlaneDrop =
+		!!draggingData &&
+		!!propertySwimlaneSource &&
+		isWritableSwimlanePropertyKey(propertySwimlaneSource.key) &&
+		getPropertyWriteAdapter(propertySchemaOption) !== null &&
+		draggingData.fromSecondaryId !== cell.secondaryId;
+	$: canDrop =
+		isSameSwimlaneColumnDrop ||
+		isFileSwimlaneDrop ||
+		isTagSwimlaneDrop ||
+		isPropertySwimlaneDrop;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -229,7 +243,21 @@
 				excludedTags,
 				includeTags,
 			);
-			await applyColumnChange(droppedIds);
+			// A drop within the same column only moves lanes; skip the column
+			// rewrite so nothing but the swimlane metadata changes.
+			if (draggingData.fromColumn !== column) {
+				await applyColumnChange(droppedIds);
+			}
+		} else if (isPropertySwimlaneDrop && propertySwimlaneSource) {
+			const bucketValue = secondaryAxisBucket.meta?.value;
+			await taskActions.updateSwimlaneProperty(
+				droppedIds,
+				propertySwimlaneSource.key,
+				bucketValue ?? null,
+			);
+			if (draggingData.fromColumn !== column) {
+				await applyColumnChange(droppedIds);
+			}
 		} else {
 			await applyColumnChange(droppedIds);
 		}

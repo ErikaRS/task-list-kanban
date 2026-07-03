@@ -462,6 +462,92 @@ describe("task actions", () => {
 		});
 	});
 
+	describe("swimlane property updates", () => {
+		it("rewrites only the due date when moving between Tasks-plugin date lanes", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice #today 📅 2026-06-01 ^abc123",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "due", new Date(Date.UTC(2026, 5, 15)));
+
+			expect(contents()).toBe("- [ ] Send invoice #today 📅 2026-06-15 ^abc123");
+		});
+
+		it("adds the lane's due date to a task without one", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice ^abc123",
+				PropertySchemaOption.Dataview,
+				new DataviewSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "due", new Date(Date.UTC(2026, 5, 15)));
+
+			expect(contents()).toBe("- [ ] Send invoice [due:: 2026-06-15] ^abc123");
+		});
+
+		it("removes the date when dropping into the unassigned lane", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice 📅 2026-06-01",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "due", null);
+
+			expect(contents()).toBe("- [ ] Send invoice");
+		});
+
+		it("maps Tasks-plugin priority lane weights back to priority emojis", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice 🔼",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "priority", 4);
+
+			expect(contents()).toBe("- [ ] Send invoice ⏫");
+		});
+
+		it("writes Dataview priority lane values as inline fields", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice [priority:: low]",
+				PropertySchemaOption.Dataview,
+				new DataviewSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "priority", "high");
+
+			expect(contents()).toBe("- [ ] Send invoice [priority:: high]");
+		});
+
+		it("leaves tasks unchanged for non-writable property lanes", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice ➕ 2026-06-01",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "created", new Date(Date.UTC(2026, 5, 15)));
+
+			expect(contents()).toBe("- [ ] Send invoice ➕ 2026-06-01");
+		});
+
+		it("does nothing when property schema is none", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [ ] Send invoice",
+				PropertySchemaOption.None,
+				new NoneSchema(),
+			);
+
+			await actions.updateSwimlaneProperty([taskId], "due", new Date(Date.UTC(2026, 5, 15)));
+
+			expect(contents()).toBe("- [ ] Send invoice");
+		});
+	});
+
 	describe("createTask date properties", () => {
 		it("writes Tasks-plugin dates when creating a task", async () => {
 			const { actions, fileHandle, contents } = setupActions(
