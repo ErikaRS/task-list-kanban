@@ -6,7 +6,8 @@
 		isColumnTag,
 	} from "../columns/columns";
 	import { deriveCellCreationMetadata } from "./cell_creation";
-	import { isWritableSwimlanePropertyKey, type TaskActions } from "../tasks/actions";
+	import type { TaskActions } from "../tasks/actions";
+	import { deriveDropPlan } from "./drop_plan";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
@@ -144,40 +145,15 @@
 	}
 
 	$: draggingData = $isDraggingStore;
-	$: hasSelectedTaskOutsideTargetFile =
-		!!draggingData &&
-		!!fileGroupTargetFile &&
-		draggingData.draggedTaskIds.some(
-			(id) => draggingData?.taskSecondaryIds[id] !== fileGroupTargetFile.path,
-		);
-	$: isSameSwimlaneColumnDrop =
-		!!draggingData &&
-		draggingData.fromColumn !== column &&
-		draggingData.fromSecondaryId === cell.secondaryId;
-	$: isFileSwimlaneDrop =
-		!!draggingData &&
-		!!fileGroupTargetFile &&
-		(draggingData.fromSecondaryId !== cell.secondaryId ||
-			hasSelectedTaskOutsideTargetFile);
-	$: isTagSwimlaneDrop =
-		!!draggingData &&
-		secondaryAxisBucket.meta?.source?.kind === "tag-prefix" &&
-		draggingData.fromSecondaryId !== cell.secondaryId;
-	$: propertySwimlaneSource =
-		secondaryAxisBucket.meta?.source?.kind === "property"
-			? secondaryAxisBucket.meta.source
-			: null;
-	$: isPropertySwimlaneDrop =
-		!!draggingData &&
-		!!propertySwimlaneSource &&
-		isWritableSwimlanePropertyKey(propertySwimlaneSource.key) &&
-		getPropertyWriteAdapter(propertySchemaOption) !== null &&
-		draggingData.fromSecondaryId !== cell.secondaryId;
-	$: canDrop =
-		isSameSwimlaneColumnDrop ||
-		isFileSwimlaneDrop ||
-		isTagSwimlaneDrop ||
-		isPropertySwimlaneDrop;
+	$: dropPlan = deriveDropPlan({
+		dragging: draggingData,
+		column,
+		secondaryId: cell.secondaryId,
+		bucketMeta: secondaryAxisBucket.meta,
+		fileGroupTargetFilePath: fileGroupTargetFile?.path ?? null,
+		canWriteProperties: getPropertyWriteAdapter(propertySchemaOption) !== null,
+	});
+	$: canDrop = dropPlan !== null;
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
@@ -201,7 +177,8 @@
 	async function handleDrop(e: DragEvent) {
 		e.preventDefault();
 		isDraggedOver = false;
-		if (!canDrop || !draggingData) {
+		const plan = dropPlan;
+		if (!plan || !draggingData) {
 			return;
 		}
 
@@ -215,52 +192,44 @@
 
 		if (droppedIds.length === 0) return;
 
-		if (isFileSwimlaneDrop && fileGroupTargetFile) {
-			const droppedIdsBySourceSwimlane = groupIdsBySecondaryId(
-				droppedIds,
-				draggingData.taskSecondaryIds,
-			);
+		switch (plan.kind) {
+			case "move-to-file": {
+				if (!fileGroupTargetFile) return;
+				const droppedIdsBySourceSwimlane = groupIdsBySecondaryId(
+					droppedIds,
+					draggingData.taskSecondaryIds,
+				);
 
-			for (const [sourceFilePath, ids] of droppedIdsBySourceSwimlane) {
-				if (sourceFilePath === fileGroupTargetFile.path) {
-					await applyColumnChange(ids);
-				} else {
-					await taskActions.moveTasksToFile(
-						ids,
-						fileGroupTargetFile,
-						column,
-					);
+				for (const [sourceFilePath, ids] of droppedIdsBySourceSwimlane) {
+					if (sourceFilePath === plan.targetFilePath) {
+						if (plan.changeColumn) await applyColumnChange(ids);
+					} else {
+						await taskActions.moveTasksToFile(
+							ids,
+							fileGroupTargetFile,
+							column,
+						);
+					}
 				}
+				break;
 			}
-		} else if (isTagSwimlaneDrop) {
-			const source = secondaryAxisBucket.meta?.source;
-			const prefix = source?.kind === "tag-prefix" ? (source.prefix ?? "") : "";
-			const includeTags = source?.kind === "tag-prefix" ? source.includeTags : undefined;
-			const tagValue = secondaryAxisBucket.meta?.value;
-			await taskActions.updateSwimlaneTag(
-				droppedIds,
-				typeof tagValue === "string" ? tagValue : null,
-				prefix,
-				excludedTags,
-				includeTags,
-			);
-			// A drop within the same column only moves lanes; skip the column
-			// rewrite so nothing but the swimlane metadata changes.
-			if (draggingData.fromColumn !== column) {
+			case "set-tag":
+				await taskActions.updateSwimlaneTag(
+					droppedIds,
+					plan.tag,
+					plan.prefix,
+					excludedTags,
+					plan.includeTags,
+				);
+				if (plan.changeColumn) await applyColumnChange(droppedIds);
+				break;
+			case "set-property":
+				await taskActions.updateSwimlaneProperty(droppedIds, plan.key, plan.value);
+				if (plan.changeColumn) await applyColumnChange(droppedIds);
+				break;
+			case "column-only":
 				await applyColumnChange(droppedIds);
-			}
-		} else if (isPropertySwimlaneDrop && propertySwimlaneSource) {
-			const bucketValue = secondaryAxisBucket.meta?.value;
-			await taskActions.updateSwimlaneProperty(
-				droppedIds,
-				propertySwimlaneSource.key,
-				bucketValue ?? null,
-			);
-			if (draggingData.fromColumn !== column) {
-				await applyColumnChange(droppedIds);
-			}
-		} else {
-			await applyColumnChange(droppedIds);
+				break;
 		}
 
 		clearColumnSelections(droppedIds);
