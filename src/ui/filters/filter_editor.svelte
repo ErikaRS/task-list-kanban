@@ -261,25 +261,29 @@
 								<option value={operator.value}>{operator.label}</option>
 							{/each}
 						</select>
-						<label class="date-value-choice">
-							<input
-								type="radio"
-								name={"filter-editor-date-value-" + index}
-								checked={condition.value === TODAY_FILTER_VALUE}
-								on:change={() =>
+						<div class="date-value-toggle">
+							<button
+								type="button"
+								class:active={condition.value === TODAY_FILTER_VALUE}
+								aria-pressed={condition.value === TODAY_FILTER_VALUE}
+								on:click={() =>
 									updateDateRow(index, { value: TODAY_FILTER_VALUE })}
-							/>
-							Today
-						</label>
-						<label class="date-value-choice">
-							<input
-								type="radio"
-								name={"filter-editor-date-value-" + index}
-								checked={condition.value !== TODAY_FILTER_VALUE}
-								on:change={() => updateDateRow(index, { value: "" })}
-							/>
-							Date
-						</label>
+							>
+								Today
+							</button>
+							<button
+								type="button"
+								class:active={condition.value !== TODAY_FILTER_VALUE}
+								aria-pressed={condition.value !== TODAY_FILTER_VALUE}
+								on:click={() => {
+									if (condition.value === TODAY_FILTER_VALUE) {
+										updateDateRow(index, { value: "" });
+									}
+								}}
+							>
+								Date
+							</button>
+						</div>
 						{#if condition.value !== TODAY_FILTER_VALUE}
 							<input
 								type="date"
@@ -455,11 +459,50 @@
 				}
 			}
 
-			.date-value-choice {
-				display: flex;
-				align-items: center;
-				gap: var(--size-2-1);
-				cursor: pointer;
+			// Segmented Today/Date selector, matching the tag-grouping
+			// Prefix/Include toggle in the board header.
+			.date-value-toggle {
+				display: inline-flex;
+				align-items: stretch;
+				border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+				border-radius: var(--input-radius);
+				overflow: hidden;
+				background: var(--background-modifier-form-field, var(--background-primary));
+
+				button {
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+					margin: 0;
+					border: none;
+					border-radius: 0;
+					box-shadow: none;
+					background: transparent;
+					color: var(--text-muted);
+					font-size: var(--font-ui-smaller);
+					line-height: 1;
+					padding: var(--size-2-2) var(--size-2-3);
+					cursor: pointer;
+
+					&:hover {
+						color: var(--text-normal);
+						background: var(--background-modifier-hover);
+					}
+
+					&.active {
+						background: var(--interactive-accent);
+						color: var(--text-on-accent);
+					}
+
+					&:focus-visible {
+						outline: 2px solid var(--background-modifier-border-focus);
+						outline-offset: -2px;
+					}
+
+					+ button {
+						border-left: var(--input-border-width, 1px) solid var(--background-modifier-border);
+					}
+				}
 			}
 
 			input[type="date"] {

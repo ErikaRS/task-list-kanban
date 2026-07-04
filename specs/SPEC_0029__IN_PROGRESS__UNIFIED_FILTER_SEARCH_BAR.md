@@ -241,7 +241,7 @@ board (absolute positioning, board does not reflow):
 │ Tags      [home, errand        ] [×]   (any of, comma list)  │
 │           [+ Add tag group]     (groups AND together)        │
 │ Files     [projects, archive   ]       (any of, comma list)  │
-│ Date      [Due ▾] [before ▾] (•) Today  ( ) Date [____] [×]  │
+│ Date      [Due ▾] [before ▾] [Today|Date] [____] [×]         │
 │           [+ Add condition]                                  │
 │ ──────────────────────────────────────────────────────────── │
 │ Saved filters                                                │
