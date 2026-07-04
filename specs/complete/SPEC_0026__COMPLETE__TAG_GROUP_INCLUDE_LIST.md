@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-07
 
 # SPEC 0026 - Tag Group Include List
 
@@ -102,13 +103,13 @@ For include-list grouping:
 
 **Deliverable:** Tag group include lists are usable from the board and round-trip through saved groupings.
 
-### Phase 3: Documentation And Verification 🚧 IN PROGRESS
+### Phase 3: Documentation And Verification ✅ COMPLETE
 **Goal:** The feature is documented and passes project quality gates.
 
 1. ✅ Update README grouping docs.
 2. ✅ Run `npm run build`.
 3. ✅ Run `npm test`.
-4. [ ] Manually verify that include-list swimlanes render in configured order and that non-included tags land in `Unassigned`.
+4. ✅ Manually verify that include-list swimlanes render in configured order and that non-included tags land in `Unassigned`.
 
 **Deliverable:** The feature is ready for user review.
 
