@@ -193,6 +193,10 @@ const settingsObject = z.object({
 	statusMarkerOrder: z.string().default("").optional(),
 	savedFilters: z.array(savedFilterSchema).default([]).optional(),
 	savedGroupings: z.array(savedGroupingSchema).default([]).optional(),
+	// The unified filter query string (SPEC 0029). The four last*Filter
+	// fields below are its legacy predecessors: still parsed so old
+	// frontmatter validates (and migrates at read time), never written.
+	lastFilter: z.string().optional(),
 	lastContentFilter: z.string().optional(),
 	lastTagFilter: z.array(z.string()).optional(),
 	lastFileFilter: z.array(z.string()).optional(),
@@ -240,6 +244,7 @@ export interface SettingValues {
 	statusMarkerOrder?: string;
 	savedFilters?: SavedFilter[];
 	savedGroupings?: SavedGrouping[];
+	lastFilter?: string;
 	lastContentFilter?: string;
 	lastTagFilter?: string[];
 	lastFileFilter?: string[];
@@ -281,10 +286,6 @@ export const defaultSettings: SettingValues = {
 	ignoredStatusMarkers: DEFAULT_IGNORED_STATUS_MARKERS,
 	statusMarkerOrder: "",
 	savedFilters: [],
-	lastContentFilter: "",
-	lastTagFilter: [],
-	lastFileFilter: [],
-	lastDateFilter: [],
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],

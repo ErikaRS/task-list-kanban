@@ -340,10 +340,16 @@ describe("SavedFilter persistence", () => {
 		expect(serialized.lastTagFilter).toEqual(["tag1", "tag2"]);
 	});
 
-	it("handles missing last filter values", () => {
+	it("leaves absent filter fields undefined so migration can detect them", () => {
 		const parsed = parseSettingsString(JSON.stringify(defaultSettings));
-		expect(parsed.lastContentFilter).toBe("");
-		expect(parsed.lastTagFilter).toEqual([]);
+		expect(parsed.lastFilter).toBeUndefined();
+		expect(parsed.lastContentFilter).toBeUndefined();
+		expect(parsed.lastTagFilter).toBeUndefined();
+	});
+
+	it("parses the unified lastFilter query string", () => {
+		const parsed = parseSettings({ lastFilter: "fix tag:home due:<$TODAY" });
+		expect(parsed.lastFilter).toBe("fix tag:home due:<$TODAY");
 	});
 });
 
