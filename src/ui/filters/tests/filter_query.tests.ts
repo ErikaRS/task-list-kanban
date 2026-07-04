@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
 	emptyFilterQuery,
 	isEmptyFilterQuery,
+	parseContentTerms,
 	parseFilterQuery,
+	serializeContentTerms,
 	serializeFilterQuery,
 	taskMatchesFilterQuery,
 	type FilterableTask,
@@ -152,6 +154,19 @@ describe("parseFilterQuery", () => {
 		expect(parseFilterQuery("file:", DATE_KEYS).filePaths).toEqual([]);
 	});
 
+	it("splits comma file values and merges repeated file tokens into one any-of list", () => {
+		expect(parseFilterQuery("file:a,b,", DATE_KEYS).filePaths).toEqual([
+			"a",
+			"b",
+		]);
+		expect(
+			parseFilterQuery("file:projects file:archive", DATE_KEYS).filePaths,
+		).toEqual(["projects", "archive"]);
+		expect(
+			parseFilterQuery('file:"a b",projects', DATE_KEYS).filePaths,
+		).toEqual(["a b", "projects"]);
+	});
+
 	it("parses each date operator", () => {
 		const cases: Array<[string, string]> = [
 			["due:<2026-07-01", "before"],
@@ -234,6 +249,38 @@ describe("parseFilterQuery", () => {
 	});
 });
 
+describe("content term helpers (editor Content field)", () => {
+	it("splits bare words into independent terms and binds quoted phrases", () => {
+		expect(parseContentTerms('fix "big rocks" bug')).toEqual([
+			"fix",
+			"big rocks",
+			"bug",
+		]);
+	});
+
+	it("never interprets prefixes: everything is a content term", () => {
+		expect(parseContentTerms("tag:home due:<$TODAY")).toEqual([
+			"tag:home",
+			"due:<$TODAY",
+		]);
+	});
+
+	it("drops empty input and lone quotes", () => {
+		expect(parseContentTerms("")).toEqual([]);
+		expect(parseContentTerms('  "')).toEqual([]);
+	});
+
+	it("round-trips through the full query serialization", () => {
+		const terms = parseContentTerms('fix "big rocks"');
+		const queryText = serializeFilterQuery({
+			...emptyFilterQuery(),
+			contentTerms: terms,
+		});
+		expect(parseFilterQuery(queryText, DATE_KEYS).contentTerms).toEqual(terms);
+		expect(serializeContentTerms(terms)).toBe('fix "big rocks"');
+	});
+});
+
 describe("serializeFilterQuery", () => {
 	it("serializes an empty query to an empty string", () => {
 		expect(serializeFilterQuery(emptyFilterQuery())).toBe("");
@@ -248,7 +295,7 @@ describe("serializeFilterQuery", () => {
 		).toBe('fix "big rocks" "tag:home" "due:tomorrow" :foo');
 	});
 
-	it("serializes every token kind", () => {
+	it("serializes every token kind, files as one comma list", () => {
 		expect(
 			serializeFilterQuery({
 				contentTerms: ["fix"],
@@ -260,7 +307,7 @@ describe("serializeFilterQuery", () => {
 				],
 			}),
 		).toBe(
-			'fix tag:home,errand tag:work file:projects file:"a b" due:<$TODAY scheduled:>=2026-07-01',
+			'fix tag:home,errand tag:work file:projects,"a b" due:<$TODAY scheduled:>=2026-07-01',
 		);
 	});
 
@@ -333,6 +380,12 @@ describe("taskMatchesFilterQuery", () => {
 	it("matches file paths case-insensitively as substrings", () => {
 		expect(matches("file:PROJECTS", groceries)).toBe(true);
 		expect(matches("file:archive", groceries)).toBe(false);
+	});
+
+	it("ORs file entries: any listed path may match", () => {
+		expect(matches("file:archive,projects", groceries)).toBe(true);
+		expect(matches("file:archive file:projects", groceries)).toBe(true);
+		expect(matches("file:archive,attic", groceries)).toBe(false);
 	});
 
 	it("applies date conditions with the SPEC 0028 missing-property rule", () => {

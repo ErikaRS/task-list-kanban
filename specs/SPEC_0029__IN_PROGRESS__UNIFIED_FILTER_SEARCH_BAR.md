@@ -48,13 +48,15 @@ saved list (`src/ui/main.svelte`), persisted per board via four
 2. Query syntax expresses every filter type as text:
    - bare or quoted terms → content filters,
    - `tag:<x>` or `tag:<x>,<y>` → tag filters (comma = any of),
-   - `file:<x>` → file filters,
+   - `file:<x>` or `file:<x>,<y>` → file filters (comma = any of),
    - `<dateKey>:<op><value>` (e.g. `due:<$TODAY`) → date conditions.
 3. Any number of tokens of any type may be combined; all tokens are
-   AND-ed, both across types and within a type. The only disjunction is
-   *inside* a single `tag:` token, where comma-separated tags mean "any
-   of" — preserving the current tag filter's OR behavior. No other OR, no
-   negation.
+   AND-ed, both across types and within a type, with two disjunctions:
+   *inside* a single `tag:` token, comma-separated tags mean "any of"
+   (preserving the current tag filter's OR behavior), and the **file
+   list is one "any of" group** — a task has exactly one path, so
+   AND-ing path substrings is rarely satisfiable; repeated `file:`
+   tokens merge into that list. No other OR, no negation.
 4. Multiple content terms are supported (#128): each term is an independent
    case-insensitive substring match, order-independent.
 5. An expand control on the bar opens a structured editor underneath it
@@ -78,7 +80,8 @@ saved list (`src/ui/main.svelte`), persisted per board via four
    is-filtered indicator reflect the active query.
 10. New expressiveness: repeated `tag:` tokens AND, so "has both tags"
     (`tag:home tag:errand`) becomes expressible for the first time, while
-    `tag:home,errand` keeps today's "has either tag".
+    `tag:home,errand` keeps today's "has either tag". Repeated `file:`
+    tokens instead merge into the single "any of" list.
 
 ## High-Level Design
 
@@ -90,7 +93,7 @@ A query is a whitespace-separated list of tokens. Every token is one of:
 | --- | --- | --- |
 | `word` or `"quoted phrase"` | content | task content contains the term (case-insensitive) |
 | `tag:x` or `tag:x,y,z` | tag | task's tag set contains `x` exactly (comma list: contains **any** of the listed tags) |
-| `file:x` or `file:"a b"` | file | task's file path contains `x` (case-insensitive) |
+| `file:x`, `file:x,y`, or `file:"a b"` | file | task's file path contains **any** listed entry (case-insensitive) |
 | `<dateKey>:<op><value>` | date | SPEC_0028 condition semantics |
 
 Date tokens map operators to the existing `DateFilterOperator` set:
@@ -116,6 +119,9 @@ Parsing rules:
   exact tag. Task tags are kebab-normalized by the parser, so they never
   contain commas, spaces, or quotes — no quoting is needed inside `tag:`
   values, and empty entries (`tag:a,,b`, trailing comma) are dropped.
+- A `file:` value splits on commas into the file "any of" list; a comma
+  inside a file name is not expressible (the same class of loss as a
+  literal quote).
 - Values may be double-quoted to include spaces; a quoted region runs to
   the next `"`. No escape syntax — a literal `"` inside a term is not
   expressible (acceptable; task content search rarely needs it).
@@ -143,6 +149,7 @@ export interface FilterQuery {
 	// AND of OR-groups: each inner array is one `tag:` token; a task
 	// matches a group by carrying any tag in it, and must match every group.
 	tagGroups: string[][];
+	// One OR-group: a task matches when its path contains any entry.
 	filePaths: string[];
 	dateConditions: DateFilterCondition[];
 }
@@ -230,12 +237,10 @@ board (absolute positioning, board does not reflow):
 ```
 [🔍 "big rocks" tag:home file:projects due:<$TODAY           ▴]
 ┌──────────────────────────────────────────────────────────────┐
-│ Content   [big rocks           ] [×]                         │
-│           [+ Add term]                                       │
+│ Content   ["big rocks" fix     ]  words/"quoted phrases"     │
 │ Tags      [home, errand        ] [×]   (any of, comma list)  │
 │           [+ Add tag group]     (groups AND together)        │
-│ Files     [projects            ] [×]                         │
-│           [+ Add file]                                       │
+│ Files     [projects, archive   ]       (any of, comma list)  │
 │ Date      [Due ▾] [before ▾] (•) Today  ( ) Date [____] [×]  │
 │           [+ Add condition]                                  │
 │ ──────────────────────────────────────────────────────────── │
@@ -248,10 +253,16 @@ board (absolute positioning, board does not reflow):
 ```
 
 - Gmail-style layout: a label column on the left (Content / Tags /
-  Files / Date), underlined per-row text inputs (or the SPEC_0028
-  condition controls for dates) with per-row remove — the structured
-  mirror of the query tokens. Tag and file inputs offer the same text
-  suggestions as the bar.
+  Files / Date) with underlined inputs. **Content** is a single field
+  with the bar's content semantics — bare words match anywhere, quotes
+  bind a phrase; same parsed form, different affordance. **Files** is a
+  single comma-separated "any of" field. **Tags** keep one row per
+  OR-group with per-row remove and "+ Add tag group"; **Date** rows use
+  the SPEC_0028 condition controls. Tag and file inputs offer the same
+  text suggestions as the bar.
+- Every section starts expanded with an empty row (Gmail-style). The
+  date property/comparison dropdowns include an empty option; an
+  incomplete date row is simply not part of the query until completed.
 - The Date section appears only when the active schema exposes date-typed
   keys, mirroring the current sidebar rule (with the same hint text when
   the schema is "None" but the query contains a date-shaped token).
@@ -280,8 +291,9 @@ is out of scope and stays.
 - All tokens AND: `fix tag:home,errand file:projects due:<$TODAY` keeps
   tasks whose content contains "fix", that carry `home` **or** `errand`,
   whose path contains "projects", and whose due date is before today (or
-  that have no due date — SPEC_0028 rule). Repeated tokens AND:
-  `tag:home tag:errand` requires **both** tags.
+  that have no due date — SPEC_0028 rule). Repeated `tag:` tokens AND
+  (`tag:home tag:errand` requires **both** tags); repeated `file:`
+  tokens merge into one "any of" list (`file:a file:b` ≡ `file:a,b`).
 - The #128 example works as: `"[[•project name]]" "[[+concept name]]"` —
   two content terms, both required, any order in the task text.
 - Tag behavior is preserved exactly: a legacy multi-tag `lastTagFilter`
@@ -312,9 +324,11 @@ is out of scope and stays.
   a card whose parent carries `#home` while a subtask says "fix". File
   and date tokens keep matching the top-level task, whose properties are
   the only ones parsed.
-- The editor's text inputs strip a typed `"` (the query syntax's quoting
-  character, not expressible as content); allowing it would serialize
-  into text that cannot round-trip back to the same model.
+- The editor's tag and file inputs strip a typed `"` (the query syntax's
+  quoting character, not expressible there); allowing it would serialize
+  into text that cannot round-trip back to the same model. In the
+  Content field quotes are meaningful phrase syntax, parsed by the same
+  tokenizer as the bar.
 - Counts: `filteredTaskCount` derives from the single `filteredTasks`
   array; the `x/y tasks` indicator and clear-all behavior are otherwise
   unchanged.
@@ -362,7 +376,7 @@ and persists, replacing the sidebar's filtering role.
    per-type filtering code paths from `main.svelte` (saved-filter
    application temporarily unavailable — restored in Phase 4; note in
    commit message).
-5. ☐ Test: type `fix tag:home file:projects due:<$TODAY`, verify
+5. ✅ Test: type `fix tag:home file:projects due:<$TODAY`, verify
    filtering and counts; reopen board, verify persistence; open a legacy
    board with old `last*Filter` frontmatter, verify migration.
 

@@ -21,6 +21,9 @@ export interface FilterQuery {
 	// AND of OR-groups: each inner array is one `tag:` token; a task matches
 	// a group by carrying any tag in it, and must match every group.
 	tagGroups: string[][];
+	// One OR-group: a task matches when its path contains any entry. A task
+	// has exactly one path, so AND-ing path substrings is rarely
+	// satisfiable; repeated `file:` tokens merge into this list.
 	filePaths: string[];
 	dateConditions: DateFilterCondition[];
 }
@@ -177,9 +180,11 @@ export function parseFilterQuery(text: string, dateKeys: string[]): FilterQuery 
 		}
 
 		if (prefix === "file") {
-			if (rest !== "") {
-				query.filePaths.push(rest);
-			}
+			// Comma = "any of", like tags. A comma inside a file name is not
+			// expressible (same class of loss as a literal quote).
+			query.filePaths.push(
+				...rest.split(",").filter((path) => path !== ""),
+			);
 			continue;
 		}
 
@@ -209,8 +214,24 @@ function serializeContentTerm(term: string): string {
 	return needsQuoting ? `"${term}"` : term;
 }
 
-function serializeFileTerm(path: string): string {
-	return /\s/.test(path) ? `file:"${path}"` : `file:${path}`;
+function serializeFileEntry(path: string): string {
+	return /\s/.test(path) ? `"${path}"` : path;
+}
+
+/**
+ * Content-only parsing/serialization for the structured editor's Content
+ * field: the same tokenizer and quoting rules as the full query (bare
+ * words are independent terms, quotes bind a phrase), but every token is
+ * a content term — prefixes are never interpreted.
+ */
+export function parseContentTerms(text: string): string[] {
+	return tokenize(text)
+		.map(segmentsText)
+		.filter((term) => term !== "");
+}
+
+export function serializeContentTerms(terms: string[]): string {
+	return terms.map(serializeContentTerm).join(" ");
 }
 
 /**
@@ -221,7 +242,9 @@ export function serializeFilterQuery(query: FilterQuery): string {
 	return [
 		...query.contentTerms.map(serializeContentTerm),
 		...query.tagGroups.map((group) => `tag:${group.join(",")}`),
-		...query.filePaths.map(serializeFileTerm),
+		...(query.filePaths.length > 0
+			? [`file:${query.filePaths.map(serializeFileEntry).join(",")}`]
+			: []),
 		...query.dateConditions.map(
 			(condition) =>
 				`${condition.property}:${TEXT_BY_OPERATOR[condition.operator]}${condition.value}`,
@@ -232,8 +255,9 @@ export function serializeFilterQuery(query: FilterQuery): string {
 /**
  * ANDs every part of the query. Content and file matching is
  * case-insensitive substring; tag matching is exact set membership with OR
- * inside each group; date conditions follow taskMatchesDateConditions
- * (missing/non-date property values always pass).
+ * inside each group; the file list is one OR-group (any entry may match);
+ * date conditions follow taskMatchesDateConditions (missing/non-date
+ * property values always pass).
  *
  * Content terms and tag groups match against the whole rendered card: the
  * task's own line plus every nested subtask/note row. Each token is
@@ -276,9 +300,11 @@ export function taskMatchesFilterQuery(
 		}
 	}
 
-	const path = task.path.toLowerCase();
-	if (!query.filePaths.every((term) => path.includes(term.toLowerCase()))) {
-		return false;
+	if (query.filePaths.length > 0) {
+		const path = task.path.toLowerCase();
+		if (!query.filePaths.some((term) => path.includes(term.toLowerCase()))) {
+			return false;
+		}
 	}
 
 	return taskMatchesDateConditions(task, query.dateConditions, today);

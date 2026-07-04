@@ -1,8 +1,13 @@
 <script lang="ts">
-	import type { DateFilterCondition } from "../settings/settings_store";
+	import type {
+		DateFilterCondition,
+		DateFilterOperator,
+	} from "../settings/settings_store";
 	import { DATE_FILTER_OPERATORS, TODAY_FILTER_VALUE } from "./date_filter";
 	import { parseDateOnly } from "../../parsing/properties/value_parsers";
 	import {
+		parseContentTerms,
+		serializeContentTerms,
 		serializeFilterQuery,
 		type FilterQuery,
 	} from "./filter_query";
@@ -13,15 +18,27 @@
 	export let onSearch: () => void;
 	export let onClear: () => void;
 
+	// A date row may be incomplete (empty property/operator) while being
+	// composed; only complete rows are emitted into the query.
+	type DraftDateCondition = {
+		property: string;
+		operator: DateFilterOperator | "";
+		value: string;
+	};
+
+	function emptyDateRow(): DraftDateCondition {
+		return { property: "", operator: "", value: TODAY_FILTER_VALUE };
+	}
+
 	// Local row state mirrors the query but may hold work-in-progress rows
-	// (an empty term, a date row without a date yet) that are not emitted.
-	// Rows rebuild from the incoming query only when it differs from what
-	// this editor last emitted, so typing here never loses focus to a
-	// rebuild, while bar edits still flow in.
-	let contentRows: string[] = [];
-	let tagRows: string[] = [];
-	let fileRows: string[] = [];
-	let dateRows: DateFilterCondition[] = [];
+	// that are not emitted. Rows rebuild from the incoming query only when
+	// it differs from what this editor last emitted, so typing here never
+	// loses focus to a rebuild, while bar edits still flow in. Every
+	// section starts expanded (Gmail-style) with an empty row.
+	let contentRow = "";
+	let tagRows: string[] = [""];
+	let fileRow = "";
+	let dateRows: DraftDateCondition[] = [emptyDateRow()];
 	let lastEmittedKey: string | undefined;
 
 	$: syncFromQuery(query);
@@ -31,32 +48,38 @@
 			return;
 		}
 		lastEmittedKey = serializeFilterQuery(incoming);
-		contentRows = [...incoming.contentTerms];
+		contentRow = serializeContentTerms(incoming.contentTerms);
 		tagRows = incoming.tagGroups.map((group) => group.join(","));
-		fileRows = [...incoming.filePaths];
+		if (tagRows.length === 0) {
+			tagRows = [""];
+		}
+		fileRow = incoming.filePaths.join(",");
 		dateRows = incoming.dateConditions.map((condition) => ({ ...condition }));
+		if (dateRows.length === 0) {
+			dateRows = [emptyDateRow()];
+		}
 	}
 
-	function isCompleteDateCondition(condition: DateFilterCondition): boolean {
+	function isCompleteDateCondition(
+		row: DraftDateCondition,
+	): row is DraftDateCondition & { operator: DateFilterOperator } {
 		return (
-			condition.value === TODAY_FILTER_VALUE ||
-			parseDateOnly(condition.value) !== null
+			row.property !== "" &&
+			row.operator !== "" &&
+			(row.value === TODAY_FILTER_VALUE || parseDateOnly(row.value) !== null)
 		);
 	}
 
-	// `"` is the query syntax's quoting character and is not expressible as
-	// content: a term containing one would serialize into text that cannot
-	// round-trip, and the resulting rebuild would destroy the focused input.
-	// It is stripped as typed.
+	// `"` is the query syntax's quoting character. In the Content field it
+	// is meaningful (phrase quoting); in tag/file fields it is not
+	// expressible and is stripped as typed.
 	function stripQuotes(value: string): string {
 		return value.replace(/"/g, "");
 	}
 
 	function rowsToQuery(): FilterQuery {
 		return {
-			contentTerms: contentRows
-				.map((term) => stripQuotes(term).trim())
-				.filter((term) => term !== ""),
+			contentTerms: parseContentTerms(contentRow),
 			tagGroups: tagRows
 				.map((row) =>
 					stripQuotes(row)
@@ -65,12 +88,17 @@
 						.filter((tag) => tag !== ""),
 				)
 				.filter((group) => group.length > 0),
-			filePaths: fileRows
-				.map((path) => stripQuotes(path).trim())
+			filePaths: stripQuotes(fileRow)
+				.split(",")
+				.map((path) => path.trim())
 				.filter((path) => path !== ""),
 			dateConditions: dateRows
 				.filter(isCompleteDateCondition)
-				.map((condition) => ({ ...condition })),
+				.map((row): DateFilterCondition => ({
+					property: row.property,
+					operator: row.operator,
+					value: row.value,
+				})),
 		};
 	}
 
@@ -88,22 +116,18 @@
 		}
 	}
 
-	function updateDateRow(index: number, patch: Partial<DateFilterCondition>) {
+	function updateDateRow(index: number, patch: Partial<DraftDateCondition>) {
 		dateRows = dateRows.map((condition, i) =>
 			i === index ? { ...condition, ...patch } : condition,
 		);
 		emit();
 	}
 
-	function addDateRow() {
-		const property =
-			dateKeys.find((key) => key.key === "scheduled")?.key ??
-			dateKeys[0]?.key;
-		if (!property) return;
-		dateRows = [
-			...dateRows,
-			{ property, operator: "on-or-before", value: TODAY_FILTER_VALUE },
-		];
+	function removeDateRow(index: number) {
+		dateRows = dateRows.filter((_, i) => i !== index);
+		if (dateRows.length === 0) {
+			dateRows = [emptyDateRow()];
+		}
 		emit();
 	}
 
@@ -118,39 +142,16 @@
 	<div class="editor-section">
 		<span class="section-label">Content</span>
 		<div class="section-rows">
-			{#each contentRows as _, index}
-				<div class="editor-row">
-					<input
-						class="text-input"
-						type="text"
-						bind:value={contentRows[index]}
-						on:input={() => {
-							contentRows[index] = stripQuotes(contentRows[index] ?? "");
-							emit();
-						}}
-						on:keydown={onRowKeydown}
-						placeholder="Text to match"
-						aria-label="Content term"
-						spellcheck="false"
-					/>
-					<button
-						class="row-remove"
-						aria-label="Remove content term"
-						on:click={() => {
-							contentRows = contentRows.filter((_, i) => i !== index);
-							emit();
-						}}
-					>
-						×
-					</button>
-				</div>
-			{/each}
-			<button
-				class="add-row-btn"
-				on:click={() => (contentRows = [...contentRows, ""])}
-			>
-				+ Add term
-			</button>
+			<input
+				class="text-input"
+				type="text"
+				bind:value={contentRow}
+				on:input={emit}
+				on:keydown={onRowKeydown}
+				placeholder={'words match anywhere, "quotes match the phrase"'}
+				aria-label="Content search"
+				spellcheck="false"
+			/>
 		</div>
 	</div>
 
@@ -172,20 +173,25 @@
 						aria-label="Tag group (comma-separated, any of)"
 						spellcheck="false"
 					/>
-					<button
-						class="row-remove"
-						aria-label="Remove tag group"
-						on:click={() => {
-							tagRows = tagRows.filter((_, i) => i !== index);
-							emit();
-						}}
-					>
-						×
-					</button>
+					{#if tagRows.length > 1}
+						<button
+							class="row-remove"
+							aria-label="Remove tag group"
+							on:click={() => {
+								tagRows = tagRows.filter((_, i) => i !== index);
+								if (tagRows.length === 0) {
+									tagRows = [""];
+								}
+								emit();
+							}}
+						>
+							×
+						</button>
+					{/if}
 				</div>
 			{/each}
 			<button class="add-row-btn" on:click={() => (tagRows = [...tagRows, ""])}>
-				+ Add tag group
+				+ Add tag group (groups must all match)
 			</button>
 		</div>
 	</div>
@@ -193,36 +199,19 @@
 	<div class="editor-section">
 		<span class="section-label">Files</span>
 		<div class="section-rows">
-			{#each fileRows as _, index}
-				<div class="editor-row">
-					<input
-						class="text-input"
-						type="text"
-						bind:value={fileRows[index]}
-						on:input={() => {
-							fileRows[index] = stripQuotes(fileRows[index] ?? "");
-							emit();
-						}}
-						on:keydown={onRowKeydown}
-						placeholder="Path to match"
-						aria-label="File path"
-						spellcheck="false"
-					/>
-					<button
-						class="row-remove"
-						aria-label="Remove file path"
-						on:click={() => {
-							fileRows = fileRows.filter((_, i) => i !== index);
-							emit();
-						}}
-					>
-						×
-					</button>
-				</div>
-			{/each}
-			<button class="add-row-btn" on:click={() => (fileRows = [...fileRows, ""])}>
-				+ Add file
-			</button>
+			<input
+				class="text-input"
+				type="text"
+				bind:value={fileRow}
+				on:input={() => {
+					fileRow = stripQuotes(fileRow);
+					emit();
+				}}
+				on:keydown={onRowKeydown}
+				placeholder="path, path (any of)"
+				aria-label="File paths (comma-separated, any of)"
+				spellcheck="false"
+			/>
 		</div>
 	</div>
 
@@ -250,7 +239,8 @@
 							on:change={(e) =>
 								updateDateRow(index, { property: e.currentTarget.value })}
 						>
-							{#if !dateKeys.some((key) => key.key === condition.property)}
+							<option value=""></option>
+							{#if condition.property !== "" && !dateKeys.some((key) => key.key === condition.property)}
 								<option value={condition.property}>{condition.property}</option>
 							{/if}
 							{#each dateKeys as key}
@@ -263,9 +253,10 @@
 							aria-label="Date comparison"
 							on:change={(e) =>
 								updateDateRow(index, {
-									operator: e.currentTarget.value as DateFilterCondition["operator"],
+									operator: e.currentTarget.value as DraftDateCondition["operator"],
 								})}
 						>
+							<option value=""></option>
 							{#each DATE_FILTER_OPERATORS as operator}
 								<option value={operator.value}>{operator.label}</option>
 							{/each}
@@ -298,20 +289,22 @@
 									updateDateRow(index, { value: e.currentTarget.value })}
 							/>
 						{/if}
-						<button
-							class="row-remove"
-							aria-label="Remove date condition"
-							on:click={() => {
-								dateRows = dateRows.filter((_, i) => i !== index);
-								emit();
-							}}
-						>
-							×
-						</button>
+						{#if dateRows.length > 1}
+							<button
+								class="row-remove"
+								aria-label="Remove date condition"
+								on:click={() => removeDateRow(index)}
+							>
+								×
+							</button>
+						{/if}
 					</div>
 				{/each}
-				<button class="add-row-btn" on:click={addDateRow}>
-					+ Add condition
+				<button
+					class="add-row-btn"
+					on:click={() => (dateRows = [...dateRows, emptyDateRow()])}
+				>
+					+ Add condition (conditions must all match)
 				</button>
 			{/if}
 		</div>
@@ -373,6 +366,7 @@
 		// Gmail-style underlined inputs.
 		input.text-input {
 			flex: 1 1 auto;
+			width: 100%;
 			min-width: 0;
 			background: transparent;
 			border: none;
