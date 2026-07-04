@@ -199,9 +199,16 @@ existing `board-header` controls (grouping, group-by, counts):
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- A clear (×) affordance empties the query when non-empty.
-- The `▾` toggle expands the editor. `Esc` collapses; clicking outside
+- The bar is a centered, width-constrained pill (Google-search styling)
+  rather than a full-width row; a sliders icon (Gmail's "show search
+  options") toggles the editor. `Esc` collapses; clicking outside
   collapses.
+- The bar holds an **uncommitted draft**: filtering applies on commit —
+  Enter in the bar, the editor's Search button, or clear (×) — never
+  mid-keystroke, so the board doesn't churn while an intermediate query
+  is being typed. Committing canonicalizes the bar text (quoting,
+  `$TODAY` casing, token order); only the applied query persists.
+- A clear (×) affordance empties both the draft and the applied query.
 
 **Suggestions** (typing in the bar): a plain-text list anchored under the
 bar, filtered by the token under the caret:
@@ -240,14 +247,18 @@ board (absolute positioning, board does not reflow):
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- Each section is a list of plain text inputs (or the SPEC_0028 condition
-  row for dates) with per-row remove — the structured mirror of the
-  query tokens. Tag and file inputs offer the same text suggestions as
-  the bar.
+- Gmail-style layout: a label column on the left (Content / Tags /
+  Files / Date), underlined per-row text inputs (or the SPEC_0028
+  condition controls for dates) with per-row remove — the structured
+  mirror of the query tokens. Tag and file inputs offer the same text
+  suggestions as the bar.
 - The Date section appears only when the active schema exposes date-typed
   keys, mirroring the current sidebar rule (with the same hint text when
   the schema is "None" but the query contains a date-shaped token).
-- Every editor change re-serializes into the bar immediately.
+- Every editor change re-serializes into the bar's draft immediately; a
+  bottom action row (Gmail-style) offers Clear and a primary Search
+  button that applies the query and collapses the panel. Enter in any
+  editor field also applies.
 - The saved list is single and flat: click a name to apply (replacing the
   current query), click again to clear, × to delete (reusing
   `delete_filter_modal.svelte`). The active saved filter is highlighted
@@ -290,7 +301,10 @@ is out of scope and stays.
 - External edits to the board file (or the same board open twice) sync
   through the persisted query string exactly as today: incoming state
   applies only when the local state is unchanged from the last persisted
-  key.
+  key. The bar's draft is the sync guard, so an incoming change never
+  clobbers a query the user is still composing.
+- Filtering, counts, and the is-filtered indicator follow the **applied**
+  query only; the draft affects nothing until committed.
 - Counts: `filteredTaskCount` derives from the single `filteredTasks`
   array; the `x/y tasks` indicator and clear-all behavior are otherwise
   unchanged.
@@ -352,9 +366,10 @@ types with AND semantics and per-board persistence.
    Tags / Files / Date sections (per-row inputs + remove + add; a tag
    row is one comma-separated OR-group), date rows reusing the
    SPEC_0028 condition-row markup.
-2. ✅ Two-way sync: editor edits re-serialize into the bar; bar edits
-   re-parse into the editor; canonicalize bar text on blur, preserve raw
-   text while focused.
+2. ✅ Two-way sync: editor edits re-serialize into the bar's draft; bar
+   edits re-parse into the editor; filtering applies on commit (Enter /
+   Search / clear), which canonicalizes the bar text; raw draft text is
+   preserved while typing.
 3. ✅ Esc / outside-click collapse; date section visibility follows the
    schema's date keys.
 4. ☐ Test: type a mixed query, expand, verify structured view; edit each

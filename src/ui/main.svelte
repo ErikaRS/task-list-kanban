@@ -270,10 +270,12 @@
 	let columns: ("uncategorised" | ColumnTag)[];
 	$: columns = $settingsStore.columns.map((column) => column.id);
 
-	// The board's filter is one query string (SPEC 0029). The parsed model
-	// drives filtering; the bar text is the raw string as typed so the caret
-	// and half-typed tokens survive while editing.
+	// The board's filter is one query string (SPEC 0029). The bar holds an
+	// uncommitted draft as typed; the applied query — set on commit (Enter
+	// in the bar, the editor's Search, or clear) — is what filters the
+	// board and persists. Filtering never changes mid-keystroke.
 	let filterQueryText = "";
+	let appliedQueryText = "";
 	let hydrated = false;
 	let lastPersistedQuery = "";
 
@@ -282,6 +284,8 @@
 
 		const unsubscribe = settingsStore.subscribe(settings => {
 			const incomingQuery = readBoardFilterState(settings);
+			// The draft is the sync guard: an external change never clobbers
+			// text the user is still composing.
 			if (shouldApplyIncomingBoardFilterState(
 				filterQueryText,
 				incomingQuery,
@@ -289,6 +293,7 @@
 				hydrated,
 			)) {
 				filterQueryText = incomingQuery;
+				appliedQueryText = incomingQuery;
 				lastPersistedQuery = incomingQuery;
 				hydrated = true;
 			}
@@ -298,38 +303,58 @@
 	});
 
 	function saveFilterState() {
-		if (!hydrated || filterQueryText === lastPersistedQuery) {
+		if (!hydrated || appliedQueryText === lastPersistedQuery) {
 			return;
 		}
 
-		lastPersistedQuery = filterQueryText;
-		settingsStore.update(settings => writeBoardFilterState(settings, filterQueryText));
+		lastPersistedQuery = appliedQueryText;
+		settingsStore.update(settings => writeBoardFilterState(settings, appliedQueryText));
 		requestSave();
 	}
 
 	$: if (hydrated) {
-		filterQueryText;
+		appliedQueryText;
 		saveFilterState();
 	}
 
-	$: filterQuery = parseFilterQuery(
-		filterQueryText,
-		dateFilterKeys.map((key) => key.key),
-	);
-	$: isFiltered = !isEmptyFilterQuery(filterQuery);
+	$: dateFilterKeyNames = dateFilterKeys.map((key) => key.key);
+	// Draft: mirrored by the expanded editor. Applied: filters the board.
+	$: draftQuery = parseFilterQuery(filterQueryText, dateFilterKeyNames);
+	$: appliedQuery = parseFilterQuery(appliedQueryText, dateFilterKeyNames);
+	$: isFiltered = !isEmptyFilterQuery(appliedQuery);
 
 	// --- Expanded structured editor (two synced views of one query) ---
 	let filterEditorExpanded = false;
 	let filterBarContainer: HTMLDivElement | undefined;
 
-	// While the bar is focused the raw text is preserved as typed; leaving
-	// it re-serializes the parsed model into canonical form.
-	function canonicalizeFilterText() {
-		filterQueryText = serializeFilterQuery(filterQuery);
+	// Committing canonicalizes the draft (quoting, $TODAY casing, token
+	// order), so the bar always shows exactly what was understood.
+	function applyFilter() {
+		const canonical = serializeFilterQuery(
+			parseFilterQuery(filterQueryText, dateFilterKeyNames),
+		);
+		filterQueryText = canonical;
+		appliedQueryText = canonical;
+	}
+
+	function clearFilter() {
+		filterQueryText = "";
+		appliedQueryText = "";
+	}
+
+	function handleFilterInputKeydown(e: KeyboardEvent) {
+		if (e.key === "Enter") {
+			applyFilter();
+		}
 	}
 
 	function applyEditorQuery(next: FilterQuery) {
 		filterQueryText = serializeFilterQuery(next);
+	}
+
+	function searchFromEditor() {
+		applyFilter();
+		filterEditorExpanded = false;
 	}
 
 	function handleWindowKeydown(e: KeyboardEvent) {
@@ -351,7 +376,7 @@
 
 	$: filteredTasks = isFiltered
 		? $tasksStore.filter((task) =>
-				taskMatchesFilterQuery(task, filterQuery, $todayStore),
+				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
 			)
 		: $tasksStore;
 
@@ -561,16 +586,16 @@
 					type="text"
 					class="filter-bar-input"
 					bind:value={filterQueryText}
-					on:blur={canonicalizeFilterText}
+					on:keydown={handleFilterInputKeydown}
 					placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
-					aria-label="Filter tasks"
+					aria-label="Filter tasks (press Enter to apply)"
 					spellcheck="false"
 				/>
-				{#if filterQueryText !== ""}
+				{#if filterQueryText !== "" || appliedQueryText !== ""}
 					<button
 						class="filter-bar-clear"
 						aria-label="Clear filter"
-						on:click={() => (filterQueryText = "")}
+						on:click={clearFilter}
 					>
 						×
 					</button>
@@ -578,19 +603,21 @@
 				<button
 					class="filter-bar-expand"
 					aria-label={filterEditorExpanded
-						? "Collapse filter editor"
-						: "Expand filter editor"}
+						? "Hide search options"
+						: "Show search options"}
 					aria-expanded={filterEditorExpanded}
 					on:click={() => (filterEditorExpanded = !filterEditorExpanded)}
 				>
-					{filterEditorExpanded ? "▴" : "▾"}
+					<Icon name="sliders-horizontal" size={18} />
 				</button>
 			</div>
 			{#if filterEditorExpanded}
 				<FilterEditor
-					query={filterQuery}
+					query={draftQuery}
 					dateKeys={dateFilterKeys}
 					onChange={applyEditorQuery}
+					onSearch={searchFromEditor}
+					onClear={clearFilter}
 				/>
 			{/if}
 		</div>
@@ -837,21 +864,25 @@
 		font-size: var(--font-text-size);
 
 		// Positioning context for the expanded editor, which overlays the
-		// board content instead of pushing it down.
+		// board content instead of pushing it down. Constrained and centered
+		// like a Google search bar rather than spanning the full board.
 		.filter-bar-container {
 			position: relative;
 			z-index: 100;
-			margin-bottom: var(--size-4-2);
+			width: 100%;
+			max-width: 680px;
+			margin: 0 auto var(--size-4-2) auto;
 		}
 
 		.filter-bar {
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-3);
-			padding: 0 var(--size-2-3);
+			padding: 0 var(--size-2-3) 0 var(--size-4-3);
 			background: var(--background-primary);
 			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
-			border-radius: var(--input-radius);
+			border-radius: 999px;
+			box-shadow: var(--shadow-s);
 
 			&:focus-within {
 				box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
@@ -892,7 +923,14 @@
 			}
 
 			.filter-bar-expand {
-				font-size: var(--font-ui-small);
+				display: inline-flex;
+				align-items: center;
+				border-radius: 999px;
+				padding: var(--size-2-2);
+
+				&:hover {
+					background: var(--background-modifier-hover);
+				}
 			}
 		}
 

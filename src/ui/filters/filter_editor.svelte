@@ -10,6 +10,8 @@
 	export let query: FilterQuery;
 	export let dateKeys: { key: string; label: string }[] = [];
 	export let onChange: (query: FilterQuery) => void;
+	export let onSearch: () => void;
+	export let onClear: () => void;
 
 	// Local row state mirrors the query but may hold work-in-progress rows
 	// (an empty term, a date row without a date yet) that are not emitted.
@@ -70,6 +72,14 @@
 		onChange(next);
 	}
 
+	// Enter in any editor field commits the search, like Gmail's options
+	// panel.
+	function onRowKeydown(e: KeyboardEvent) {
+		if (e.key === "Enter") {
+			onSearch();
+		}
+	}
+
 	function updateDateRow(index: number, patch: Partial<DateFilterCondition>) {
 		dateRows = dateRows.map((condition, i) =>
 			i === index ? { ...condition, ...patch } : condition,
@@ -97,118 +107,125 @@
 </script>
 
 <div class="filter-editor">
-	<section>
-		<span class="section-title">Content</span>
-		{#each contentRows as _, index}
-			<div class="editor-row">
-				<input
-					type="text"
-					bind:value={contentRows[index]}
-					on:input={emit}
-					placeholder="Text to match"
-					aria-label="Content term"
-					spellcheck="false"
-				/>
-				<button
-					class="row-remove"
-					aria-label="Remove content term"
-					on:click={() => {
-						contentRows = contentRows.filter((_, i) => i !== index);
-						emit();
-					}}
-				>
-					×
-				</button>
-			</div>
-		{/each}
-		<button
-			class="add-row-btn"
-			on:click={() => (contentRows = [...contentRows, ""])}
-		>
-			+ Add term
-		</button>
-	</section>
+	<div class="editor-section">
+		<span class="section-label">Content</span>
+		<div class="section-rows">
+			{#each contentRows as _, index}
+				<div class="editor-row">
+					<input
+						class="text-input"
+						type="text"
+						bind:value={contentRows[index]}
+						on:input={emit}
+						on:keydown={onRowKeydown}
+						placeholder="Text to match"
+						aria-label="Content term"
+						spellcheck="false"
+					/>
+					<button
+						class="row-remove"
+						aria-label="Remove content term"
+						on:click={() => {
+							contentRows = contentRows.filter((_, i) => i !== index);
+							emit();
+						}}
+					>
+						×
+					</button>
+				</div>
+			{/each}
+			<button
+				class="add-row-btn"
+				on:click={() => (contentRows = [...contentRows, ""])}
+			>
+				+ Add term
+			</button>
+		</div>
+	</div>
 
-	<section>
-		<span class="section-title">Tags</span>
-		{#each tagRows as _, index}
-			<div class="editor-row">
-				<input
-					type="text"
-					bind:value={tagRows[index]}
-					on:input={emit}
-					placeholder="tag, tag (any of)"
-					aria-label="Tag group (comma-separated, any of)"
-					spellcheck="false"
-				/>
-				<button
-					class="row-remove"
-					aria-label="Remove tag group"
-					on:click={() => {
-						tagRows = tagRows.filter((_, i) => i !== index);
-						emit();
-					}}
-				>
-					×
-				</button>
-			</div>
-		{/each}
-		<button class="add-row-btn" on:click={() => (tagRows = [...tagRows, ""])}>
-			+ Add tag group
-		</button>
-		{#if tagRows.length > 0}
-			<p class="section-hint">
-				Commas within a group mean "any of"; groups must all match.
-			</p>
-		{/if}
-	</section>
+	<div class="editor-section">
+		<span class="section-label">Tags</span>
+		<div class="section-rows">
+			{#each tagRows as _, index}
+				<div class="editor-row">
+					<input
+						class="text-input"
+						type="text"
+						bind:value={tagRows[index]}
+						on:input={emit}
+						on:keydown={onRowKeydown}
+						placeholder="tag, tag (any of)"
+						aria-label="Tag group (comma-separated, any of)"
+						spellcheck="false"
+					/>
+					<button
+						class="row-remove"
+						aria-label="Remove tag group"
+						on:click={() => {
+							tagRows = tagRows.filter((_, i) => i !== index);
+							emit();
+						}}
+					>
+						×
+					</button>
+				</div>
+			{/each}
+			<button class="add-row-btn" on:click={() => (tagRows = [...tagRows, ""])}>
+				+ Add tag group
+			</button>
+		</div>
+	</div>
 
-	<section>
-		<span class="section-title">Files</span>
-		{#each fileRows as _, index}
-			<div class="editor-row">
-				<input
-					type="text"
-					bind:value={fileRows[index]}
-					on:input={emit}
-					placeholder="Path to match"
-					aria-label="File path"
-					spellcheck="false"
-				/>
-				<button
-					class="row-remove"
-					aria-label="Remove file path"
-					on:click={() => {
-						fileRows = fileRows.filter((_, i) => i !== index);
-						emit();
-					}}
-				>
-					×
-				</button>
-			</div>
-		{/each}
-		<button class="add-row-btn" on:click={() => (fileRows = [...fileRows, ""])}>
-			+ Add file
-		</button>
-	</section>
+	<div class="editor-section">
+		<span class="section-label">Files</span>
+		<div class="section-rows">
+			{#each fileRows as _, index}
+				<div class="editor-row">
+					<input
+						class="text-input"
+						type="text"
+						bind:value={fileRows[index]}
+						on:input={emit}
+						on:keydown={onRowKeydown}
+						placeholder="Path to match"
+						aria-label="File path"
+						spellcheck="false"
+					/>
+					<button
+						class="row-remove"
+						aria-label="Remove file path"
+						on:click={() => {
+							fileRows = fileRows.filter((_, i) => i !== index);
+							emit();
+						}}
+					>
+						×
+					</button>
+				</div>
+			{/each}
+			<button class="add-row-btn" on:click={() => (fileRows = [...fileRows, ""])}>
+				+ Add file
+			</button>
+		</div>
+	</div>
 
-	<section>
-		<span class="section-title">Date</span>
-		{#if dateKeys.length === 0}
-			{#if hasDateShapedTerm}
-				<p class="section-hint">
-					Enable a property schema in the board settings to filter by
-					date; date-shaped tokens currently match as text.
-				</p>
+	<div class="editor-section">
+		<span class="section-label">Date</span>
+		<div class="section-rows">
+			{#if dateKeys.length === 0}
+				{#if hasDateShapedTerm}
+					<p class="section-hint">
+						Enable a property schema in the board settings to filter by
+						date; date-shaped tokens currently match as text.
+					</p>
+				{:else}
+					<p class="section-hint">
+						Enable a property schema in the board settings to filter by date.
+					</p>
+				{/if}
 			{:else}
-				<p class="section-hint">
-					Enable a property schema in the board settings to filter by date.
-				</p>
-			{/if}
-		{:else}
-			{#each dateRows as condition, index}
-				<div class="date-condition-row">
-					<div class="date-condition-selectors">
+				{#each dateRows as condition, index}
+					<div class="date-condition-row">
 						<select
 							class="dropdown"
 							value={condition.property}
@@ -236,18 +253,6 @@
 								<option value={operator.value}>{operator.label}</option>
 							{/each}
 						</select>
-						<button
-							class="row-remove"
-							aria-label="Remove date condition"
-							on:click={() => {
-								dateRows = dateRows.filter((_, i) => i !== index);
-								emit();
-							}}
-						>
-							×
-						</button>
-					</div>
-					<div class="date-condition-value">
 						<label class="date-value-choice">
 							<input
 								type="radio"
@@ -276,14 +281,29 @@
 									updateDateRow(index, { value: e.currentTarget.value })}
 							/>
 						{/if}
+						<button
+							class="row-remove"
+							aria-label="Remove date condition"
+							on:click={() => {
+								dateRows = dateRows.filter((_, i) => i !== index);
+								emit();
+							}}
+						>
+							×
+						</button>
 					</div>
-				</div>
-			{/each}
-			<button class="add-row-btn" on:click={addDateRow}>
-				+ Add condition
-			</button>
-		{/if}
-	</section>
+				{/each}
+				<button class="add-row-btn" on:click={addDateRow}>
+					+ Add condition
+				</button>
+			{/if}
+		</div>
+	</div>
+
+	<div class="editor-actions">
+		<button class="editor-clear-btn" on:click={onClear}>Clear</button>
+		<button class="editor-search-btn" on:click={onSearch}>Search</button>
+	</div>
 </div>
 
 <style lang="scss">
@@ -294,7 +314,7 @@
 		right: 0;
 		z-index: 200;
 		margin-top: var(--size-2-1);
-		padding: var(--size-4-3);
+		padding: var(--size-4-4);
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-4-3);
@@ -305,14 +325,25 @@
 		max-height: 70vh;
 		overflow-y: auto;
 
-		section {
-			display: flex;
-			flex-direction: column;
-			gap: var(--size-2-2);
+		// Gmail-style label column: section name on the left, rows on the
+		// right.
+		.editor-section {
+			display: grid;
+			grid-template-columns: 72px 1fr;
+			gap: var(--size-2-3);
+			align-items: start;
 
-			.section-title {
-				font-weight: 600;
+			.section-label {
 				font-size: var(--font-ui-small);
+				color: var(--text-muted);
+				padding-top: var(--size-2-2);
+			}
+
+			.section-rows {
+				display: flex;
+				flex-direction: column;
+				gap: var(--size-2-2);
+				min-width: 0;
 			}
 		}
 
@@ -320,11 +351,24 @@
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-2);
+		}
 
-			input[type="text"] {
-				flex: 1 1 auto;
-				min-width: 0;
-				background: var(--background-primary);
+		// Gmail-style underlined inputs.
+		input.text-input {
+			flex: 1 1 auto;
+			min-width: 0;
+			background: transparent;
+			border: none;
+			border-bottom: 1px solid var(--background-modifier-border);
+			border-radius: 0;
+			box-shadow: none;
+			padding: var(--size-2-2) 0;
+
+			&:focus,
+			&:focus-visible {
+				border-bottom-color: var(--interactive-accent);
+				box-shadow: none;
+				outline: none;
 			}
 		}
 
@@ -346,63 +390,80 @@
 
 		.add-row-btn {
 			align-self: flex-start;
-			padding: var(--size-2-1) var(--size-2-3);
+			padding: var(--size-2-1) 0;
 			background: transparent;
 			color: var(--text-muted);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: var(--radius-s);
+			border: none;
+			box-shadow: none;
 			cursor: pointer;
 			font-size: var(--font-ui-small);
 
 			&:hover {
-				background: var(--background-modifier-hover);
+				color: var(--text-normal);
 			}
 		}
 
 		.section-hint {
 			margin: 0;
+			padding-top: var(--size-2-2);
 			color: var(--text-muted);
 			font-size: var(--font-ui-small);
 		}
 
-		// An inner card per condition, so a condition's controls stay
-		// visually grouped (markup carried over from the SPEC_0028 sidebar).
 		.date-condition-row {
 			display: flex;
-			flex-direction: column;
+			flex-wrap: wrap;
+			align-items: center;
 			gap: var(--size-2-2);
-			padding: var(--size-2-2) var(--size-2-3);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: var(--radius-s);
-			background: var(--background-secondary);
+			font-size: var(--font-ui-small);
 
-			.date-condition-selectors {
+			select.dropdown {
+				flex: 0 1 auto;
+				min-width: 0;
+			}
+
+			.date-value-choice {
 				display: flex;
 				align-items: center;
-				gap: var(--size-2-2);
+				gap: var(--size-2-1);
+				cursor: pointer;
+			}
 
-				select.dropdown {
-					flex: 0 1 auto;
-					min-width: 0;
+			input[type="date"] {
+				background: var(--background-primary);
+			}
+		}
+
+		.editor-actions {
+			display: flex;
+			justify-content: flex-end;
+			gap: var(--size-2-3);
+			padding-top: var(--size-2-3);
+			border-top: 1px solid var(--background-modifier-border);
+
+			.editor-clear-btn {
+				padding: var(--size-2-2) var(--size-4-3);
+				background: transparent;
+				color: var(--text-muted);
+				border: none;
+				box-shadow: none;
+				cursor: pointer;
+
+				&:hover {
+					color: var(--text-normal);
 				}
 			}
 
-			.date-condition-value {
-				display: flex;
-				flex-wrap: wrap;
-				align-items: center;
-				gap: var(--size-2-2);
-				font-size: var(--font-ui-small);
+			.editor-search-btn {
+				padding: var(--size-2-2) var(--size-4-5);
+				background: var(--interactive-accent);
+				color: var(--text-on-accent);
+				border: none;
+				border-radius: 999px;
+				cursor: pointer;
 
-				.date-value-choice {
-					display: flex;
-					align-items: center;
-					gap: var(--size-2-1);
-					cursor: pointer;
-				}
-
-				input[type="date"] {
-					background: var(--background-primary);
+				&:hover {
+					background: var(--interactive-accent-hover);
 				}
 			}
 		}
