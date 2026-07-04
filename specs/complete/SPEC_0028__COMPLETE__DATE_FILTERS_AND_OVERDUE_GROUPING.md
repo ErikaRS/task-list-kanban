@@ -1,6 +1,8 @@
 # SPEC 0028: Date filters with $TODAY, and overdue smooshing for date groups
 
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -296,7 +298,7 @@ across days.
 
 **Deliverable:** A single Overdue swimlane when grouping by due/scheduled.
 
-### Phase 5: Manual verification
+### Phase 5: Manual verification ✅ COMPLETE
 **Goal:** Confirm end-to-end in a real vault.
 
 1. ✅ Sandbox vault: tasks with 📅/⏳ dates in the past, today, and future.
@@ -304,7 +306,7 @@ across days.
    correct; combined view correct with tag-group swimlanes; Overdue
    swimlane collapses past dates; chips save/apply; counts and clear-all
    behave.
-2. ☐ Leave the board open across a (simulated or real) midnight and verify
+2. ✅ Leave the board open across a (simulated or real) midnight and verify
    rollover without reload.
 
 **Deliverable:** Checked-off manual test cases (per README.planning.md,
