@@ -55,11 +55,19 @@ export interface FileValue {
 	filepaths: string[];
 }
 
+export interface DateValue {
+	conditions: DateFilterCondition[];
+}
+
 export interface SavedFilter {
 	id: string;
+	// Optional user-chosen display name (e.g. "overdue"); chips fall back to
+	// a description of the filter's value when absent.
+	name?: string;
 	content?: ContentValue;
 	tag?: TagValue;
 	file?: FileValue;
+	date?: DateValue;
 }
 
 export type DateFilterOperator =
@@ -87,17 +95,23 @@ const fileValueSchema = z.object({
 	filepaths: z.array(z.string()),
 });
 
-const savedFilterSchema = z.object({
-	id: z.string(),
-	content: contentValueSchema.optional(),
-	tag: tagValueSchema.optional(),
-	file: fileValueSchema.optional(),
-});
-
 const dateFilterConditionSchema = z.object({
 	property: z.string(),
 	operator: z.enum(["before", "on-or-before", "on", "on-or-after", "after"]),
 	value: z.string(),
+});
+
+const dateValueSchema = z.object({
+	conditions: z.array(dateFilterConditionSchema),
+});
+
+const savedFilterSchema = z.object({
+	id: z.string(),
+	name: z.string().optional(),
+	content: contentValueSchema.optional(),
+	tag: tagValueSchema.optional(),
+	file: fileValueSchema.optional(),
+	date: dateValueSchema.optional(),
 });
 
 const groupSourceSchema = z

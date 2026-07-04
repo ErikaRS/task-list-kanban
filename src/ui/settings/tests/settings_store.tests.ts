@@ -278,6 +278,38 @@ describe("SavedFilter persistence", () => {
 		expect(parseSettingsString(JSON.stringify(settings)).savedFilters).toEqual(expected);
 	});
 
+	it("round-trips a named date filter", () => {
+		const savedFilter: SavedFilter = {
+			id: "date-id",
+			name: "overdue",
+			date: {
+				conditions: [
+					{ property: "due", operator: "before", value: "$TODAY" },
+					{ property: "scheduled", operator: "on-or-before", value: "2026-07-01" },
+				],
+			},
+		};
+
+		const parsed = parseSettings({ ...defaultSettings, savedFilters: [savedFilter] });
+		expect(parsed.savedFilters?.[0]).toEqual(savedFilter);
+
+		const serialized = serializeSettings({ savedFilters: [savedFilter] });
+		expect(serialized.savedFilters[0]).toEqual(savedFilter);
+	});
+
+	it("parses a date filter without a name", () => {
+		const savedFilter: SavedFilter = {
+			id: "date-id",
+			date: {
+				conditions: [{ property: "due", operator: "before", value: "$TODAY" }],
+			},
+		};
+
+		const parsed = parseSettings({ ...defaultSettings, savedFilters: [savedFilter] });
+		expect(parsed.savedFilters?.[0]).toEqual(savedFilter);
+		expect(parsed.savedFilters?.[0]?.name).toBeUndefined();
+	});
+
 	it("handles filter with both content and tag", () => {
 		const filter: SavedFilter = {
 			id: "combo-id",

@@ -19,6 +19,45 @@ export const DATE_FILTER_OPERATORS: ReadonlyArray<{
 ];
 
 /**
+ * Human-readable summary of a condition list, used as the chip label for
+ * saved date filters without a user-chosen name, e.g.
+ * "Scheduled on or before Today; Due before 2026-07-01".
+ */
+export function describeDateConditions(
+	conditions: DateFilterCondition[],
+	labelForProperty: (key: string) => string = (key) => key,
+): string {
+	return conditions
+		.map((condition) => {
+			const operator =
+				DATE_FILTER_OPERATORS.find((o) => o.value === condition.operator)
+					?.label ?? condition.operator;
+			const value =
+				condition.value === TODAY_FILTER_VALUE ? "Today" : condition.value;
+			return `${labelForProperty(condition.property)} ${operator} ${value}`;
+		})
+		.join("; ");
+}
+
+export function dateConditionsEqual(
+	a: DateFilterCondition[],
+	b: DateFilterCondition[],
+): boolean {
+	return (
+		a.length === b.length &&
+		a.every((condition, i) => {
+			const other = b[i];
+			return (
+				other !== undefined &&
+				condition.property === other.property &&
+				condition.operator === other.operator &&
+				condition.value === other.value
+			);
+		})
+	);
+}
+
+/**
  * UTC midnight of the user's local calendar day. Parsed date-only values are
  * stored as UTC midnight of their written calendar date (see parseDateOnly),
  * so encoding "today" the same way makes every comparison an exact

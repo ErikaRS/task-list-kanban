@@ -26,7 +26,7 @@
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type DateFilterCondition, type SavedGrouping, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { type DateFilterCondition, type SavedFilter, type SavedGrouping, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
@@ -43,9 +43,11 @@
 	import {
 		DATE_FILTER_OPERATORS,
 		TODAY_FILTER_VALUE,
-		getToday,
+		dateConditionsEqual,
+		describeDateConditions,
 		taskMatchesDateConditions,
 	} from "./filters/date_filter";
+	import { createTodayStore } from "./filters/today_store";
 
 	type TagPrefixGroupSource = Extract<GroupSource, { kind: "tag-prefix" }>;
 	type SavedTagGrouping = SavedGrouping & { source: TagPrefixGroupSource };
@@ -63,6 +65,8 @@
 	export let requestSave: () => void;
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
+	// Ticks at local midnight so $TODAY filters re-evaluate without a reload.
+	const todayStore = createTodayStore();
 
 	function toggleColumnCollapse(col: ColumnTag | DefaultColumns) {
 		const isCurrentlyCollapsed = $collapsedColumnsStore.has(col as string);
@@ -284,7 +288,7 @@
 	}
 
 	let deleteModalOpen = false;
-	let filterToDelete: { id: string; text: string; type: 'content' | 'tag' | 'file' } | null = null;
+	let filterToDelete: { id: string; text: string; type: 'content' | 'tag' | 'file' | 'date' } | null = null;
 
 	$: activeContentFilterId = filterText.trim()
 		? savedFilters.find(f => f.content?.text === filterText.trim())?.id
@@ -405,6 +409,69 @@
 	// --- Date filter conditions (AND-ed) ---
 	$: dateFilterKeys = activeSchema.knownKeys().filter((key) => key.type === "date");
 
+	function dateFilterLabel(filter: SavedFilter): string {
+		if (filter.name?.trim()) {
+			return filter.name.trim();
+		}
+		return describeDateConditions(
+			filter.date?.conditions ?? [],
+			(key) => dateFilterKeys.find((k) => k.key === key)?.label ?? key,
+		);
+	}
+
+	// dateFilterKeys is referenced so labels re-derive when the schema changes.
+	$: dateFilters = (() => {
+		void dateFilterKeys;
+		return savedFilters
+			.filter((f) => f.date !== undefined)
+			.sort((a, b) =>
+				dateFilterLabel(a)
+					.toLowerCase()
+					.localeCompare(dateFilterLabel(b).toLowerCase()),
+			);
+	})();
+
+	$: activeDateFilter =
+		dateConditions.length > 0
+			? savedFilters.find(
+					(f) => f.date && dateConditionsEqual(f.date.conditions, dateConditions),
+				)
+			: undefined;
+	$: activeDateFilterId = activeDateFilter?.id;
+
+	$: dateFilterExists = activeDateFilterId !== undefined;
+
+	let dateFilterName = "";
+
+	function addDateFilter() {
+		if (dateConditions.length === 0 || dateFilterExists) {
+			return;
+		}
+		const name = dateFilterName.trim();
+		const newFilter: SavedFilter = {
+			id: crypto.randomUUID(),
+			...(name ? { name } : {}),
+			date: { conditions: dateConditions.map((condition) => ({ ...condition })) },
+		};
+		$settingsStore.savedFilters = [...savedFilters, newFilter];
+		dateFilterName = "";
+		requestSave();
+	}
+
+	function loadDateFilter(filter: SavedFilter) {
+		if (activeDateFilterId === filter.id) {
+			clearDateConditions();
+		} else {
+			dateConditions = (filter.date?.conditions ?? []).map((condition) => ({
+				...condition,
+			}));
+		}
+	}
+
+	function clearDateConditions() {
+		dateConditions = [];
+	}
+
 	function addDateCondition() {
 		const property =
 			dateFilterKeys.find((key) => key.key === "scheduled")?.key ??
@@ -443,7 +510,7 @@
 		activeTagFilterId = undefined;
 	}
 
-	function openDeleteModal(filterId: string, filterText: string, type: 'content' | 'tag' | 'file') {
+	function openDeleteModal(filterId: string, filterText: string, type: 'content' | 'tag' | 'file' | 'date') {
 		filterToDelete = { id: filterId, text: filterText, type };
 		deleteModalOpen = true;
 	}
@@ -459,11 +526,15 @@
 		const filterId = filterToDelete.id;
 		const filterType = filterToDelete.type;
 
+		// Date filters need no reset: activeDateFilterId is derived from the
+		// current conditions, and deleting a chip leaves them applied.
 		const wasActive = filterType === 'content'
 			? activeContentFilterId === filterId
 			: filterType === 'tag'
 			? activeTagFilterId === filterId
-			: activeFileFilterId === filterId;
+			: filterType === 'file'
+			? activeFileFilterId === filterId
+			: false;
 
 		$settingsStore.savedFilters = savedFilters.filter(f => f.id !== filterId);
 
@@ -472,7 +543,7 @@
 				activeContentFilterId = undefined;
 			} else if (filterType === 'tag') {
 				activeTagFilterId = undefined;
-			} else {
+			} else if (filterType === 'file') {
 				activeFileFilterId = undefined;
 			}
 		}
@@ -593,15 +664,12 @@
 			)
 		: filteredByTag;
 
-	// $TODAY resolves at derivation time; a today store that re-runs this at
-	// midnight arrives with saved-filter support (SPEC_0028 Phase 3).
-	$: filteredByDate = (() => {
-		if (dateConditions.length === 0) return filteredByFile;
-		const today = getToday();
-		return filteredByFile.filter((task) =>
-			taskMatchesDateConditions(task, dateConditions, today),
-		);
-	})();
+	$: filteredByDate =
+		dateConditions.length === 0
+			? filteredByFile
+			: filteredByFile.filter((task) =>
+					taskMatchesDateConditions(task, dateConditions, $todayStore),
+				);
 
 	$: tasksByColumn = groupByColumnTag(filteredByDate);
 
@@ -1008,35 +1076,92 @@
 					Enable a property schema in the board settings to filter by date.
 				</p>
 			{:else}
+				<div class="saved-filters">
+					<details>
+						<summary>Saved filters</summary>
+						<ul role="list">
+							{#each dateFilters as filter (filter.id)}
+								<li>
+									<span
+										role="button"
+										tabindex="0"
+										class="delete-btn"
+										on:click={() => openDeleteModal(filter.id, dateFilterLabel(filter), 'date')}
+										on:keydown={(e) => onActivateKey(e, () => openDeleteModal(filter.id, dateFilterLabel(filter), 'date'))}
+										aria-label="Delete filter: {dateFilterLabel(filter)}"
+									>
+										×
+									</span>
+									<span
+										role="button"
+										tabindex="0"
+										class="filter-text"
+										class:active={filter.id === activeDateFilterId}
+										on:click={() => loadDateFilter(filter)}
+										on:keydown={(e) => onActivateKey(e, () => loadDateFilter(filter))}
+										aria-label="Load saved filter: {dateFilterLabel(filter)}"
+										aria-pressed={filter.id === activeDateFilterId}
+									>
+										{dateFilterLabel(filter)}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					</details>
+				</div>
+				<div class="date-filter-builder">
+				{#if activeDateFilter}
+					<div class="date-filter-builder-header">
+						<span class="date-filter-builder-title">
+							{dateFilterLabel(activeDateFilter)}
+						</span>
+						<button
+							class="date-filter-builder-clear"
+							aria-label="Clear date filter"
+							on:click={clearDateConditions}
+						>
+							×
+						</button>
+					</div>
+				{/if}
 				{#each dateConditions as condition, index}
 					<div class="date-condition-row">
-						<select
-							class="dropdown"
-							value={condition.property}
-							aria-label="Date property"
-							on:change={(e) =>
-								updateDateCondition(index, { property: e.currentTarget.value })}
-						>
-							{#if !dateFilterKeys.some((key) => key.key === condition.property)}
-								<option value={condition.property}>{condition.property}</option>
-							{/if}
-							{#each dateFilterKeys as key}
-								<option value={key.key}>{key.label}</option>
-							{/each}
-						</select>
-						<select
-							class="dropdown"
-							value={condition.operator}
-							aria-label="Date comparison"
-							on:change={(e) =>
-								updateDateCondition(index, {
-									operator: e.currentTarget.value as DateFilterCondition["operator"],
-								})}
-						>
-							{#each DATE_FILTER_OPERATORS as operator}
-								<option value={operator.value}>{operator.label}</option>
-							{/each}
-						</select>
+						<div class="date-condition-selectors">
+							<select
+								class="dropdown"
+								value={condition.property}
+								aria-label="Date property"
+								on:change={(e) =>
+									updateDateCondition(index, { property: e.currentTarget.value })}
+							>
+								{#if !dateFilterKeys.some((key) => key.key === condition.property)}
+									<option value={condition.property}>{condition.property}</option>
+								{/if}
+								{#each dateFilterKeys as key}
+									<option value={key.key}>{key.label}</option>
+								{/each}
+							</select>
+							<select
+								class="dropdown"
+								value={condition.operator}
+								aria-label="Date comparison"
+								on:change={(e) =>
+									updateDateCondition(index, {
+										operator: e.currentTarget.value as DateFilterCondition["operator"],
+									})}
+							>
+								{#each DATE_FILTER_OPERATORS as operator}
+									<option value={operator.value}>{operator.label}</option>
+								{/each}
+							</select>
+							<button
+								class="date-condition-remove"
+								aria-label="Remove date condition"
+								on:click={() => removeDateCondition(index)}
+							>
+								×
+							</button>
+						</div>
 						<div class="date-condition-value">
 							<label class="date-value-choice">
 								<input
@@ -1067,13 +1192,6 @@
 								/>
 							{/if}
 						</div>
-						<button
-							class="date-condition-remove"
-							aria-label="Remove date condition"
-							on:click={() => removeDateCondition(index)}
-						>
-							×
-						</button>
 					</div>
 				{/each}
 				<button
@@ -1082,6 +1200,33 @@
 				>
 					+ Add condition
 				</button>
+				<div class="filter-actions date-filter-actions">
+					<input
+						type="text"
+						class="date-filter-name"
+						bind:value={dateFilterName}
+						placeholder="Name (optional)"
+						aria-label="Saved filter name"
+						disabled={dateConditions.length === 0 || dateFilterExists}
+					/>
+					<button
+						class="filter-action-btn save-btn"
+						disabled={dateConditions.length === 0 || dateFilterExists}
+						on:click={addDateFilter}
+						aria-label="Save date filter"
+					>
+						Save
+					</button>
+					<button
+						class="filter-action-btn clear-btn"
+						disabled={dateConditions.length === 0}
+						on:click={clearDateConditions}
+						aria-label="Clear date filter"
+					>
+						Clear
+					</button>
+				</div>
+				</div>
 			{/if}
 		</div>
 			</div>
@@ -1740,15 +1885,72 @@
 					font-size: var(--font-ui-small);
 				}
 
+				// One outer box for the whole builder — conditions, add button,
+				// and the name/save row — so the parts read as one composed
+				// filter rather than adjacent controls.
+				.date-filter-builder {
+					display: flex;
+					flex-direction: column;
+					padding: var(--size-2-3);
+					border: 1px solid var(--background-modifier-border);
+					border-radius: var(--radius-m);
+					background: var(--background-primary);
+
+					.date-filter-builder-header {
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+						gap: var(--size-2-2);
+						margin-bottom: var(--size-2-3);
+
+						.date-filter-builder-title {
+							font-size: var(--font-ui-small);
+							font-weight: 600;
+							color: var(--interactive-accent);
+							overflow: hidden;
+							text-overflow: ellipsis;
+							white-space: nowrap;
+						}
+
+						.date-filter-builder-clear {
+							flex: 0 0 auto;
+							padding: var(--size-2-1);
+							background: transparent;
+							border: none;
+							box-shadow: none;
+							cursor: pointer;
+							color: var(--text-muted);
+							font-size: 18px;
+							line-height: 1;
+
+							&:hover {
+								color: var(--color-red);
+							}
+						}
+					}
+				}
+
+				// An inner card per condition, so a condition's controls stay
+				// visually grouped when the narrow sidebar forces them to stack.
 				.date-condition-row {
 					display: flex;
-					flex-wrap: wrap;
-					align-items: center;
+					flex-direction: column;
 					gap: var(--size-2-2);
+					padding: var(--size-2-2) var(--size-2-3);
+					margin-bottom: var(--size-2-3);
+					border: 1px solid var(--background-modifier-border);
+					border-radius: var(--radius-s);
+					background: var(--background-secondary);
 
-					select.dropdown {
-						min-width: 0;
-						max-width: 100%;
+					.date-condition-selectors {
+						display: flex;
+						align-items: center;
+						gap: var(--size-2-2);
+
+						select.dropdown {
+							flex: 1 1 0;
+							min-width: 0;
+						}
 					}
 
 					.date-condition-value {
@@ -1771,7 +1973,7 @@
 					}
 
 					.date-condition-remove {
-						margin-left: auto;
+						flex: 0 0 auto;
 						padding: var(--size-2-1);
 						background: transparent;
 						border: none;
@@ -1790,6 +1992,18 @@
 				.add-date-condition-btn {
 					align-self: flex-start;
 					margin-top: 0;
+				}
+
+				.date-filter-actions {
+					display: flex;
+					align-items: center;
+					gap: var(--size-2-2);
+					margin-top: var(--size-4-2);
+
+					.date-filter-name {
+						flex: 1 1 0;
+						min-width: 0;
+					}
 				}
 			}
 		}

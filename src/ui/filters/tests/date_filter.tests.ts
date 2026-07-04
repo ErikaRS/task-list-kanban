@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	TODAY_FILTER_VALUE,
+	dateConditionsEqual,
+	describeDateConditions,
 	getToday,
 	resolveConditionDate,
 	taskMatchesDateConditions,
@@ -77,6 +79,47 @@ describe("resolveConditionDate", () => {
 		expect(resolveConditionDate(condition("due", "on", "not-a-date"), today)).toBeNull();
 		expect(resolveConditionDate(condition("due", "on", ""), today)).toBeNull();
 		expect(resolveConditionDate(condition("due", "on", "2026-13-40"), today)).toBeNull();
+	});
+});
+
+describe("describeDateConditions", () => {
+	it("labels $TODAY as Today and keeps fixed dates verbatim", () => {
+		const conditions = [
+			condition("scheduled", "on-or-before", TODAY_FILTER_VALUE),
+			condition("due", "before", "2026-07-01"),
+		];
+
+		expect(describeDateConditions(conditions)).toBe(
+			"scheduled on or before Today; due before 2026-07-01",
+		);
+	});
+
+	it("maps property keys through the provided label lookup", () => {
+		const conditions = [condition("due", "on", TODAY_FILTER_VALUE)];
+
+		expect(
+			describeDateConditions(conditions, (key) => key.toUpperCase()),
+		).toBe("DUE on Today");
+	});
+});
+
+describe("dateConditionsEqual", () => {
+	const a = condition("due", "before", TODAY_FILTER_VALUE);
+	const b = condition("scheduled", "on-or-before", "2026-07-01");
+
+	it("matches identical lists", () => {
+		expect(dateConditionsEqual([a, b], [{ ...a }, { ...b }])).toBe(true);
+		expect(dateConditionsEqual([], [])).toBe(true);
+	});
+
+	it("rejects differing length, order, or fields", () => {
+		expect(dateConditionsEqual([a], [a, b])).toBe(false);
+		expect(dateConditionsEqual([a, b], [b, a])).toBe(false);
+		expect(
+			dateConditionsEqual([a], [{ ...a, operator: "after" }]),
+		).toBe(false);
+		expect(dateConditionsEqual([a], [{ ...a, value: "2026-07-01" }])).toBe(false);
+		expect(dateConditionsEqual([a], [{ ...a, property: "start" }])).toBe(false);
 	});
 });
 

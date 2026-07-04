@@ -39,7 +39,9 @@ per the issue discussion.
    unassigned buckets is a column-level concern (and, as separate future
    work, a group-level toggle) — filters never make it.
 4. Date conditions persist per-board like the existing content/tag/file
-   filters, and can be captured in saved filters.
+   filters, and can be captured in saved filters. A saved date filter can
+   optionally be given a user-chosen name (e.g. "overdue"); the chip shows
+   the name when present, otherwise a description of the conditions.
 5. `$TODAY` re-evaluates when the day rolls over while a board stays open —
    no reload needed for the board to be correct the next morning.
 6. When swimlanes group by a date property, an option collapses every bucket
@@ -67,7 +69,10 @@ export interface DateFilterCondition {
 - `lastDateFilter: DateFilterCondition[]` (default `[]`) joins
   `lastContentFilter` / `lastTagFilter` / `lastFileFilter`.
 - `savedFilterSchema` gains an optional `date: { conditions: [...] }` slot,
-  parallel to `content` / `tag` / `file`.
+  parallel to `content` / `tag` / `file`, and an optional top-level
+  `name: string`. The name lives on the shared saved-filter shape so any
+  filter type can be named later, but only the Date section's save flow
+  surfaces it for now.
 - `BoardFilterState` (`src/ui/filters/filter_state.ts`) gains
   `dateConditions`, so persistence, serialization, and the external-edit
   sync logic extend for free.
@@ -175,8 +180,11 @@ with the section replaced by a short hint to enable a property schema):
 - Value is a Today/fixed-date toggle; fixed date uses a native date input.
 - Each row has a remove button; `[+ Add condition]` appends a row with
   defaults (`scheduled`, `on-or-before`, `$TODAY`).
-- `[Add filter]` saves the current condition set as a saved filter chip,
-  matching the content/tag/file pattern.
+- A `Save` action saves the current condition set as a saved filter chip
+  (with a collapsible "Saved filters" list above the rows), matching the
+  content/file pattern; an optional name input next to it labels the chip
+  (unnamed chips describe their conditions, e.g. "Scheduled on or before
+  Today"). `Clear` removes all condition rows.
 
 **Group control**: when the group select is a date-typed property, show a
 checkbox "Combine overdue into one group" bound to
@@ -246,7 +254,7 @@ checkbox "Combine overdue into one group" bound to
 1. ✅ `[+ Add condition]` / per-row remove; conditions AND-ed.
 2. ✅ Unit tests for multi-condition evaluation and per-row validity
    skipping.
-3. ☐ Test: with the Phase 1 condition active, add `due before $TODAY` —
+3. ✅ Test: with the Phase 1 condition active, add `due before $TODAY` —
    board shows overdue tasks plus tasks with no due date; remove the row
    and the hygiene filter alone remains.
 
@@ -254,17 +262,22 @@ checkbox "Combine overdue into one group" bound to
 once ("all overdue, grouped by area" = this plus existing tag-group
 swimlanes).
 
-### Phase 3: Saved filters + day rollover
+### Phase 3: Saved filters + day rollover 🚧 IN PROGRESS
 **Goal:** Date filters are first-class citizens of filter persistence.
 
-1. ☐ Add optional `date` slot to `savedFilterSchema`; chips, add/apply/
-   remove in the Date section mirroring content/tag/file.
-2. ☐ Implement `today_store.ts` (midnight timer + focus/visibility
+1. ✅ Add optional `date` slot and optional `name` to `savedFilterSchema`;
+   chips, add/apply/remove in the Date section mirroring content/tag/file,
+   with an optional-name input in the save flow.
+2. ✅ Implement `today_store.ts` (midnight timer + focus/visibility
    re-check); thread it into `filteredByDate`.
-3. ☐ Test: save an overdue filter, reapply from chip; simulate rollover
-   (unit test on the store with injected clock) and confirm re-filtering.
+3. ✅ Unit tests: saved-filter round-trip with and without a name; store
+   rollover, wake re-check after simulated sleep, and teardown with an
+   injected clock (vitest fake timers) and injected wake-listener registrar.
+4. ✅ Manual test: save an overdue filter (named and unnamed), reapply from
+   chip, delete a chip; confirm the board re-filters on day rollover.
 
-**Deliverable:** Saveable date filters that stay correct across days.
+**Deliverable:** Saveable, optionally named date filters that stay correct
+across days.
 
 ### Phase 4: Overdue smooshing for date groups
 **Goal:** Grouping by a date property can collapse the past into one lane.
