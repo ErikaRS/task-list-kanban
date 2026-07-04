@@ -345,17 +345,17 @@ and persists, replacing the sidebar's filtering role.
 **Deliverable:** A working single search bar covering all four filter
 types with AND semantics and per-board persistence.
 
-### Phase 2: Expanded structured editor
+### Phase 2: Expanded structured editor 🚧 IN PROGRESS
 **Goal:** Bar and structured editor are two synced views of one query.
 
-1. ☐ Expand/collapse control on the bar; overlay panel with Content /
+1. ✅ Expand/collapse control on the bar; overlay panel with Content /
    Tags / Files / Date sections (per-row inputs + remove + add; a tag
    row is one comma-separated OR-group), date rows reusing the
    SPEC_0028 condition-row markup.
-2. ☐ Two-way sync: editor edits re-serialize into the bar; bar edits
+2. ✅ Two-way sync: editor edits re-serialize into the bar; bar edits
    re-parse into the editor; canonicalize bar text on blur, preserve raw
    text while focused.
-3. ☐ Esc / outside-click collapse; date section visibility follows the
+3. ✅ Esc / outside-click collapse; date section visibility follows the
    schema's date keys.
 4. ☐ Test: type a mixed query, expand, verify structured view; edit each
    section, verify bar text updates; round-trip a query with quoted

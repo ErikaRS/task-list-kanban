@@ -40,8 +40,11 @@
 	import {
 		isEmptyFilterQuery,
 		parseFilterQuery,
+		serializeFilterQuery,
 		taskMatchesFilterQuery,
+		type FilterQuery,
 	} from "./filters/filter_query";
+	import FilterEditor from "./filters/filter_editor.svelte";
 	import { createTodayStore } from "./filters/today_store";
 
 	type TagPrefixGroupSource = Extract<GroupSource, { kind: "tag-prefix" }>;
@@ -315,6 +318,37 @@
 	);
 	$: isFiltered = !isEmptyFilterQuery(filterQuery);
 
+	// --- Expanded structured editor (two synced views of one query) ---
+	let filterEditorExpanded = false;
+	let filterBarContainer: HTMLDivElement | undefined;
+
+	// While the bar is focused the raw text is preserved as typed; leaving
+	// it re-serializes the parsed model into canonical form.
+	function canonicalizeFilterText() {
+		filterQueryText = serializeFilterQuery(filterQuery);
+	}
+
+	function applyEditorQuery(next: FilterQuery) {
+		filterQueryText = serializeFilterQuery(next);
+	}
+
+	function handleWindowKeydown(e: KeyboardEvent) {
+		if (e.key === "Escape" && filterEditorExpanded) {
+			filterEditorExpanded = false;
+		}
+	}
+
+	function handleWindowMousedown(e: MouseEvent) {
+		if (
+			filterEditorExpanded &&
+			filterBarContainer &&
+			e.target instanceof Node &&
+			!filterBarContainer.contains(e.target)
+		) {
+			filterEditorExpanded = false;
+		}
+	}
+
 	$: filteredTasks = isFiltered
 		? $tasksStore.filter((task) =>
 				taskMatchesFilterQuery(task, filterQuery, $todayStore),
@@ -516,26 +550,48 @@
 	}
 </script>
 
+<svelte:window on:keydown={handleWindowKeydown} on:mousedown={handleWindowMousedown} />
+
 <div class="main">
 	<div class="board-content">
-		<div class="filter-bar">
-			<Icon name="search" size={16} opacity={0.7} />
-			<input
-				type="text"
-				class="filter-bar-input"
-				bind:value={filterQueryText}
-				placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
-				aria-label="Filter tasks"
-				spellcheck="false"
-			/>
-			{#if filterQueryText !== ""}
+		<div class="filter-bar-container" bind:this={filterBarContainer}>
+			<div class="filter-bar">
+				<Icon name="search" size={16} opacity={0.7} />
+				<input
+					type="text"
+					class="filter-bar-input"
+					bind:value={filterQueryText}
+					on:blur={canonicalizeFilterText}
+					placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
+					aria-label="Filter tasks"
+					spellcheck="false"
+				/>
+				{#if filterQueryText !== ""}
+					<button
+						class="filter-bar-clear"
+						aria-label="Clear filter"
+						on:click={() => (filterQueryText = "")}
+					>
+						×
+					</button>
+				{/if}
 				<button
-					class="filter-bar-clear"
-					aria-label="Clear filter"
-					on:click={() => (filterQueryText = "")}
+					class="filter-bar-expand"
+					aria-label={filterEditorExpanded
+						? "Collapse filter editor"
+						: "Expand filter editor"}
+					aria-expanded={filterEditorExpanded}
+					on:click={() => (filterEditorExpanded = !filterEditorExpanded)}
 				>
-					×
+					{filterEditorExpanded ? "▴" : "▾"}
 				</button>
+			</div>
+			{#if filterEditorExpanded}
+				<FilterEditor
+					query={filterQuery}
+					dateKeys={dateFilterKeys}
+					onChange={applyEditorQuery}
+				/>
 			{/if}
 		</div>
 			<div class="board-header">
@@ -780,12 +836,18 @@
 		flex-direction: column;
 		font-size: var(--font-text-size);
 
-		.filter-bar {
+		// Positioning context for the expanded editor, which overlays the
+		// board content instead of pushing it down.
+		.filter-bar-container {
 			position: relative;
+			z-index: 100;
+			margin-bottom: var(--size-4-2);
+		}
+
+		.filter-bar {
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-3);
-			margin-bottom: var(--size-4-2);
 			padding: 0 var(--size-2-3);
 			background: var(--background-primary);
 			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
@@ -812,7 +874,8 @@
 				}
 			}
 
-			.filter-bar-clear {
+			.filter-bar-clear,
+			.filter-bar-expand {
 				flex: 0 0 auto;
 				padding: var(--size-2-1);
 				background: transparent;
@@ -826,6 +889,10 @@
 				&:hover {
 					color: var(--text-normal);
 				}
+			}
+
+			.filter-bar-expand {
+				font-size: var(--font-ui-small);
 			}
 		}
 
