@@ -26,7 +26,7 @@
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SavedGrouping, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { type DateFilterCondition, type SavedGrouping, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
@@ -40,6 +40,12 @@
 		shouldApplyIncomingBoardFilterState,
 		writeBoardFilterState,
 	} from "./filters/filter_state";
+	import {
+		DATE_FILTER_OPERATORS,
+		TODAY_FILTER_VALUE,
+		getToday,
+		taskMatchesDateConditions,
+	} from "./filters/date_filter";
 
 	type TagPrefixGroupSource = Extract<GroupSource, { kind: "tag-prefix" }>;
 	type SavedTagGrouping = SavedGrouping & { source: TagPrefixGroupSource };
@@ -396,6 +402,30 @@
 		}
 	}
 
+	// --- Date filter conditions (AND-ed) ---
+	$: dateFilterKeys = activeSchema.knownKeys().filter((key) => key.type === "date");
+
+	function addDateCondition() {
+		const property =
+			dateFilterKeys.find((key) => key.key === "scheduled")?.key ??
+			dateFilterKeys[0]?.key;
+		if (!property) return;
+		dateConditions = [
+			...dateConditions,
+			{ property, operator: "on-or-before", value: TODAY_FILTER_VALUE },
+		];
+	}
+
+	function removeDateCondition(index: number) {
+		dateConditions = dateConditions.filter((_, i) => i !== index);
+	}
+
+	function updateDateCondition(index: number, patch: Partial<DateFilterCondition>) {
+		dateConditions = dateConditions.map((condition, i) =>
+			i === index ? { ...condition, ...patch } : condition,
+		);
+	}
+
 	function addTagFilter() {
 		if (selectedTags.length === 0 || tagFilterExists) {
 			return;
@@ -477,6 +507,7 @@
 
 	let filterText = "";
 	let fileFilter = "";
+	let dateConditions: DateFilterCondition[] = [];
 	let hydrated = false;
 	let lastPersistedFilterStateKey = "";
 
@@ -485,6 +516,7 @@
 			contentText: filterText,
 			tagValues: selectedTags,
 			fileText: fileFilter,
+			dateConditions,
 		};
 	}
 
@@ -492,6 +524,7 @@
 		filterText = filterState.contentText;
 		selectedTags = filterState.tagValues;
 		fileFilter = filterState.fileText;
+		dateConditions = filterState.dateConditions;
 		lastPersistedFilterStateKey = serializeBoardFilterState(filterState);
 		hydrated = true;
 	}
@@ -532,6 +565,7 @@
 		filterText;
 		selectedTags;
 		fileFilter;
+		dateConditions;
 		saveFilterState();
 	}
 
@@ -559,11 +593,25 @@
 			)
 		: filteredByTag;
 
-	$: tasksByColumn = groupByColumnTag(filteredByFile);
+	// $TODAY resolves at derivation time; a today store that re-runs this at
+	// midnight arrives with saved-filter support (SPEC_0028 Phase 3).
+	$: filteredByDate = (() => {
+		if (dateConditions.length === 0) return filteredByFile;
+		const today = getToday();
+		return filteredByFile.filter((task) =>
+			taskMatchesDateConditions(task, dateConditions, today),
+		);
+	})();
+
+	$: tasksByColumn = groupByColumnTag(filteredByDate);
 
 	$: totalTaskCount = getBoardTaskCount($tasksStore);
-	$: filteredTaskCount = getBoardTaskCount(filteredByFile);
-	$: isFiltered = filterText.trim() !== "" || selectedTags.length > 0 || fileFilter.trim() !== "";
+	$: filteredTaskCount = getBoardTaskCount(filteredByDate);
+	$: isFiltered =
+		filterText.trim() !== "" ||
+		selectedTags.length > 0 ||
+		fileFilter.trim() !== "" ||
+		dateConditions.length > 0;
 
 	$: ({
 		showFilepath = true,
@@ -610,7 +658,7 @@
 		flowDirection === FlowDirection.TopToBottom ||
 		flowDirection === FlowDirection.BottomToTop;
 
-	$: activeMatrix = deriveBoardMatrix(filteredByFile, $settingsStore.columns, {
+	$: activeMatrix = deriveBoardMatrix(filteredByDate, $settingsStore.columns, {
 		...$settingsStore,
 		collapsedColumns: Array.from($collapsedColumnsStore)
 	});
@@ -952,6 +1000,89 @@
 					Clear
 				</button>
 			</div>
+		</div>
+		<div class="date-filter">
+			<span class="date-filter-title">Filter by date:</span>
+			{#if dateFilterKeys.length === 0}
+				<p class="date-filter-hint">
+					Enable a property schema in the board settings to filter by date.
+				</p>
+			{:else}
+				{#each dateConditions as condition, index}
+					<div class="date-condition-row">
+						<select
+							class="dropdown"
+							value={condition.property}
+							aria-label="Date property"
+							on:change={(e) =>
+								updateDateCondition(index, { property: e.currentTarget.value })}
+						>
+							{#if !dateFilterKeys.some((key) => key.key === condition.property)}
+								<option value={condition.property}>{condition.property}</option>
+							{/if}
+							{#each dateFilterKeys as key}
+								<option value={key.key}>{key.label}</option>
+							{/each}
+						</select>
+						<select
+							class="dropdown"
+							value={condition.operator}
+							aria-label="Date comparison"
+							on:change={(e) =>
+								updateDateCondition(index, {
+									operator: e.currentTarget.value as DateFilterCondition["operator"],
+								})}
+						>
+							{#each DATE_FILTER_OPERATORS as operator}
+								<option value={operator.value}>{operator.label}</option>
+							{/each}
+						</select>
+						<div class="date-condition-value">
+							<label class="date-value-choice">
+								<input
+									type="radio"
+									name={"date-condition-value-" + index}
+									checked={condition.value === TODAY_FILTER_VALUE}
+									on:change={() =>
+										updateDateCondition(index, { value: TODAY_FILTER_VALUE })}
+								/>
+								Today
+							</label>
+							<label class="date-value-choice">
+								<input
+									type="radio"
+									name={"date-condition-value-" + index}
+									checked={condition.value !== TODAY_FILTER_VALUE}
+									on:change={() => updateDateCondition(index, { value: "" })}
+								/>
+								Date
+							</label>
+							{#if condition.value !== TODAY_FILTER_VALUE}
+								<input
+									type="date"
+									value={condition.value}
+									aria-label="Comparison date"
+									on:change={(e) =>
+										updateDateCondition(index, { value: e.currentTarget.value })}
+								/>
+							{/if}
+						</div>
+						<button
+							class="date-condition-remove"
+							aria-label="Remove date condition"
+							on:click={() => removeDateCondition(index)}
+						>
+							×
+						</button>
+					</div>
+				{/each}
+				<button
+					class="filter-action-btn clear-btn add-date-condition-btn"
+					on:click={addDateCondition}
+				>
+					+ Add condition
+				</button>
+			{/if}
 		</div>
 			</div>
 		</aside>
@@ -1515,6 +1646,39 @@
 			padding: var(--size-4-4);
 			padding-top: 50px;
 
+			.filter-action-btn {
+				padding: var(--size-2-2) var(--size-4-3);
+				border-radius: var(--radius-s);
+				cursor: pointer;
+				font-size: var(--font-ui-small);
+				transition: background 150ms ease, opacity 150ms ease;
+
+				&.save-btn {
+					background: var(--interactive-accent);
+					color: var(--text-on-accent);
+					border: none;
+
+					&:hover:not(:disabled) {
+						background: var(--interactive-accent-hover);
+					}
+				}
+
+				&.clear-btn {
+					background: transparent;
+					color: var(--text-muted);
+					border: 1px solid var(--background-modifier-border);
+
+					&:hover:not(:disabled) {
+						background: var(--background-modifier-hover);
+					}
+				}
+
+				&:disabled {
+					opacity: 0.5;
+					cursor: not-allowed;
+				}
+			}
+
 			.text-filter,
 			.file-filter {
 				display: flex;
@@ -1553,44 +1717,80 @@
 					gap: var(--size-4-2);
 					margin-top: var(--size-4-2);
 				}
-
-				.filter-action-btn {
-					padding: var(--size-2-2) var(--size-4-3);
-					border-radius: var(--radius-s);
-					cursor: pointer;
-					font-size: var(--font-ui-small);
-					transition: background 150ms ease, opacity 150ms ease;
-
-					&.save-btn {
-						background: var(--interactive-accent);
-						color: var(--text-on-accent);
-						border: none;
-
-						&:hover:not(:disabled) {
-							background: var(--interactive-accent-hover);
-						}
-					}
-
-					&.clear-btn {
-						background: transparent;
-						color: var(--text-muted);
-						border: 1px solid var(--background-modifier-border);
-
-						&:hover:not(:disabled) {
-							background: var(--background-modifier-hover);
-						}
-					}
-
-					&:disabled {
-						opacity: 0.5;
-						cursor: not-allowed;
-					}
-				}
 			}
 
 			.tag-filter {
 				display: flex;
 				flex-direction: column;
+			}
+
+			.date-filter {
+				display: flex;
+				flex-direction: column;
+
+				.date-filter-title {
+					display: inline-block;
+					margin-bottom: var(--size-2-3);
+					font-weight: 600;
+				}
+
+				.date-filter-hint {
+					margin: 0;
+					color: var(--text-muted);
+					font-size: var(--font-ui-small);
+				}
+
+				.date-condition-row {
+					display: flex;
+					flex-wrap: wrap;
+					align-items: center;
+					gap: var(--size-2-2);
+
+					select.dropdown {
+						min-width: 0;
+						max-width: 100%;
+					}
+
+					.date-condition-value {
+						display: flex;
+						flex-wrap: wrap;
+						align-items: center;
+						gap: var(--size-2-2);
+						font-size: var(--font-ui-small);
+
+						.date-value-choice {
+							display: flex;
+							align-items: center;
+							gap: var(--size-2-1);
+							cursor: pointer;
+						}
+
+						input[type="date"] {
+							background: var(--background-primary);
+						}
+					}
+
+					.date-condition-remove {
+						margin-left: auto;
+						padding: var(--size-2-1);
+						background: transparent;
+						border: none;
+						box-shadow: none;
+						cursor: pointer;
+						color: var(--text-muted);
+						font-size: 18px;
+						line-height: 1;
+
+						&:hover {
+							color: var(--color-red);
+						}
+					}
+				}
+
+				.add-date-condition-btn {
+					align-self: flex-start;
+					margin-top: 0;
+				}
 			}
 		}
 

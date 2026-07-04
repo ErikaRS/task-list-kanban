@@ -136,6 +136,35 @@ describe("Invalid field resilience", () => {
 		expect(parsed.showFilepath).toBe(false);
 	});
 
+	it("parses last date filter conditions", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			lastDateFilter: [
+				{ property: "scheduled", operator: "on-or-before", value: "$TODAY" },
+				{ property: "due", operator: "before", value: "2026-07-01" },
+			],
+		});
+
+		expect(parsed.lastDateFilter).toEqual([
+			{ property: "scheduled", operator: "on-or-before", value: "$TODAY" },
+			{ property: "due", operator: "before", value: "2026-07-01" },
+		]);
+	});
+
+	it("recovers from an invalid date filter without losing other settings", () => {
+		const parsed = parseSettings({
+			columns: ["MyColumn"],
+			lastDateFilter: [
+				{ property: "scheduled", operator: "sometime-around", value: "$TODAY" },
+			],
+			showFilepath: false,
+		});
+
+		expect(parsed.lastDateFilter).toEqual([]);
+		expect(parsed.columns.map((column) => column.label)).toEqual(["MyColumn"]);
+		expect(parsed.showFilepath).toBe(false);
+	});
+
 	it("parses property groupSource", () => {
 		const parsed = parseSettings({
 			columns: ["MyColumn"],

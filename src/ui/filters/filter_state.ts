@@ -1,9 +1,10 @@
-import type { SettingValues } from "../settings/settings_store";
+import type { DateFilterCondition, SettingValues } from "../settings/settings_store";
 
 export interface BoardFilterState {
 	contentText: string;
 	tagValues: string[];
 	fileText: string;
+	dateConditions: DateFilterCondition[];
 }
 
 export function readBoardFilterState(settings: SettingValues): BoardFilterState {
@@ -11,6 +12,7 @@ export function readBoardFilterState(settings: SettingValues): BoardFilterState 
 		contentText: settings.lastContentFilter ?? "",
 		tagValues: [...(settings.lastTagFilter ?? [])],
 		fileText: settings.lastFileFilter?.[0] ?? "",
+		dateConditions: (settings.lastDateFilter ?? []).map((condition) => ({ ...condition })),
 	};
 }
 
@@ -23,6 +25,7 @@ export function writeBoardFilterState(
 		lastContentFilter: state.contentText,
 		lastTagFilter: [...state.tagValues],
 		lastFileFilter: state.fileText ? [state.fileText] : [],
+		lastDateFilter: state.dateConditions.map((condition) => ({ ...condition })),
 	};
 }
 
@@ -31,6 +34,11 @@ export function serializeBoardFilterState(state: BoardFilterState): string {
 		contentText: state.contentText,
 		tagValues: state.tagValues,
 		fileText: state.fileText,
+		dateConditions: state.dateConditions.map((condition) => ({
+			property: condition.property,
+			operator: condition.operator,
+			value: condition.value,
+		})),
 	});
 }
 

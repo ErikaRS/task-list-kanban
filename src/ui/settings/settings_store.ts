@@ -62,6 +62,19 @@ export interface SavedFilter {
 	file?: FileValue;
 }
 
+export type DateFilterOperator =
+	| "before"
+	| "on-or-before"
+	| "on"
+	| "on-or-after"
+	| "after";
+
+export interface DateFilterCondition {
+	property: string; // a date-typed key of the active schema, e.g. "scheduled"
+	operator: DateFilterOperator;
+	value: string; // "$TODAY" or "YYYY-MM-DD"
+}
+
 const contentValueSchema = z.object({
 	text: z.string(),
 });
@@ -79,6 +92,12 @@ const savedFilterSchema = z.object({
 	content: contentValueSchema.optional(),
 	tag: tagValueSchema.optional(),
 	file: fileValueSchema.optional(),
+});
+
+const dateFilterConditionSchema = z.object({
+	property: z.string(),
+	operator: z.enum(["before", "on-or-before", "on", "on-or-after", "after"]),
+	value: z.string(),
 });
 
 const groupSourceSchema = z
@@ -159,6 +178,7 @@ const settingsObject = z.object({
 	lastContentFilter: z.string().optional(),
 	lastTagFilter: z.array(z.string()).optional(),
 	lastFileFilter: z.array(z.string()).optional(),
+	lastDateFilter: z.array(dateFilterConditionSchema).catch([]).optional(),
 	filtersExpanded: z.boolean().default(true).optional(),
 	filtersSidebarExpanded: z.boolean().default(true).optional(),
 	filtersSidebarWidth: z.number().default(280).optional(),
@@ -205,6 +225,7 @@ export interface SettingValues {
 	lastContentFilter?: string;
 	lastTagFilter?: string[];
 	lastFileFilter?: string[];
+	lastDateFilter?: DateFilterCondition[];
 	filtersExpanded?: boolean;
 	filtersSidebarExpanded?: boolean;
 	filtersSidebarWidth?: number;
@@ -245,6 +266,7 @@ export const defaultSettings: SettingValues = {
 	lastContentFilter: "",
 	lastTagFilter: [],
 	lastFileFilter: [],
+	lastDateFilter: [],
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],
