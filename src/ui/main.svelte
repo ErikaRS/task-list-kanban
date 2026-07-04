@@ -28,7 +28,7 @@
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
-	import { onMount, onDestroy } from "svelte";
+	import { onMount, onDestroy, tick } from "svelte";
 	import type { App } from "obsidian";
 	import { getBoardTaskCount } from "./board_counts";
 	import { collectPresentManualOrderKeys } from "./tasks/manual_order";
@@ -45,6 +45,13 @@
 		type FilterQuery,
 	} from "./filters/filter_query";
 	import FilterEditor from "./filters/filter_editor.svelte";
+	import FilterSuggestionList from "./filters/filter_suggestion_list.svelte";
+	import {
+		applyFilterSuggestion,
+		getFilterSuggestions,
+		stepSuggestionIndex,
+		type FilterSuggestion,
+	} from "./filters/filter_suggestions";
 	import { createTodayStore } from "./filters/today_store";
 
 	type TagPrefixGroupSource = Extract<GroupSource, { kind: "tag-prefix" }>;
@@ -335,16 +342,105 @@
 		);
 		filterQueryText = canonical;
 		appliedQueryText = canonical;
+		hideBarSuggestions();
 	}
 
 	function clearFilter() {
 		filterQueryText = "";
 		appliedQueryText = "";
+		hideBarSuggestions();
+	}
+
+	// --- Typed text suggestions (SPEC 0029 Phase 3) ---
+	let filterInputEl: HTMLInputElement | undefined;
+	let barSuggestions: FilterSuggestion[] = [];
+	// -1 = list open but nothing highlighted, so Enter still applies the
+	// query; ArrowDown opts into the list.
+	let barSuggestionIndex = -1;
+	let barSuggestionsVisible = false;
+
+	$: taskFilePaths = [...new Set($tasksStore.map((task) => task.path))].sort(
+		(a, b) => a.localeCompare(b),
+	);
+	$: suggestionContext = {
+		tags: availableTags,
+		filePaths: taskFilePaths,
+		dateKeys: dateFilterKeys,
+		// Unified saved-filter names arrive in Phase 4.
+		savedFilterNames: [] as string[],
+	};
+
+	function refreshBarSuggestions() {
+		const caret = filterInputEl?.selectionStart ?? filterQueryText.length;
+		barSuggestions = getFilterSuggestions(
+			filterQueryText,
+			caret,
+			suggestionContext,
+		);
+		barSuggestionIndex = -1;
+		barSuggestionsVisible = barSuggestions.length > 0;
+	}
+
+	function hideBarSuggestions() {
+		barSuggestionsVisible = false;
+		barSuggestionIndex = -1;
+	}
+
+	async function acceptBarSuggestion(suggestion: FilterSuggestion) {
+		const applied = applyFilterSuggestion(filterQueryText, suggestion);
+		filterQueryText = applied.text;
+		await tick();
+		filterInputEl?.focus();
+		filterInputEl?.setSelectionRange(applied.caret, applied.caret);
+		// Accepting a prefix (`tag:` …) flows straight into value
+		// suggestions; accepting a value completes the token.
+		if (suggestion.kind === "prefix") {
+			refreshBarSuggestions();
+		} else {
+			hideBarSuggestions();
+		}
 	}
 
 	function handleFilterInputKeydown(e: KeyboardEvent) {
+		if (barSuggestionsVisible && barSuggestions.length > 0) {
+			if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+				e.preventDefault();
+				barSuggestionIndex = stepSuggestionIndex(
+					barSuggestions.length,
+					barSuggestionIndex,
+					e.key === "ArrowDown" ? 1 : -1,
+				);
+				return;
+			}
+			if (e.key === "Tab") {
+				e.preventDefault();
+				acceptBarSuggestion(barSuggestions[Math.max(barSuggestionIndex, 0)]!);
+				return;
+			}
+			if (e.key === "Enter" && barSuggestionIndex >= 0) {
+				e.preventDefault();
+				acceptBarSuggestion(barSuggestions[barSuggestionIndex]!);
+				return;
+			}
+			if (e.key === "Escape") {
+				// Dismiss only the suggestions; a second Esc (reaching the
+				// window handler) collapses the expanded editor.
+				e.stopPropagation();
+				hideBarSuggestions();
+				return;
+			}
+		}
 		if (e.key === "Enter") {
+			hideBarSuggestions();
 			applyFilter();
+		}
+	}
+
+	function handleFilterInputClick() {
+		// A click moves the caret; retarget an already-open list rather than
+		// popping it open on mere focus.
+		if (barSuggestionsVisible) {
+			refreshBarSuggestions();
 		}
 	}
 
@@ -585,8 +681,12 @@
 				<input
 					type="text"
 					class="filter-bar-input"
+					bind:this={filterInputEl}
 					bind:value={filterQueryText}
+					on:input={refreshBarSuggestions}
 					on:keydown={handleFilterInputKeydown}
+					on:click={handleFilterInputClick}
+					on:blur={hideBarSuggestions}
 					placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
 					aria-label="Filter tasks (press Enter to apply)"
 					spellcheck="false"
@@ -611,10 +711,19 @@
 					<Icon name="sliders-horizontal" size={18} />
 				</button>
 			</div>
+			{#if barSuggestionsVisible}
+				<FilterSuggestionList
+					suggestions={barSuggestions}
+					selectedIndex={barSuggestionIndex}
+					onAccept={acceptBarSuggestion}
+				/>
+			{/if}
 			{#if filterEditorExpanded}
 				<FilterEditor
 					query={draftQuery}
 					dateKeys={dateFilterKeys}
+					tagSuggestionItems={availableTags}
+					fileSuggestionItems={taskFilePaths}
 					onChange={applyEditorQuery}
 					onSearch={searchFromEditor}
 					onClear={clearFilter}

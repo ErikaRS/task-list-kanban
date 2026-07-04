@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from "svelte";
 	import type {
 		DateFilterCondition,
 		DateFilterOperator,
@@ -11,9 +12,18 @@
 		serializeFilterQuery,
 		type FilterQuery,
 	} from "./filter_query";
+	import {
+		applyFilterSuggestion,
+		getListSuggestions,
+		stepSuggestionIndex,
+		type FilterSuggestion,
+	} from "./filter_suggestions";
+	import FilterSuggestionList from "./filter_suggestion_list.svelte";
 
 	export let query: FilterQuery;
 	export let dateKeys: { key: string; label: string }[] = [];
+	export let tagSuggestionItems: string[] = [];
+	export let fileSuggestionItems: string[] = [];
 	export let onChange: (query: FilterQuery) => void;
 	export let onSearch: () => void;
 	export let onClear: () => void;
@@ -116,6 +126,107 @@
 		}
 	}
 
+	// --- Typed suggestions on the tag/file inputs (SPEC 0029 Phase 3) ---
+	// One list at a time, owned by whichever input the user is typing in.
+	// Tag rows and the file row are comma-separated "any of" lists, so the
+	// same segment-scoped completion as the bar applies, minus the quoting
+	// (these inputs strip `"`).
+	type SuggestField = { kind: "tag"; index: number } | { kind: "file" };
+
+	let activeSuggestField: SuggestField | null = null;
+	let fieldSuggestions: FilterSuggestion[] = [];
+	let fieldSuggestionIndex = -1;
+	let tagInputEls: HTMLInputElement[] = [];
+	let fileInputEl: HTMLInputElement | undefined;
+
+	function fieldEl(field: SuggestField): HTMLInputElement | undefined {
+		return field.kind === "tag" ? tagInputEls[field.index] : fileInputEl;
+	}
+
+	function fieldValue(field: SuggestField): string {
+		return field.kind === "tag" ? tagRows[field.index] ?? "" : fileRow;
+	}
+
+	function refreshFieldSuggestions(field: SuggestField) {
+		const value = fieldValue(field);
+		const caret = fieldEl(field)?.selectionStart ?? value.length;
+		fieldSuggestions = getListSuggestions(
+			value,
+			caret,
+			field.kind === "tag" ? tagSuggestionItems : fileSuggestionItems,
+			field.kind,
+		);
+		fieldSuggestionIndex = -1;
+		activeSuggestField = fieldSuggestions.length > 0 ? field : null;
+	}
+
+	function hideFieldSuggestions() {
+		activeSuggestField = null;
+		fieldSuggestions = [];
+		fieldSuggestionIndex = -1;
+	}
+
+	async function acceptFieldSuggestion(suggestion: FilterSuggestion) {
+		const field = activeSuggestField;
+		if (!field) {
+			return;
+		}
+		const applied = applyFilterSuggestion(fieldValue(field), suggestion);
+		if (field.kind === "tag") {
+			tagRows[field.index] = applied.text;
+		} else {
+			fileRow = applied.text;
+		}
+		emit();
+		hideFieldSuggestions();
+		await tick();
+		const el = fieldEl(field);
+		el?.focus();
+		el?.setSelectionRange(applied.caret, applied.caret);
+	}
+
+	function onSuggestingKeydown(e: KeyboardEvent) {
+		if (activeSuggestField && fieldSuggestions.length > 0) {
+			if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+				e.preventDefault();
+				fieldSuggestionIndex = stepSuggestionIndex(
+					fieldSuggestions.length,
+					fieldSuggestionIndex,
+					e.key === "ArrowDown" ? 1 : -1,
+				);
+				return;
+			}
+			if (e.key === "Tab") {
+				e.preventDefault();
+				acceptFieldSuggestion(
+					fieldSuggestions[Math.max(fieldSuggestionIndex, 0)]!,
+				);
+				return;
+			}
+			if (e.key === "Enter" && fieldSuggestionIndex >= 0) {
+				e.preventDefault();
+				acceptFieldSuggestion(fieldSuggestions[fieldSuggestionIndex]!);
+				return;
+			}
+			if (e.key === "Escape") {
+				// Dismiss only the suggestions; a second Esc (reaching the
+				// window handler) collapses the whole editor.
+				e.stopPropagation();
+				hideFieldSuggestions();
+				return;
+			}
+		}
+		onRowKeydown(e);
+	}
+
+	function retargetFieldSuggestions(field: SuggestField) {
+		// A click moves the caret; retarget an already-open list rather than
+		// popping it open on mere focus.
+		if (activeSuggestField) {
+			refreshFieldSuggestions(field);
+		}
+	}
+
 	function updateDateRow(index: number, patch: Partial<DraftDateCondition>) {
 		dateRows = dateRows.map((condition, i) =>
 			i === index ? { ...condition, ...patch } : condition,
@@ -160,19 +271,32 @@
 		<div class="section-rows">
 			{#each tagRows as _, index}
 				<div class="editor-row">
-					<input
-						class="text-input"
-						type="text"
-						bind:value={tagRows[index]}
-						on:input={() => {
-							tagRows[index] = stripQuotes(tagRows[index] ?? "");
-							emit();
-						}}
-						on:keydown={onRowKeydown}
-						placeholder="tag, tag (any of)"
-						aria-label="Tag group (comma-separated, any of)"
-						spellcheck="false"
-					/>
+					<div class="suggestion-anchor">
+						<input
+							class="text-input"
+							type="text"
+							bind:this={tagInputEls[index]}
+							bind:value={tagRows[index]}
+							on:input={() => {
+								tagRows[index] = stripQuotes(tagRows[index] ?? "");
+								emit();
+								refreshFieldSuggestions({ kind: "tag", index });
+							}}
+							on:keydown={onSuggestingKeydown}
+							on:click={() => retargetFieldSuggestions({ kind: "tag", index })}
+							on:blur={hideFieldSuggestions}
+							placeholder="tag, tag (any of)"
+							aria-label="Tag group (comma-separated, any of)"
+							spellcheck="false"
+						/>
+						{#if activeSuggestField?.kind === "tag" && activeSuggestField.index === index}
+							<FilterSuggestionList
+								suggestions={fieldSuggestions}
+								selectedIndex={fieldSuggestionIndex}
+								onAccept={acceptFieldSuggestion}
+							/>
+						{/if}
+					</div>
 					{#if tagRows.length > 1}
 						<button
 							class="row-remove"
@@ -199,19 +323,32 @@
 	<div class="editor-section">
 		<span class="section-label">Files</span>
 		<div class="section-rows">
-			<input
-				class="text-input"
-				type="text"
-				bind:value={fileRow}
-				on:input={() => {
-					fileRow = stripQuotes(fileRow);
-					emit();
-				}}
-				on:keydown={onRowKeydown}
-				placeholder="path, path (any of)"
-				aria-label="File paths (comma-separated, any of)"
-				spellcheck="false"
-			/>
+			<div class="suggestion-anchor">
+				<input
+					class="text-input"
+					type="text"
+					bind:this={fileInputEl}
+					bind:value={fileRow}
+					on:input={() => {
+						fileRow = stripQuotes(fileRow);
+						emit();
+						refreshFieldSuggestions({ kind: "file" });
+					}}
+					on:keydown={onSuggestingKeydown}
+					on:click={() => retargetFieldSuggestions({ kind: "file" })}
+					on:blur={hideFieldSuggestions}
+					placeholder="path, path (any of)"
+					aria-label="File paths (comma-separated, any of)"
+					spellcheck="false"
+				/>
+				{#if activeSuggestField?.kind === "file"}
+					<FilterSuggestionList
+						suggestions={fieldSuggestions}
+						selectedIndex={fieldSuggestionIndex}
+						onAccept={acceptFieldSuggestion}
+					/>
+				{/if}
+			</div>
 		</div>
 	</div>
 
@@ -365,6 +502,14 @@
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-2);
+		}
+
+		// Positioning context for a suggestion list anchored under its input.
+		.suggestion-anchor {
+			position: relative;
+			display: flex;
+			flex: 1 1 auto;
+			min-width: 0;
 		}
 
 		// Gmail-style underlined inputs.

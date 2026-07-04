@@ -49,7 +49,7 @@ const OPERATORS_BY_TEXT: ReadonlyArray<[string, DateFilterOperator]> = [
 	["=", "on"],
 ];
 
-const TEXT_BY_OPERATOR: Record<DateFilterOperator, string> = {
+export const TEXT_BY_OPERATOR: Record<DateFilterOperator, string> = {
 	before: "<",
 	"on-or-before": "<=",
 	on: "=",

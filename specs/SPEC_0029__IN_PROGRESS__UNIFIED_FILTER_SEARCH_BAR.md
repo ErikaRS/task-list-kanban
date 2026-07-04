@@ -396,22 +396,28 @@ types with AND semantics and per-board persistence.
    preserved while typing.
 3. ✅ Esc / outside-click collapse; date section visibility follows the
    schema's date keys.
-4. ☐ Test: type a mixed query, expand, verify structured view; edit each
+4. ✅ Test: type a mixed query, expand, verify structured view; edit each
    section, verify bar text updates; round-trip a query with quoted
    phrases.
 
 **Deliverable:** The #127 round-trip — type → expand → edit → see text.
 
-### Phase 3: Typed text suggestions
+### Phase 3: Typed text suggestions 🚧 IN PROGRESS
 **Goal:** The bar suggests completions per token kind, all as text.
 
-1. ☐ Caret-token detection + suggestion sources (tags, file paths, date
+1. ✅ Caret-token detection + suggestion sources (tags, file paths, date
    keys/operators, saved filter names + literal prefixes); pure helper
    with unit tests for token boundary and replacement logic.
-2. ☐ Suggestion list UI: keyboard navigation (up/down/Enter/Tab/Esc),
+   (`filter_suggestions.ts`: each suggestion carries its replacement
+   range; saved-name source takes an empty list until Phase 4.)
+2. ✅ Suggestion list UI: keyboard navigation (up/down/Enter/Tab/Esc),
    token-scoped replacement; same suggestions on the editor's tag/file
-   inputs.
-3. ☐ Test: suggestions narrow as you type in each token kind; accepting
+   inputs. (Enter accepts only an arrow-selected suggestion — with
+   nothing highlighted it still applies the query; Tab accepts the
+   highlighted or first suggestion; Esc dismisses the list first, a
+   second Esc collapses the editor. Accepting a `tag:`/`file:`/date-key
+   prefix flows straight into value suggestions.)
+3. ✅ Test: suggestions narrow as you type in each token kind; accepting
    replaces only the current token; Esc dismisses without changing text.
 
 **Deliverable:** Discoverable syntax — users can compose queries without
