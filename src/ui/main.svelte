@@ -510,6 +510,10 @@
 	}
 
 	let savedFilterPendingDelete: SavedFilterEntry | undefined;
+	// The editor unmounts when the panel collapses; holding the saved-list
+	// zippy state here makes it stick across reopenings. Collapsed by
+	// default.
+	let savedFilterListExpanded = false;
 
 	function confirmDeleteSavedFilter() {
 		const pending = savedFilterPendingDelete;
@@ -802,12 +806,14 @@
 					tagSuggestionItems={availableTags}
 					fileSuggestionItems={taskFilePaths}
 					savedFilters={savedFilterEntries}
+					savedListExpanded={savedFilterListExpanded}
 					onChange={applyEditorQuery}
 					onSearch={searchFromEditor}
 					onClear={clearFilter}
 					onApplySavedFilter={applySavedFilter}
 					onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
 					onSaveFilter={saveCurrentFilter}
+					onToggleSavedList={(expanded) => (savedFilterListExpanded = expanded)}
 				/>
 			{/if}
 		</div>

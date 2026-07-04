@@ -21,18 +21,23 @@
 		type FilterSuggestion,
 	} from "./filter_suggestions";
 	import FilterSuggestionList from "./filter_suggestion_list.svelte";
+	import Icon from "../components/icon.svelte";
 
 	export let query: FilterQuery;
 	export let dateKeys: { key: string; label: string }[] = [];
 	export let tagSuggestionItems: string[] = [];
 	export let fileSuggestionItems: string[] = [];
 	export let savedFilters: SavedFilterEntry[] = [];
+	// The saved-list zippy's state lives in the parent so it survives the
+	// editor panel closing and reopening (this component unmounts each time).
+	export let savedListExpanded = false;
 	export let onChange: (query: FilterQuery) => void;
 	export let onSearch: () => void;
 	export let onClear: () => void;
 	export let onApplySavedFilter: (entry: SavedFilterEntry) => void;
 	export let onDeleteSavedFilter: (entry: SavedFilterEntry) => void;
 	export let onSaveFilter: (name: string | undefined) => void;
+	export let onToggleSavedList: (expanded: boolean) => void;
 
 	// A date row may be incomplete (empty property/operator) while being
 	// composed; only complete rows are emitted into the query.
@@ -506,32 +511,9 @@
 		</div>
 	</div>
 
-	<div class="editor-section saved-section">
-		<span class="section-label">Saved</span>
+	<div class="editor-section">
+		<span class="section-label">Save as</span>
 		<div class="section-rows">
-			{#if savedFilters.length > 0}
-				<ul class="saved-filter-list" role="list">
-					{#each savedFilters as entry (entry.id)}
-						<li>
-							<button
-								class="row-remove"
-								aria-label="Delete saved filter: {entry.name ?? entry.query}"
-								on:click={() => onDeleteSavedFilter(entry)}
-							>
-								×
-							</button>
-							<button
-								class="saved-filter-name"
-								class:active={entry.id === activeSavedFilterId}
-								aria-pressed={entry.id === activeSavedFilterId}
-								on:click={() => toggleSavedFilter(entry)}
-							>
-								{entry.name ?? entry.query}
-							</button>
-						</li>
-					{/each}
-				</ul>
-			{/if}
 			<div class="save-row">
 				<input
 					class="text-input"
@@ -551,6 +533,49 @@
 				</button>
 			</div>
 		</div>
+	</div>
+
+	<div class="editor-section saved-section">
+		<button
+			class="saved-toggle"
+			aria-expanded={savedListExpanded}
+			on:click={() => onToggleSavedList(!savedListExpanded)}
+		>
+			<Icon
+				name={savedListExpanded ? "chevron-down" : "chevron-right"}
+				size={14}
+			/>
+			Saved
+		</button>
+		{#if savedListExpanded}
+			<div class="section-rows">
+				{#if savedFilters.length > 0}
+					<ul class="saved-filter-list" role="list">
+						{#each savedFilters as entry (entry.id)}
+							<li>
+								<button
+									class="row-remove"
+									aria-label="Delete saved filter: {entry.name ?? entry.query}"
+									on:click={() => onDeleteSavedFilter(entry)}
+								>
+									×
+								</button>
+								<button
+									class="saved-filter-name"
+									class:active={entry.id === activeSavedFilterId}
+									aria-pressed={entry.id === activeSavedFilterId}
+									on:click={() => toggleSavedFilter(entry)}
+								>
+									{entry.name ?? entry.query}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="section-hint">No saved filters yet.</p>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<div class="editor-actions">
@@ -677,6 +702,27 @@
 			border-top: 1px solid var(--background-modifier-border);
 		}
 
+		// Zippy that discloses the saved list; styled like a section label.
+		.saved-toggle {
+			display: inline-flex;
+			align-items: center;
+			justify-content: flex-start;
+			gap: var(--size-2-1);
+			align-self: start;
+			margin: 0;
+			padding: var(--size-2-2) 0;
+			background: transparent;
+			border: none;
+			box-shadow: none;
+			cursor: pointer;
+			color: var(--text-muted);
+			font-size: var(--font-ui-small);
+
+			&:hover {
+				color: var(--text-normal);
+			}
+		}
+
 		.saved-filter-list {
 			margin: 0;
 			padding: 0;
@@ -693,6 +739,9 @@
 			}
 
 			.saved-filter-name {
+				// display: block beats theme button styles (inline-flex with
+				// centered content), which otherwise center the name.
+				display: block;
 				flex: 1 1 auto;
 				min-width: 0;
 				padding: var(--size-2-1) var(--size-2-2);
