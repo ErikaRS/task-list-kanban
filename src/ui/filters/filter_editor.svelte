@@ -191,7 +191,7 @@
 				</div>
 			{/each}
 			<button class="add-row-btn" on:click={() => (tagRows = [...tagRows, ""])}>
-				+ Add tag group (groups must all match)
+				+ Add tag group
 			</button>
 		</div>
 	</div>
@@ -304,7 +304,7 @@
 					class="add-row-btn"
 					on:click={() => (dateRows = [...dateRows, emptyDateRow()])}
 				>
-					+ Add condition (conditions must all match)
+					+ Add condition
 				</button>
 			{/if}
 		</div>
