@@ -12,6 +12,7 @@ import {
 	type SortDirection,
 } from "../../parsing/properties/comparators";
 import { computeDisplayOrder } from "../tasks/manual_order";
+import { getToday } from "../filters/date_filter";
 
 export type PrimaryBucketId = ColumnTag | DefaultColumns;
 export type SecondaryBucketId = string;
@@ -45,7 +46,8 @@ export interface BoardMatrix {
 export function deriveBoardMatrix(
 	tasks: Task[],
 	columns: ColumnDefinition[],
-	settings: SettingValues
+	settings: SettingValues,
+	today: Date = getToday(),
 ): BoardMatrix {
 	const tasksByPrimary: Record<string, Task[]> = {
 		uncategorised: [],
@@ -159,8 +161,9 @@ export function deriveBoardMatrix(
 		settings.statusMarkerOrder ?? "",
 		settings.doneStatusMarkers ?? "",
 		settings.groupDirection ?? "asc",
+		today,
 	);
-	const assignTaskToBucket = createGroupAssigner(groupBuckets, groupSource, settings.excludedTags);
+	const assignTaskToBucket = createGroupAssigner(groupBuckets, groupSource, settings.excludedTags, today);
 	const secondaryAxis: AxisBucket<SecondaryBucketId>[] = groupBuckets.map((bucket) => ({
 		id: bucket.id,
 		label: bucket.label,

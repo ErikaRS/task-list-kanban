@@ -352,4 +352,121 @@ describe("property grouping", () => {
 
 		expect(buckets.map((bucket) => bucket.label)).toEqual(["/", " "]);
 	});
+
+	describe("collapsePastDates (overdue smooshing)", () => {
+		const today = new Date("2026-02-01");
+		const collapseSource = {
+			kind: "property",
+			key: "due",
+			collapsePastDates: true,
+		} as const;
+
+		function deriveCollapsedBuckets(tasks: Task[], groupDirection: "asc" | "desc" = "asc") {
+			return deriveGroupBuckets(tasks, collapseSource, [], "", "", groupDirection, today);
+		}
+
+		it("collapses all past dates into one Overdue bucket ordered first", () => {
+			const older = taskWithProperty(new Date("2026-01-01"), "due");
+			const newer = taskWithProperty(new Date("2026-01-15"), "due");
+			const dueToday = taskWithProperty(new Date("2026-02-01"), "due");
+			const future = taskWithProperty(new Date("2026-03-01"), "due");
+			const missing = taskWithProperty(null, "due");
+
+			const buckets = deriveCollapsedBuckets([future, older, missing, dueToday, newer]);
+
+			expect(buckets.map((bucket) => bucket.label)).toEqual([
+				"Overdue",
+				"2026-02-01",
+				"2026-03-01",
+				"Unassigned",
+			]);
+			expect(taskBelongsToGroup(older, buckets[0]!, [], today)).toBe(true);
+			expect(taskBelongsToGroup(newer, buckets[0]!, [], today)).toBe(true);
+			expect(taskBelongsToGroup(dueToday, buckets[0]!, [], today)).toBe(false);
+			expect(taskBelongsToGroup(missing, buckets[0]!, [], today)).toBe(false);
+			expect(taskBelongsToGroup(missing, buckets[3]!, [], today)).toBe(true);
+		});
+
+		it("assigns past-date tasks to the Overdue bucket and others to their own", () => {
+			const past = taskWithProperty(new Date("2026-01-01"), "due");
+			const dueToday = taskWithProperty(new Date("2026-02-01"), "due");
+			const missing = taskWithProperty(null, "due");
+
+			const buckets = deriveCollapsedBuckets([past, dueToday, missing]);
+			const assignGroupId = createGroupAssigner(buckets, collapseSource, [], today);
+
+			expect(assignGroupId(past)).toBe("property:due:__overdue__");
+			expect(assignGroupId(dueToday)).toBe(buckets[1]!.id);
+			expect(assignGroupId(missing)).toBe(buckets[2]!.id);
+		});
+
+		it("keeps the Overdue bucket at the stale end when descending", () => {
+			const past = taskWithProperty(new Date("2026-01-01"), "due");
+			const future = taskWithProperty(new Date("2026-03-01"), "due");
+			const missing = taskWithProperty(null, "due");
+
+			const buckets = deriveCollapsedBuckets([past, future, missing], "desc");
+
+			expect(buckets.map((bucket) => bucket.label)).toEqual([
+				"Unassigned",
+				"2026-03-01",
+				"Overdue",
+			]);
+		});
+
+		it("uses a stable id for the Overdue bucket regardless of its dates", () => {
+			const january = deriveCollapsedBuckets([taskWithProperty(new Date("2026-01-01"), "due")]);
+			const earlier = deriveCollapsedBuckets([taskWithProperty(new Date("2025-06-15"), "due")]);
+
+			expect(january[0]!.id).toBe("property:due:__overdue__");
+			expect(earlier[0]!.id).toBe("property:due:__overdue__");
+			expect(january[0]!.isDefault).toBe(false);
+		});
+
+		it("omits the Overdue bucket when no task has a past date", () => {
+			const future = taskWithProperty(new Date("2026-03-01"), "due");
+
+			const buckets = deriveCollapsedBuckets([future]);
+
+			expect(buckets.map((bucket) => bucket.label)).toEqual(["2026-03-01"]);
+		});
+
+		it("leaves non-date values in their own buckets", () => {
+			const text = taskWithProperty("someday", "due");
+			const past = taskWithProperty(new Date("2026-01-01"), "due");
+
+			const buckets = deriveCollapsedBuckets([text, past]);
+			const assignGroupId = createGroupAssigner(buckets, collapseSource, [], today);
+
+			expect(buckets.map((bucket) => bucket.label)).toEqual(["Overdue", "someday"]);
+			expect(assignGroupId(text)).toBe(buckets[1]!.id);
+		});
+
+		it("treats a datetime on today's calendar day as not overdue", () => {
+			const todayEvening = taskWithProperty(new Date("2026-02-01T18:30:00"), "due");
+			const yesterdayEvening = taskWithProperty(new Date("2026-01-31T18:30:00"), "due");
+
+			const buckets = deriveCollapsedBuckets([todayEvening, yesterdayEvening]);
+			const assignGroupId = createGroupAssigner(buckets, collapseSource, [], today);
+
+			expect(assignGroupId(yesterdayEvening)).toBe("property:due:__overdue__");
+			expect(assignGroupId(todayEvening)).not.toBe("property:due:__overdue__");
+		});
+
+		it("keeps per-date buckets when collapsePastDates is off", () => {
+			const past = taskWithProperty(new Date("2026-01-01"), "due");
+
+			const buckets = deriveGroupBuckets(
+				[past],
+				{ kind: "property", key: "due" },
+				[],
+				"",
+				"",
+				"asc",
+				today,
+			);
+
+			expect(buckets.map((bucket) => bucket.label)).toEqual(["2026-01-01"]);
+		});
+	});
 });

@@ -6,6 +6,7 @@ import {
 	type SortDirection,
 } from "../../parsing/properties/comparators";
 import { UNIVERSAL_STATUS_PROPERTY_KEY, type TaskProperty } from "../../parsing/properties/property_schema";
+import { getToday, toCalendarDay } from "../filters/date_filter";
 
 export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 
@@ -13,7 +14,7 @@ export type GroupSource =
 	| { kind: "none" }
 	| { kind: "file" }
 	| { kind: "tag-prefix"; prefix?: string; includeTags?: string[] }
-	| { kind: "property"; key: string };
+	| { kind: "property"; key: string; collapsePastDates?: boolean };
 
 export interface GroupBucket {
 	id: string; // stable internal id
@@ -30,6 +31,7 @@ export function deriveGroupBuckets(
 	statusMarkerOrder = "",
 	doneStatusMarkers = "",
 	groupDirection: SortDirection = "asc",
+	today: Date = getToday(),
 ): GroupBucket[] {
 	if (source.kind === "file") {
 		const paths = [...new Set(tasks.map((task) => task.path))].sort((a, b) =>
@@ -142,12 +144,17 @@ export function deriveGroupBuckets(
 	if (source.kind === "property") {
 		const valueMap = new Map<string, { value: string | number | Date; label: string }>();
 		let hasMissingValue = false;
+		let hasOverdueValue = false;
 
 		for (const task of tasks) {
 			const property = task.properties.get(source.key);
 			const value = property?.value ?? null;
 			if (value === null) {
 				hasMissingValue = true;
+				continue;
+			}
+			if (source.collapsePastDates && isOverdueValue(value, today)) {
+				hasOverdueValue = true;
 				continue;
 			}
 			const key = propertyValueKey(value);
@@ -174,6 +181,20 @@ export function deriveGroupBuckets(
 				source,
 				isDefault: false,
 			}));
+
+		if (hasOverdueValue) {
+			// One synthetic bucket for every past date, ordered before all dated
+			// buckets in ascending order so applyGroupDirection keeps it at the
+			// stale end either way. Its id carries no date, so it stays stable
+			// across day rollovers and manual-order pins inside it survive.
+			buckets.unshift({
+				id: createPropertyOverdueGroupBucketId(source.key),
+				label: "Overdue",
+				value: null,
+				source,
+				isDefault: false,
+			});
+		}
 
 		if (hasMissingValue || buckets.length === 0) {
 			buckets.push({
@@ -203,7 +224,12 @@ function applyGroupDirection<T>(buckets: T[], groupDirection: SortDirection): T[
 	return groupDirection === "desc" ? [...buckets].reverse() : buckets;
 }
 
-export function taskBelongsToGroup(task: Task, bucket: GroupBucket, excludedTags: string[] = []): boolean {
+export function taskBelongsToGroup(
+	task: Task,
+	bucket: GroupBucket,
+	excludedTags: string[] = [],
+	today: Date = getToday(),
+): boolean {
 	switch (bucket.source.kind) {
 		case "file":
 			return bucket.value !== null && task.path === bucket.value;
@@ -214,6 +240,9 @@ export function taskBelongsToGroup(task: Task, bucket: GroupBucket, excludedTags
 		}
 		case "property": {
 			const value = task.properties.get(bucket.source.key)?.value ?? null;
+			if (isPropertyOverdueBucket(bucket)) {
+				return value !== null && isOverdueValue(value, today);
+			}
 			return bucket.isDefault
 				? value === null
 				: value !== null && bucket.value !== null && propertyValueKey(value) === propertyValueKey(bucket.value);
@@ -277,6 +306,7 @@ export function createGroupAssigner(
 	buckets: GroupBucket[],
 	source: GroupSource,
 	excludedTags: string[] = [],
+	today: Date = getToday(),
 ): (task: Task) => string | undefined {
 	const defaultBucketId = buckets.find((bucket) => bucket.isDefault)?.id;
 
@@ -312,9 +342,13 @@ export function createGroupAssigner(
 				idByValue.set(propertyValueKey(bucket.value), bucket.id);
 			}
 		}
+		const overdueBucketId = buckets.find(isPropertyOverdueBucket)?.id;
 		return (task) => {
 			const value = task.properties.get(source.key)?.value ?? null;
 			if (value === null) return defaultBucketId;
+			if (overdueBucketId !== undefined && isOverdueValue(value, today)) {
+				return overdueBucketId;
+			}
 			return idByValue.get(propertyValueKey(value)) ?? defaultBucketId;
 		};
 	}
@@ -346,6 +380,24 @@ function createPropertyGroupBucketId(key: string, value: string | number | Date)
 
 function createPropertyMissingGroupBucketId(key: string): string {
 	return `property:${key}:__missing__`;
+}
+
+function createPropertyOverdueGroupBucketId(key: string): string {
+	return `property:${key}:__overdue__`;
+}
+
+function isPropertyOverdueBucket(bucket: GroupBucket): boolean {
+	return (
+		bucket.source.kind === "property" &&
+		bucket.id === createPropertyOverdueGroupBucketId(bucket.source.key)
+	);
+}
+
+// Datetime values (possible under Dataview) are truncated to their local
+// calendar day, matching the date-filter semantics: overdue means strictly
+// before today's calendar day.
+function isOverdueValue(value: string | number | Date, today: Date): boolean {
+	return value instanceof Date && toCalendarDay(value).getTime() < today.getTime();
 }
 
 function propertyValueKey(value: string | number | Date): string {

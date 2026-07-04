@@ -123,7 +123,11 @@ const groupSourceSchema = z
 			prefix: z.string().optional(),
 			includeTags: z.array(z.string()).optional(),
 		}),
-		z.object({ kind: z.literal("property"), key: z.string() }),
+		z.object({
+			kind: z.literal("property"),
+			key: z.string(),
+			collapsePastDates: z.boolean().optional(),
+		}),
 	])
 	.catch({ kind: "none" as const });
 

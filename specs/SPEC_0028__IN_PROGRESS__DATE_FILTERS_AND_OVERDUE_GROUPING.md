@@ -248,7 +248,7 @@ checkbox "Combine overdue into one group" bound to
 
 **Deliverable:** A persistent single-condition date filter with `$TODAY`.
 
-### Phase 2: Multiple conditions 🚧 IN PROGRESS
+### Phase 2: Multiple conditions ✅ COMPLETE
 **Goal:** Overdue view stacks on top of the hygiene filter.
 
 1. ✅ `[+ Add condition]` / per-row remove; conditions AND-ed.
@@ -262,7 +262,7 @@ checkbox "Combine overdue into one group" bound to
 once ("all overdue, grouped by area" = this plus existing tag-group
 swimlanes).
 
-### Phase 3: Saved filters + day rollover 🚧 IN PROGRESS
+### Phase 3: Saved filters + day rollover ✅ COMPLETE
 **Goal:** Date filters are first-class citizens of filter persistence.
 
 1. ✅ Add optional `date` slot and optional `name` to `savedFilterSchema`;
@@ -279,19 +279,19 @@ swimlanes).
 **Deliverable:** Saveable, optionally named date filters that stay correct
 across days.
 
-### Phase 4: Overdue smooshing for date groups
+### Phase 4: Overdue smooshing for date groups ✅ COMPLETE
 **Goal:** Grouping by a date property can collapse the past into one lane.
 
-1. ☐ Extend `groupSourceSchema` property variant with
+1. ✅ Extend `groupSourceSchema` property variant with
    `collapsePastDates?: boolean`.
-2. ☐ Thread `today` into `deriveGroupBuckets` / `createGroupAssigner` /
+2. ✅ Thread `today` into `deriveGroupBuckets` / `createGroupAssigner` /
    `taskBelongsToGroup`; implement the `__overdue__` bucket (derivation,
    assignment, ordering, stable id). Update the manual-order prune call
    site.
-3. ☐ Unit tests: mixed past/today/future dates produce one Overdue bucket
+3. ✅ Unit tests: mixed past/today/future dates produce one Overdue bucket
    plus per-date buckets; direction desc reverses placement; missing values
    still land in Unassigned; non-date values unaffected; bucket id stable.
-4. ☐ Group-control checkbox "Combine overdue into one group", shown only
+4. ✅ Group-control checkbox "Combine overdue into one group", shown only
    for date-typed group keys; persists with saved groupings.
 
 **Deliverable:** A single Overdue swimlane when grouping by due/scheduled.
@@ -299,7 +299,7 @@ across days.
 ### Phase 5: Manual verification
 **Goal:** Confirm end-to-end in a real vault.
 
-1. ☐ Sandbox vault: tasks with 📅/⏳ dates in the past, today, and future.
+1. ✅ Sandbox vault: tasks with 📅/⏳ dates in the past, today, and future.
    Verify: future-scheduled hidden by the hygiene filter; overdue view
    correct; combined view correct with tag-group swimlanes; Overdue
    swimlane collapses past dates; chips save/apply; counts and clear-all

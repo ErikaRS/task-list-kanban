@@ -726,10 +726,15 @@
 		flowDirection === FlowDirection.TopToBottom ||
 		flowDirection === FlowDirection.BottomToTop;
 
-	$: activeMatrix = deriveBoardMatrix(filteredByDate, $settingsStore.columns, {
-		...$settingsStore,
-		collapsedColumns: Array.from($collapsedColumnsStore)
-	});
+	$: activeMatrix = deriveBoardMatrix(
+		filteredByDate,
+		$settingsStore.columns,
+		{
+			...$settingsStore,
+			collapsedColumns: Array.from($collapsedColumnsStore)
+		},
+		$todayStore,
+	);
 
 	// --- Sort control (board header) ---
 	// Available sort keys are the active schema's known keys, plus — for Dataview
@@ -819,8 +824,9 @@
 				$settingsStore.statusMarkerOrder ?? "",
 				$settingsStore.doneStatusMarkers ?? "",
 				$settingsStore.groupDirection ?? "asc",
+				$todayStore,
 			);
-			const assignGroupId = createGroupAssigner(groupBuckets, groupSource, $settingsStore.excludedTags ?? []);
+			const assignGroupId = createGroupAssigner(groupBuckets, groupSource, $settingsStore.excludedTags ?? [], $todayStore);
 			taskActions.pruneManualOrder(collectPresentManualOrderKeys($tasksStore, assignGroupId));
 		}, 500);
 	}
@@ -844,6 +850,21 @@
 	function toggleGroupDirection() {
 		$settingsStore.groupDirection =
 			($settingsStore.groupDirection ?? "asc") === "asc" ? "desc" : "asc";
+		requestSave();
+	}
+
+	// Overdue smooshing only makes sense for date-typed group keys; for other
+	// keys the flag is preserved but the toggle is hidden.
+	$: propertyGroupSource =
+		$settingsStore.groupSource?.kind === "property" ? $settingsStore.groupSource : null;
+	$: showCollapsePastDatesToggle =
+		propertyGroupSource !== null &&
+		dateFilterKeys.some((key) => key.key === propertyGroupSource.key);
+
+	function setCollapsePastDates(collapse: boolean) {
+		const src = $settingsStore.groupSource;
+		if (src?.kind !== "property") return;
+		$settingsStore.groupSource = { ...src, collapsePastDates: collapse || undefined };
 		requestSave();
 	}
 
@@ -1303,6 +1324,7 @@
 							{/if}
 						</div>
 					{/if}
+					<div class="group-by-stack">
 					<select
 						class="dropdown group-by-select"
 						value={groupSelectValue}
@@ -1322,7 +1344,13 @@
 								$settingsStore.groupSource = nextGroupSource;
 								tagGroupInputMode = tagGroupInputModeForSource(nextGroupSource);
 							} else if (val.startsWith("prop:")) {
-								$settingsStore.groupSource = { kind: "property", key: val.slice("prop:".length) };
+								$settingsStore.groupSource = {
+									kind: "property",
+									key: val.slice("prop:".length),
+									collapsePastDates: $settingsStore.groupSource?.kind === "property"
+										? $settingsStore.groupSource.collapsePastDates
+										: undefined,
+								};
 							} else {
 								$settingsStore.groupSource = { kind: "none" };
 							}
@@ -1340,6 +1368,17 @@
 							</optgroup>
 						{/if}
 					</select>
+					{#if showCollapsePastDatesToggle && propertyGroupSource}
+						<label class="collapse-overdue-toggle">
+							<input
+								type="checkbox"
+								checked={propertyGroupSource.collapsePastDates ?? false}
+								on:change={(e) => setCollapsePastDates(e.currentTarget.checked)}
+							/>
+							Combine past dates
+						</label>
+					{/if}
+					</div>
 					{#if isDirectionalGroup}
 						<button
 							class="sort-direction-btn"
@@ -1591,6 +1630,39 @@
 
 					&:hover {
 						background: var(--interactive-hover);
+					}
+				}
+
+				/* Tight column so the overdue toggle tucks directly under the
+				   group select without pushing the header row taller than the
+				   54px it already reserves. */
+				.group-by-stack {
+					display: flex;
+					flex-direction: column;
+					align-items: flex-start;
+					gap: 0;
+				}
+
+				.collapse-overdue-toggle {
+					display: inline-flex;
+					align-items: center;
+					gap: var(--size-2-1);
+					margin-top: 1px;
+					/* Nudge right to line up with the select's visible edge. */
+					padding-left: 3px;
+					font-size: var(--font-ui-smaller);
+					line-height: 1;
+					color: var(--text-muted);
+					cursor: pointer;
+					white-space: nowrap;
+
+					input[type="checkbox"] {
+						margin: 0;
+						--checkbox-size: 12px;
+					}
+
+					&:hover {
+						color: var(--text-normal);
 					}
 				}
 			}

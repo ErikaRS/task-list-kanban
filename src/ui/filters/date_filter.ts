@@ -88,7 +88,7 @@ export function resolveConditionDate(
  * pass through; datetime values (Dataview) are truncated to their local
  * calendar day so they compare consistently with $TODAY and date-only values.
  */
-function toCalendarDay(value: Date): Date {
+export function toCalendarDay(value: Date): Date {
 	const isDateOnlyEncoding =
 		value.getUTCHours() === 0 &&
 		value.getUTCMinutes() === 0 &&
