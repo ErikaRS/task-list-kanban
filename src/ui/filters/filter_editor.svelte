@@ -425,12 +425,34 @@
 			display: flex;
 			flex-wrap: wrap;
 			align-items: center;
-			gap: var(--size-2-2);
+			gap: var(--size-4-2);
 			font-size: var(--font-ui-small);
 
+			// Flat, underlined selects matching the Gmail-style text inputs:
+			// no box or shadow, just a bottom border. Obsidian's .dropdown
+			// chevron (a background-image) is kept; its reserved right
+			// padding stays so text never overlaps it.
 			select.dropdown {
 				flex: 0 1 auto;
 				min-width: 0;
+				background-color: transparent;
+				border: none;
+				border-bottom: 1px solid var(--background-modifier-border);
+				border-radius: 0;
+				box-shadow: none;
+				padding-left: 0;
+
+				&:hover {
+					background-color: transparent;
+					box-shadow: none;
+				}
+
+				&:focus,
+				&:focus-visible {
+					border-bottom-color: var(--interactive-accent);
+					box-shadow: none;
+					outline: none;
+				}
 			}
 
 			.date-value-choice {
@@ -441,7 +463,18 @@
 			}
 
 			input[type="date"] {
-				background: var(--background-primary);
+				background: transparent;
+				border: none;
+				border-bottom: 1px solid var(--background-modifier-border);
+				border-radius: 0;
+				box-shadow: none;
+
+				&:focus,
+				&:focus-visible {
+					border-bottom-color: var(--interactive-accent);
+					box-shadow: none;
+					outline: none;
+				}
 			}
 		}
 
