@@ -189,9 +189,10 @@ re-serialized to canonical form.
   a `savedFilterToQuery` helper; they are rewritten to `query` form only
   when the user next touches them (lazy migration, no bulk rewrite of
   frontmatter on load).
-- `filtersSidebarExpanded` / `filtersSidebarWidth` become dead settings:
-  kept in the schema (parse-only) for backward compatibility, no longer
-  written or read.
+- `filtersSidebarExpanded` / `filtersSidebarWidth` (and the older
+  `filtersExpanded`) are removed from the schema entirely rather than kept
+  parse-only: the settings object strips unknown keys, so old frontmatter
+  still validates, and absent fields are naturally dropped from writes.
 
 ### UI
 
@@ -450,10 +451,19 @@ combinations; legacy saves keep working.
 ### Phase 5: Cleanup + manual verification
 **Goal:** No dead filter code; end-to-end confidence in a real vault.
 
-1. ☐ Remove now-unused code and styles: sidebar CSS, `SelectTag` filter
+1. ✅ Remove now-unused code and styles: sidebar CSS, `SelectTag` filter
    usage (component itself stays if still used elsewhere), per-type
    saved-filter helpers, legacy write paths; mark
    `filtersSidebarExpanded`/`filtersSidebarWidth` parse-only.
+   (Phases 1–4 had already removed the sidebar markup/CSS and per-type
+   helpers; this pass deleted the orphaned chip-select family —
+   `select_tag.svelte`, `select_user.svelte`, `base_select.svelte`,
+   `selection.ts` + tests; `compact_tag_select` is self-contained and
+   stays — and removed the three dead sidebar settings from the schema
+   outright, which is strictly better than parse-only since unknown keys
+   are stripped on parse. The `last*Filter` fields remain parse-only for
+   read-time migration and converge to `lastFilter` on the first filter
+   write.)
 2. ☐ Sandbox vault: verify bar filtering across all types and
    combinations; expanded-editor round-trip; suggestions; saved filters
    (legacy + new, named + unnamed); persistence and external-edit sync

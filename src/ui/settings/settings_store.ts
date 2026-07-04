@@ -207,9 +207,10 @@ const settingsObject = z.object({
 	lastTagFilter: z.array(z.string()).optional(),
 	lastFileFilter: z.array(z.string()).optional(),
 	lastDateFilter: z.array(dateFilterConditionSchema).catch([]).optional(),
-	filtersExpanded: z.boolean().default(true).optional(),
-	filtersSidebarExpanded: z.boolean().default(true).optional(),
-	filtersSidebarWidth: z.number().default(280).optional(),
+	// The retired sidebar's filtersExpanded / filtersSidebarExpanded /
+	// filtersSidebarWidth fields are gone entirely: the schema strips
+	// unknown keys, so old frontmatter still validates, and dropping them
+	// here keeps them out of every future write.
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
@@ -255,9 +256,6 @@ export interface SettingValues {
 	lastTagFilter?: string[];
 	lastFileFilter?: string[];
 	lastDateFilter?: DateFilterCondition[];
-	filtersExpanded?: boolean;
-	filtersSidebarExpanded?: boolean;
-	filtersSidebarWidth?: number;
 	columnWidth?: number;
 	flowDirection?: FlowDirection;
 	collapsedColumns?: string[];
