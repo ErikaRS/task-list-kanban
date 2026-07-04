@@ -17,7 +17,10 @@
 	export let taskActions: TaskActions;
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let isTaskEditing = false;
-	export let isEditingDates = false;
+	// Output-only: reports whether the date editor is open. A bindable prop
+	// here once let a freshly mounted instance write `false` back into the
+	// parent and close the editor it was meant to show.
+	export let onEditingDatesChange: (editing: boolean) => void = () => {};
 
 	let isDateEditing = false;
 	let draftDateValues: Record<EditableDateKey, string> = { due: "", scheduled: "", start: "" };
@@ -29,7 +32,7 @@
 	) as Record<EditableDateKey, string>;
 	$: showDateInputs = dateEditingEnabled && (isTaskEditing || isDateEditing);
 	$: showReadChips = dateEditingEnabled && !showDateInputs;
-	$: isEditingDates = showDateInputs;
+	$: onEditingDatesChange(showDateInputs);
 	$: {
 		if (showDateInputs && !wasShowingDateInputs) {
 			draftDateValues = { ...dateValues };

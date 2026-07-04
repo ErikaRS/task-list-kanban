@@ -617,7 +617,7 @@
 				{taskActions}
 				{propertySchemaOption}
 				isTaskEditing={isEditing}
-				bind:isEditingDates
+				onEditingDatesChange={(editing) => (isEditingDates = editing)}
 			/>
 			{#if !isEditingDates}
 				{#each dateDisplayProperties as prop (prop.key)}
