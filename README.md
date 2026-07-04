@@ -6,7 +6,7 @@ Use it to:
 - collect tasks from one folder, selected folders, or the whole vault
 - move tasks between columns with tags
 - edit, complete, cancel, archive, duplicate, and bulk-update tasks
-- filter by content, tag, or file
+- filter by content, tag, file, or date with a single search query
 - group tasks into swimlanes by file or tag, then flip group order to put the lanes you need first
 - sort tasks by file order, parsed task properties, or manual pinned order
 - display, sort, group, and edit Tasks Plugin or Dataview date metadata
@@ -160,7 +160,26 @@ Manual drag reordering is available when the board is not grouped. When grouping
 
 ### Filters
 
-Open the filters sidebar to filter by content, tags, or file path. Save common filter combinations and reload them from **Saved filters**.
+The search bar above the board filters tasks with a single query. A query is a space-separated list of tokens, and a task must match **every** token:
+
+| Token | Filters by | Example |
+| --- | --- | --- |
+| `word` or `"quoted phrase"` | content contains the term (case-insensitive) | `fix`, `"big rocks"` |
+| `tag:x` or `tag:x,y` | task has the tag; a comma list matches **any** listed tag | `tag:home,errand` |
+| `file:x` or `file:x,y` | file path contains **any** listed entry (case-insensitive) | `file:projects` |
+| `due:<$TODAY` | date property compared to a date | `due:<=2026-07-04` |
+
+Details:
+
+- Everything is AND-ed: `fix tag:home file:projects due:<$TODAY` keeps tasks containing "fix", tagged `home`, in a file path containing "projects", due before today. There is no OR across tokens and no negation.
+- Repeated `tag:` tokens AND together, so `tag:home tag:errand` requires both tags, while `tag:home,errand` matches either. Repeated `file:` tokens merge into one "any of" list.
+- Quote values containing spaces: `file:"weekly notes"`.
+- Date tokens use a date-typed property key from the active property schema (such as `due`, `scheduled`, `start`, `done`, `created`) with an operator (`<`, `<=`, `=`, `>=`, `>`) and either a `YYYY-MM-DD` date or `$TODAY`, which re-evaluates at midnight. Tasks without the referenced property are never hidden by a date token.
+- A token that doesn't parse as a filter (an unknown prefix like `note:` or a bad date value) is treated as plain content text.
+
+Filtering applies when you press Enter. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, and saved filter names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
+
+**Saved filters** live in the expanded editor: save the current query with an optional name, click a saved entry to apply it, click again to clear, or delete it with the × control. Named saved filters also appear as search bar suggestions.
 
 ### Bulk Actions
 

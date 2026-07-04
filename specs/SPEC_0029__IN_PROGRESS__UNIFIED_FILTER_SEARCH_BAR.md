@@ -469,7 +469,7 @@ combinations; legacy saves keep working.
    (legacy + new, named + unnamed); persistence and external-edit sync
    (same board open twice); counts and clear-all; schema-change fallback
    for date tokens; day rollover still re-filters `$TODAY` queries.
-3. ☐ Update README.md filter documentation for the query syntax.
+3. ✅ Update README.md filter documentation for the query syntax.
 
 **Deliverable:** Checked-off manual test cases (per README.planning.md,
 only after actually performing them) and no orphaned sidebar code.
