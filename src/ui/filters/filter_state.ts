@@ -1,4 +1,4 @@
-import type { SettingValues } from "../settings/settings_store";
+import type { SavedFilter, SettingValues } from "../settings/settings_store";
 import { emptyFilterQuery, serializeFilterQuery } from "./filter_query";
 
 /**
@@ -28,6 +28,54 @@ export function legacyFilterSettingsToQuery(settings: SettingValues): string {
 	}
 
 	query.dateConditions = (settings.lastDateFilter ?? []).map((condition) => ({
+		...condition,
+	}));
+
+	return serializeFilterQuery(query);
+}
+
+/**
+ * A saved filter as the UI consumes it: the stored entry with its query
+ * already resolved through savedFilterToQuery.
+ */
+export interface SavedFilterEntry {
+	id: string;
+	name?: string;
+	query: string;
+}
+
+/**
+ * The query string a saved filter applies. New-style entries carry it
+ * directly; legacy slot-based entries (content/tag/file/date) convert at
+ * read time with the same rules as legacyFilterSettingsToQuery — a
+ * multi-tag slot becomes one comma OR-group, preserving its "any of"
+ * semantics. Entries are never rewritten in frontmatter; they stay in
+ * legacy form until deleted.
+ */
+export function savedFilterToQuery(filter: SavedFilter): string {
+	if (filter.query !== undefined) {
+		return filter.query;
+	}
+
+	const query = emptyFilterQuery();
+
+	const contentText = filter.content?.text.replace(/"/g, "").trim();
+	if (contentText) {
+		query.contentTerms.push(contentText);
+	}
+
+	const tags = (filter.tag?.tags ?? []).filter((tag) => tag !== "");
+	if (tags.length > 0) {
+		query.tagGroups.push(tags);
+	}
+
+	// The legacy UI only ever saved and read a single file path.
+	const filePath = filter.file?.filepaths[0]?.replace(/"/g, "").trim();
+	if (filePath) {
+		query.filePaths.push(filePath);
+	}
+
+	query.dateConditions = (filter.date?.conditions ?? []).map((condition) => ({
 		...condition,
 	}));
 

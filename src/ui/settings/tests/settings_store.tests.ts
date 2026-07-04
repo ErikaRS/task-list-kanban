@@ -310,6 +310,20 @@ describe("SavedFilter persistence", () => {
 		expect(parsed.savedFilters?.[0]?.name).toBeUndefined();
 	});
 
+	it("round-trips a unified query-based saved filter", () => {
+		const savedFilter: SavedFilter = {
+			id: "query-id",
+			name: "home projects",
+			query: 'fix tag:home,errand file:projects due:<$TODAY',
+		};
+
+		const parsed = parseSettings({ ...defaultSettings, savedFilters: [savedFilter] });
+		expect(parsed.savedFilters?.[0]).toEqual(savedFilter);
+
+		const serialized = serializeSettings({ savedFilters: [savedFilter] });
+		expect(serialized.savedFilters[0]).toEqual(savedFilter);
+	});
+
 	it("handles filter with both content and tag", () => {
 		const filter: SavedFilter = {
 			id: "combo-id",

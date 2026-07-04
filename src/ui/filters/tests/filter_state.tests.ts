@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	legacyFilterSettingsToQuery,
 	readBoardFilterState,
+	savedFilterToQuery,
 	shouldApplyIncomingBoardFilterState,
 	writeBoardFilterState,
 } from "../filter_state";
@@ -116,6 +117,85 @@ describe("legacy filter migration", () => {
 
 	it("migrates empty legacy fields to an empty query", () => {
 		expect(legacyFilterSettingsToQuery(defaultSettings)).toBe("");
+	});
+});
+
+describe("savedFilterToQuery", () => {
+	it("returns the query field verbatim when present, even when empty", () => {
+		expect(
+			savedFilterToQuery({ id: "a", query: "fix tag:home", content: { text: "ignored" } }),
+		).toBe("fix tag:home");
+		expect(savedFilterToQuery({ id: "a", query: "" })).toBe("");
+	});
+
+	it("converts a legacy content filter, quoting spaces", () => {
+		expect(savedFilterToQuery({ id: "a", content: { text: "invoice" } })).toBe(
+			"invoice",
+		);
+		expect(
+			savedFilterToQuery({ id: "a", content: { text: "big rocks" } }),
+		).toBe('"big rocks"');
+	});
+
+	it("converts a legacy multi-tag filter to one comma OR-group", () => {
+		const query = savedFilterToQuery({
+			id: "a",
+			tag: { tags: ["home", "errand"] },
+		});
+		expect(query).toBe("tag:home,errand");
+		expect(parseFilterQuery(query, []).tagGroups).toEqual([
+			["home", "errand"],
+		]);
+	});
+
+	it("converts the first entry of a legacy file filter", () => {
+		expect(
+			savedFilterToQuery({
+				id: "a",
+				file: { filepaths: ["tasks/inbox.md", "ignored.md"] },
+			}),
+		).toBe("file:tasks/inbox.md");
+	});
+
+	it("converts a legacy date filter", () => {
+		expect(
+			savedFilterToQuery({
+				id: "a",
+				name: "overdue",
+				date: {
+					conditions: [
+						{ property: "due", operator: "before", value: "$TODAY" },
+						{ property: "scheduled", operator: "on", value: "2026-07-01" },
+					],
+				},
+			}),
+		).toBe("due:<$TODAY scheduled:=2026-07-01");
+	});
+
+	it("converts combined legacy slots into one equivalent query", () => {
+		const query = savedFilterToQuery({
+			id: "a",
+			content: { text: "fix" },
+			tag: { tags: ["home"] },
+			file: { filepaths: ["projects"] },
+			date: {
+				conditions: [{ property: "due", operator: "before", value: "$TODAY" }],
+			},
+		});
+		expect(query).toBe("fix tag:home file:projects due:<$TODAY");
+		expect(parseFilterQuery(query, ["due"])).toEqual({
+			contentTerms: ["fix"],
+			tagGroups: [["home"]],
+			filePaths: ["projects"],
+			dateConditions: [
+				{ property: "due", operator: "before", value: "$TODAY" },
+			],
+		});
+	});
+
+	it("converts an entry with no slots (named or not) to an empty query", () => {
+		expect(savedFilterToQuery({ id: "a" })).toBe("");
+		expect(savedFilterToQuery({ id: "a", name: "empty" })).toBe("");
 	});
 });
 

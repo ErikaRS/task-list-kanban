@@ -8,10 +8,12 @@
 	import { parseDateOnly } from "../../parsing/properties/value_parsers";
 	import {
 		parseContentTerms,
+		parseFilterQuery,
 		serializeContentTerms,
 		serializeFilterQuery,
 		type FilterQuery,
 	} from "./filter_query";
+	import type { SavedFilterEntry } from "./filter_state";
 	import {
 		applyFilterSuggestion,
 		getListSuggestions,
@@ -24,9 +26,13 @@
 	export let dateKeys: { key: string; label: string }[] = [];
 	export let tagSuggestionItems: string[] = [];
 	export let fileSuggestionItems: string[] = [];
+	export let savedFilters: SavedFilterEntry[] = [];
 	export let onChange: (query: FilterQuery) => void;
 	export let onSearch: () => void;
 	export let onClear: () => void;
+	export let onApplySavedFilter: (entry: SavedFilterEntry) => void;
+	export let onDeleteSavedFilter: (entry: SavedFilterEntry) => void;
+	export let onSaveFilter: (name: string | undefined) => void;
 
 	// A date row may be incomplete (empty property/operator) while being
 	// composed; only complete rows are emitted into the query.
@@ -247,6 +253,55 @@
 	$: hasDateShapedTerm = query.contentTerms.some((term) =>
 		/^[^\s:"]+:(<=|>=|<|>|=)/.test(term),
 	);
+
+	// --- Unified saved filters (SPEC 0029 Phase 4) ---
+	// Structural query equality: two query strings match when their parsed
+	// models are equal, i.e. their canonical serializations coincide — so
+	// whitespace/quoting differences never break the active highlight or
+	// the duplicate-save guard.
+	let saveName = "";
+
+	$: dateKeyNames = dateKeys.map((key) => key.key);
+	$: draftKey = serializeFilterQuery(query);
+	$: savedEntries = savedFilters.map((entry) => ({
+		entry,
+		key: serializeFilterQuery(parseFilterQuery(entry.query, dateKeyNames)),
+	}));
+	$: activeSavedFilterId =
+		draftKey === ""
+			? undefined
+			: savedEntries.find(({ key }) => key === draftKey)?.entry.id;
+	$: saveDisabled =
+		draftKey === "" || savedEntries.some(({ key }) => key === draftKey);
+
+	function saveFilter() {
+		if (saveDisabled) {
+			return;
+		}
+		const name = saveName.trim();
+		onSaveFilter(name === "" ? undefined : name);
+		saveName = "";
+	}
+
+	function onSaveNameKeydown(e: KeyboardEvent) {
+		if (e.key === "Enter") {
+			if (saveDisabled) {
+				onSearch();
+			} else {
+				saveFilter();
+			}
+		}
+	}
+
+	// Applying is a toggle, like today's per-type chips: clicking the
+	// active entry clears the whole query.
+	function toggleSavedFilter(entry: SavedFilterEntry) {
+		if (entry.id === activeSavedFilterId) {
+			onClear();
+		} else {
+			onApplySavedFilter(entry);
+		}
+	}
 </script>
 
 <div class="filter-editor">
@@ -451,6 +506,53 @@
 		</div>
 	</div>
 
+	<div class="editor-section saved-section">
+		<span class="section-label">Saved</span>
+		<div class="section-rows">
+			{#if savedFilters.length > 0}
+				<ul class="saved-filter-list" role="list">
+					{#each savedFilters as entry (entry.id)}
+						<li>
+							<button
+								class="row-remove"
+								aria-label="Delete saved filter: {entry.name ?? entry.query}"
+								on:click={() => onDeleteSavedFilter(entry)}
+							>
+								×
+							</button>
+							<button
+								class="saved-filter-name"
+								class:active={entry.id === activeSavedFilterId}
+								aria-pressed={entry.id === activeSavedFilterId}
+								on:click={() => toggleSavedFilter(entry)}
+							>
+								{entry.name ?? entry.query}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<div class="save-row">
+				<input
+					class="text-input"
+					type="text"
+					bind:value={saveName}
+					on:keydown={onSaveNameKeydown}
+					placeholder="Name (optional)"
+					aria-label="Saved filter name"
+					spellcheck="false"
+				/>
+				<button
+					class="save-filter-btn"
+					disabled={saveDisabled}
+					on:click={saveFilter}
+				>
+					Save
+				</button>
+			</div>
+		</div>
+	</div>
+
 	<div class="editor-actions">
 		<button class="editor-clear-btn" on:click={onClear}>Clear</button>
 		<button class="editor-search-btn" on:click={onSearch}>Search</button>
@@ -568,6 +670,80 @@
 			padding-top: var(--size-2-2);
 			color: var(--text-muted);
 			font-size: var(--font-ui-small);
+		}
+
+		.saved-section {
+			padding-top: var(--size-2-3);
+			border-top: 1px solid var(--background-modifier-border);
+		}
+
+		.saved-filter-list {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+			display: flex;
+			flex-direction: column;
+			gap: var(--size-2-1);
+
+			li {
+				display: flex;
+				align-items: center;
+				gap: var(--size-2-1);
+				min-width: 0;
+			}
+
+			.saved-filter-name {
+				flex: 1 1 auto;
+				min-width: 0;
+				padding: var(--size-2-1) var(--size-2-2);
+				background: transparent;
+				border: none;
+				box-shadow: none;
+				border-radius: var(--radius-s);
+				cursor: pointer;
+				text-align: left;
+				font-size: var(--font-ui-small);
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+
+				&:hover {
+					background: var(--background-modifier-hover);
+				}
+
+				&.active {
+					background: var(--interactive-accent);
+					color: var(--text-on-accent);
+				}
+			}
+		}
+
+		.save-row {
+			display: flex;
+			align-items: center;
+			gap: var(--size-2-3);
+
+			.save-filter-btn {
+				flex: 0 0 auto;
+				padding: var(--size-2-2) var(--size-4-3);
+				background: transparent;
+				color: var(--text-muted);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 999px;
+				box-shadow: none;
+				cursor: pointer;
+				font-size: var(--font-ui-small);
+
+				&:hover:not(:disabled) {
+					color: var(--text-normal);
+					background: var(--background-modifier-hover);
+				}
+
+				&:disabled {
+					opacity: 0.5;
+					cursor: default;
+				}
+			}
 		}
 
 		.date-condition-row {

@@ -423,20 +423,26 @@ types with AND semantics and per-board persistence.
 **Deliverable:** Discoverable syntax — users can compose queries without
 memorizing tags or paths.
 
-### Phase 4: Unified saved filters
+### Phase 4: Unified saved filters 🚧 IN PROGRESS
 **Goal:** One saved list capturing any query, with legacy filters intact.
 
-1. ☐ Add `query` to `savedFilterSchema`; `savedFilterToQuery` conversion
+1. ✅ Add `query` to `savedFilterSchema`; `savedFilterToQuery` conversion
    for legacy slot-based entries (unit tests: each legacy type, combined
    slots, named and unnamed).
-2. ☐ Saved list in the expanded editor: apply (replace query) / toggle
+2. ✅ Saved list in the expanded editor: apply (replace query) / toggle
    off / delete via `delete_filter_modal.svelte`; optional-name save
    flow; active-save highlight by structural query equality;
-   duplicate-save guard.
-3. ☐ Saved-filter names as bar suggestions (hook into Phase 3 source).
+   duplicate-save guard. (Saves capture the canonical draft; applying
+   commits. Entries stay in legacy form in frontmatter — read-time
+   conversion only, removed on delete.)
+3. ✅ Saved-filter names as bar suggestions (hook into Phase 3 source;
+   only named saves are suggestible, and accepting one replaces and
+   commits the whole query).
 4. ☐ Test: legacy saved filters of every type apply correctly; save a
    mixed-type query with a name, reapply from the list and from a bar
-   suggestion; delete with confirmation.
+   suggestion; delete with confirmation. (Conversion and suggestion
+   sources are unit-tested; the interactive pass in the sandbox vault is
+   pending.)
 
 **Deliverable:** One saved list covering all filter types and
 combinations; legacy saves keep working.

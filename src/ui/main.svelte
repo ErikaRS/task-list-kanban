@@ -34,9 +34,12 @@
 	import { collectPresentManualOrderKeys } from "./tasks/manual_order";
 	import {
 		readBoardFilterState,
+		savedFilterToQuery,
 		shouldApplyIncomingBoardFilterState,
 		writeBoardFilterState,
+		type SavedFilterEntry,
 	} from "./filters/filter_state";
+	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import {
 		isEmptyFilterQuery,
 		parseFilterQuery,
@@ -366,8 +369,11 @@
 		tags: availableTags,
 		filePaths: taskFilePaths,
 		dateKeys: dateFilterKeys,
-		// Unified saved-filter names arrive in Phase 4.
-		savedFilterNames: [] as string[],
+		// Only named saves are suggestible — an unnamed entry has no text
+		// to complete (its query still applies from the editor's list).
+		savedFilterNames: savedFilterEntries
+			.map((entry) => entry.name)
+			.filter((name): name is string => !!name),
 	};
 
 	function refreshBarSuggestions() {
@@ -387,6 +393,23 @@
 	}
 
 	async function acceptBarSuggestion(suggestion: FilterSuggestion) {
+		// A saved-filter suggestion applies that filter: the whole query is
+		// replaced (never merged) and committed, matching the editor's list.
+		if (suggestion.kind === "saved") {
+			const entry = savedFilterEntries.find(
+				(candidate) => candidate.name === suggestion.label,
+			);
+			if (entry) {
+				applySavedFilter(entry);
+				await tick();
+				filterInputEl?.focus();
+				filterInputEl?.setSelectionRange(
+					filterQueryText.length,
+					filterQueryText.length,
+				);
+				return;
+			}
+		}
 		const applied = applyFilterSuggestion(filterQueryText, suggestion);
 		filterQueryText = applied.text;
 		await tick();
@@ -453,13 +476,67 @@
 		filterEditorExpanded = false;
 	}
 
+	// --- Unified saved filters (SPEC 0029 Phase 4) ---
+	// One flat list covering any query. Legacy slot-based entries resolve
+	// through savedFilterToQuery at read time and are never rewritten.
+	$: savedFilterEntries = ($settingsStore.savedFilters ?? []).map(
+		(filter): SavedFilterEntry => ({
+			id: filter.id,
+			name: filter.name,
+			query: savedFilterToQuery(filter),
+		}),
+	);
+
+	// Applying replaces the whole query (never merges) and commits it.
+	function applySavedFilter(entry: SavedFilterEntry) {
+		filterQueryText = entry.query;
+		applyFilter();
+	}
+
+	// A save captures the canonical draft (what the editor shows), so a
+	// half-typed bar edit saves exactly as it will filter. Emptiness and
+	// duplicates are guarded editor-side; the empty check here is a
+	// backstop.
+	function saveCurrentFilter(name: string | undefined) {
+		const query = serializeFilterQuery(draftQuery);
+		if (query === "") {
+			return;
+		}
+		$settingsStore.savedFilters = [
+			...($settingsStore.savedFilters ?? []),
+			{ id: crypto.randomUUID(), name, query },
+		];
+		requestSave();
+	}
+
+	let savedFilterPendingDelete: SavedFilterEntry | undefined;
+
+	function confirmDeleteSavedFilter() {
+		const pending = savedFilterPendingDelete;
+		savedFilterPendingDelete = undefined;
+		if (!pending) {
+			return;
+		}
+		$settingsStore.savedFilters = ($settingsStore.savedFilters ?? []).filter(
+			(filter) => filter.id !== pending.id,
+		);
+		requestSave();
+	}
+
 	function handleWindowKeydown(e: KeyboardEvent) {
+		// While the delete confirmation is open it owns Esc.
+		if (savedFilterPendingDelete) {
+			return;
+		}
 		if (e.key === "Escape" && filterEditorExpanded) {
 			filterEditorExpanded = false;
 		}
 	}
 
 	function handleWindowMousedown(e: MouseEvent) {
+		if (savedFilterPendingDelete) {
+			return;
+		}
 		if (
 			filterEditorExpanded &&
 			filterBarContainer &&
@@ -724,12 +801,23 @@
 					dateKeys={dateFilterKeys}
 					tagSuggestionItems={availableTags}
 					fileSuggestionItems={taskFilePaths}
+					savedFilters={savedFilterEntries}
 					onChange={applyEditorQuery}
 					onSearch={searchFromEditor}
 					onClear={clearFilter}
+					onApplySavedFilter={applySavedFilter}
+					onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
+					onSaveFilter={saveCurrentFilter}
 				/>
 			{/if}
 		</div>
+		{#if savedFilterPendingDelete}
+			<DeleteFilterModal
+				filterText={savedFilterPendingDelete.name ?? savedFilterPendingDelete.query}
+				onConfirm={confirmDeleteSavedFilter}
+				onCancel={() => (savedFilterPendingDelete = undefined)}
+			/>
+		{/if}
 			<div class="board-header">
 				<div class="board-header-controls">
 					{#if $settingsStore.groupSource?.kind === "tag-prefix"}

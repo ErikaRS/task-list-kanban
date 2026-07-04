@@ -61,9 +61,14 @@ export interface DateValue {
 
 export interface SavedFilter {
 	id: string;
-	// Optional user-chosen display name (e.g. "overdue"); chips fall back to
-	// a description of the filter's value when absent.
+	// Optional user-chosen display name (e.g. "overdue"); the saved list
+	// falls back to the query text when absent.
 	name?: string;
+	// The unified filter query string (SPEC 0029). New saves write only
+	// this; the per-type slots below are legacy shapes, still parsed so old
+	// frontmatter validates and converted at read time by
+	// savedFilterToQuery.
+	query?: string;
 	content?: ContentValue;
 	tag?: TagValue;
 	file?: FileValue;
@@ -108,6 +113,7 @@ const dateValueSchema = z.object({
 const savedFilterSchema = z.object({
 	id: z.string(),
 	name: z.string().optional(),
+	query: z.string().optional(),
 	content: contentValueSchema.optional(),
 	tag: tagValueSchema.optional(),
 	file: fileValueSchema.optional(),
