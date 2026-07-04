@@ -1,6 +1,8 @@
 # SPEC 0029: Unified filter search bar
 
-Status: DRAFT
+Status: COMPLETE
+
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -353,7 +355,7 @@ is out of scope and stays.
 
 ## Implementation Plan
 
-### Phase 1: Query engine + basic search bar 🚧 IN PROGRESS
+### Phase 1: Query engine + basic search bar ✅ COMPLETE
 **Goal:** Typing a full query in an always-visible bar filters the board
 and persists, replacing the sidebar's filtering role.
 
@@ -384,7 +386,7 @@ and persists, replacing the sidebar's filtering role.
 **Deliverable:** A working single search bar covering all four filter
 types with AND semantics and per-board persistence.
 
-### Phase 2: Expanded structured editor 🚧 IN PROGRESS
+### Phase 2: Expanded structured editor ✅ COMPLETE
 **Goal:** Bar and structured editor are two synced views of one query.
 
 1. ✅ Expand/collapse control on the bar; overlay panel with Content /
@@ -403,7 +405,7 @@ types with AND semantics and per-board persistence.
 
 **Deliverable:** The #127 round-trip — type → expand → edit → see text.
 
-### Phase 3: Typed text suggestions 🚧 IN PROGRESS
+### Phase 3: Typed text suggestions ✅ COMPLETE
 **Goal:** The bar suggests completions per token kind, all as text.
 
 1. ✅ Caret-token detection + suggestion sources (tags, file paths, date
@@ -424,7 +426,7 @@ types with AND semantics and per-board persistence.
 **Deliverable:** Discoverable syntax — users can compose queries without
 memorizing tags or paths.
 
-### Phase 4: Unified saved filters 🚧 IN PROGRESS
+### Phase 4: Unified saved filters ✅ COMPLETE
 **Goal:** One saved list capturing any query, with legacy filters intact.
 
 1. ✅ Add `query` to `savedFilterSchema`; `savedFilterToQuery` conversion
@@ -439,16 +441,15 @@ memorizing tags or paths.
 3. ✅ Saved-filter names as bar suggestions (hook into Phase 3 source;
    only named saves are suggestible, and accepting one replaces and
    commits the whole query).
-4. ☐ Test: legacy saved filters of every type apply correctly; save a
+4. ✅ Test: legacy saved filters of every type apply correctly; save a
    mixed-type query with a name, reapply from the list and from a bar
    suggestion; delete with confirmation. (Conversion and suggestion
-   sources are unit-tested; the interactive pass in the sandbox vault is
-   pending.)
+   sources are unit-tested; interactive pass done in the sandbox vault.)
 
 **Deliverable:** One saved list covering all filter types and
 combinations; legacy saves keep working.
 
-### Phase 5: Cleanup + manual verification
+### Phase 5: Cleanup + manual verification ✅ COMPLETE
 **Goal:** No dead filter code; end-to-end confidence in a real vault.
 
 1. ✅ Remove now-unused code and styles: sidebar CSS, `SelectTag` filter
@@ -464,7 +465,7 @@ combinations; legacy saves keep working.
    are stripped on parse. The `last*Filter` fields remain parse-only for
    read-time migration and converge to `lastFilter` on the first filter
    write.)
-2. ☐ Sandbox vault: verify bar filtering across all types and
+2. ✅ Sandbox vault: verify bar filtering across all types and
    combinations; expanded-editor round-trip; suggestions; saved filters
    (legacy + new, named + unnamed); persistence and external-edit sync
    (same board open twice); counts and clear-all; schema-change fallback
