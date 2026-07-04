@@ -305,6 +305,16 @@ is out of scope and stays.
   clobbers a query the user is still composing.
 - Filtering, counts, and the is-filtered indicator follow the **applied**
   query only; the draft affects nothing until committed.
+- **Subtask matching:** content terms and `tag:` tokens match against the
+  card's whole rendered block — the task line plus every nested
+  subtask/note row (when "treat nested tasks as subtasks" is on). Each
+  token is satisfied independently by any row, so `fix tag:home` matches
+  a card whose parent carries `#home` while a subtask says "fix". File
+  and date tokens keep matching the top-level task, whose properties are
+  the only ones parsed.
+- The editor's text inputs strip a typed `"` (the query syntax's quoting
+  character, not expressible as content); allowing it would serialize
+  into text that cannot round-trip back to the same model.
 - Counts: `filteredTaskCount` derives from the single `filteredTasks`
   array; the `x/y tasks` indicator and clear-all behavior are otherwise
   unchanged.

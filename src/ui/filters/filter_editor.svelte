@@ -44,21 +44,29 @@
 		);
 	}
 
+	// `"` is the query syntax's quoting character and is not expressible as
+	// content: a term containing one would serialize into text that cannot
+	// round-trip, and the resulting rebuild would destroy the focused input.
+	// It is stripped as typed.
+	function stripQuotes(value: string): string {
+		return value.replace(/"/g, "");
+	}
+
 	function rowsToQuery(): FilterQuery {
 		return {
 			contentTerms: contentRows
-				.map((term) => term.trim())
+				.map((term) => stripQuotes(term).trim())
 				.filter((term) => term !== ""),
 			tagGroups: tagRows
 				.map((row) =>
-					row
+					stripQuotes(row)
 						.split(",")
 						.map((tag) => tag.trim())
 						.filter((tag) => tag !== ""),
 				)
 				.filter((group) => group.length > 0),
 			filePaths: fileRows
-				.map((path) => path.trim())
+				.map((path) => stripQuotes(path).trim())
 				.filter((path) => path !== ""),
 			dateConditions: dateRows
 				.filter(isCompleteDateCondition)
@@ -116,7 +124,10 @@
 						class="text-input"
 						type="text"
 						bind:value={contentRows[index]}
-						on:input={emit}
+						on:input={() => {
+							contentRows[index] = stripQuotes(contentRows[index] ?? "");
+							emit();
+						}}
 						on:keydown={onRowKeydown}
 						placeholder="Text to match"
 						aria-label="Content term"
@@ -152,7 +163,10 @@
 						class="text-input"
 						type="text"
 						bind:value={tagRows[index]}
-						on:input={emit}
+						on:input={() => {
+							tagRows[index] = stripQuotes(tagRows[index] ?? "");
+							emit();
+						}}
 						on:keydown={onRowKeydown}
 						placeholder="tag, tag (any of)"
 						aria-label="Tag group (comma-separated, any of)"
@@ -185,7 +199,10 @@
 						class="text-input"
 						type="text"
 						bind:value={fileRows[index]}
-						on:input={emit}
+						on:input={() => {
+							fileRows[index] = stripQuotes(fileRows[index] ?? "");
+							emit();
+						}}
 						on:keydown={onRowKeydown}
 						placeholder="Path to match"
 						aria-label="File path"

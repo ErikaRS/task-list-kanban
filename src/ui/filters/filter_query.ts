@@ -1,5 +1,11 @@
 import { parseDateOnly } from "../../parsing/properties/value_parsers";
 import type { TaskPropertyMap } from "../../parsing/properties/property_schema";
+import { getTagsFromContent } from "../../parsing/tags/tags";
+import {
+	flattenSourceBlockNodes,
+	getSourceNodeText,
+	type SourceBlockNode,
+} from "../tasks/source_block";
 import type {
 	DateFilterCondition,
 	DateFilterOperator,
@@ -24,6 +30,11 @@ export interface FilterableTask {
 	path: string;
 	tags: ReadonlySet<string>;
 	properties: TaskPropertyMap;
+	// Nested subtask/note rows rendered on the card (populated when "treat
+	// nested tasks as subtasks" is on). Content and tag matching search
+	// these along with the task's own line — the card matches if any of its
+	// rendered rows satisfies each token.
+	sourceChildren?: SourceBlockNode[];
 }
 
 const OPERATORS_BY_TEXT: ReadonlyArray<[string, DateFilterOperator]> = [
@@ -223,19 +234,46 @@ export function serializeFilterQuery(query: FilterQuery): string {
  * case-insensitive substring; tag matching is exact set membership with OR
  * inside each group; date conditions follow taskMatchesDateConditions
  * (missing/non-date property values always pass).
+ *
+ * Content terms and tag groups match against the whole rendered card: the
+ * task's own line plus every nested subtask/note row. Each token is
+ * satisfied independently by any row, so `fix tag:home` matches a card
+ * whose parent carries #home while a subtask says "fix". File paths and
+ * date properties belong to the top-level task only.
  */
 export function taskMatchesFilterQuery(
 	task: FilterableTask,
 	query: FilterQuery,
 	today: Date,
 ): boolean {
-	const content = task.content.toLowerCase();
-	if (!query.contentTerms.every((term) => content.includes(term.toLowerCase()))) {
-		return false;
+	const descendants = task.sourceChildren?.length
+		? flattenSourceBlockNodes(task.sourceChildren)
+		: [];
+
+	if (query.contentTerms.length > 0) {
+		const texts = [
+			task.content,
+			...descendants.map(getSourceNodeText),
+		].map((text) => text.toLowerCase());
+		const matchesEveryTerm = query.contentTerms.every((term) => {
+			const needle = term.toLowerCase();
+			return texts.some((text) => text.includes(needle));
+		});
+		if (!matchesEveryTerm) {
+			return false;
+		}
 	}
 
-	if (!query.tagGroups.every((group) => group.some((tag) => task.tags.has(tag)))) {
-		return false;
+	if (query.tagGroups.length > 0) {
+		const tags = new Set(task.tags);
+		for (const node of descendants) {
+			for (const tag of getTagsFromContent(getSourceNodeText(node))) {
+				tags.add(tag);
+			}
+		}
+		if (!query.tagGroups.every((group) => group.some((tag) => tags.has(tag)))) {
+			return false;
+		}
 	}
 
 	const path = task.path.toLowerCase();

@@ -52,6 +52,15 @@ describe("legacy filter migration", () => {
 		).toBe('"big rocks"');
 	});
 
+	it("strips unexpressible quote characters during migration", () => {
+		expect(
+			legacyFilterSettingsToQuery({
+				...defaultSettings,
+				lastContentFilter: 'say "hi"',
+			}),
+		).toBe('"say hi"');
+	});
+
 	it("migrates a multi-tag filter to one comma OR-group", () => {
 		const query = legacyFilterSettingsToQuery({
 			...defaultSettings,

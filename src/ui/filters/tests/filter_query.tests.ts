@@ -10,14 +10,46 @@ import {
 } from "../filter_query";
 import { parseDateOnly } from "../../../parsing/properties/value_parsers";
 import type { TaskPropertyMap } from "../../../parsing/properties/property_schema";
+import type {
+	SourceBlockNode,
+	SourceRawNode,
+	SourceTaskNode,
+} from "../../tasks/source_block";
 
 const DATE_KEYS = ["due", "scheduled", "start", "done", "created"];
+
+function subtaskNode(
+	content: string,
+	children: SourceBlockNode[] = [],
+): SourceTaskNode {
+	return {
+		kind: "task",
+		taskVisibility: "visible",
+		rowIndex: 0,
+		rawLine: `\t- [ ] ${content}`,
+		indentation: "\t",
+		status: " ",
+		content,
+		sourceChildren: children,
+	};
+}
+
+function noteNode(text: string): SourceRawNode {
+	return {
+		kind: "raw",
+		rowIndex: 0,
+		rawLine: `\t${text}`,
+		indentation: "\t",
+		sourceChildren: [],
+	};
+}
 
 function task(overrides: {
 	content?: string;
 	path?: string;
 	tags?: string[];
 	properties?: Record<string, Date>;
+	sourceChildren?: SourceBlockNode[];
 }): FilterableTask {
 	const properties: TaskPropertyMap = new Map();
 	for (const [key, value] of Object.entries(overrides.properties ?? {})) {
@@ -34,6 +66,7 @@ function task(overrides: {
 		path: overrides.path ?? "",
 		tags: new Set(overrides.tags ?? []),
 		properties,
+		sourceChildren: overrides.sourceChildren,
 	};
 }
 
@@ -321,5 +354,46 @@ describe("taskMatchesFilterQuery", () => {
 	it("bad-date fallback over-filters instead of under-filtering", () => {
 		// `due:tomorrow` becomes a content term that this task doesn't contain.
 		expect(matches("due:tomorrow", groceries)).toBe(false);
+	});
+
+	describe("subtask matching", () => {
+		const parent = task({
+			content: "Plan the trip #travel",
+			path: "projects/travel.md",
+			tags: ["travel"],
+			sourceChildren: [
+				subtaskNode("Book flights #booking", [
+					subtaskNode("Compare fares on kayak"),
+				]),
+				noteNode("remember the passport"),
+			],
+		});
+
+		it("matches content terms found only on a subtask, at any depth", () => {
+			expect(matches("flights", parent)).toBe(true);
+			expect(matches("kayak", parent)).toBe(true);
+			expect(matches("hotel", parent)).toBe(false);
+		});
+
+		it("matches content terms found only on a raw note row", () => {
+			expect(matches("passport", parent)).toBe(true);
+		});
+
+		it("satisfies each token independently across parent and subtasks", () => {
+			// "plan" is on the parent, "flights" only on a subtask.
+			expect(matches("plan flights", parent)).toBe(true);
+		});
+
+		it("matches tag tokens against subtask tags", () => {
+			expect(matches("tag:booking", parent)).toBe(true);
+			expect(matches("tag:travel tag:booking", parent)).toBe(true);
+			expect(matches("tag:lodging", parent)).toBe(false);
+		});
+
+		it("still matches without sourceChildren populated", () => {
+			const flat = task({ content: "Plan the trip", tags: ["travel"] });
+			expect(matches("plan", flat)).toBe(true);
+			expect(matches("flights", flat)).toBe(false);
+		});
 	});
 });

@@ -9,7 +9,9 @@ import { emptyFilterQuery, serializeFilterQuery } from "./filter_query";
 export function legacyFilterSettingsToQuery(settings: SettingValues): string {
 	const query = emptyFilterQuery();
 
-	const contentText = settings.lastContentFilter?.trim();
+	// `"` is the query syntax's quoting character and not expressible as
+	// content; stripping it keeps the migrated query round-trippable.
+	const contentText = settings.lastContentFilter?.replace(/"/g, "").trim();
 	if (contentText) {
 		query.contentTerms.push(contentText);
 	}
@@ -20,7 +22,7 @@ export function legacyFilterSettingsToQuery(settings: SettingValues): string {
 	}
 
 	// The legacy UI only ever read the first entry of lastFileFilter.
-	const filePath = settings.lastFileFilter?.[0]?.trim();
+	const filePath = settings.lastFileFilter?.[0]?.replace(/"/g, "").trim();
 	if (filePath) {
 		query.filePaths.push(filePath);
 	}
