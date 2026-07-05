@@ -1,6 +1,6 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN PROGRESS (Phase 1 implemented, pending manual test)
+Status: IN PROGRESS (Phase 1 complete)
 
 ## Feature Request Summary
 
@@ -340,7 +340,7 @@ otherwise unchanged.
    working on the overrides layer
 4. ✅ Tests: sparse round-trip; untouched new board keeps `{}`; legacy
    fully-materialized board round-trips unchanged; migrations persist
-5. ☐ Manual test: new board, change one setting, verify frontmatter contains
+5. ✅ Manual test: new board, change one setting, verify frontmatter contains
    exactly that field
 
 **Implementation notes (Phase 1):**
