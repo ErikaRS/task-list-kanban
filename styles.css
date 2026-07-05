@@ -25,12 +25,77 @@ If your plugin does not need CSS, delete this file.
    Obsidian themes and other plugins often style plain input/button/select
    elements more strongly, so keep the always-visible search bar and its
    expanded editor protected behind the view's root class. */
+.task-list-kanban-view .board-toolbar {
+	position: relative !important;
+	z-index: 120 !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: var(--size-2-2) !important;
+	width: 100% !important;
+	max-width: min(1120px, calc(100% - var(--size-4-8))) !important;
+	margin: 0 auto var(--size-4-2) auto !important;
+	line-height: 1 !important;
+}
+
+.task-list-kanban-view .view-control,
+.task-list-kanban-view .settings-control {
+	position: relative !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	flex: 0 0 auto !important;
+	width: auto !important;
+	height: 42px !important;
+	min-height: 0 !important;
+	margin: 0 !important;
+	box-sizing: border-box !important;
+}
+
+.task-list-kanban-view .view-editor-toggle {
+	box-sizing: border-box !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: var(--size-2-2) !important;
+	height: 42px !important;
+	min-height: 0 !important;
+	margin: 0 !important;
+	padding: 0 var(--size-4-3) !important;
+	border: var(--input-border-width, 1px) solid var(--background-modifier-border) !important;
+	border-radius: 999px !important;
+	background: var(--background-primary) !important;
+	box-shadow: var(--shadow-s) !important;
+	color: var(--text-normal) !important;
+	font-size: var(--font-ui-small) !important;
+	font-weight: 600 !important;
+	line-height: 1 !important;
+	cursor: pointer !important;
+}
+
+.task-list-kanban-view .settings-control .clickable-icon {
+	box-sizing: border-box !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	width: 42px !important;
+	height: 42px !important;
+	min-width: 42px !important;
+	min-height: 42px !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	border-radius: 999px !important;
+	line-height: 1 !important;
+}
+
 .task-list-kanban-view .filter-bar-container {
 	position: relative !important;
 	z-index: 100 !important;
-	width: min(1360px, calc(100% - var(--size-4-8))) !important;
-	max-width: min(1360px, calc(100% - var(--size-4-8))) !important;
-	margin: 0 auto var(--size-4-2) auto !important;
+	flex: 1 1 auto !important;
+	width: auto !important;
+	min-width: 0 !important;
+	max-width: none !important;
+	margin: 0 !important;
 }
 
 .task-list-kanban-view .filter-bar {
@@ -39,7 +104,8 @@ If your plugin does not need CSS, delete this file.
 	align-items: center !important;
 	gap: var(--size-2-3) !important;
 	width: 100% !important;
-	min-height: 44px !important;
+	height: 42px !important;
+	min-height: 0 !important;
 	padding: 0 var(--size-2-3) 0 var(--size-4-3) !important;
 	background: var(--background-primary) !important;
 	border: var(--input-border-width, 1px) solid var(--background-modifier-border) !important;
@@ -55,17 +121,17 @@ If your plugin does not need CSS, delete this file.
 	flex: 1 1 auto !important;
 	width: auto !important;
 	min-width: 0 !important;
-	height: auto !important;
+	height: 100% !important;
 	min-height: 0 !important;
 	margin: 0 !important;
-	padding: var(--size-2-3) 0 !important;
+	padding: 0 !important;
 	background: transparent !important;
 	border: 0 !important;
 	border-radius: 0 !important;
 	box-shadow: none !important;
 	color: var(--text-normal) !important;
 	font-size: var(--font-ui-medium) !important;
-	line-height: 1.4 !important;
+	line-height: 1 !important;
 }
 
 .task-list-kanban-view .filter-bar input.filter-bar-input:focus,
@@ -81,10 +147,10 @@ If your plugin does not need CSS, delete this file.
 	display: inline-flex !important;
 	align-items: center !important;
 	justify-content: center !important;
-	width: 32px !important;
-	height: 32px !important;
-	min-width: 32px !important;
-	min-height: 32px !important;
+	width: 30px !important;
+	height: 30px !important;
+	min-width: 30px !important;
+	min-height: 30px !important;
 	margin: 0 !important;
 	padding: 0 !important;
 	background: transparent !important;

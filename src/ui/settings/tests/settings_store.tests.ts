@@ -10,6 +10,7 @@ import {
 	ScopeOption,
 	toSettingsString,
 	type SavedFilter,
+	type SavedView,
 } from "../settings_store";
 import { ColumnOrderMode } from "../../../parsing/properties/comparators";
 import { migrateColumnDefinitions } from "../../columns/definitions";
@@ -79,6 +80,7 @@ describe("Sparse overrides parsing (SPEC 0030)", () => {
 	it("legacy fully-materialized settings round-trip with every field intact", () => {
 		const full = JSON.parse(toSettingsString(defaultSettings));
 		const overrides = parseSettingsOverrides(JSON.stringify(full));
+		delete full.savedFilters;
 		expect(JSON.parse(toSettingsString(overrides))).toEqual(full);
 	});
 
@@ -326,7 +328,7 @@ describe("Invalid field resilience", () => {
 		});
 	});
 
-	it("round-trips saved tag groupings with include tags in order", () => {
+	it("migrates saved tag groupings with include tags in order", () => {
 		const parsed = roundtripSettings({
 			savedGroupings: [{
 				id: "projects",
@@ -339,10 +341,17 @@ describe("Invalid field resilience", () => {
 			}],
 		});
 
-		expect(parsed.savedGroupings?.[0]?.source).toEqual({
-			kind: "tag-prefix",
-			prefix: "Project-",
-			includeTags: ["Project-Beta", "Project-Alpha"],
+		expect(parsed.savedViews?.[0]).toEqual({
+			id: "group:projects",
+			name: "Projects",
+			group: {
+				source: {
+					kind: "tag-prefix",
+					prefix: "Project-",
+					includeTags: ["Project-Beta", "Project-Alpha"],
+				},
+				direction: "asc",
+			},
 		});
 	});
 
@@ -385,35 +394,43 @@ describe("Invalid field resilience", () => {
 	});
 });
 
-describe("SavedFilter persistence", () => {
+describe("Saved view persistence", () => {
 	const savedFilters: SavedFilter[] = [
 		{ id: "test-id-1", content: { text: "frontend" } },
 		{ id: "test-id-2", tag: { tags: ["bug", "urgent"] } },
 	];
+	const savedViews: SavedView[] = [
+		{
+			id: "view-id",
+			name: "Planning",
+			query: "tag:planning",
+			flowDirection: FlowDirection.TopToBottom,
+			columnWidth: 360,
+		},
+	];
 
-	it("parses settings with savedFilters array", () => {
+	it("migrates legacy savedFilters to query-only savedViews", () => {
 		const parsed = parseSettings({ ...defaultSettings, savedFilters });
-		expect(parsed.savedFilters).toHaveLength(2);
-		expect(parsed.savedFilters?.[0]?.content?.text).toBe("frontend");
-		expect(parsed.savedFilters?.[1]?.tag?.tags).toEqual(["bug", "urgent"]);
+		expect(parsed.savedFilters).toEqual([]);
+		expect(parsed.savedViews).toEqual([
+			{ id: "filter:test-id-1", name: "frontend", query: "frontend" },
+			{ id: "filter:test-id-2", name: "tag:bug,urgent", query: "tag:bug,urgent" },
+		]);
 	});
 
-	it("serializes settings with savedFilters", () => {
-		const serialized = serializeSettings({
-			savedFilters: [{ id: "test-id", content: { text: "test filter" } }],
-		});
-		expect(serialized.savedFilters).toHaveLength(1);
-		expect(serialized.savedFilters[0].content.text).toBe("test filter");
+	it("serializes settings with savedViews", () => {
+		const serialized = serializeSettings({ savedViews });
+		expect(serialized.savedViews).toEqual(savedViews);
 	});
 
 	it.each([
-		[{ ...defaultSettings, savedFilters: [] }, []],
+		[{ ...defaultSettings, savedViews: [] }, []],
 		[defaultSettings, []],
-	])("parses empty or missing saved filters for %o", (settings, expected) => {
-		expect(parseSettingsString(JSON.stringify(settings)).savedFilters).toEqual(expected);
+	])("parses empty or missing saved views for %o", (settings, expected) => {
+		expect(parseSettingsString(JSON.stringify(settings)).savedViews).toEqual(expected);
 	});
 
-	it("round-trips a named date filter", () => {
+	it("migrates a named date filter", () => {
 		const savedFilter: SavedFilter = {
 			id: "date-id",
 			name: "overdue",
@@ -426,13 +443,14 @@ describe("SavedFilter persistence", () => {
 		};
 
 		const parsed = parseSettings({ ...defaultSettings, savedFilters: [savedFilter] });
-		expect(parsed.savedFilters?.[0]).toEqual(savedFilter);
-
-		const serialized = serializeSettings({ savedFilters: [savedFilter] });
-		expect(serialized.savedFilters[0]).toEqual(savedFilter);
+		expect(parsed.savedViews?.[0]).toEqual({
+			id: "filter:date-id",
+			name: "overdue",
+			query: "due:<$TODAY scheduled:<=2026-07-01",
+		});
 	});
 
-	it("parses a date filter without a name", () => {
+	it("migrates a date filter without a name", () => {
 		const savedFilter: SavedFilter = {
 			id: "date-id",
 			date: {
@@ -441,11 +459,14 @@ describe("SavedFilter persistence", () => {
 		};
 
 		const parsed = parseSettings({ ...defaultSettings, savedFilters: [savedFilter] });
-		expect(parsed.savedFilters?.[0]).toEqual(savedFilter);
-		expect(parsed.savedFilters?.[0]?.name).toBeUndefined();
+		expect(parsed.savedViews?.[0]).toEqual({
+			id: "filter:date-id",
+			name: "due:<$TODAY",
+			query: "due:<$TODAY",
+		});
 	});
 
-	it("round-trips a unified query-based saved filter", () => {
+	it("migrates a unified query-based saved filter", () => {
 		const savedFilter: SavedFilter = {
 			id: "query-id",
 			name: "home projects",
@@ -453,21 +474,60 @@ describe("SavedFilter persistence", () => {
 		};
 
 		const parsed = parseSettings({ ...defaultSettings, savedFilters: [savedFilter] });
-		expect(parsed.savedFilters?.[0]).toEqual(savedFilter);
-
-		const serialized = serializeSettings({ savedFilters: [savedFilter] });
-		expect(serialized.savedFilters[0]).toEqual(savedFilter);
+		expect(parsed.savedViews?.[0]).toEqual({
+			id: "filter:query-id",
+			name: "home projects",
+			query: 'fix tag:home,errand file:projects due:<$TODAY',
+		});
 	});
 
-	it("handles filter with both content and tag", () => {
+	it("migrates a filter with both content and tag", () => {
 		const filter: SavedFilter = {
 			id: "combo-id",
 			content: { text: "search term" },
 			tag: { tags: ["frontend", "bug"] },
 		};
 		const parsed = parseSettings({ ...defaultSettings, savedFilters: [filter] });
-		expect(parsed.savedFilters?.[0]?.content?.text).toBe("search term");
-		expect(parsed.savedFilters?.[0]?.tag?.tags).toEqual(["frontend", "bug"]);
+		expect(parsed.savedViews?.[0]).toEqual({
+			id: "filter:combo-id",
+			name: "\"search term\" tag:frontend,bug",
+			query: "\"search term\" tag:frontend,bug",
+		});
+	});
+
+	it("migrates legacy savedGroupings to group-only savedViews", () => {
+		const parsed = parseSettings({
+			...defaultSettings,
+			savedGroupings: [
+				{
+					id: "projects",
+					name: "Projects",
+					source: { kind: "tag-prefix", prefix: "Project-" },
+				},
+			],
+		});
+		expect(parsed.savedViews?.[0]).toEqual({
+			id: "group:projects",
+			name: "Projects",
+			group: {
+				source: { kind: "tag-prefix", prefix: "Project-" },
+				direction: "asc",
+			},
+		});
+		expect(parsed.savedGroupings).toBeUndefined();
+	});
+
+	it("combines existing savedViews with migrated legacy saves without duplicates", () => {
+		const overrides = parseSettingsOverrides(
+			JSON.stringify({
+				savedViews: [{ id: "filter:test-id-1", name: "Existing", query: "home" }],
+				savedFilters,
+			}),
+		);
+		expect(overrides.savedViews).toEqual([
+			{ id: "filter:test-id-1", name: "Existing", query: "home" },
+			{ id: "filter:test-id-2", name: "tag:bug,urgent", query: "tag:bug,urgent" },
+		]);
 	});
 
 	it("parses settings with last filter values", () => {

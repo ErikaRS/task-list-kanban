@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	
+	export let title = "Delete saved filter?";
 	export let filterText: string;
 	export let onConfirm: () => void;
 	export let onCancel: () => void;
@@ -46,7 +47,7 @@
 
 <div class="modal-backdrop" on:click={(e) => e.target === e.currentTarget && onCancel()} role="presentation">
 	<div bind:this={modalElement} class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-		<h3 id="modal-title">Delete saved filter?</h3>
+		<h3 id="modal-title">{title}</h3>
 		<div class="filter-preview">{filterText}</div>
 		<div class="modal-actions">
 			<button class="cancel-btn" on:click={onCancel}>Cancel</button>

@@ -4,7 +4,6 @@ import type { SettingValues } from "./settings_store";
 import {
 	VisibilityOption,
 	ScopeOption,
-	FlowDirection,
 	PropertyDisplayMode,
 	defaultSettings,
 } from "../settings/settings_store";
@@ -36,7 +35,6 @@ import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest } from "./suggest";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
-const FlowDirectionSchema = z.nativeEnum(FlowDirection);
 
 export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
@@ -849,11 +847,6 @@ export class SettingsModal extends Modal {
 			"Columns",
 			"Board columns, column labels, matching rules, and color accents.",
 		);
-		const boardLayoutSection = createSection(
-			"board-layout",
-			"Board layout",
-			"Column sizing and board flow.",
-		);
 		const taskPropertiesSection = createSection(
 			"task-properties",
 			"Task properties",
@@ -879,41 +872,6 @@ export class SettingsModal extends Modal {
 		this.renderColumnsEditor();
 		this.validateColumns();
 		void this.refreshAvailableColumnTags();
-
-		new Setting(boardLayoutSection)
-			.setName("Column width")
-			.setDesc("Width of task cards in pixels (200-600)")
-			.addSlider((slider) => {
-				slider
-					.setLimits(200, 600, 10)
-					.setValue(this.settings.columnWidth ?? 300)
-					.setDynamicTooltip()
-					.onChange((value) => {
-						this.settings.columnWidth = value;
-						this.updateDirtyBanner();
-					});
-			});
-
-		new Setting(boardLayoutSection)
-			.setName("Flow direction")
-			.setDesc("Direction columns flow across the board")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption(FlowDirection.LeftToRight, "Left to right")
-					.addOption(FlowDirection.RightToLeft, "Right to left")
-					.addOption(FlowDirection.TopToBottom, "Top to bottom")
-					.addOption(FlowDirection.BottomToTop, "Bottom to top")
-					.setValue(
-						this.settings.flowDirection ?? FlowDirection.LeftToRight
-					)
-					.onChange((value) => {
-						const validatedValue = FlowDirectionSchema.safeParse(value);
-						this.settings.flowDirection = validatedValue.success
-							? validatedValue.data
-							: defaultSettings.flowDirection;
-						this.updateDirtyBanner();
-					});
-			});
 
 		new Setting(taskPropertiesSection)
 			.setName("Property schema")

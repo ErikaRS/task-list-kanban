@@ -11,11 +11,29 @@ import { DEFAULT_GROUP_BUCKET_ID, type GroupSource } from "../tasks/task_groupin
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 import type { ManualOrderStore } from "../tasks/manual_order";
+import { emptyFilterQuery, serializeFilterQuery } from "../filters/filter_query";
 
 export interface SavedGrouping {
 	id: string;
 	name: string;
 	source: GroupSource;
+}
+
+export interface SavedView {
+	id: string;
+	name: string;
+	query?: string;
+	sort?: {
+		mode: ColumnOrderMode;
+		property?: string | null;
+		direction: SortDirection;
+	};
+	group?: {
+		source: GroupSource;
+		direction: SortDirection;
+	};
+	flowDirection?: FlowDirection;
+	columnWidth?: number;
 }
 
 export enum VisibilityOption {
@@ -143,6 +161,23 @@ const savedGroupingSchema = z.object({
 	source: groupSourceSchema,
 });
 
+const savedViewSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	query: z.string().optional(),
+	sort: z.object({
+		mode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder),
+		property: z.string().nullable().optional(),
+		direction: z.enum(["asc", "desc"]).catch("asc"),
+	}).optional(),
+	group: z.object({
+		source: groupSourceSchema,
+		direction: z.enum(["asc", "desc"]).catch("asc"),
+	}).optional(),
+	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	columnWidth: z.number().min(200).max(600).catch(300).optional(),
+});
+
 const columnDefinitionSchema = z.object({
 	id: z.string(),
 	label: z.string(),
@@ -199,6 +234,7 @@ const settingsObject = z.object({
 	statusMarkerOrder: z.string().default("").optional(),
 	savedFilters: z.array(savedFilterSchema).default([]).optional(),
 	savedGroupings: z.array(savedGroupingSchema).default([]).optional(),
+	savedViews: z.array(savedViewSchema).default([]).optional(),
 	// The unified filter query string (SPEC 0029). The four last*Filter
 	// fields below are its legacy predecessors: still parsed so old
 	// frontmatter validates (and migrates at read time), never written.
@@ -251,6 +287,7 @@ export interface SettingValues {
 	statusMarkerOrder?: string;
 	savedFilters?: SavedFilter[];
 	savedGroupings?: SavedGrouping[];
+	savedViews?: SavedView[];
 	lastFilter?: string;
 	lastContentFilter?: string;
 	lastTagFilter?: string[];
@@ -290,6 +327,7 @@ export const defaultSettings: SettingValues = {
 	ignoredStatusMarkers: DEFAULT_IGNORED_STATUS_MARKERS,
 	statusMarkerOrder: "",
 	savedFilters: [],
+	savedViews: [],
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],
@@ -390,6 +428,63 @@ export const createSettingsStore = (): BoardSettingsStore => {
 	};
 };
 
+function legacySavedFilterToQuery(filter: SavedFilter): string {
+	if (filter.query !== undefined) {
+		return filter.query;
+	}
+
+	const query = emptyFilterQuery();
+	const contentText = filter.content?.text.replace(/"/g, "").trim();
+	if (contentText) {
+		query.contentTerms.push(contentText);
+	}
+
+	const tags = (filter.tag?.tags ?? []).filter((tag) => tag !== "");
+	if (tags.length > 0) {
+		query.tagGroups.push(tags);
+	}
+
+	const filePath = filter.file?.filepaths[0]?.replace(/"/g, "").trim();
+	if (filePath) {
+		query.filePaths.push(filePath);
+	}
+
+	query.dateConditions = (filter.date?.conditions ?? []).map((condition) => ({
+		...condition,
+	}));
+
+	return serializeFilterQuery(query);
+}
+
+function migrateLegacySavedViews(
+	savedFilters: SavedFilter[] | undefined,
+	savedGroupings: SavedGrouping[] | undefined,
+): SavedView[] {
+	return [
+		...(savedFilters ?? [])
+			.map((filter): SavedView | undefined => {
+				const query = legacySavedFilterToQuery(filter);
+				if (query === "") {
+					return undefined;
+				}
+				return {
+					id: `filter:${filter.id}`,
+					name: filter.name ?? query,
+					query,
+				};
+			})
+			.filter((view): view is SavedView => view !== undefined),
+		...(savedGroupings ?? []).map((group): SavedView => ({
+			id: `group:${group.id}`,
+			name: group.name,
+			group: {
+				source: group.source,
+				direction: "asc",
+			},
+		})),
+	];
+}
+
 /**
  * Parses frontmatter JSON into the sparse overrides layer: only fields
  * present in the input appear in the result. Parse-time migrations
@@ -401,8 +496,23 @@ export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 	try {
 		const parsed = JSON.parse(str);
 		const partial = settingsObject.partial().parse(parsed);
-		const { columns: rawColumns, collapsedColumns: rawCollapsed, ...rest } = partial;
+		const {
+			columns: rawColumns,
+			collapsedColumns: rawCollapsed,
+			savedFilters: rawSavedFilters,
+			savedGroupings: rawSavedGroupings,
+			savedViews: rawSavedViews,
+			...rest
+		} = partial;
 		const overrides = { ...rest } as Partial<SettingValues>;
+		const migratedViews = migrateLegacySavedViews(rawSavedFilters, rawSavedGroupings);
+		if (rawSavedViews !== undefined || migratedViews.length > 0) {
+			const existingIds = new Set((rawSavedViews ?? []).map((view) => view.id));
+			overrides.savedViews = [
+				...(rawSavedViews ?? []),
+				...migratedViews.filter((view) => !existingIds.has(view.id)),
+			];
+		}
 		if (rawColumns !== undefined) {
 			overrides.columns = migrateColumnDefinitions(
 				rawColumns as Array<string | Partial<ColumnDefinition>>,

@@ -1,6 +1,6 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN PROGRESS (Phase 1 complete)
+Status: IN PROGRESS (Phase 3 implemented; manual review pending)
 
 ## Feature Request Summary
 
@@ -137,7 +137,8 @@ named view:
 ┌ View editor (expanded) ────────────────────────────────────────┐
 │  Sort     [ File order ▾ ]  [ asc ▾ ]                          │
 │  Group    [ None ▾ ]  [ asc ▾ ]                                │
-│  Layout   [ → LTR ▾ ]   Column width [────●────] 300px         │
+│  Flow     [ LTR ▾ ]                                            │
+│  Card width [────●────] 300px                                  │
 │  ─────────────────────────────────────────────────────────────│
 │  Save view as: [ name…    ] [Save]   (saves: filter · group)  │
 │  ▸ Saved views (3)                                             │
@@ -365,17 +366,29 @@ otherwise unchanged.
 **Deliverable:** New boards accumulate only the settings the user touches.
 **Size:** M
 
-### Phase 2: Standalone view editor
+### Phase 2: Standalone view editor 🚧 IN PROGRESS
 **Goal:** Sort, group, flow direction, and column width all live in a new
 expandable/collapsible view editor (separate from the search bar, no text
 input); settings modal "Board layout" section removed.
 
-1. ☐ Build the view editor shell: header toggle, expand/collapse panel
-2. ☐ Add Sort / Group rows (reusing header select logic)
-3. ☐ Add Layout row (flow direction, column width slider)
-4. ☐ Remove header sort/group selects (decide on collapsed-state indicator)
-5. ☐ Remove "Board layout" section from the settings modal
-6. ☐ Tests + manual pass over all four controls
+1. ✅ Build the view editor shell: header toggle, expand/collapse panel
+2. ✅ Add Sort / Group rows (reusing header select logic)
+3. ✅ Add Flow and Card width rows
+4. ✅ Remove header sort/group selects (decide on collapsed-state indicator)
+5. ✅ Remove "Board layout" section from the settings modal
+6. ✅ Automated verification: `npm run build`, `npm test`
+7. ☐ Manual pass over sort, group, flow direction, and card width controls in Obsidian
+
+**Implementation notes (Phase 2):**
+- `src/ui/view_editor.svelte` now hosts the arrangement controls. It reuses
+  the existing sort/group mutation paths, keeps the tag-group prefix/include
+  controls with grouping, and adds flow direction plus a card-width slider.
+- The top chrome now puts the **View** toggle to the left of the search bar,
+  settings on the right, and the task count inside the board matrix corner
+  instead of its own chrome row. The view editor floats from the **View** button
+  over the board content; no persistent group-applied chip is shown.
+- The settings modal no longer renders the "Board layout" section; those
+  fields are edited from the board view editor.
 
 **Deliverable:** One consolidated arrangement editor on the board.
 **Size:** M–L
@@ -385,17 +398,28 @@ input); settings modal "Board layout" section removed.
 **Depends on:** Phase 1 (override tracking decides which properties a save
 captures) and Phase 2 (the view editor hosting the controls and save row).
 
-1. ☐ Add sparse `SavedView` type + `savedViews` to the settings schema
-2. ☐ Save row with included-properties indicator + zippy saved list with
+1. ✅ Add sparse `SavedView` type + `savedViews` to the settings schema
+2. ✅ Save row with included-properties indicator + zippy saved list with
    per-entry property badges
-3. ☐ Apply (merge semantics) / delete-with-confirm / reset-view flows
-4. ☐ Migrate `savedFilters` and `savedGroupings` → `savedViews` at parse
+3. ✅ Apply (merge semantics) / delete-with-confirm flows
+4. ✅ Migrate `savedFilters` and `savedGroupings` → `savedViews` at parse
    time; retire both separate UIs and stop writing the legacy fields
-5. ☐ Tests: sparse save captures exactly the set properties, apply-merge
+5. ✅ Tests: sparse save captures exactly the set properties, apply-merge
    round-trip, filter + grouping migrations
+6. ☐ Manual Obsidian pass over save/apply/delete interactions and visual fit
 
 **Deliverable:** Working saved views on a single board (closes #159).
 **Size:** M–L
+
+**Implementation notes (Phase 3):**
+- `src/ui/settings/settings_store.ts` now parses `savedViews` and migrates
+  legacy `savedFilters` / `savedGroupings` into query-only or group-only
+  saved views.
+- `src/ui/views/saved_views.ts` owns sparse capture, labels, query-only
+  detection, and apply-merge behavior.
+- The View popover now has a compact "Save as" row plus a saved-views zippy
+  list. The filter editor's Saved list is backed by the query-only subset of
+  saved views, so old saved filters keep the same affordance after migration.
 
 ### Phase 4: Global settings (closes #8)
 **Goal:** Plugin-level defaults inherited by boards that haven't overridden

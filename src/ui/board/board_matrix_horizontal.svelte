@@ -37,6 +37,7 @@
 	export let manualOrder: ManualOrderStore = {};
 	export let reorderEnabled: boolean = false;
 	export let treatNestedTasksAsSubtasks: boolean = false;
+	export let taskCountLabel: string = "";
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [
@@ -68,7 +69,13 @@
 
 <div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="{showSwimlaneHeaders ? '56px' : '0px'}">
 	{#if showSwimlaneHeaders}
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}></div>
+		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
+			{#if taskCountLabel}
+				<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
+			{/if}
+		</div>
+	{:else if taskCountLabel}
+		<span class="matrix-task-count matrix-task-count-overlay" aria-live="polite">{taskCountLabel}</span>
 	{/if}
 
 	<!-- 1. Render Column Headers across the top row -->
@@ -148,6 +155,7 @@
 <style lang="scss">
 	.matrix-horizontal {
 		display: grid;
+		position: relative;
 		column-gap: 0;
 		row-gap: 0;
 		align-items: stretch;
@@ -173,6 +181,43 @@
 		left: 0;
 		top: 0;
 		z-index: 7;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 0;
+		padding: var(--size-2-1);
+		overflow: hidden;
+	}
+
+	.matrix-task-count {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		font-weight: 500;
+		line-height: 1.15;
+		text-align: center;
+		text-overflow: ellipsis;
+		white-space: normal;
+		overflow-wrap: break-word;
+	}
+
+	.matrix-task-count-overlay {
+		position: absolute;
+		top: var(--size-2-1);
+		left: var(--size-4-3);
+		z-index: 7;
+		max-width: 180px;
+		padding: 2px var(--size-2-2);
+		border: var(--border-width) solid var(--background-modifier-border);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--background-secondary) 86%, transparent);
+		box-shadow: var(--shadow-s);
+		line-height: 1.2;
+		text-align: left;
+		white-space: nowrap;
+		pointer-events: none;
 	}
 
 	.header-wrapper {

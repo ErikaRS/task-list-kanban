@@ -12,19 +12,18 @@
 	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
 	import { deriveBoardMatrix } from "./board/board_matrix";
+	import ViewEditor from "./view_editor.svelte";
 	import {
 		createGroupAssigner,
 		deriveGroupBuckets,
 		normalizeTagIncludeList,
-		normalizeTagPrefix,
 		type GroupSource,
 	} from "./tasks/task_grouping";
-	import CompactTagSelect from "./components/select/compact_tag_select.svelte";
 	import IconButton from "./components/icon_button.svelte";
 	import Icon from "./components/icon.svelte";
 	import type { Writable, Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type SavedGrouping, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { type BoardSettingsStore, type SavedView, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
@@ -34,7 +33,6 @@
 	import { collectPresentManualOrderKeys } from "./tasks/manual_order";
 	import {
 		readBoardFilterState,
-		savedFilterToQuery,
 		shouldApplyIncomingBoardFilterState,
 		writeBoardFilterState,
 		type SavedFilterEntry,
@@ -56,9 +54,15 @@
 		type FilterSuggestion,
 	} from "./filters/filter_suggestions";
 	import { createTodayStore } from "./filters/today_store";
+	import {
+		applySavedViewProperties,
+		captureSavedViewProperties,
+		savedViewHasProperties,
+		savedViewIsQueryOnly,
+		savedViewPropertyLabels,
+		type SavedViewProperties,
+	} from "./views/saved_views";
 
-	type TagPrefixGroupSource = Extract<GroupSource, { kind: "tag-prefix" }>;
-	type SavedTagGrouping = SavedGrouping & { source: TagPrefixGroupSource };
 	type TagGroupInputMode = "prefix" | "include";
 
 	export let app: App;
@@ -69,7 +73,7 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
-	export let settingsStore: Writable<SettingValues>;
+	export let settingsStore: BoardSettingsStore;
 	export let requestSave: () => void;
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
@@ -98,99 +102,14 @@
 		return acc;
 	}, new Set<string>());
 
-	$: savedGroupings = $settingsStore.savedGroupings ?? [];
-	$: savedTagGroupings = savedGroupings.filter(
-		(g): g is SavedTagGrouping => g.source.kind === "tag-prefix",
-	);
 	$: availableTags = [...tags].sort((a, b) => a.localeCompare(b));
 
-	let activeSavedGroupingId: string | undefined;
-	let rememberedSavedTagGroupingId: string | undefined;
 	let tagGroupInputMode: TagGroupInputMode = "prefix";
-
-	$: {
-		const src = $settingsStore.groupSource;
-		const matching = src?.kind === "tag-prefix" ? savedTagGroupings.find(g =>
-			tagGroupSourcesMatch(g.source, src)
-		) : undefined;
-		activeSavedGroupingId = matching?.id;
-	}
-
-	function normalizedTagGroupSource(source: TagPrefixGroupSource) {
-		const prefix = normalizeTagPrefix(source.prefix);
-		const includeTags = normalizeTagIncludeList(source.includeTags, prefix);
-		return { kind: "tag-prefix" as const, prefix, includeTags };
-	}
-
-	function tagGroupSourcesMatch(
-		a: TagPrefixGroupSource,
-		b: TagPrefixGroupSource,
-	): boolean {
-		const left = normalizedTagGroupSource(a);
-		const right = normalizedTagGroupSource(b);
-		if (left.prefix !== right.prefix) return false;
-		if (left.includeTags.length !== right.includeTags.length) return false;
-		return left.includeTags.every((tag, index) =>
-			tag.toLowerCase() === right.includeTags[index]?.toLowerCase()
-		);
-	}
 
 	function tagGroupInputModeForSource(source: GroupSource | undefined): TagGroupInputMode {
 		return source?.kind === "tag-prefix" && (source.includeTags?.length ?? 0) > 0
 			? "include"
 			: "prefix";
-	}
-
-	function getRememberedSavedTagGrouping() {
-		return rememberedSavedTagGroupingId
-			? savedTagGroupings.find(g => g.id === rememberedSavedTagGroupingId)
-			: undefined;
-	}
-
-	function rememberCurrentTagGroupingIfSaved() {
-		if ($settingsStore.groupSource?.kind !== "tag-prefix") return;
-		rememberedSavedTagGroupingId = activeSavedGroupingId;
-	}
-
-	function createTagGroupSourceFromMemory() {
-		const remembered = getRememberedSavedTagGrouping();
-		return remembered
-			? { ...remembered.source }
-			: { kind: "tag-prefix" as const, prefix: "" };
-	}
-
-	$: if (rememberedSavedTagGroupingId && !savedTagGroupings.some(g => g.id === rememberedSavedTagGroupingId)) {
-		rememberedSavedTagGroupingId = undefined;
-	}
-
-	$: if (activeSavedGroupingId) {
-		const activeSavedTagGrouping = savedTagGroupings.find(
-			g => g.id === activeSavedGroupingId
-		);
-		if (activeSavedTagGrouping) {
-			rememberedSavedTagGroupingId = activeSavedTagGrouping.id;
-		}
-	}
-
-	function saveCurrentGrouping() {
-		const src = $settingsStore.groupSource;
-		if (!src || src.kind !== "tag-prefix") return;
-
-		// Don't create a duplicate entry for a grouping that is already saved.
-		if (activeSavedGroupingId) return;
-
-		const normalizedSource = normalizedTagGroupSource(src);
-		const name = normalizedSource.prefix ? normalizedSource.prefix :
-			(normalizedSource.includeTags.length > 0 ? normalizedSource.includeTags.join(", ") : "Tags");
-
-		const newGrouping = {
-			id: crypto.randomUUID(),
-			name,
-			source: normalizedSource,
-		};
-		$settingsStore.savedGroupings = [...savedGroupings, newGrouping];
-		rememberedSavedTagGroupingId = newGrouping.id;
-		requestSave();
 	}
 
 	function updateTagGroupPrefix(prefix: string) {
@@ -200,7 +119,6 @@
 			kind: "tag-prefix",
 			prefix,
 		};
-		activeSavedGroupingId = undefined;
 		requestSave();
 	}
 
@@ -212,7 +130,6 @@
 			prefix: "",
 			includeTags: normalizeTagIncludeList(includeTags),
 		};
-		activeSavedGroupingId = undefined;
 		requestSave();
 	}
 
@@ -224,34 +141,7 @@
 		$settingsStore.groupSource = mode === "prefix"
 			? { kind: "tag-prefix", prefix: src.prefix ?? "" }
 			: { kind: "tag-prefix", prefix: "", includeTags: src.includeTags ?? [] };
-		activeSavedGroupingId = undefined;
 		requestSave();
-	}
-
-	function loadSavedGrouping(id: string) {
-		const grouping = savedGroupings.find(g => g.id === id);
-		if (grouping) {
-			$settingsStore.groupSource = { ...grouping.source };
-			tagGroupInputMode = tagGroupInputModeForSource(grouping.source);
-			requestSave();
-		}
-	}
-	
-	function deleteSavedGrouping(id: string) {
-		$settingsStore.savedGroupings = savedGroupings.filter(g => g.id !== id);
-		if (rememberedSavedTagGroupingId === id) {
-			rememberedSavedTagGroupingId = undefined;
-		}
-		requestSave();
-	}
-
-	// Activate a role="button" element on both Enter and Space, matching native
-	// button semantics (and preventing Space from scrolling the page).
-	function onActivateKey(e: KeyboardEvent, action: () => void) {
-		if (e.key === "Enter" || e.key === " ") {
-			e.preventDefault();
-			action();
-		}
 	}
 
 	$: dateFilterKeys = activeSchema.knownKeys().filter((key) => key.type === "date");
@@ -332,10 +222,18 @@
 	$: draftQuery = parseFilterQuery(filterQueryText, dateFilterKeyNames);
 	$: appliedQuery = parseFilterQuery(appliedQueryText, dateFilterKeyNames);
 	$: isFiltered = !isEmptyFilterQuery(appliedQuery);
+	$: savedViews = $settingsStore.savedViews ?? [];
+	$: currentSavedViewProperties = captureSavedViewProperties(
+		$settingsStore,
+		settingsStore.getOverrides(),
+	);
+	$: canSaveCurrentView = savedViewHasProperties(currentSavedViewProperties);
 
 	// --- Expanded structured editor (two synced views of one query) ---
 	let filterEditorExpanded = false;
+	let viewEditorExpanded = false;
 	let filterBarContainer: HTMLDivElement | undefined;
+	let viewControlContainer: HTMLDivElement | undefined;
 
 	// Committing canonicalizes the draft (quoting, $TODAY casing, token
 	// order), so the bar always shows exactly what was understood.
@@ -476,16 +374,18 @@
 		filterEditorExpanded = false;
 	}
 
-	// --- Unified saved filters (SPEC 0029 Phase 4) ---
-	// One flat list covering any query. Legacy slot-based entries resolve
-	// through savedFilterToQuery at read time and are never rewritten.
-	$: savedFilterEntries = ($settingsStore.savedFilters ?? []).map(
-		(filter): SavedFilterEntry => ({
-			id: filter.id,
-			name: filter.name,
-			query: savedFilterToQuery(filter),
-		}),
-	);
+	// --- Saved views (SPEC 0030 Phase 3) ---
+	// Query-only saved views are also exposed to the filter editor so the
+	// existing "Saved" filter affordance keeps working after migration.
+	$: savedFilterEntries = savedViews
+		.filter((view) => savedViewIsQueryOnly(view) && view.query !== undefined)
+		.map(
+			(view): SavedFilterEntry => ({
+				id: view.id,
+				name: view.name === view.query ? undefined : view.name,
+				query: view.query!,
+			}),
+		);
 
 	// Applying replaces the whole query (never merges) and commits it.
 	function applySavedFilter(entry: SavedFilterEntry) {
@@ -502,18 +402,20 @@
 		if (query === "") {
 			return;
 		}
-		$settingsStore.savedFilters = [
-			...($settingsStore.savedFilters ?? []),
-			{ id: crypto.randomUUID(), name, query },
+		$settingsStore.savedViews = [
+			...savedViews,
+			{ id: crypto.randomUUID(), name: name ?? query, query },
 		];
 		requestSave();
 	}
 
 	let savedFilterPendingDelete: SavedFilterEntry | undefined;
+	let savedViewPendingDelete: SavedView | undefined;
 	// The editor unmounts when the panel collapses; holding the saved-list
 	// zippy state here makes it stick across reopenings. Collapsed by
 	// default.
 	let savedFilterListExpanded = false;
+	let savedViewListExpanded = false;
 
 	function confirmDeleteSavedFilter() {
 		const pending = savedFilterPendingDelete;
@@ -521,24 +423,78 @@
 		if (!pending) {
 			return;
 		}
-		$settingsStore.savedFilters = ($settingsStore.savedFilters ?? []).filter(
-			(filter) => filter.id !== pending.id,
-		);
+		$settingsStore.savedViews = savedViews.filter((view) => view.id !== pending.id);
+		requestSave();
+	}
+
+	function defaultSavedViewName(properties: SavedViewProperties): string {
+		const labels = savedViewPropertyLabels(properties);
+		return labels.length > 0 ? labels.join(" + ") : "View";
+	}
+
+
+
+	function saveCurrentView(name: string | undefined) {
+		const properties = currentSavedViewProperties;
+		if (!savedViewHasProperties(properties)) {
+			return;
+		}
+		$settingsStore.savedViews = [
+			...savedViews,
+			{
+				id: crypto.randomUUID(),
+				name: name?.trim() || defaultSavedViewName(properties),
+				...properties,
+			},
+		];
+		requestSave();
+	}
+
+	function applySavedView(view: SavedView) {
+		if (view.query !== undefined) {
+			filterQueryText = view.query;
+			appliedQueryText = view.query;
+			lastPersistedQuery = view.query;
+		}
+		settingsStore.update((settings) => {
+			const next = applySavedViewProperties(settings, view);
+			return view.query !== undefined
+				? writeBoardFilterState(next, view.query)
+				: next;
+		});
+		if (view.group?.source.kind === "tag-prefix") {
+			tagGroupInputMode = tagGroupInputModeForSource(view.group.source);
+		}
+		hideBarSuggestions();
+		requestSave();
+	}
+
+	function confirmDeleteSavedView() {
+		const pending = savedViewPendingDelete;
+		savedViewPendingDelete = undefined;
+		if (!pending) {
+			return;
+		}
+		$settingsStore.savedViews = savedViews.filter((view) => view.id !== pending.id);
 		requestSave();
 	}
 
 	function handleWindowKeydown(e: KeyboardEvent) {
 		// While the delete confirmation is open it owns Esc.
-		if (savedFilterPendingDelete) {
+		if (savedFilterPendingDelete || savedViewPendingDelete) {
 			return;
 		}
 		if (e.key === "Escape" && filterEditorExpanded) {
 			filterEditorExpanded = false;
+			return;
+		}
+		if (e.key === "Escape" && viewEditorExpanded) {
+			viewEditorExpanded = false;
 		}
 	}
 
 	function handleWindowMousedown(e: MouseEvent) {
-		if (savedFilterPendingDelete) {
+		if (savedFilterPendingDelete || savedViewPendingDelete) {
 			return;
 		}
 		if (
@@ -548,6 +504,14 @@
 			!filterBarContainer.contains(e.target)
 		) {
 			filterEditorExpanded = false;
+		}
+		if (
+			viewEditorExpanded &&
+			viewControlContainer &&
+			e.target instanceof Node &&
+			!viewControlContainer.contains(e.target)
+		) {
+			viewEditorExpanded = false;
 		}
 	}
 
@@ -561,6 +525,9 @@
 
 	$: totalTaskCount = getBoardTaskCount($tasksStore);
 	$: filteredTaskCount = getBoardTaskCount(filteredTasks);
+	$: boardTaskCountLabel = isFiltered
+		? `${filteredTaskCount} of ${totalTaskCount} tasks`
+		: `Total: ${totalTaskCount} tasks`;
 
 	$: ({
 		showFilepath = true,
@@ -658,6 +625,13 @@
 		? `prop:${$settingsStore.groupSource.key}`
 		: $settingsStore.groupSource?.kind ?? "none";
 	$: isDirectionalGroup = ($settingsStore.groupSource?.kind ?? "none") !== "none";
+	$: isTagPrefixGrouping = $settingsStore.groupSource?.kind === "tag-prefix";
+	$: tagGroupPrefix = $settingsStore.groupSource?.kind === "tag-prefix"
+		? $settingsStore.groupSource.prefix ?? ""
+		: "";
+	$: tagGroupIncludeTags = $settingsStore.groupSource?.kind === "tag-prefix"
+		? $settingsStore.groupSource.includeTags ?? []
+		: [];
 
 	function onSortChange(value: string) {
 		if (value.startsWith("prop:")) {
@@ -669,6 +643,33 @@
 			$settingsStore.columnOrderMode = ColumnOrderMode.Manual;
 		} else {
 			$settingsStore.columnOrderMode = ColumnOrderMode.FileOrder;
+		}
+		requestSave();
+	}
+
+	function onGroupChange(value: string) {
+		if (value === "file") {
+			$settingsStore.groupSource = { kind: "file" };
+		} else if (value === "tag-prefix") {
+			const nextGroupSource: GroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
+				? {
+					kind: "tag-prefix",
+					prefix: $settingsStore.groupSource.prefix,
+					includeTags: $settingsStore.groupSource.includeTags,
+				}
+				: { kind: "tag-prefix", prefix: "" };
+			$settingsStore.groupSource = nextGroupSource;
+			tagGroupInputMode = tagGroupInputModeForSource(nextGroupSource);
+		} else if (value.startsWith("prop:")) {
+			$settingsStore.groupSource = {
+				kind: "property",
+				key: value.slice("prop:".length),
+				collapsePastDates: $settingsStore.groupSource?.kind === "property"
+					? $settingsStore.groupSource.collapsePastDates
+					: undefined,
+			};
+		} else {
+			$settingsStore.groupSource = { kind: "none" };
 		}
 		requestSave();
 	}
@@ -747,6 +748,17 @@
 		requestSave();
 	}
 
+	function setFlowDirection(value: FlowDirection) {
+		$settingsStore.flowDirection = value;
+		requestSave();
+	}
+
+	function setColumnWidth(value: number) {
+		const clamped = Math.min(600, Math.max(200, Math.round(value / 10) * 10));
+		$settingsStore.columnWidth = clamped;
+		requestSave();
+	}
+
 	async function handleOpenSettings() {
 		openSettings();
 	}
@@ -756,66 +768,129 @@
 
 <div class="main">
 	<div class="board-content">
-		<div class="filter-bar-container" bind:this={filterBarContainer}>
-			<div class="filter-bar">
-				<Icon name="search" size={16} opacity={0.7} />
-				<input
-					type="text"
-					class="filter-bar-input"
-					bind:this={filterInputEl}
-					bind:value={filterQueryText}
-					on:input={refreshBarSuggestions}
-					on:keydown={handleFilterInputKeydown}
-					on:click={handleFilterInputClick}
-					on:blur={hideBarSuggestions}
-					placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
-					aria-label="Filter tasks (press Enter to apply)"
-					spellcheck="false"
-				/>
-				{#if filterQueryText !== "" || appliedQueryText !== ""}
-					<button
-						class="filter-bar-clear"
-						aria-label="Clear filter"
-						on:click={clearFilter}
-					>
-						×
-					</button>
-				{/if}
+		<div class="board-toolbar">
+			<div class="view-control" bind:this={viewControlContainer}>
 				<button
-					class="filter-bar-expand"
-					aria-label={filterEditorExpanded
-						? "Hide search options"
-						: "Show search options"}
-					aria-expanded={filterEditorExpanded}
-					on:click={() => (filterEditorExpanded = !filterEditorExpanded)}
+					type="button"
+					class="view-editor-toggle"
+					class:active={viewEditorExpanded}
+					aria-expanded={viewEditorExpanded}
+					aria-label={viewEditorExpanded ? "Hide view settings" : "Show view settings"}
+					on:click={() => (viewEditorExpanded = !viewEditorExpanded)}
 				>
-					<Icon name="sliders-horizontal" size={18} />
+					<Icon name="sliders-horizontal" size={16} />
+					<span>View</span>
+					<span class="view-editor-chevron">
+						<Icon name={viewEditorExpanded ? "chevron-up" : "chevron-down"} size={15} />
+					</span>
 				</button>
+				{#if viewEditorExpanded}
+					<div class="view-editor-popover">
+						<ViewEditor
+							{sortSelectValue}
+							{availableSortKeys}
+							{isDirectionalSort}
+							sortDirection={$settingsStore.sortDirection ?? "asc"}
+							onSortChange={onSortChange}
+							onToggleSortDirection={toggleSortDirection}
+							{groupSelectValue}
+							{availableGroupKeys}
+							{isDirectionalGroup}
+							groupDirection={$settingsStore.groupDirection ?? "asc"}
+							onGroupChange={onGroupChange}
+							onToggleGroupDirection={toggleGroupDirection}
+							{showCollapsePastDatesToggle}
+							collapsePastDates={propertyGroupSource?.collapsePastDates ?? false}
+							onSetCollapsePastDates={setCollapsePastDates}
+							{isTagPrefixGrouping}
+							{tagGroupInputMode}
+							{availableTags}
+							{tagGroupPrefix}
+							{tagGroupIncludeTags}
+							onSetTagGroupInputMode={setTagGroupInputMode}
+							onUpdateTagGroupPrefix={updateTagGroupPrefix}
+							onUpdateTagGroupIncludeTags={updateTagGroupIncludeTags}
+							{flowDirection}
+							{columnWidth}
+							onSetFlowDirection={setFlowDirection}
+							onSetColumnWidth={setColumnWidth}
+							{savedViews}
+							{savedViewListExpanded}
+
+							canSaveView={canSaveCurrentView}
+
+							onSaveCurrentView={saveCurrentView}
+							onApplySavedView={applySavedView}
+							onDeleteSavedView={(view) => (savedViewPendingDelete = view)}
+							onToggleSavedViewList={(expanded) => (savedViewListExpanded = expanded)}
+						/>
+					</div>
+				{/if}
 			</div>
-			{#if barSuggestionsVisible}
-				<FilterSuggestionList
-					suggestions={barSuggestions}
-					selectedIndex={barSuggestionIndex}
-					onAccept={acceptBarSuggestion}
-				/>
-			{/if}
-			{#if filterEditorExpanded}
-				<FilterEditor
-					query={draftQuery}
-					dateKeys={dateFilterKeys}
-					tagSuggestionItems={availableTags}
-					fileSuggestionItems={taskFilePaths}
-					savedFilters={savedFilterEntries}
-					savedListExpanded={savedFilterListExpanded}
-					onChange={applyEditorQuery}
-					onSearch={searchFromEditor}
-					onClear={clearFilter}
-					onApplySavedFilter={applySavedFilter}
-					onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
-					onSaveFilter={saveCurrentFilter}
-					onToggleSavedList={(expanded) => (savedFilterListExpanded = expanded)}
-				/>
-			{/if}
+			<div class="filter-bar-container" bind:this={filterBarContainer}>
+				<div class="filter-bar">
+					<Icon name="search" size={16} opacity={0.7} />
+					<input
+						type="text"
+						class="filter-bar-input"
+						bind:this={filterInputEl}
+						bind:value={filterQueryText}
+						on:input={refreshBarSuggestions}
+						on:keydown={handleFilterInputKeydown}
+						on:click={handleFilterInputClick}
+						on:blur={hideBarSuggestions}
+						placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
+						aria-label="Filter tasks (press Enter to apply)"
+						spellcheck="false"
+					/>
+					{#if filterQueryText !== "" || appliedQueryText !== ""}
+						<button
+							class="filter-bar-clear"
+							aria-label="Clear filter"
+							on:click={clearFilter}
+						>
+							×
+						</button>
+					{/if}
+					<button
+						class="filter-bar-expand"
+						aria-label={filterEditorExpanded
+							? "Hide search options"
+							: "Show search options"}
+						aria-expanded={filterEditorExpanded}
+						on:click={() => (filterEditorExpanded = !filterEditorExpanded)}
+					>
+						<Icon name="sliders-horizontal" size={18} />
+					</button>
+				</div>
+				{#if barSuggestionsVisible}
+					<FilterSuggestionList
+						suggestions={barSuggestions}
+						selectedIndex={barSuggestionIndex}
+						onAccept={acceptBarSuggestion}
+					/>
+				{/if}
+				{#if filterEditorExpanded}
+					<FilterEditor
+						query={draftQuery}
+						dateKeys={dateFilterKeys}
+						tagSuggestionItems={availableTags}
+						fileSuggestionItems={taskFilePaths}
+						savedFilters={savedFilterEntries}
+						savedListExpanded={savedFilterListExpanded}
+						onChange={applyEditorQuery}
+						onSearch={searchFromEditor}
+						onClear={clearFilter}
+						onApplySavedFilter={applySavedFilter}
+						onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
+						onSaveFilter={saveCurrentFilter}
+						onToggleSavedList={(expanded) => (savedFilterListExpanded = expanded)}
+					/>
+				{/if}
+			</div>
+			<div class="settings-control">
+				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
+			</div>
 		</div>
 		{#if savedFilterPendingDelete}
 			<DeleteFilterModal
@@ -824,185 +899,14 @@
 				onCancel={() => (savedFilterPendingDelete = undefined)}
 			/>
 		{/if}
-			<div class="board-header">
-				<div class="board-header-controls">
-					{#if $settingsStore.groupSource?.kind === "tag-prefix"}
-						<div class="grouping-controls">
-							<div class="tag-group-input-row">
-								<div class="tag-group-mode-toggle">
-									<button
-										type="button"
-										class:active={tagGroupInputMode === "prefix"}
-										aria-pressed={tagGroupInputMode === "prefix"}
-										on:click={() => setTagGroupInputMode("prefix")}
-									>
-										Prefix
-									</button>
-									<button
-										type="button"
-										class:active={tagGroupInputMode === "include"}
-										aria-pressed={tagGroupInputMode === "include"}
-										on:click={() => setTagGroupInputMode("include")}
-									>
-										Include
-									</button>
-								</div>
-								<div class="tag-group-input">
-									{#if tagGroupInputMode === "prefix"}
-										<input
-											type="text"
-											class="grouping-prefix-input"
-											placeholder="Prefix (e.g. Sprint-)"
-											value={$settingsStore.groupSource.prefix ?? ""}
-											aria-label="Tag group prefix"
-											on:input={(e) => updateTagGroupPrefix(e.currentTarget.value)}
-										/>
-									{:else}
-										<CompactTagSelect
-											items={availableTags}
-											value={$settingsStore.groupSource.includeTags ?? []}
-											maxSelected={0}
-											placeholder="Choose tags"
-											ariaLabel="Included tag swimlanes"
-											on:change={(e) => updateTagGroupIncludeTags(e.detail)}
-										/>
-									{/if}
-								</div>
-								<button
-									class="filter-action-btn save-btn grouping-save-btn"
-									on:click={saveCurrentGrouping}
-									disabled={!!activeSavedGroupingId}
-								>
-									Save
-								</button>
-							</div>
-							{#if savedTagGroupings.length > 0}
-								<div class="saved-filters saved-groups">
-									<details>
-										<summary>Saved groups</summary>
-										<ul role="list">
-											{#each savedTagGroupings as group}
-												<li>
-													<span role="button" tabindex="0" class="delete-btn" on:click={() => deleteSavedGrouping(group.id)} on:keydown={(e) => onActivateKey(e, () => deleteSavedGrouping(group.id))} aria-label="Delete saved grouping">×</span>
-													<span role="button" tabindex="0" class="filter-text" class:active={group.id === activeSavedGroupingId} on:click={() => loadSavedGrouping(group.id)} on:keydown={(e) => onActivateKey(e, () => loadSavedGrouping(group.id))}>{group.name}</span>
-												</li>
-											{/each}
-										</ul>
-									</details>
-								</div>
-							{/if}
-						</div>
-					{/if}
-					<div class="group-by-stack">
-					<select
-						class="dropdown group-by-select"
-						value={groupSelectValue}
-						on:change={(e) => {
-							const val = e.currentTarget.value;
-							rememberCurrentTagGroupingIfSaved();
-							if (val === "file") {
-								$settingsStore.groupSource = { kind: "file" };
-							} else if (val === "tag-prefix") {
-								const nextGroupSource: GroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
-									? {
-										kind: "tag-prefix",
-										prefix: $settingsStore.groupSource.prefix,
-										includeTags: $settingsStore.groupSource.includeTags,
-									}
-									: createTagGroupSourceFromMemory();
-								$settingsStore.groupSource = nextGroupSource;
-								tagGroupInputMode = tagGroupInputModeForSource(nextGroupSource);
-							} else if (val.startsWith("prop:")) {
-								$settingsStore.groupSource = {
-									kind: "property",
-									key: val.slice("prop:".length),
-									collapsePastDates: $settingsStore.groupSource?.kind === "property"
-										? $settingsStore.groupSource.collapsePastDates
-										: undefined,
-								};
-							} else {
-								$settingsStore.groupSource = { kind: "none" };
-							}
-							requestSave();
-						}}
-					>
-						<option value="none">Group by: (none)</option>
-						<option value="file">Group by: File</option>
-						<option value="tag-prefix">Group by: Tag</option>
-						{#if availableGroupKeys.length > 0}
-							<optgroup label="Properties">
-								{#each availableGroupKeys as groupKey (groupKey.key)}
-									<option value={`prop:${groupKey.key}`}>Group by: {groupKey.label}</option>
-								{/each}
-							</optgroup>
-						{/if}
-					</select>
-					{#if showCollapsePastDatesToggle && propertyGroupSource}
-						<label class="collapse-overdue-toggle">
-							<input
-								type="checkbox"
-								checked={propertyGroupSource.collapsePastDates ?? false}
-								on:change={(e) => setCollapsePastDates(e.currentTarget.checked)}
-							/>
-							Combine past dates
-						</label>
-					{/if}
-					</div>
-					{#if isDirectionalGroup}
-						<button
-							class="sort-direction-btn"
-							on:click={toggleGroupDirection}
-							aria-label="Toggle group direction"
-							title={($settingsStore.groupDirection ?? "asc") === "asc" ? "Group ascending" : "Group descending"}
-						>
-							<Icon
-								name={($settingsStore.groupDirection ?? "asc") === "asc"
-									? "arrow-up-narrow-wide"
-									: "arrow-down-wide-narrow"}
-								size={16}
-							/>
-						</button>
-					{/if}
-					<select
-						class="dropdown sort-by-select"
-						value={sortSelectValue}
-						on:change={(e) => onSortChange(e.currentTarget.value)}
-					>
-						<option value={SORT_FILE_VALUE}>Sort: File order</option>
-						<option value={SORT_TASK_NAME_VALUE}>Sort: Task name</option>
-						<option value={SORT_MANUAL_VALUE}>Sort: Manual</option>
-						<optgroup label="Properties">
-							{#each availableSortKeys as sortKey (sortKey.key)}
-								<option value={`prop:${sortKey.key}`}>Sort: {sortKey.label}</option>
-							{/each}
-						</optgroup>
-					</select>
-					{#if isDirectionalSort}
-						<button
-							class="sort-direction-btn"
-							on:click={toggleSortDirection}
-							aria-label="Toggle sort direction"
-							title={($settingsStore.sortDirection ?? "asc") === "asc" ? "Ascending" : "Descending"}
-						>
-							<Icon
-								name={($settingsStore.sortDirection ?? "asc") === "asc"
-									? "arrow-up-narrow-wide"
-									: "arrow-down-wide-narrow"}
-								size={16}
-							/>
-						</button>
-					{/if}
-					<span class="board-task-count" aria-live="polite">
-						{#if isFiltered}
-							{filteredTaskCount} of {totalTaskCount} tasks
-						{:else}
-							Total: {totalTaskCount} tasks
-						{/if}
-					</span>
-					<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
-				</div>
-			</div>
-
+		{#if savedViewPendingDelete}
+			<DeleteFilterModal
+				title="Delete saved view?"
+				filterText={savedViewPendingDelete.name}
+				onConfirm={confirmDeleteSavedView}
+				onCancel={() => (savedViewPendingDelete = undefined)}
+			/>
+		{/if}
 			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
 				{#if !isVerticalFlow}
 					<BoardMatrixHorizontal
@@ -1028,6 +932,7 @@
 						{manualOrder}
 						{reorderEnabled}
 						{treatNestedTasksAsSubtasks}
+						taskCountLabel={boardTaskCountLabel}
 					/>
 				{:else}
 					<BoardMatrixVertical
@@ -1052,6 +957,7 @@
 						{manualOrder}
 						{reorderEnabled}
 						{treatNestedTasksAsSubtasks}
+						taskCountLabel={boardTaskCountLabel}
 					/>
 				{/if}
 			</div>
@@ -1061,10 +967,24 @@
 
 <style lang="scss">
 	.main {
+		--view-toolbar-control-height: 42px;
 		height: 100%;
 		display: flex;
 		flex-direction: column;
 		font-size: var(--font-text-size);
+
+		.board-toolbar {
+			position: relative;
+			z-index: 120;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: var(--size-2-2);
+			width: 100%;
+			max-width: min(1120px, calc(100% - var(--size-4-8)));
+			margin: 0 auto var(--size-4-2) auto;
+			line-height: 1;
+		}
 
 		// Positioning context for the expanded editor, which overlays the
 		// board content instead of pushing it down. Constrained and centered
@@ -1072,15 +992,88 @@
 		.filter-bar-container {
 			position: relative;
 			z-index: 100;
-			width: 100%;
-			max-width: min(1360px, calc(100% - var(--size-4-8)));
-			margin: 0 auto var(--size-4-2) auto;
+			flex: 1 1 auto;
+			min-width: 0;
+			width: auto;
+			max-width: none;
+			margin: 0;
+		}
+
+		.view-control,
+		.settings-control {
+			position: relative;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex: 0 0 auto;
+			height: var(--view-toolbar-control-height);
+			box-sizing: border-box;
+		}
+
+		.settings-control :global(.clickable-icon) {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: var(--view-toolbar-control-height);
+			height: var(--view-toolbar-control-height);
+			box-sizing: border-box;
+			margin: 0;
+			border-radius: 999px;
+		}
+
+		.view-editor-toggle {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: var(--size-2-2);
+			height: var(--view-toolbar-control-height);
+			min-height: 0;
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0 var(--size-4-3);
+			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+			border-radius: 999px;
+			background: var(--background-primary);
+			box-shadow: var(--shadow-s);
+			color: var(--text-normal);
+			font-size: var(--font-ui-small);
+			font-weight: 600;
+			line-height: 1;
+			cursor: pointer;
+
+			&:hover {
+				background: var(--background-modifier-hover);
+			}
+
+			&.active {
+				background: var(--background-primary);
+				border-color: color-mix(in srgb, var(--interactive-accent) 24%, transparent);
+				box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+			}
+
+			.view-editor-chevron {
+				display: inline-flex;
+				align-items: center;
+				color: var(--text-muted);
+			}
+		}
+
+		.view-editor-popover {
+			position: absolute;
+			top: calc(100% + var(--size-2-2));
+			left: 0;
+			z-index: 130;
+			width: max-content;
+			max-width: calc(100vw - var(--size-4-8));
 		}
 
 		.filter-bar {
 			display: flex;
 			align-items: center;
 			gap: var(--size-2-3);
+			height: var(--view-toolbar-control-height);
+			min-height: 0;
+			box-sizing: border-box;
 			padding: 0 var(--size-2-3) 0 var(--size-4-3);
 			background: var(--background-primary);
 			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
@@ -1094,11 +1087,14 @@
 			input.filter-bar-input {
 				flex: 1 1 auto;
 				min-width: 0;
+				height: 100%;
 				background: transparent;
 				border: none;
 				box-shadow: none;
-				padding: var(--size-2-3) 0;
+				margin: 0;
+				padding: 0;
 				font-size: var(--font-ui-medium);
+				line-height: 1;
 
 				&:focus,
 				&:focus-visible {
@@ -1110,8 +1106,14 @@
 
 			.filter-bar-clear,
 			.filter-bar-expand {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
 				flex: 0 0 auto;
-				padding: var(--size-2-1);
+				width: 30px;
+				height: 30px;
+				margin: 0;
+				padding: 0;
 				background: transparent;
 				border: none;
 				box-shadow: none;
@@ -1126,10 +1128,7 @@
 			}
 
 			.filter-bar-expand {
-				display: inline-flex;
-				align-items: center;
 				border-radius: 999px;
-				padding: var(--size-2-2);
 
 				&:hover {
 					background: var(--background-modifier-hover);
@@ -1142,279 +1141,28 @@
 			flex-direction: column;
 			height: 100%;
 			overflow: hidden;
-			padding: var(--size-4-3) var(--size-4-4) 0 var(--size-4-4);
+			padding: var(--size-4-2) var(--size-4-4) 0 var(--size-4-4);
 			background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
 		}
 
-		.board-header {
-			position: relative;
-			z-index: 50;
-			display: flex;
-			justify-content: flex-end;
-			align-items: flex-start;
-			padding: 0 0 var(--size-4-3) 0;
-			gap: var(--size-4-3);
-
-			.board-task-count {
-				font-size: var(--font-ui-medium);
-				color: var(--text-muted);
-				margin-top: 4px; /* to align with input */
-					margin-left: var(--size-4-2);
-					margin-right: var(--size-4-2);
-			}
-
-			.board-header-controls {
-				display: flex;
-				align-items: flex-start;
-				justify-content: flex-end;
+		@media (max-width: 760px) {
+			.board-toolbar {
 				flex-wrap: wrap;
-				gap: var(--size-4-2);
-				min-height: 54px; /* prevent shifting when saved groups is toggled */
-
-				.group-by-select,
-				.sort-by-select {
-					font-size: var(--font-ui-smaller);
-					/* Only adjust vertical padding; leave horizontal padding to
-					   Obsidian's .dropdown so its chevron keeps its reserved space. */
-					padding-block: var(--size-2-1);
-				}
-
-				.sort-direction-btn {
-					display: inline-flex;
-					align-items: center;
-					justify-content: center;
-					padding: var(--size-2-1) var(--size-2-2);
-					border: var(--input-border-width, 1px) solid var(--background-modifier-border);
-					border-radius: var(--radius-s);
-					background: var(--interactive-normal);
-					color: var(--text-normal);
-					cursor: pointer;
-
-					&:hover {
-						background: var(--interactive-hover);
-					}
-				}
-
-				/* Tight column so the overdue toggle tucks directly under the
-				   group select without pushing the header row taller than the
-				   54px it already reserves. */
-				.group-by-stack {
-					display: flex;
-					flex-direction: column;
-					align-items: flex-start;
-					gap: 0;
-				}
-
-				.collapse-overdue-toggle {
-					display: inline-flex;
-					align-items: center;
-					gap: var(--size-2-1);
-					margin-top: 1px;
-					/* Nudge right to line up with the select's visible edge. */
-					padding-left: 3px;
-					font-size: var(--font-ui-smaller);
-					line-height: 1;
-					color: var(--text-muted);
-					cursor: pointer;
-					white-space: nowrap;
-
-					input[type="checkbox"] {
-						margin: 0;
-						--checkbox-size: 12px;
-					}
-
-					&:hover {
-						color: var(--text-normal);
-					}
-				}
+				justify-content: flex-start;
 			}
 
-			.grouping-controls {
-				display: flex;
-				flex-direction: column;
-				align-items: flex-start;
-				flex: 0 0 auto;
-				gap: var(--size-2-2);
-				min-width: max-content;
+			.filter-bar-container {
+				flex-basis: 100%;
+				width: 100%;
+				max-width: 100%;
 			}
 
-			.tag-group-input-row {
-				--tag-group-control-height: 34px;
-				display: grid !important;
-				grid-template-columns: auto 240px auto !important;
-				align-items: start !important;
-				gap: var(--size-4-2) !important;
-
-				.tag-group-mode-toggle {
-					display: inline-flex !important;
-					align-items: stretch !important;
-					border: var(--input-border-width, 1px) solid var(--background-modifier-border) !important;
-					border-radius: var(--input-radius) !important;
-					overflow: hidden !important;
-					background: var(--background-modifier-form-field, var(--background-primary)) !important;
-					flex: 0 0 auto !important;
-					height: var(--tag-group-control-height) !important;
-
-					button {
-						display: inline-flex !important;
-						align-items: center !important;
-						justify-content: center !important;
-						height: 100% !important;
-						min-height: 0 !important;
-						margin: 0 !important;
-						border: 0 !important;
-						border-radius: 0 !important;
-						box-shadow: none !important;
-						background: transparent !important;
-						color: var(--text-muted) !important;
-						font-size: var(--font-ui-smaller) !important;
-						line-height: 1 !important;
-						padding: var(--size-2-1) var(--size-2-3) !important;
-						cursor: pointer !important;
-
-						&:hover {
-							color: var(--text-normal) !important;
-							background: var(--background-modifier-hover) !important;
-						}
-
-						&.active {
-							background: var(--interactive-accent) !important;
-							color: var(--text-on-accent) !important;
-						}
-
-						&:focus,
-						&:active {
-							box-shadow: none !important;
-						}
-
-						&:focus-visible {
-							outline: 2px solid var(--background-modifier-border-focus) !important;
-							outline-offset: -2px !important;
-						}
-
-						+ button {
-							border-left: var(--input-border-width, 1px) solid var(--background-modifier-border) !important;
-						}
-					}
-				}
-
-				.tag-group-input {
-					width: 240px !important;
-					flex: 0 0 auto !important;
-					--compact-tag-select-height: var(--tag-group-control-height);
-					--compact-tag-select-font-size: var(--font-ui-small);
-				}
-
-				.grouping-prefix-input {
-					width: 100% !important;
-					height: var(--tag-group-control-height) !important;
-					font-size: var(--font-ui-small) !important;
-				}
-
-				.grouping-save-btn {
-					align-self: flex-start !important;
-					height: var(--tag-group-control-height) !important;
-					padding: var(--size-2-1) var(--size-2-3) !important;
-					font-size: var(--font-ui-smaller) !important;
-				}
+			.settings-control {
+				margin-left: auto;
 			}
 
-			.saved-groups {
-				margin-left: calc(var(--size-4-2) + 2px);
-				margin-bottom: 0;
-
-				details {
-					position: relative;
-				}
-
-				ul {
-					position: absolute;
-					top: 100%;
-					left: 0;
-					z-index: 100;
-					min-width: max-content;
-					gap: var(--size-2-2);
-				}
-			}
-		}
-		
-		.saved-filters {
-			margin-top: 0;
-			margin-bottom: var(--size-4-2);
-			font-size: var(--font-ui-small);
-
-			details {
-				summary {
-					cursor: pointer;
-					color: var(--text-muted);
-					padding: var(--size-2-1) 0;
-					user-select: none;
-					transition: color 0.15s ease;
-
-					&:hover {
-						color: var(--text-normal);
-					}
-				}
-
-				ul {
-					margin: 0;
-					padding: var(--size-2-2) !important;
-					list-style: none;
-					background: var(--background-primary);
-					border: 1px solid var(--background-modifier-border);
-					border-radius: var(--radius-m);
-					box-shadow: var(--shadow-s);
-					z-index: 100;
-
-					li {
-						margin: 0;
-						display: flex;
-						align-items: center;
-						border-radius: var(--radius-s);
-						background: var(--background-primary);
-						border: 1px solid var(--background-modifier-border);
-						box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-						transition: background 0.15s ease;
-	
-						&:hover {
-							background: var(--background-modifier-hover);
-						}
-	
-						span[role="button"] {
-							text-align: left;
-							padding: var(--size-2-1) var(--size-2-2);
-							background: transparent;
-							border: none;
-							cursor: pointer;
-							color: var(--text-normal);
-							white-space: nowrap;
-							transition: color 0.15s ease;
-	
-							&.active {
-								font-weight: 700;
-								color: var(--interactive-accent);
-							}
-	
-							&.delete-btn {
-								padding: var(--size-2-1) 0 var(--size-2-1) var(--size-2-2);
-								display: flex;
-								align-items: center;
-								justify-content: center;
-								font-size: 18px;
-								line-height: 1;
-								color: var(--text-muted);
-	
-								&:hover {
-									color: var(--color-red);
-								}
-							}
-							
-							&.filter-text {
-								padding-left: var(--size-2-1);
-							}
-						}
-					}
-				}
+			.view-editor-popover {
+				width: calc(100vw - var(--size-4-8));
 			}
 		}
 

@@ -36,6 +36,7 @@
 	export let manualOrder: ManualOrderStore = {};
 	export let reorderEnabled: boolean = false;
 	export let treatNestedTasksAsSubtasks: boolean = false;
+	export let taskCountLabel: string = "";
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [
@@ -66,6 +67,9 @@
 
 {#if !showSwimlaneHeaders && ungroupedSecondaryBucket}
 	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows} style:--header-height="0px">
+		{#if taskCountLabel}
+			<span class="matrix-task-count matrix-task-count-overlay" aria-live="polite">{taskCountLabel}</span>
+		{/if}
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
 			<div
 				class="row-header-wrapper"
@@ -131,7 +135,11 @@
 		style:grid-template-rows={groupedGridTemplateRows}
 		style:--header-height="{headerHeight}px"
 	>
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}></div>
+		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
+			{#if taskCountLabel}
+				<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
+			{/if}
+		</div>
 
 		{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
 			<div
@@ -208,6 +216,7 @@
 <style lang="scss">
 	.matrix-vertical {
 		--vertical-row-header-width: clamp(220px, 24vw, 280px);
+		position: relative;
 		padding-bottom: var(--size-4-4);
 
 		&.ungrouped-grid,
@@ -246,6 +255,37 @@
 	.matrix-corner {
 		left: 0;
 		z-index: 8;
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		padding: var(--size-2-2) var(--size-4-3);
+		overflow: hidden;
+	}
+
+	.matrix-task-count {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		font-weight: 500;
+		line-height: 1.2;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.matrix-task-count-overlay {
+		position: absolute;
+		top: var(--size-2-1);
+		left: var(--size-4-2);
+		z-index: 7;
+		max-width: calc(var(--vertical-row-header-width) - var(--size-4-8));
+		padding: 2px var(--size-2-2);
+		border: var(--border-width) solid var(--background-modifier-border);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--background-secondary) 86%, transparent);
+		box-shadow: var(--shadow-s);
+		pointer-events: none;
 	}
 
 	.group-header-cell {
