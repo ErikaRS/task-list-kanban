@@ -1,6 +1,6 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN PROGRESS (Phase 3 implemented; manual review pending)
+Status: IN PROGRESS (Phases 1-3 complete)
 
 ## Feature Request Summary
 
@@ -366,7 +366,7 @@ otherwise unchanged.
 **Deliverable:** New boards accumulate only the settings the user touches.
 **Size:** M
 
-### Phase 2: Standalone view editor 🚧 IN PROGRESS
+### Phase 2: Standalone view editor ✅ COMPLETE
 **Goal:** Sort, group, flow direction, and column width all live in a new
 expandable/collapsible view editor (separate from the search bar, no text
 input); settings modal "Board layout" section removed.
@@ -377,7 +377,9 @@ input); settings modal "Board layout" section removed.
 4. ✅ Remove header sort/group selects (decide on collapsed-state indicator)
 5. ✅ Remove "Board layout" section from the settings modal
 6. ✅ Automated verification: `npm run build`, `npm test`
-7. ☐ Manual pass over sort, group, flow direction, and card width controls in Obsidian
+7. ✅ Manual pass over sort, group, flow direction, and card width controls in Obsidian
+
+**Implemented by:** [4c25ef3](https://github.com/ErikaRS/task-list-kanban/commit/4c25ef39c999c2becead5dfdf77b0a4c1d812115)
 
 **Implementation notes (Phase 2):**
 - `src/ui/view_editor.svelte` now hosts the arrangement controls. It reuses
@@ -393,7 +395,7 @@ input); settings modal "Board layout" section removed.
 **Deliverable:** One consolidated arrangement editor on the board.
 **Size:** M–L
 
-### Phase 3: Saved views
+### Phase 3: Saved views ✅ COMPLETE
 **Goal:** Name, save, apply, and delete sparse views per board.
 **Depends on:** Phase 1 (override tracking decides which properties a save
 captures) and Phase 2 (the view editor hosting the controls and save row).
@@ -406,7 +408,9 @@ captures) and Phase 2 (the view editor hosting the controls and save row).
    time; retire both separate UIs and stop writing the legacy fields
 5. ✅ Tests: sparse save captures exactly the set properties, apply-merge
    round-trip, filter + grouping migrations
-6. ☐ Manual Obsidian pass over save/apply/delete interactions and visual fit
+6. ✅ Manual Obsidian pass over save/apply/delete interactions and visual fit
+
+**Implemented by:** [4c25ef3](https://github.com/ErikaRS/task-list-kanban/commit/4c25ef39c999c2becead5dfdf77b0a4c1d812115)
 
 **Deliverable:** Working saved views on a single board (closes #159).
 **Size:** M–L
