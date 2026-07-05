@@ -1,6 +1,7 @@
 import { dump, load } from "js-yaml";
 import {
-	parseSettingsString,
+	parseSettingsOverrides,
+	resolveSettings,
 	toSettingsString,
 	type SettingValues,
 } from "./settings/settings_store";
@@ -9,13 +10,23 @@ const KANBAN_PLUGIN_KEY = "kanban_plugin";
 const FRONTMATTER_DELIMITER = "---";
 
 export function parseKanbanSettingsFromViewData(data: string): SettingValues {
+	return resolveSettings(parseKanbanSettingsOverridesFromViewData(data));
+}
+
+/**
+ * The sparse overrides actually stored in the file's frontmatter — what the
+ * board settings store loads, and the only shape that gets written back.
+ */
+export function parseKanbanSettingsOverridesFromViewData(
+	data: string,
+): Partial<SettingValues> {
 	const parsed = parseFrontmatter(data);
-	return parseSettingsString(toSettingsPayload(parsed.data[KANBAN_PLUGIN_KEY]));
+	return parseSettingsOverrides(toSettingsPayload(parsed.data[KANBAN_PLUGIN_KEY]));
 }
 
 export function writeKanbanSettingsToViewData(
 	data: string,
-	settings: SettingValues,
+	settings: Partial<SettingValues>,
 ): string {
 	const parsed = parseFrontmatter(data);
 	return stringifyFrontmatter(parsed.content, {

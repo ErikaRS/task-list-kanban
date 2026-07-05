@@ -5,6 +5,7 @@ import { SettingsModal } from "./settings/settings";
 import {
 	createSettingsStore,
 	ScopeOption,
+	type BoardSettingsStore,
 	type SettingValues,
 } from "./settings/settings_store";
 import { get, type Readable, type Writable } from "svelte/store";
@@ -12,7 +13,7 @@ import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
 import {
-	parseKanbanSettingsFromViewData,
+	parseKanbanSettingsOverridesFromViewData,
 	writeKanbanSettingsToViewData,
 } from "./kanban_frontmatter";
 import {
@@ -29,7 +30,7 @@ import { applyChangedColumnTagUpdates } from "./settings/column_rename_migration
 export const KANBAN_VIEW_NAME = "kanban-view";
 
 export class KanbanView extends TextFileView {
-	private readonly settingsStore: Writable<SettingValues>;
+	private readonly settingsStore: BoardSettingsStore;
 	private readonly destroySettingsStore: () => void;
 
 	private readonly columnDefinitionsStore: Readable<ColumnDefinition[]>;
@@ -165,7 +166,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	getViewData(): string {
-		return writeKanbanSettingsToViewData(this.data, get(this.settingsStore));
+		return writeKanbanSettingsToViewData(this.data, this.settingsStore.getOverrides());
 	}
 
 	setViewData(data: string, clear?: boolean): void {
@@ -177,12 +178,8 @@ export class KanbanView extends TextFileView {
 			return;
 		}
 
-		this.settingsStore.set(this.getInitialSettings(data));
+		this.settingsStore.load(parseKanbanSettingsOverridesFromViewData(data));
 		this.initialiseTasksStore();
-	}
-
-	private getInitialSettings(data: string): SettingValues {
-		return parseKanbanSettingsFromViewData(data);
 	}
 
 	private prepareTaskWriteContent(fileHandle: { path: string }, nextContent: string): string {
@@ -190,7 +187,7 @@ export class KanbanView extends TextFileView {
 			return nextContent;
 		}
 
-		const preparedContent = writeKanbanSettingsToViewData(nextContent, get(this.settingsStore));
+		const preparedContent = writeKanbanSettingsToViewData(nextContent, this.settingsStore.getOverrides());
 		this.pendingSelfTaskFileWrites.push(preparedContent);
 		return preparedContent;
 	}

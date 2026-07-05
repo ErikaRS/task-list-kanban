@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { writable, type Writable } from "svelte/store";
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS } from "../tasks/task";
 import {
@@ -312,38 +312,132 @@ export const defaultSettings: SettingValues = {
 	manualOrder: {},
 };
 
-export const createSettingsStore = () =>
-	writable<SettingValues>(defaultSettings);
+/**
+ * The board settings store keeps two layers (SPEC 0030 Part A):
+ * - `overrides` — the sparse set of explicitly-set fields; the only thing
+ *   that gets persisted to frontmatter.
+ * - the resolved values (`defaultSettings ⊕ overrides`) — what subscribers
+ *   read; identical in shape to the old single-layer store.
+ *
+ * `set`/`update` stay the mutation API for every consumer: a field becomes
+ * an override when a write changes its value, and sheds its override when a
+ * write deletes the key (e.g. writeBoardFilterState dropping legacy filter
+ * fields). Loading parsed frontmatter goes through `load`, which replaces
+ * the overrides wholesale instead of diffing.
+ */
+export interface BoardSettingsStore extends Writable<SettingValues> {
+	/** Replaces state from parsed frontmatter (not a user mutation). */
+	load(overrides: Partial<SettingValues>): void;
+	/** The sparse overrides layer — what gets written to frontmatter. */
+	getOverrides(): Partial<SettingValues>;
+}
 
-export function parseSettingsString(str: string): SettingValues {
+export const createSettingsStore = (): BoardSettingsStore => {
+	let overrides: Partial<SettingValues> = {};
+	// Per-key JSON snapshot of the last resolved value. Diffing must compare
+	// against serialized snapshots rather than the previous object: Svelte's
+	// `$store.field = x` sugar mutates the store's current object in place
+	// before calling set(), so by set-time the "old" object already holds
+	// the new values.
+	let snapshot = new Map<string, string | undefined>();
+
+	const resolve = (): SettingValues => ({ ...defaultSettings, ...overrides });
+
+	const takeSnapshot = (resolved: SettingValues) => {
+		snapshot = new Map(
+			Object.entries(resolved).map(([key, value]) => [key, JSON.stringify(value)]),
+		);
+	};
+
+	const initial = resolve();
+	takeSnapshot(initial);
+	const inner = writable<SettingValues>(initial);
+
+	const commit = () => {
+		const resolved = resolve();
+		takeSnapshot(resolved);
+		inner.set(resolved);
+	};
+
+	const set = (next: SettingValues) => {
+		const record = next as unknown as Record<string, unknown>;
+		const overridesRecord = overrides as Record<string, unknown>;
+		for (const key of new Set([...Object.keys(record), ...snapshot.keys()])) {
+			const nextJson = JSON.stringify(record[key]);
+			if (nextJson === snapshot.get(key)) {
+				continue;
+			}
+			if (nextJson === undefined) {
+				delete overridesRecord[key];
+			} else {
+				// Deep copy so a caller mutating its object after set() can't
+				// silently edit the overrides layer.
+				overridesRecord[key] = JSON.parse(nextJson);
+			}
+		}
+		commit();
+	};
+
+	return {
+		subscribe: inner.subscribe,
+		set,
+		update: (updater) => set(updater(resolve())),
+		load: (nextOverrides) => {
+			overrides = { ...nextOverrides };
+			commit();
+		},
+		getOverrides: () => ({ ...overrides }),
+	};
+};
+
+/**
+ * Parses frontmatter JSON into the sparse overrides layer: only fields
+ * present in the input appear in the result. Parse-time migrations
+ * (string columns, collapsed-column labels, legacy showProperties) apply
+ * here so the migrated shapes get persisted, without promoting untouched
+ * fields into overrides.
+ */
+export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 	try {
 		const parsed = JSON.parse(str);
 		const partial = settingsObject.partial().parse(parsed);
-		const columns = migrateColumnDefinitions(
-			(partial.columns ?? defaultSettings.columns) as Array<string | Partial<ColumnDefinition>>,
-		);
+		const { columns: rawColumns, collapsedColumns: rawCollapsed, ...rest } = partial;
+		const overrides = { ...rest } as Partial<SettingValues>;
+		if (rawColumns !== undefined) {
+			overrides.columns = migrateColumnDefinitions(
+				rawColumns as Array<string | Partial<ColumnDefinition>>,
+			);
+		}
 		// Migrate the legacy `showProperties` boolean (a debug-only toggle) to the
-		// `propertyDisplay` tri-state. `true` mapped to the JSON debug dump.
-		const propertyDisplay =
-			partial.propertyDisplay ??
-			(typeof parsed?.showProperties === "boolean"
-				? parsed.showProperties
-					? PropertyDisplayMode.Debug
-					: PropertyDisplayMode.None
-				: defaultSettings.propertyDisplay);
-		return {
-			...defaultSettings,
-			...partial,
-			columns,
-			propertyDisplay,
-			collapsedColumns: migrateCollapsedColumns(partial.collapsedColumns, columns),
-		};
+		// `propertyDisplay` tri-state. `true` mapped to the JSON debug dump. The
+		// migrated value is recorded as an override so the retired key's intent
+		// survives once sparse writes drop it.
+		if (partial.propertyDisplay === undefined && typeof parsed?.showProperties === "boolean") {
+			overrides.propertyDisplay = parsed.showProperties
+				? PropertyDisplayMode.Debug
+				: PropertyDisplayMode.None;
+		}
+		if (rawCollapsed !== undefined) {
+			overrides.collapsedColumns = migrateCollapsedColumns(
+				rawCollapsed,
+				overrides.columns ?? defaultSettings.columns,
+			);
+		}
+		return overrides;
 	} catch {
-		return defaultSettings;
+		return {};
 	}
 }
 
-export function toSettingsString(settings: SettingValues): string {
+export function resolveSettings(overrides: Partial<SettingValues>): SettingValues {
+	return { ...defaultSettings, ...overrides };
+}
+
+export function parseSettingsString(str: string): SettingValues {
+	return resolveSettings(parseSettingsOverrides(str));
+}
+
+export function toSettingsString(settings: Partial<SettingValues>): string {
 	return JSON.stringify(settings);
 }
 

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { get } from "svelte/store";
 import {
+	createSettingsStore,
 	defaultSettings,
 	FlowDirection,
+	parseSettingsOverrides,
 	parseSettingsString,
 	PropertyDisplayMode,
 	ScopeOption,
@@ -44,6 +47,138 @@ describe("Settings dirty check", () => {
 		expect(JSON.stringify(current)).not.toBe(snapshot);
 		current.columnWidth = 300;
 		expect(JSON.stringify(current)).toBe(snapshot);
+	});
+});
+
+describe("Sparse overrides parsing (SPEC 0030)", () => {
+	it("keeps only explicitly-set fields as overrides", () => {
+		expect(parseSettingsOverrides(JSON.stringify({ columnWidth: 400 }))).toEqual({
+			columnWidth: 400,
+		});
+	});
+
+	it("parses an empty or invalid payload to no overrides", () => {
+		expect(parseSettingsOverrides("{}")).toEqual({});
+		expect(parseSettingsOverrides("")).toEqual({});
+	});
+
+	it("does not resurrect retired keys", () => {
+		expect(
+			parseSettingsOverrides(
+				JSON.stringify({ filtersExpanded: true, filtersSidebarWidth: 240 }),
+			),
+		).toEqual({});
+	});
+
+	it("sparse settings round-trip unchanged", () => {
+		const sparse = { columnWidth: 450, flowDirection: "rtl" };
+		const overrides = parseSettingsOverrides(JSON.stringify(sparse));
+		expect(JSON.parse(toSettingsString(overrides))).toEqual(sparse);
+	});
+
+	it("legacy fully-materialized settings round-trip with every field intact", () => {
+		const full = JSON.parse(toSettingsString(defaultSettings));
+		const overrides = parseSettingsOverrides(JSON.stringify(full));
+		expect(JSON.parse(toSettingsString(overrides))).toEqual(full);
+	});
+
+	it("persists the string-column migration without promoting other fields", () => {
+		const overrides = parseSettingsOverrides(JSON.stringify({ columns: ["A", "B"] }));
+		expect(Object.keys(overrides)).toEqual(["columns"]);
+		expect(overrides.columns?.map((column) => column.label)).toEqual(["A", "B"]);
+		expect(overrides.columns?.[0]?.matchMode).toBe("name");
+	});
+
+	it("persists the showProperties migration as a propertyDisplay override", () => {
+		expect(parseSettingsOverrides(JSON.stringify({ showProperties: true }))).toEqual({
+			propertyDisplay: PropertyDisplayMode.Debug,
+		});
+		expect(parseSettingsOverrides(JSON.stringify({ showProperties: false }))).toEqual({
+			propertyDisplay: PropertyDisplayMode.None,
+		});
+	});
+
+	it("migrates collapsed column labels against the overridden columns", () => {
+		const overrides = parseSettingsOverrides(
+			JSON.stringify({
+				columns: ["Backlog", "Waiting"],
+				collapsedColumns: ["backlog"],
+			}),
+		);
+		expect(overrides.collapsedColumns).toEqual([overrides.columns?.[0]?.id]);
+	});
+
+	it("persists the flat manual-order migration in overrides", () => {
+		const overrides = parseSettingsOverrides(
+			JSON.stringify({ manualOrder: { "my-column": ["tasks.md::abc123"] } }),
+		);
+		expect(overrides).toEqual({
+			manualOrder: {
+				[DEFAULT_GROUP_BUCKET_ID]: { "my-column": ["tasks.md::abc123"] },
+			},
+		});
+	});
+});
+
+describe("BoardSettingsStore override tracking (SPEC 0030)", () => {
+	it("starts with no overrides and resolved defaults", () => {
+		const store = createSettingsStore();
+		expect(store.getOverrides()).toEqual({});
+		expect(get(store)).toEqual({ ...defaultSettings });
+	});
+
+	it("records only the changed field as an override on set", () => {
+		const store = createSettingsStore();
+		store.set({ ...get(store), columnWidth: 450 });
+		expect(store.getOverrides()).toEqual({ columnWidth: 450 });
+		expect(get(store).columnWidth).toBe(450);
+	});
+
+	it("records changes made by mutating the store's own object in place", () => {
+		// Svelte's `$store.field = x` sugar mutates the subscribed object
+		// before calling set() with that same object.
+		const store = createSettingsStore();
+		const value = get(store);
+		value.columnWidth = 500;
+		store.set(value);
+		expect(store.getOverrides()).toEqual({ columnWidth: 500 });
+	});
+
+	it("accumulates overrides across updates", () => {
+		const store = createSettingsStore();
+		store.update((s) => ({ ...s, columnWidth: 450 }));
+		store.update((s) => ({ ...s, flowDirection: FlowDirection.RightToLeft }));
+		expect(store.getOverrides()).toEqual({
+			columnWidth: 450,
+			flowDirection: FlowDirection.RightToLeft,
+		});
+	});
+
+	it("keeps an override when a later change lands back on the default", () => {
+		const store = createSettingsStore();
+		store.update((s) => ({ ...s, columnWidth: 450 }));
+		store.update((s) => ({ ...s, columnWidth: defaultSettings.columnWidth! }));
+		expect(store.getOverrides()).toEqual({ columnWidth: defaultSettings.columnWidth });
+	});
+
+	it("sheds an override when the key is deleted (writeBoardFilterState-style)", () => {
+		const store = createSettingsStore();
+		store.load({ lastContentFilter: "legacy", columnWidth: 450 });
+		store.update((s) => {
+			const next = { ...s, lastFilter: "migrated" };
+			delete next.lastContentFilter;
+			return next;
+		});
+		expect(store.getOverrides()).toEqual({ columnWidth: 450, lastFilter: "migrated" });
+	});
+
+	it("load replaces overrides wholesale and re-resolves against defaults", () => {
+		const store = createSettingsStore();
+		store.update((s) => ({ ...s, columnWidth: 450 }));
+		store.load({ flowDirection: FlowDirection.RightToLeft });
+		expect(store.getOverrides()).toEqual({ flowDirection: FlowDirection.RightToLeft });
+		expect(get(store).columnWidth).toBe(defaultSettings.columnWidth);
+		expect(get(store).flowDirection).toBe(FlowDirection.RightToLeft);
 	});
 });
 

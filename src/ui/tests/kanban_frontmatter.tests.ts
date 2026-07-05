@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import {
 	parseKanbanSettingsFromViewData,
+	parseKanbanSettingsOverridesFromViewData,
 	writeKanbanSettingsToViewData,
 } from "../kanban_frontmatter";
 import {
@@ -56,6 +57,25 @@ describe("kanban frontmatter helpers", () => {
 		].join("\n");
 
 		expect(parseKanbanSettingsFromViewData(input).scope).toBe(ScopeOption.Everywhere);
+	});
+
+	it("keeps an untouched new board's settings empty through a round trip", () => {
+		const input = ["---", "kanban_plugin: '{}'", "---", "# Board", ""].join("\n");
+
+		const overrides = parseKanbanSettingsOverridesFromViewData(input);
+		expect(overrides).toEqual({});
+
+		const output = writeKanbanSettingsToViewData(input, overrides);
+		expect(readFrontmatter(output).kanban_plugin).toBe("{}");
+	});
+
+	it("writes exactly the overridden fields and nothing else", () => {
+		const input = ["---", "kanban_plugin: '{}'", "---", ""].join("\n");
+
+		const output = writeKanbanSettingsToViewData(input, { columnWidth: 400 });
+		expect(JSON.parse(readFrontmatter(output).kanban_plugin as string)).toEqual({
+			columnWidth: 400,
+		});
 	});
 });
 
