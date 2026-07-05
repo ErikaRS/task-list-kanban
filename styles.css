@@ -600,6 +600,56 @@ If your plugin does not need CSS, delete this file.
 	scroll-behavior: smooth;
 }
 
+.global-board-defaults-editor {
+	margin-top: 10px;
+}
+
+.task-list-kanban-global-settings > h2,
+.task-list-kanban-global-settings > .setting-item-description,
+.task-list-kanban-global-settings .setting-item-heading,
+.task-list-kanban-settings-inline .settings-header,
+.task-list-kanban-settings-inline .settings-header h2,
+.task-list-kanban-settings-inline .settings-section-header,
+.task-list-kanban-settings-inline .settings-section-header h2 {
+	margin-left: 0 !important;
+	padding-left: 0 !important;
+}
+
+.task-list-kanban-global-settings > h2 {
+	margin-top: 0 !important;
+}
+
+.task-list-kanban-global-settings > .setting-item,
+.task-list-kanban-global-settings > .setting-item-description {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.task-list-kanban-settings-inline .settings-scroll-wrapper {
+	display: block;
+	overflow: visible;
+	min-height: 0;
+}
+
+.task-list-kanban-settings-inline .settings-header {
+	margin-top: 18px;
+}
+
+.task-list-kanban-settings-inline .settings-header h2 {
+	margin: 0;
+	font-size: 1.35em;
+}
+
+.task-list-kanban-settings-inline .settings-body-inline {
+	display: block;
+	padding-top: 18px;
+}
+
+.task-list-kanban-settings-inline .settings-content {
+	overflow: visible;
+	padding: 0;
+}
+
 .settings-section {
 	padding-bottom: 22px;
 	scroll-margin-top: 10px;

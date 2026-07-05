@@ -1,4 +1,4 @@
-import { writable, type Writable } from "svelte/store";
+import { writable, type Readable, type Writable } from "svelte/store";
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS } from "../tasks/task";
 import {
@@ -35,6 +35,8 @@ export interface SavedView {
 	flowDirection?: FlowDirection;
 	columnWidth?: number;
 }
+
+export type SavedViewProperties = Omit<SavedView, "id" | "name">;
 
 export enum VisibilityOption {
 	Auto = "auto",
@@ -177,6 +179,8 @@ const savedViewSchema = z.object({
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 });
+
+const savedViewPropertiesSchema = savedViewSchema.omit({ id: true, name: true });
 
 const columnDefinitionSchema = z.object({
 	id: z.string(),
@@ -368,10 +372,15 @@ export interface BoardSettingsStore extends Writable<SettingValues> {
 	load(overrides: Partial<SettingValues>): void;
 	/** The sparse overrides layer — what gets written to frontmatter. */
 	getOverrides(): Partial<SettingValues>;
+	/** Releases subscriptions owned by this store. */
+	destroy(): void;
 }
 
-export const createSettingsStore = (): BoardSettingsStore => {
+export const createSettingsStore = (
+	inheritedSettingsStore?: Readable<Partial<SettingValues>>,
+): BoardSettingsStore => {
 	let overrides: Partial<SettingValues> = {};
+	let inheritedSettings: Partial<SettingValues> = {};
 	// Per-key JSON snapshot of the last resolved value. Diffing must compare
 	// against serialized snapshots rather than the previous object: Svelte's
 	// `$store.field = x` sugar mutates the store's current object in place
@@ -379,7 +388,7 @@ export const createSettingsStore = (): BoardSettingsStore => {
 	// the new values.
 	let snapshot = new Map<string, string | undefined>();
 
-	const resolve = (): SettingValues => ({ ...defaultSettings, ...overrides });
+	const resolve = (): SettingValues => ({ ...defaultSettings, ...inheritedSettings, ...overrides });
 
 	const takeSnapshot = (resolved: SettingValues) => {
 		snapshot = new Map(
@@ -396,6 +405,11 @@ export const createSettingsStore = (): BoardSettingsStore => {
 		takeSnapshot(resolved);
 		inner.set(resolved);
 	};
+
+	const unsubscribeInherited = inheritedSettingsStore?.subscribe((nextInheritedSettings) => {
+		inheritedSettings = { ...nextInheritedSettings };
+		commit();
+	});
 
 	const set = (next: SettingValues) => {
 		const record = next as unknown as Record<string, unknown>;
@@ -425,6 +439,7 @@ export const createSettingsStore = (): BoardSettingsStore => {
 			commit();
 		},
 		getOverrides: () => ({ ...overrides }),
+		destroy: () => unsubscribeInherited?.(),
 	};
 };
 
@@ -539,12 +554,47 @@ export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 	}
 }
 
-export function resolveSettings(overrides: Partial<SettingValues>): SettingValues {
-	return { ...defaultSettings, ...overrides };
+export function viewPropertiesToSettings(view: SavedViewProperties | undefined): Partial<SettingValues> {
+	if (!view) {
+		return {};
+	}
+
+	const settings: Partial<SettingValues> = {};
+	if (view.query !== undefined) {
+		settings.lastFilter = view.query;
+	}
+	if (view.sort) {
+		settings.columnOrderMode = view.sort.mode;
+		settings.sortProperty = view.sort.property ?? null;
+		settings.sortDirection = view.sort.direction;
+	}
+	if (view.group) {
+		settings.groupSource = JSON.parse(JSON.stringify(view.group.source)) as GroupSource;
+		settings.groupDirection = view.group.direction;
+	}
+	if (view.flowDirection !== undefined) {
+		settings.flowDirection = view.flowDirection;
+	}
+	if (view.columnWidth !== undefined) {
+		settings.columnWidth = view.columnWidth;
+	}
+	return settings;
+}
+
+export function resolveSettings(
+	overrides: Partial<SettingValues>,
+	inheritedSettings: Partial<SettingValues> = {},
+): SettingValues {
+	return { ...defaultSettings, ...inheritedSettings, ...overrides };
 }
 
 export function parseSettingsString(str: string): SettingValues {
 	return resolveSettings(parseSettingsOverrides(str));
+}
+
+export function parseSavedViewProperties(value: unknown): SavedViewProperties {
+	const parsed = savedViewPropertiesSchema.safeParse(value ?? {});
+	return parsed.success ? parsed.data : {};
 }
 
 export function toSettingsString(settings: Partial<SettingValues>): string {

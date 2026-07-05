@@ -1,6 +1,6 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN PROGRESS (Phases 1-3 complete)
+Status: IN PROGRESS (Phases 1-3 complete; Phase 4 in progress)
 
 ## Feature Request Summary
 
@@ -425,26 +425,53 @@ captures) and Phase 2 (the view editor hosting the controls and save row).
   list. The filter editor's Saved list is backed by the query-only subset of
   saved views, so old saved filters keep the same affordance after migration.
 
-### Phase 4: Global settings (closes #8)
+### Phase 4: Global settings (closes #8) 🚧 IN PROGRESS
 **Goal:** Plugin-level defaults inherited by boards that haven't overridden
 them.
 
-1. ☐ `GlobalSettings` storage via `loadData`/`saveData` + global store in the
+1. ✅ `GlobalSettings` storage via `loadData`/`saveData` + global store in the
    plugin, passed into `KanbanView`
-2. ☐ Three-layer resolution (builtin ⊕ global ⊕ board) with live
+2. ✅ Three-layer resolution (builtin ⊕ global ⊕ board) with live
    re-resolution of open boards
-3. ☐ Refactor `settings.ts` section renderers for reuse; register
-   `PluginSettingTab` with Tier 1 sections
-4. ☐ "Default view" section in the plugin tab (reusing the search bar
-   editor's control rows), resolved as the Tier 2 default layer
+3. ✅ Reuse the board settings editor for global defaults; register
+   `PluginSettingTab` with Tier 1 defaults
+4. ✅ Layout-only "Default view" section in the plugin tab, resolved as the
+   Tier 2 default layer for flow direction and card width
 5. ☐ Board modal: inherited-vs-overridden indication + per-section reset
-6. ☐ "Use this board's settings as global defaults" command (optionally
+6. ✅ "Use this board's settings as global defaults" command (optionally
    capturing its current arrangement as the default view)
-7. ☐ Tests: resolution precedence for both tiers, live propagation, reset
+7. ✅ Tests: resolution precedence for both tiers, live propagation, reset
    flows
 
 **Deliverable:** Change default columns once; new and untouched boards follow.
 **Size:** L
+
+**Implementation notes (Phase 4 in progress):**
+- Added `src/ui/settings/global_settings.ts` with versioned plugin-level
+  settings, Tier 1 filtering, default-view-to-settings mapping, inherited
+  settings derivation, and serialization for `data.json`.
+- `entry.ts` now loads/saves global settings with `Plugin.loadData()` /
+  `saveData()`, passes the inherited settings store into each `KanbanView`,
+  registers an initial plugin settings tab, and adds the "Use current board
+  settings as global defaults" command.
+- `createSettingsStore` now resolves `builtinDefaults ⊕ globalDefaults ⊕
+  boardOverrides`; global changes re-resolve open boards without adding board
+  frontmatter overrides.
+- The plugin tab embeds `SettingsModal` in a single-page global-defaults mode
+  for Tier 1 board defaults, so default columns use the same color, reorder,
+  and name/tag/status/priority matching controls as individual boards. The
+  embedded editor hides board-local controls such as selected folder paths,
+  default task file, and "Update existing tasks" retag options. Reset all
+  global board defaults now requires confirmation.
+- The plugin-level default view is intentionally layout-only: it inherits
+  flow direction and card width, while filter, sort, and grouping remain
+  temporary board options with no global default. Flow defaults to
+  left-to-right, card width is edited with a slider, and legacy/default data
+  that includes query/sort/group is pruned during global settings parse.
+- Inherited/overridden indicators and board reset affordances remain pending.
+- Tests cover global settings sanitization, Tier 1 copy behavior, default
+  view inheritance, live propagation, and board override precedence. Reset
+  flow tests remain pending with task 5.
 
 ### Phase 5: Global saved views
 **Goal:** Views defined once, available on every board.

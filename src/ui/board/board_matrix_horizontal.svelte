@@ -46,16 +46,16 @@
 		]),
 	);
 
-	$: showSwimlaneHeaders =
+	$: showSwimlaneLabels =
 		matrix.secondaryAxis.length > 1 ||
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
 	$: gridTemplateColumns = [
-		...(showSwimlaneHeaders ? ["56px"] : []),
+		"56px",
 		...matrix.primaryAxis.map((b) => (b.collapsed ? "48px" : columnWidth)),
 	].join(" ");
 
-	$: primaryGridColumnOffset = showSwimlaneHeaders ? 2 : 1;
+	$: primaryGridColumnOffset = 2;
 
 	$: gridTemplateRows = (() => {
 		const rows = ["max-content"];
@@ -67,16 +67,12 @@
 	let headerHeight = 64;
 </script>
 
-<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="{showSwimlaneHeaders ? '56px' : '0px'}">
-	{#if showSwimlaneHeaders}
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
-			{#if taskCountLabel}
-				<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
-			{/if}
-		</div>
-	{:else if taskCountLabel}
-		<span class="matrix-task-count matrix-task-count-overlay" aria-live="polite">{taskCountLabel}</span>
-	{/if}
+<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="56px">
+	<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
+		{#if taskCountLabel}
+			<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
+		{/if}
+	</div>
 
 	<!-- 1. Render Column Headers across the top row -->
 	{#each matrix.primaryAxis as pBucket, index (pBucket.id)}
@@ -106,15 +102,16 @@
 
 	<!-- 2. Render Board Cells across subsequent rows -->
 	{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
-		{#if showSwimlaneHeaders}
-			<div
-				class="swimlane-header-cell"
-				style:grid-column="1"
-				style:grid-row={sIndex + 2}
-			>
+		<div
+			class="swimlane-header-cell"
+			aria-hidden={!showSwimlaneLabels}
+			style:grid-column="1"
+			style:grid-row={sIndex + 2}
+		>
+			{#if showSwimlaneLabels}
 				<span class="swimlane-label" title={sBucket.label}>{sBucket.label}</span>
-			</div>
-		{/if}
+			{/if}
+		</div>
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
 			<div
 				class="cell-wrapper"
@@ -201,23 +198,6 @@
 		text-overflow: ellipsis;
 		white-space: normal;
 		overflow-wrap: break-word;
-	}
-
-	.matrix-task-count-overlay {
-		position: absolute;
-		top: var(--size-2-1);
-		left: var(--size-4-3);
-		z-index: 7;
-		max-width: 180px;
-		padding: 2px var(--size-2-2);
-		border: var(--border-width) solid var(--background-modifier-border);
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--background-secondary) 86%, transparent);
-		box-shadow: var(--shadow-s);
-		line-height: 1.2;
-		text-align: left;
-		white-space: nowrap;
-		pointer-events: none;
 	}
 
 	.header-wrapper {

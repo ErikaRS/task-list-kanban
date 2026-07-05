@@ -52,10 +52,13 @@ export class KanbanView extends TextFileView {
 	component: Main | undefined;
 	icon = "kanban-square";
 
-	constructor(leaf: WorkspaceLeaf) {
+	constructor(
+		leaf: WorkspaceLeaf,
+		inheritedSettingsStore?: Readable<Partial<SettingValues>>,
+	) {
 		super(leaf);
 
-		this.settingsStore = createSettingsStore();
+		this.settingsStore = createSettingsStore(inheritedSettingsStore);
 		this.destroySettingsStore = this.settingsStore.subscribe((settings) => {
 			this.boardFolderPath = this.file?.parent?.path ?? null;
 
@@ -169,6 +172,14 @@ export class KanbanView extends TextFileView {
 		return writeKanbanSettingsToViewData(this.data, this.settingsStore.getOverrides());
 	}
 
+	getResolvedSettingsSnapshot(): SettingValues {
+		return structuredClone(get(this.settingsStore));
+	}
+
+	getSettingsOverridesSnapshot(): Partial<SettingValues> {
+		return structuredClone(this.settingsStore.getOverrides());
+	}
+
 	setViewData(data: string, clear?: boolean): void {
 		this.data = data;
 
@@ -219,5 +230,6 @@ export class KanbanView extends TextFileView {
 		this.contentEl.removeClass("task-list-kanban-view");
 		this.component?.$destroy();
 		this.destroySettingsStore();
+		this.settingsStore.destroy();
 	}
 }

@@ -50,9 +50,10 @@
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
 	$: ungroupedSecondaryBucket = matrix.secondaryAxis[0];
-	$: ungroupedGridTemplateRows = matrix.primaryAxis
-		.map(() => "max-content")
-		.join(" ");
+	$: ungroupedGridTemplateRows = [
+		"max-content",
+		...matrix.primaryAxis.map(() => "max-content"),
+	].join(" ");
 	$: groupedGridTemplateColumns = [
 		"var(--vertical-row-header-width)",
 		...matrix.secondaryAxis.map(() => "max-content"),
@@ -66,16 +67,26 @@
 </script>
 
 {#if !showSwimlaneHeaders && ungroupedSecondaryBucket}
-	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows} style:--header-height="0px">
-		{#if taskCountLabel}
-			<span class="matrix-task-count matrix-task-count-overlay" aria-live="polite">{taskCountLabel}</span>
-		{/if}
+	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows} style:--header-height="{headerHeight}px">
+		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
+			{#if taskCountLabel}
+				<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
+			{/if}
+		</div>
+
+		<div
+			class="group-header-cell"
+			aria-hidden="true"
+			style:grid-column="2"
+			style:grid-row="1"
+		></div>
+
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
 			<div
 				class="row-header-wrapper"
 				class:collapsed={pBucket.collapsed}
 				style:grid-column="1"
-				style:grid-row={pIndex + 1}
+				style:grid-row={pIndex + 2}
 				style:--column-color={pBucket.meta?.color}
 			>
 				<ColumnHeader
@@ -98,7 +109,7 @@
 				class="cell-wrapper row-cell"
 				class:collapsed={pBucket.collapsed}
 				style:grid-column="2"
-				style:grid-row={pIndex + 1}
+				style:grid-row={pIndex + 2}
 				style:--column-color={pBucket.meta?.color}
 			>
 				<BoardCell
@@ -235,6 +246,13 @@
 
 		&.ungrouped-grid {
 			grid-template-columns: var(--vertical-row-header-width) max-content;
+
+			.matrix-corner,
+			.group-header-cell {
+				min-height: 0;
+				padding-top: var(--size-2-1);
+				padding-bottom: var(--size-2-1);
+			}
 		}
 	}
 
@@ -272,20 +290,6 @@
 		line-height: 1.2;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-	}
-
-	.matrix-task-count-overlay {
-		position: absolute;
-		top: var(--size-2-1);
-		left: var(--size-4-2);
-		z-index: 7;
-		max-width: calc(var(--vertical-row-header-width) - var(--size-4-8));
-		padding: 2px var(--size-2-2);
-		border: var(--border-width) solid var(--background-modifier-border);
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--background-secondary) 86%, transparent);
-		box-shadow: var(--shadow-s);
-		pointer-events: none;
 	}
 
 	.group-header-cell {

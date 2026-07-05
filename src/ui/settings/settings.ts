@@ -36,6 +36,12 @@ import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest } from "./suggest";
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
 
+interface SettingsModalOptions {
+	title?: string;
+	mode?: "board" | "globalDefaults";
+	layout?: "modal" | "embedded";
+}
+
 export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
 	private readonly originalSettings: SettingValues;
@@ -52,6 +58,7 @@ export class SettingsModal extends Modal {
 	private draggedColumnId: string | null = null;
 	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
 	private focusTagEditorColumnId: string | null = null;
+	private embeddedSubmitTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
 		app: App,
@@ -60,11 +67,26 @@ export class SettingsModal extends Modal {
 			newSettings: SettingValues,
 			options: { updateExistingTaskTagsByColumnId: Record<string, boolean> },
 		) => void | Promise<void>,
-		private readonly boardFolderPath: string | null
+		private readonly boardFolderPath: string | null,
+		private readonly options: SettingsModalOptions = {},
 	) {
 		super(app);
 		this.originalSettings = structuredClone(settings);
 		this.originalSettingsSnapshot = JSON.stringify(settings);
+	}
+
+	private isGlobalDefaultsMode(): boolean {
+		return this.options.mode === "globalDefaults";
+	}
+
+	private isEmbedded(): boolean {
+		return this.options.layout === "embedded";
+	}
+
+	mountInline(containerEl: HTMLElement): () => void {
+		this.contentEl = containerEl;
+		this.onOpen();
+		return () => this.onClose();
 	}
 
 	private isDirty(): boolean {
@@ -86,11 +108,27 @@ export class SettingsModal extends Modal {
 		this.updateDirtyBanner();
 	}
 
+	private scheduleEmbeddedSubmit() {
+		if (!this.isEmbedded() || this.validationError) {
+			return;
+		}
+		if (this.embeddedSubmitTimer) {
+			clearTimeout(this.embeddedSubmitTimer);
+		}
+		this.embeddedSubmitTimer = setTimeout(() => {
+			this.embeddedSubmitTimer = null;
+			void this.onSubmit(this.settings, {
+				updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+			});
+		}, 150);
+	}
+
 	private getOriginalColumn(columnId: string): ColumnDefinition | undefined {
 		return this.originalSettings.columns.find((column) => column.id === columnId);
 	}
 
 	private shouldShowRetagOption(column: ColumnDefinition): boolean {
+		if (this.isGlobalDefaultsMode()) return false;
 		const originalColumn = this.getOriginalColumn(column.id);
 		if (!originalColumn) return false;
 		return columnRuleSignature(originalColumn) !== columnRuleSignature(column);
@@ -803,23 +841,30 @@ export class SettingsModal extends Modal {
 			this.headerDirtyPill.setText(isDirty ? "Unsaved changes" : "");
 			this.headerDirtyPill.toggleClass("is-visible", isDirty);
 		}
+		this.scheduleEmbeddedSubmit();
 	}
 
 	onOpen() {
-		// Set up flex layout — need classes on both modalEl and contentEl
-		// so contentEl fills the modal and our inner flex layout works
-		this.modalEl.addClass("task-list-kanban-settings-modal-container");
-		this.contentEl.addClass("task-list-kanban-settings-modal");
+		if (this.isEmbedded()) {
+			this.contentEl.addClass("task-list-kanban-settings-inline");
+		} else {
+			// Set up flex layout — need classes on both modalEl and contentEl
+			// so contentEl fills the modal and our inner flex layout works
+			this.modalEl.addClass("task-list-kanban-settings-modal-container");
+			this.contentEl.addClass("task-list-kanban-settings-modal");
+		}
 
 		this.scrollWrapper = this.contentEl.createDiv({ cls: "settings-scroll-wrapper" });
 		const header = this.scrollWrapper.createDiv({ cls: "settings-header" });
-		header.createEl("h1", { text: "Settings" });
+		header.createEl(this.isEmbedded() ? "h2" : "h1", { text: this.options.title ?? "Settings" });
 		const headerStatus = header.createDiv({ cls: "settings-header-status" });
 		this.headerValidationPill = headerStatus.createDiv({ cls: "settings-status-pill settings-status-pill-validation" });
 		this.headerDirtyPill = headerStatus.createDiv({ cls: "settings-status-pill settings-status-pill-dirty" });
 
-		const settingsBody = this.scrollWrapper.createDiv({ cls: "settings-body" });
-		const settingsNav = settingsBody.createDiv({ cls: "settings-nav" });
+		const settingsBody = this.scrollWrapper.createDiv({
+			cls: this.isEmbedded() ? "settings-body settings-body-inline" : "settings-body",
+		});
+		const settingsNav = this.isEmbedded() ? null : settingsBody.createDiv({ cls: "settings-nav" });
 		const settingsContent = settingsBody.createDiv({ cls: "settings-content" });
 		const createSection = (
 			id: string,
@@ -830,11 +875,13 @@ export class SettingsModal extends Modal {
 				cls: "settings-section",
 				attr: { id: `settings-${id}` },
 			});
-			const navButton = settingsNav.createEl("button", { text: title });
-			navButton.type = "button";
-			navButton.addEventListener("click", () => {
-				section.scrollIntoView({ behavior: "smooth", block: "start" });
-			});
+			if (settingsNav) {
+				const navButton = settingsNav.createEl("button", { text: title });
+				navButton.type = "button";
+				navButton.addEventListener("click", () => {
+					section.scrollIntoView({ behavior: "smooth", block: "start" });
+				});
+			}
 
 			const sectionHeader = section.createDiv({ cls: "settings-section-header" });
 			sectionHeader.createEl("h2", { text: title });
@@ -942,6 +989,10 @@ export class SettingsModal extends Modal {
 			}
 		};
 		const validateDefaultTaskFile = () => {
+			if (this.isGlobalDefaultsMode()) {
+				setDefaultTaskFileError("");
+				return;
+			}
 			const value = this.settings.defaultTaskFile ?? "";
 			if (!value) {
 				setDefaultTaskFileError("");
@@ -972,8 +1023,8 @@ export class SettingsModal extends Modal {
 		// --- Folder scope dropdown + selected folders UI ---
 		const scopeContainer = scopeSection.createDiv();
 
-		let folderListContainer: HTMLDivElement;
-		let folderListEl: HTMLDivElement;
+		let folderListContainer: HTMLDivElement | null = null;
+		let folderListEl: HTMLDivElement | null = null;
 
 		const renderFolderRow = (
 			container: HTMLDivElement,
@@ -1030,6 +1081,7 @@ export class SettingsModal extends Modal {
 		};
 
 		const renderFolderList = () => {
+			if (!folderListEl) return;
 			folderListEl.empty();
 
 			// Always show the board's own folder first (non-removable)
@@ -1047,6 +1099,7 @@ export class SettingsModal extends Modal {
 		};
 
 		const updateFolderListVisibility = () => {
+			if (!folderListContainer) return;
 			folderListContainer.style.display =
 				this.settings.scope === ScopeOption.SelectedFolders
 					? "block"
@@ -1057,11 +1110,13 @@ export class SettingsModal extends Modal {
 			.setName("Included folders")
 			.setDesc("Folders the board searches for tasks. The board's own folder is always included.")
 			.addDropdown((dropdown) => {
-				dropdown.addOption(ScopeOption.Folder, "This folder");
+				dropdown.addOption(ScopeOption.Folder, "Same as board folder");
 				dropdown.addOption(ScopeOption.Everywhere, "Every folder");
 				dropdown.addOption(
 					ScopeOption.SelectedFolders,
-					"Selected folders"
+					this.isGlobalDefaultsMode()
+						? "Selected folders (configured per board)"
+						: "Selected folders"
 				);
 				dropdown.setValue(this.settings.scope);
 				dropdown.onChange((value) => {
@@ -1075,50 +1130,57 @@ export class SettingsModal extends Modal {
 				});
 			});
 
-		// Selected folders list UI
-		folderListContainer = scopeContainer.createDiv();
-		folderListContainer.style.marginLeft = "16px";
-		folderListContainer.style.marginBottom = "12px";
+		if (this.isGlobalDefaultsMode()) {
+			scopeContainer.createEl("p", {
+				text: "Selected folder paths stay board-local. The global default only chooses the scope mode.",
+				cls: "setting-item-description",
+			});
+		} else {
+			// Selected folders list UI
+			folderListContainer = scopeContainer.createDiv();
+			folderListContainer.style.marginLeft = "16px";
+			folderListContainer.style.marginBottom = "12px";
 
-		const addFolderRow = folderListContainer.createDiv();
-		addFolderRow.style.display = "flex";
-		addFolderRow.style.gap = "8px";
-		addFolderRow.style.marginBottom = "8px";
+			const addFolderRow = folderListContainer.createDiv();
+			addFolderRow.style.display = "flex";
+			addFolderRow.style.gap = "8px";
+			addFolderRow.style.marginBottom = "8px";
 
-		const folderInput = addFolderRow.createEl("input", {
-			type: "text",
-			placeholder: "e.g., projects/active",
-		});
-		folderInput.style.flexGrow = "1";
-		folderInput.addClass("setting-input");
+			const folderInput = addFolderRow.createEl("input", {
+				type: "text",
+				placeholder: "e.g., projects/active",
+			});
+			folderInput.style.flexGrow = "1";
+			folderInput.addClass("setting-input");
 
-		const addFolder = () => {
-			const raw = folderInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
-			if (!raw) return;
-			if (raw === this.boardFolderPath) return; // already included implicitly
-			const folders = this.settings.scopeFolders ?? [];
-			if (folders.includes(raw)) return;
-			this.settings.scopeFolders = [...folders, raw];
-			folderInput.value = "";
+			const addFolder = () => {
+				const raw = folderInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
+				if (!raw) return;
+				if (raw === this.boardFolderPath) return; // already included implicitly
+				const folders = this.settings.scopeFolders ?? [];
+				if (folders.includes(raw)) return;
+				this.settings.scopeFolders = [...folders, raw];
+				folderInput.value = "";
+				renderFolderList();
+				validateDefaultTaskFile();
+				this.updateDirtyBanner();
+			};
+			new FolderSuggest(this.app, folderInput, () => addFolder());
+
+			const addBtn = addFolderRow.createEl("button", { text: "Add" });
+			addBtn.addEventListener("click", addFolder);
+
+			folderInput.addEventListener("keydown", (e: KeyboardEvent) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					addFolder();
+				}
+			});
+
+			folderListEl = folderListContainer.createDiv();
 			renderFolderList();
-			validateDefaultTaskFile();
-			this.updateDirtyBanner();
-		};
-		new FolderSuggest(this.app, folderInput, () => addFolder());
-
-		const addBtn = addFolderRow.createEl("button", { text: "Add" });
-		addBtn.addEventListener("click", addFolder);
-
-		folderInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") {
-				e.preventDefault();
-				addFolder();
-			}
-		});
-
-		folderListEl = folderListContainer.createDiv();
-		renderFolderList();
-		updateFolderListVisibility();
+			updateFolderListVisibility();
+		}
 
 		// --- Excluded paths UI ---
 		let excludeListEl: HTMLDivElement;
@@ -1398,35 +1460,37 @@ export class SettingsModal extends Modal {
 		excludedTaskTagsListEl = excludedTaskTagsInputContainer.createDiv();
 		renderExcludedTaskTagsList();
 
-		const defaultTaskFileSetting = new Setting(taskPropertiesSection)
-			.setName("Default task file")
-			.setDesc(
-				"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
-			)
-			.addText((text) => {
-				defaultTaskFileInputEl = text.inputEl;
-				text.setPlaceholder("e.g., notes/tasks.md");
-				text.setValue(this.settings.defaultTaskFile ?? "");
-				text.onChange((value) => {
-					this.settings.defaultTaskFile = value;
-					validateDefaultTaskFile();
-					this.updateDirtyBanner();
+		if (!this.isGlobalDefaultsMode()) {
+			const defaultTaskFileSetting = new Setting(taskPropertiesSection)
+				.setName("Default task file")
+				.setDesc(
+					"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
+				)
+				.addText((text) => {
+					defaultTaskFileInputEl = text.inputEl;
+					text.setPlaceholder("e.g., notes/tasks.md");
+					text.setValue(this.settings.defaultTaskFile ?? "");
+					text.onChange((value) => {
+						this.settings.defaultTaskFile = value;
+						validateDefaultTaskFile();
+						this.updateDirtyBanner();
+					});
+					new FileSuggest(this.app, text.inputEl);
 				});
-				new FileSuggest(this.app, text.inputEl);
+			defaultTaskFileSetting.controlEl.style.flexDirection = "column";
+			defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
+			defaultTaskFileErrorEl = createEl("div", {
+				cls: "setting-error-message",
 			});
-		defaultTaskFileSetting.controlEl.style.flexDirection = "column";
-		defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
-		defaultTaskFileErrorEl = createEl("div", {
-			cls: "setting-error-message",
-		});
-		defaultTaskFileErrorEl.style.color = "var(--text-error)";
-		defaultTaskFileErrorEl.style.fontSize = "var(--font-smallest)";
-		defaultTaskFileErrorEl.style.fontStyle = "italic";
-		defaultTaskFileErrorEl.style.marginTop = "4px";
-		defaultTaskFileErrorEl.style.minHeight = "1.2em";
-		defaultTaskFileErrorEl.style.visibility = "hidden";
-		defaultTaskFileSetting.controlEl.appendChild(defaultTaskFileErrorEl);
-		validateDefaultTaskFile();
+			defaultTaskFileErrorEl.style.color = "var(--text-error)";
+			defaultTaskFileErrorEl.style.fontSize = "var(--font-smallest)";
+			defaultTaskFileErrorEl.style.fontStyle = "italic";
+			defaultTaskFileErrorEl.style.marginTop = "4px";
+			defaultTaskFileErrorEl.style.minHeight = "1.2em";
+			defaultTaskFileErrorEl.style.visibility = "hidden";
+			defaultTaskFileSetting.controlEl.appendChild(defaultTaskFileErrorEl);
+			validateDefaultTaskFile();
+		}
 
 		new Setting(displaySection)
 			.setName("Show filepath")
@@ -1539,38 +1603,44 @@ export class SettingsModal extends Modal {
 				});
 			});
 
-		// Button bar (after scroll wrapper, still inside contentEl)
-		const buttonBar = this.contentEl.createDiv({ cls: "settings-button-bar" });
+		if (!this.isEmbedded()) {
+			// Button bar (after scroll wrapper, still inside contentEl)
+			const buttonBar = this.contentEl.createDiv({ cls: "settings-button-bar" });
 
-		const cancelBtn = buttonBar.createEl("button", { text: "Cancel" });
-		cancelBtn.addEventListener("click", () => {
-			this.close();
-		});
-
-		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
-		this.saveBtn.addEventListener("click", async () => {
-			if (this.saveBtn) {
-				this.saveBtn.disabled = true;
-			}
-			try {
-				await this.onSubmit(this.settings, {
-					updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
-				});
+			const cancelBtn = buttonBar.createEl("button", { text: "Cancel" });
+			cancelBtn.addEventListener("click", () => {
 				this.close();
-			} finally {
+			});
+
+			this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
+			this.saveBtn.addEventListener("click", async () => {
 				if (this.saveBtn) {
-					this.saveBtn.disabled = false;
+					this.saveBtn.disabled = true;
 				}
-			}
-		});
+				try {
+					await this.onSubmit(this.settings, {
+						updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+					});
+					this.close();
+				} finally {
+					if (this.saveBtn) {
+						this.saveBtn.disabled = false;
+					}
+				}
+			});
+		}
 
 		// Apply validation state to save button now that it exists
-		if (this.validationError) {
+		if (this.validationError && this.saveBtn) {
 			this.saveBtn.disabled = true;
 		}
 	}
 
 	onClose() {
+		if (this.embeddedSubmitTimer) {
+			clearTimeout(this.embeddedSubmitTimer);
+			this.embeddedSubmitTimer = null;
+		}
 		for (const destroy of this.mountedColumnControls) {
 			destroy();
 		}

@@ -42,7 +42,7 @@ Open board settings with the settings icon in the top-right corner.
 ### Scope
 
 Choose which files feed the board:
-- **This folder**: files beside the kanban file.
+- **Same as board folder**: files beside the kanban file.
 - **Every folder**: the whole vault.
 - **Selected folders**: specific vault-relative folders. The board's own folder is always included.
 
