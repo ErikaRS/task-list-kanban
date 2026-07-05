@@ -359,6 +359,7 @@
 					</div>
 					{#if tagRows.length > 1}
 						<button
+							type="button"
 							class="row-remove"
 							aria-label="Remove tag group"
 							on:click={() => {
@@ -374,7 +375,7 @@
 					{/if}
 				</div>
 			{/each}
-			<button class="add-row-btn" on:click={() => (tagRows = [...tagRows, ""])}>
+			<button type="button" class="add-row-btn" on:click={() => (tagRows = [...tagRows, ""])}>
 				+ Add tag group
 			</button>
 		</div>
@@ -492,6 +493,7 @@
 						{/if}
 						{#if dateRows.length > 1}
 							<button
+								type="button"
 								class="row-remove"
 								aria-label="Remove date condition"
 								on:click={() => removeDateRow(index)}
@@ -502,6 +504,7 @@
 					</div>
 				{/each}
 				<button
+					type="button"
 					class="add-row-btn"
 					on:click={() => (dateRows = [...dateRows, emptyDateRow()])}
 				>
@@ -525,6 +528,7 @@
 					spellcheck="false"
 				/>
 				<button
+					type="button"
 					class="save-filter-btn"
 					disabled={saveDisabled}
 					on:click={saveFilter}
@@ -537,6 +541,7 @@
 
 	<div class="editor-section saved-section">
 		<button
+			type="button"
 			class="saved-toggle"
 			aria-expanded={savedListExpanded}
 			on:click={() => onToggleSavedList(!savedListExpanded)}
@@ -554,6 +559,7 @@
 						{#each savedFilters as entry (entry.id)}
 							<li>
 								<button
+									type="button"
 									class="row-remove"
 									aria-label="Delete saved filter: {entry.name ?? entry.query}"
 									on:click={() => onDeleteSavedFilter(entry)}
@@ -561,6 +567,7 @@
 									×
 								</button>
 								<button
+									type="button"
 									class="saved-filter-name"
 									class:active={entry.id === activeSavedFilterId}
 									aria-pressed={entry.id === activeSavedFilterId}
@@ -579,8 +586,8 @@
 	</div>
 
 	<div class="editor-actions">
-		<button class="editor-clear-btn" on:click={onClear}>Clear</button>
-		<button class="editor-search-btn" on:click={onSearch}>Search</button>
+		<button type="button" class="editor-clear-btn" on:click={onClear}>Clear</button>
+		<button type="button" class="editor-search-btn" on:click={onSearch}>Search</button>
 	</div>
 </div>
 

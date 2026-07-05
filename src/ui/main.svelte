@@ -1073,7 +1073,7 @@
 			position: relative;
 			z-index: 100;
 			width: 100%;
-			max-width: 680px;
+			max-width: min(1360px, calc(100% - var(--size-4-8)));
 			margin: 0 auto var(--size-4-2) auto;
 		}
 
