@@ -51,7 +51,7 @@
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
 	$: gridTemplateColumns = [
-		"56px",
+		showSwimlaneLabels ? "max-content" : "56px",
 		...matrix.primaryAxis.map((b) => (b.collapsed ? "48px" : columnWidth)),
 	].join(" ");
 
@@ -232,26 +232,27 @@
 		z-index: 3;
 		display: flex;
 		align-items: start;
-		justify-content: center;
+		justify-content: flex-start;
 		min-height: 188px;
-		padding: var(--size-4-3) var(--size-2-2);
-		background: color-mix(in srgb, var(--background-primary) 82%, var(--background-secondary));
+		min-width: 0;
+		padding: var(--size-4-3) var(--size-4-4);
+		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
 		border-right: var(--border-width) solid var(--background-modifier-border);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 
 		.swimlane-label {
 			position: sticky;
 			top: calc(var(--header-height) + var(--size-4-3));
+			left: var(--size-4-4);
+			display: block;
+			max-width: min(28ch, 24vw);
 			color: var(--text-normal);
 			font-size: var(--font-ui-medium);
 			font-weight: var(--font-medium);
 			line-height: 1.2;
-			writing-mode: vertical-rl;
-			text-orientation: mixed;
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			max-height: 100%;
 		}
 	}
 
