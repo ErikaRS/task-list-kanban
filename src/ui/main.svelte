@@ -239,9 +239,50 @@
 	let viewEditorExpanded = false;
 	let filterBarContainer: HTMLDivElement | undefined;
 	let viewControlContainer: HTMLDivElement | undefined;
+	let boardContentEl: HTMLDivElement | undefined;
+	let viewEditorPopover: HTMLDivElement | undefined;
+	let viewEditorPopoverStyle = "";
+
+	const VIEW_EDITOR_POPOVER_GAP = 8;
+	const VIEW_EDITOR_POPOVER_MARGIN = 12;
+
+	$: {
+		viewEditorExpanded;
+		isTagPrefixGrouping;
+		savedViewListExpanded;
+		sortSelectValue;
+		groupSelectValue;
+		if (viewEditorExpanded) {
+			void tick().then(updateViewEditorPopoverPosition);
+		}
+	}
 
 	function toggleViewEditor() {
 		viewEditorExpanded = !viewEditorExpanded;
+	}
+
+	function updateViewEditorPopoverPosition() {
+		if (!viewEditorExpanded || !boardContentEl || !viewControlContainer || !viewEditorPopover) {
+			return;
+		}
+		const boardRect = boardContentEl.getBoundingClientRect();
+		const triggerRect = viewControlContainer.getBoundingClientRect();
+		const popoverRect = viewEditorPopover.getBoundingClientRect();
+		const margin = VIEW_EDITOR_POPOVER_MARGIN;
+		const gap = VIEW_EDITOR_POPOVER_GAP;
+		const maxWidth = Math.max(240, boardRect.width - margin * 2);
+		const popoverWidth = Math.min(popoverRect.width || maxWidth, maxWidth);
+		const minLeft = boardRect.left + margin;
+		const maxLeft = boardRect.right - margin - popoverWidth;
+		const left = Math.max(minLeft, Math.min(triggerRect.left, maxLeft));
+		const availableBelow = boardRect.bottom - triggerRect.bottom - gap - margin;
+		const maxHeight = Math.max(160, availableBelow);
+
+		viewEditorPopoverStyle = [
+			`left: ${Math.round(left - triggerRect.left)}px`,
+			`max-width: ${Math.round(maxWidth)}px`,
+			`max-height: ${Math.round(maxHeight)}px`,
+		].join("; ");
 	}
 
 	// Committing canonicalizes the draft (quoting, $TODAY casing, token
@@ -528,6 +569,10 @@
 		}
 	}
 
+	function handleWindowViewportChange() {
+		updateViewEditorPopoverPosition();
+	}
+
 	$: filteredTasks = isFiltered
 		? $tasksStore.filter((task) =>
 				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
@@ -780,10 +825,12 @@
 <svelte:window
 	on:keydown={handleWindowKeydown}
 	on:mousedown={handleWindowMousedown}
+	on:resize={handleWindowViewportChange}
+	on:scroll={handleWindowViewportChange}
 />
 
 <div class="main">
-	<div class="board-content">
+	<div class="board-content" bind:this={boardContentEl}>
 		<div class="board-toolbar">
 			<div class="view-control" bind:this={viewControlContainer}>
 				<button
@@ -801,7 +848,11 @@
 					</span>
 				</button>
 				{#if viewEditorExpanded}
-					<div class="view-editor-popover">
+					<div
+						class="view-editor-popover"
+						bind:this={viewEditorPopover}
+						style={viewEditorPopoverStyle}
+					>
 						<ViewEditor
 							{sortSelectValue}
 							{availableSortKeys}

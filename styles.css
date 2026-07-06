@@ -38,6 +38,10 @@ If your plugin does not need CSS, delete this file.
 	line-height: 1 !important;
 }
 
+.task-list-kanban-view .board-content {
+	overflow: visible !important;
+}
+
 .task-list-kanban-view .view-control,
 .task-list-kanban-view .settings-control {
 	position: relative !important;
@@ -50,6 +54,15 @@ If your plugin does not need CSS, delete this file.
 	min-height: 0 !important;
 	margin: 0 !important;
 	box-sizing: border-box !important;
+}
+
+.task-list-kanban-view .view-editor-popover {
+	position: absolute !important;
+	top: calc(100% + 8px) !important;
+	z-index: 200 !important;
+	box-sizing: border-box !important;
+	width: max-content !important;
+	overflow: auto !important;
 }
 
 .task-list-kanban-view .view-editor-toggle {
