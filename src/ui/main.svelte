@@ -249,8 +249,25 @@
 		void tick().then(updateViewEditorPopoverPosition);
 	}
 
-	function toggleViewEditor() {
-		viewEditorExpanded = !viewEditorExpanded;
+	function toggleViewEditor(e: MouseEvent) {
+		if (viewEditorExpanded) {
+			viewEditorExpanded = false;
+			return;
+		}
+		const triggerRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		viewEditorPopoverStyle = initialViewEditorPopoverStyle(triggerRect);
+		viewEditorExpanded = true;
+	}
+
+	function initialViewEditorPopoverStyle(triggerRect: DOMRect) {
+		const margin = VIEW_EDITOR_POPOVER_MARGIN;
+		const gap = VIEW_EDITOR_POPOVER_GAP;
+		return [
+			`top: ${Math.round(triggerRect.bottom + gap)}px`,
+			`left: ${Math.round(Math.max(margin, triggerRect.left))}px`,
+			`max-width: ${Math.round(Math.max(240, window.innerWidth - margin * 2))}px`,
+			`max-height: ${Math.round(Math.max(180, window.innerHeight - triggerRect.bottom - gap - margin))}px`,
+		].join("; ");
 	}
 
 	function updateViewEditorPopoverPosition() {
