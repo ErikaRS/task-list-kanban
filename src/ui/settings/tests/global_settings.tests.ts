@@ -102,6 +102,24 @@ describe("global settings parsing", () => {
 		expect(picked).not.toHaveProperty("lastFilter");
 		expect(picked).not.toHaveProperty("scopeFolders");
 	});
+
+	it("parses global saved views without promoting board-local saved views", () => {
+		const parsed = parseGlobalSettings({
+			version: 1,
+			boardDefaults: {
+				savedViews: [{ id: "local", name: "Local", query: "tag:local" }],
+			},
+			globalViews: [
+				{ id: "global", name: "Global", query: "due:<$TODAY" },
+				{ id: "empty", name: "Empty" },
+			],
+		});
+
+		expect(parsed.boardDefaults).not.toHaveProperty("savedViews");
+		expect(parsed.globalViews).toEqual([
+			{ id: "global", name: "Global", query: "due:<$TODAY" },
+		]);
+	});
 });
 
 describe("global settings inheritance", () => {

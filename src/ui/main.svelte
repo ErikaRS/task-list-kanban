@@ -21,7 +21,7 @@
 	} from "./tasks/task_grouping";
 	import IconButton from "./components/icon_button.svelte";
 	import Icon from "./components/icon.svelte";
-	import type { Writable, Readable } from "svelte/store";
+	import { readable, type Writable, type Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
 	import { type BoardSettingsStore, type SavedView, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
@@ -57,9 +57,11 @@
 	import {
 		applySavedViewProperties,
 		captureSavedViewProperties,
+		mergeLocalAndGlobalSavedViews,
 		savedViewHasProperties,
 		savedViewIsQueryOnly,
 		savedViewPropertyLabels,
+		type SavedViewListEntry,
 		type SavedViewProperties,
 	} from "./views/saved_views";
 
@@ -74,6 +76,7 @@
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 	export let settingsStore: BoardSettingsStore;
+	export let globalViewsStore: Readable<SavedView[]> = readable([]);
 	export let requestSave: () => void;
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
@@ -223,6 +226,8 @@
 	$: appliedQuery = parseFilterQuery(appliedQueryText, dateFilterKeyNames);
 	$: isFiltered = !isEmptyFilterQuery(appliedQuery);
 	$: savedViews = $settingsStore.savedViews ?? [];
+	$: globalSavedViews = $globalViewsStore ?? [];
+	$: mergedSavedViews = mergeLocalAndGlobalSavedViews(savedViews, globalSavedViews);
 	$: currentSavedViewProperties = captureSavedViewProperties(
 		$settingsStore,
 		settingsStore.getOverrides(),
@@ -377,13 +382,14 @@
 	// --- Saved views (SPEC 0030 Phase 3) ---
 	// Query-only saved views are also exposed to the filter editor so the
 	// existing "Saved" filter affordance keeps working after migration.
-	$: savedFilterEntries = savedViews
+	$: savedFilterEntries = mergedSavedViews
 		.filter((view) => savedViewIsQueryOnly(view) && view.query !== undefined)
 		.map(
 			(view): SavedFilterEntry => ({
-				id: view.id,
+				id: `${view.isGlobal ? "global" : "local"}:${view.id}`,
 				name: view.name === view.query ? undefined : view.name,
 				query: view.query!,
+				isGlobal: view.isGlobal,
 			}),
 		);
 
@@ -410,7 +416,7 @@
 	}
 
 	let savedFilterPendingDelete: SavedFilterEntry | undefined;
-	let savedViewPendingDelete: SavedView | undefined;
+	let savedViewPendingDelete: SavedViewListEntry | undefined;
 	// The editor unmounts when the panel collapses; holding the saved-list
 	// zippy state here makes it stick across reopenings. Collapsed by
 	// default.
@@ -420,10 +426,13 @@
 	function confirmDeleteSavedFilter() {
 		const pending = savedFilterPendingDelete;
 		savedFilterPendingDelete = undefined;
-		if (!pending) {
+		if (!pending || pending.isGlobal) {
 			return;
 		}
-		$settingsStore.savedViews = savedViews.filter((view) => view.id !== pending.id);
+		const localId = pending.id.startsWith("local:")
+			? pending.id.slice("local:".length)
+			: pending.id;
+		$settingsStore.savedViews = savedViews.filter((view) => view.id !== localId);
 		requestSave();
 	}
 
@@ -472,7 +481,7 @@
 	function confirmDeleteSavedView() {
 		const pending = savedViewPendingDelete;
 		savedViewPendingDelete = undefined;
-		if (!pending) {
+		if (!pending || pending.isGlobal) {
 			return;
 		}
 		$settingsStore.savedViews = savedViews.filter((view) => view.id !== pending.id);
@@ -814,7 +823,7 @@
 							{columnWidth}
 							onSetFlowDirection={setFlowDirection}
 							onSetColumnWidth={setColumnWidth}
-							{savedViews}
+							savedViews={mergedSavedViews}
 							{savedViewListExpanded}
 
 							canSaveView={canSaveCurrentView}

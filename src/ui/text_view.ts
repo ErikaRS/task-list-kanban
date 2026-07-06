@@ -6,6 +6,7 @@ import {
 	createSettingsStore,
 	ScopeOption,
 	type BoardSettingsStore,
+	type SavedView,
 	type SettingValues,
 } from "./settings/settings_store";
 import { get, type Readable, type Writable } from "svelte/store";
@@ -55,6 +56,7 @@ export class KanbanView extends TextFileView {
 	constructor(
 		leaf: WorkspaceLeaf,
 		inheritedSettingsStore?: Readable<Partial<SettingValues>>,
+		private readonly globalViewsStore?: Readable<SavedView[]>,
 	) {
 		super(leaf);
 
@@ -221,6 +223,7 @@ export class KanbanView extends TextFileView {
 				columnSubtitleTableStore: this.columnSubtitleTableStore,
 				openSettings: () => this.openSettingsModal(),
 				settingsStore: this.settingsStore,
+				globalViewsStore: this.globalViewsStore,
 				requestSave: () => this.requestSave(),
 			},
 		});

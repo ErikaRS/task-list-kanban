@@ -42,6 +42,7 @@ export interface SavedFilterEntry {
 	id: string;
 	name?: string;
 	query: string;
+	isGlobal?: boolean;
 }
 
 /**

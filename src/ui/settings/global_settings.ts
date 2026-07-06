@@ -98,7 +98,8 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	);
 	parsedDefaultView.flowDirection = parsedDefaultView.flowDirection ?? FlowDirection.LeftToRight;
 	const parsedGlobalViews = rawGlobalViews
-		? parseSettingsOverrides(JSON.stringify({ savedViews: rawGlobalViews })).savedViews ?? []
+		? (parseSettingsOverrides(JSON.stringify({ savedViews: rawGlobalViews })).savedViews ?? [])
+			.filter(savedViewHasViewProperties)
 		: undefined;
 
 	const settings: GlobalSettings = {
@@ -204,6 +205,16 @@ export function clearBoardDefault(
 
 function savedViewPropertiesHaveValues(view: SavedViewProperties): boolean {
 	return Object.keys(view).length > 0;
+}
+
+function savedViewHasViewProperties(view: SavedView): boolean {
+	return (
+		view.query !== undefined ||
+		view.sort !== undefined ||
+		view.group !== undefined ||
+		view.flowDirection !== undefined ||
+		view.columnWidth !== undefined
+	);
 }
 
 function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {

@@ -9,6 +9,7 @@ import {
 import {
 	applySavedViewProperties,
 	captureSavedViewProperties,
+	mergeLocalAndGlobalSavedViews,
 	savedViewHasProperties,
 	savedViewIsQueryOnly,
 	savedViewPropertyLabels,
@@ -98,5 +99,15 @@ describe("saved view helpers", () => {
 		expect(applied.flowDirection).toBe(FlowDirection.TopToBottom);
 		expect(applied.columnWidth).toBe(300);
 		expect(applied.excludedTags).toEqual(["hidden"]);
+	});
+
+	it("merges board-local saved views before global saved views", () => {
+		const local: SavedView[] = [{ id: "shared", name: "Local", query: "tag:local" }];
+		const global: SavedView[] = [{ id: "shared", name: "Global", query: "tag:global" }];
+
+		expect(mergeLocalAndGlobalSavedViews(local, global)).toEqual([
+			{ id: "shared", name: "Local", query: "tag:local", isGlobal: false },
+			{ id: "shared", name: "Global", query: "tag:global", isGlobal: true },
+		]);
 	});
 });

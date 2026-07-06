@@ -1,4 +1,5 @@
 import { MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
+import { derived } from "svelte/store";
 import { KANBAN_VIEW_NAME, KanbanView } from "./ui/text_view";
 import {
 	createGlobalSettingsStore,
@@ -12,10 +13,17 @@ import { GlobalSettingsTab } from "./ui/settings/global_settings_tab";
 export default class Base extends Plugin {
 	private readonly globalSettingsStore = createGlobalSettingsStore();
 	private readonly inheritedSettingsStore = createInheritedSettingsStore(this.globalSettingsStore);
+	private readonly globalViewsStore = derived(
+		this.globalSettingsStore,
+		(settings) => settings.globalViews ?? [],
+	);
 
 	async onload() {
 		this.globalSettingsStore.set(parseGlobalSettings(await this.loadData()));
-		this.registerView(KANBAN_VIEW_NAME, (leaf) => new KanbanView(leaf, this.inheritedSettingsStore));
+		this.registerView(
+			KANBAN_VIEW_NAME,
+			(leaf) => new KanbanView(leaf, this.inheritedSettingsStore, this.globalViewsStore),
+		);
 		this.addSettingTab(
 			new GlobalSettingsTab(
 				this.app,

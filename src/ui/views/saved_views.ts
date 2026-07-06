@@ -7,6 +7,7 @@ import {
 import type { GroupSource } from "../tasks/task_grouping";
 
 export type SavedViewProperties = Omit<SavedView, "id" | "name">;
+export type SavedViewListEntry = SavedView & { isGlobal?: boolean };
 
 function hasOwn<T extends object, K extends PropertyKey>(
 	object: T,
@@ -120,4 +121,14 @@ export function applySavedViewProperties(
 		next.columnWidth = view.columnWidth;
 	}
 	return next;
+}
+
+export function mergeLocalAndGlobalSavedViews(
+	localViews: SavedView[] = [],
+	globalViews: SavedView[] = [],
+): SavedViewListEntry[] {
+	return [
+		...localViews.map((view) => ({ ...view, isGlobal: false })),
+		...globalViews.map((view) => ({ ...view, isGlobal: true })),
+	];
 }

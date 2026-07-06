@@ -558,14 +558,18 @@
 					<ul class="saved-filter-list" role="list">
 						{#each savedFilters as entry (entry.id)}
 							<li>
-								<button
-									type="button"
-									class="row-remove"
-									aria-label="Delete saved filter: {entry.name ?? entry.query}"
-									on:click={() => onDeleteSavedFilter(entry)}
-								>
-									×
-								</button>
+								{#if entry.isGlobal}
+									<span class="global-saved-badge" title="Global saved view">Global</span>
+								{:else}
+									<button
+										type="button"
+										class="row-remove"
+										aria-label="Delete saved filter: {entry.name ?? entry.query}"
+										on:click={() => onDeleteSavedFilter(entry)}
+									>
+										×
+									</button>
+								{/if}
 								<button
 									type="button"
 									class="saved-filter-name"
@@ -630,6 +634,16 @@
 				gap: var(--size-2-2);
 				min-width: 0;
 			}
+		}
+
+		.global-saved-badge {
+			flex: 0 0 auto;
+			color: var(--text-muted);
+			font-size: var(--font-ui-smaller);
+			line-height: 1;
+			border: 1px solid var(--background-modifier-border);
+			border-radius: var(--radius-s);
+			padding: var(--size-2-1);
 		}
 
 		.editor-row {

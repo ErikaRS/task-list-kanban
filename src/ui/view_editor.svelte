@@ -1,7 +1,11 @@
 <script lang="ts">
 	import CompactTagSelect from "./components/select/compact_tag_select.svelte";
 	import Icon from "./components/icon.svelte";
-	import { FlowDirection, type SavedView } from "./settings/settings_store";
+	import { FlowDirection } from "./settings/settings_store";
+	import {
+		savedViewPropertyLabels,
+		type SavedViewListEntry,
+	} from "./views/saved_views";
 	import type { SortDirection } from "../parsing/properties/comparators";
 	import type { GroupSource } from "./tasks/task_grouping";
 
@@ -38,14 +42,14 @@
 	export let columnWidth = 300;
 	export let onSetFlowDirection: (flowDirection: FlowDirection) => void;
 	export let onSetColumnWidth: (columnWidth: number) => void;
-	export let savedViews: SavedView[] = [];
+	export let savedViews: SavedViewListEntry[] = [];
 	export let savedViewListExpanded = false;
 
 	export let canSaveView = false;
 
 	export let onSaveCurrentView: (name: string | undefined) => void;
-	export let onApplySavedView: (view: SavedView) => void;
-	export let onDeleteSavedView: (view: SavedView) => void;
+	export let onApplySavedView: (view: SavedViewListEntry) => void;
+	export let onDeleteSavedView: (view: SavedViewListEntry) => void;
 	export let onToggleSavedViewList: (expanded: boolean) => void;
 
 	const SORT_FILE_VALUE = "__file__";
@@ -321,22 +325,31 @@
 			<div class="view-editor-controls view-editor-controls-stack">
 				{#if savedViews.length > 0}
 					<ul class="saved-view-list" role="list">
-						{#each savedViews as view (view.id)}
+						{#each savedViews as view (`${view.isGlobal ? "global" : "local"}:${view.id}`)}
 							<li>
-								<button
-									type="button"
-									class="saved-view-delete"
-									on:click={() => onDeleteSavedView(view)}
-									aria-label="Delete saved view: {view.name}"
-								>
-									×
-								</button>
+								{#if view.isGlobal}
+									<span class="saved-view-source" title="Global saved view">Global</span>
+								{:else}
+									<button
+										type="button"
+										class="saved-view-delete"
+										on:click={() => onDeleteSavedView(view)}
+										aria-label="Delete saved view: {view.name}"
+									>
+										×
+									</button>
+								{/if}
 								<button
 									type="button"
 									class="saved-view-name"
 									on:click={() => onApplySavedView(view)}
 								>
-									{view.name}
+									<span class="saved-view-title">{view.name}</span>
+									<span class="saved-view-badges">
+										{#each savedViewPropertyLabels(view) as label}
+											<span>{label}</span>
+										{/each}
+									</span>
 								</button>
 							</li>
 						{/each}
@@ -688,6 +701,7 @@
 		}
 	}
 
+	.saved-view-source,
 	.saved-view-delete,
 	.saved-view-name {
 		display: inline-flex;
@@ -714,8 +728,20 @@
 		}
 	}
 
+	.saved-view-source {
+		justify-content: center;
+		flex: 0 0 auto;
+		padding: var(--size-2-1);
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		line-height: 1;
+		border: 1px solid var(--background-modifier-border);
+		border-radius: var(--radius-s);
+	}
+
 	.saved-view-name {
 		justify-content: flex-start;
+		gap: var(--size-2-2);
 		flex: 1 1 auto;
 		min-width: 0;
 		padding: var(--size-2-1) var(--size-2-2);
@@ -729,6 +755,27 @@
 		&:hover {
 			background: var(--background-modifier-hover);
 			color: var(--text-normal);
+		}
+	}
+
+	.saved-view-title {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.saved-view-badges {
+		display: inline-flex;
+		flex: 0 0 auto;
+		gap: var(--size-2-1);
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+
+		span {
+			border: 1px solid var(--background-modifier-border);
+			border-radius: var(--radius-s);
+			padding: 1px var(--size-2-1);
+			line-height: 1.2;
 		}
 	}
 
