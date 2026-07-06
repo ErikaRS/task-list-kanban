@@ -239,6 +239,59 @@
 	let viewEditorExpanded = false;
 	let filterBarContainer: HTMLDivElement | undefined;
 	let viewControlContainer: HTMLDivElement | undefined;
+	let viewEditorPopover: HTMLDivElement | undefined;
+	let viewEditorPopoverStyle = "";
+
+	const VIEW_EDITOR_POPOVER_GAP = 8;
+	const VIEW_EDITOR_POPOVER_MARGIN = 12;
+
+	$: if (viewEditorExpanded) {
+		void tick().then(updateViewEditorPopoverPosition);
+	}
+
+	function toggleViewEditor() {
+		viewEditorExpanded = !viewEditorExpanded;
+	}
+
+	function updateViewEditorPopoverPosition() {
+		if (!viewEditorExpanded || !viewControlContainer || !viewEditorPopover) {
+			return;
+		}
+		const triggerRect = viewControlContainer.getBoundingClientRect();
+		const popoverRect = viewEditorPopover.getBoundingClientRect();
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const margin = VIEW_EDITOR_POPOVER_MARGIN;
+		const gap = VIEW_EDITOR_POPOVER_GAP;
+		const maxWidth = Math.max(240, viewportWidth - margin * 2);
+		const popoverWidth = Math.min(popoverRect.width, maxWidth);
+
+		let left = triggerRect.left;
+		if (left + popoverWidth > viewportWidth - margin) {
+			left = viewportWidth - margin - popoverWidth;
+		}
+		left = Math.max(margin, left);
+
+		const preferredTop = triggerRect.bottom + gap;
+		const availableBelow = viewportHeight - preferredTop - margin;
+		const availableAbove = triggerRect.top - gap - margin;
+		const openAbove = availableBelow < 180 && availableAbove > availableBelow;
+		const maxHeight = Math.max(
+			180,
+			openAbove ? availableAbove : availableBelow,
+		);
+		const visibleHeight = Math.min(popoverRect.height, maxHeight);
+		const top = openAbove
+			? Math.max(margin, triggerRect.top - gap - visibleHeight)
+			: Math.min(preferredTop, viewportHeight - margin - visibleHeight);
+
+		viewEditorPopoverStyle = [
+			`top: ${Math.round(top)}px`,
+			`left: ${Math.round(left)}px`,
+			`max-width: ${Math.round(maxWidth)}px`,
+			`max-height: ${Math.round(maxHeight)}px`,
+		].join("; ");
+	}
 
 	// Committing canonicalizes the draft (quoting, $TODAY casing, token
 	// order), so the bar always shows exactly what was understood.
@@ -524,6 +577,10 @@
 		}
 	}
 
+	function handleWindowViewportChange() {
+		updateViewEditorPopoverPosition();
+	}
+
 	$: filteredTasks = isFiltered
 		? $tasksStore.filter((task) =>
 				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
@@ -773,7 +830,12 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleWindowKeydown} on:mousedown={handleWindowMousedown} />
+<svelte:window
+	on:keydown={handleWindowKeydown}
+	on:mousedown={handleWindowMousedown}
+	on:resize={handleWindowViewportChange}
+	on:scroll={handleWindowViewportChange}
+/>
 
 <div class="main">
 	<div class="board-content">
@@ -785,7 +847,7 @@
 					class:active={viewEditorExpanded}
 					aria-expanded={viewEditorExpanded}
 					aria-label={viewEditorExpanded ? "Hide view settings" : "Show view settings"}
-					on:click={() => (viewEditorExpanded = !viewEditorExpanded)}
+					on:click={toggleViewEditor}
 				>
 					<Icon name="sliders-horizontal" size={16} />
 					<span>View</span>
@@ -794,7 +856,11 @@
 					</span>
 				</button>
 				{#if viewEditorExpanded}
-					<div class="view-editor-popover">
+					<div
+						class="view-editor-popover"
+						bind:this={viewEditorPopover}
+						style={viewEditorPopoverStyle}
+					>
 						<ViewEditor
 							{sortSelectValue}
 							{availableSortKeys}
@@ -1068,12 +1134,11 @@
 		}
 
 		.view-editor-popover {
-			position: absolute;
-			top: calc(100% + var(--size-2-2));
-			left: 0;
+			position: fixed;
 			z-index: 130;
 			width: max-content;
 			max-width: calc(100vw - var(--size-4-8));
+			overflow: auto;
 		}
 
 		.filter-bar {
