@@ -1,6 +1,6 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN PROGRESS (Phases 1-3 complete; Phase 4 in progress)
+Status: IN_PROGRESS (Phases 1-3 and 5 complete; Phase 4 in progress)
 
 ## Feature Request Summary
 
@@ -473,15 +473,28 @@ them.
   view inheritance, live propagation, and board override precedence. Reset
   flow tests remain pending with task 5.
 
-### Phase 5: Global saved views
+### Phase 5: Global saved views ✅ COMPLETE
 **Goal:** Views defined once, available on every board.
 
-1. ☐ `globalViews` in `GlobalSettings` + management UI in the plugin tab
-2. ☐ Merge into each board's saved views list with a global badge
-3. ☐ Tests: merge order, apply, no cross-board leakage
+1. ✅ `globalViews` in `GlobalSettings` + management UI in the plugin tab
+2. ✅ Merge into each board's saved views list with a global badge
+3. ✅ Tests: merge order, apply, no cross-board leakage
 
 **Deliverable:** Vault-wide views like "Overdue only".
 **Size:** S–M
+
+**Implementation notes (Phase 5):**
+- Global saved views are stored under plugin-level `globalViews`, parsed with
+  the same saved-view schema as board-local views, and empty global view
+  entries are discarded during parse.
+- The plugin settings tab now has a "Global saved views" section for creating
+  and deleting vault-wide presets. Global views can include query, sort,
+  group, flow direction, and card width properties.
+- Boards merge local saved views first, then global saved views with a
+  global badge. Global entries apply like local presets but cannot be deleted
+  from board-local saved view or saved filter lists.
+- Tests cover global-view parsing isolation, local-before-global merge order,
+  and the existing apply-merge behavior.
 
 ### Phase 6: Tabbed navigation (scoping level; spin out own spec — #130)
 **Goal:** Switch between boards without leaving the kanban view.

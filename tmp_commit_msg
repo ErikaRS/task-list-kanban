@@ -1,0 +1,9 @@
+feat: implement global saved views
+
+Implements Phase 5 of SPEC 0030:
+- Adds globalViews to global settings and global settings tab UI.
+- Merges global saved views into board-local saved views list with a 'Global' badge.
+- Displays query-only global saved views in the search bar filter editor.
+- Prevents deletion of global saved views from board views.
+
+Assisted-by: Antigravity <antigravity@google.com>

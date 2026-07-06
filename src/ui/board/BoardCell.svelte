@@ -343,6 +343,7 @@
 				flex-direction: row;
 				flex-wrap: nowrap;
 				align-items: flex-start;
+				justify-content: flex-start;
 				min-width: max-content;
 
 				:global(.task) {

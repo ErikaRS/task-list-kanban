@@ -56,7 +56,7 @@
 	].join(" ");
 	$: groupedGridTemplateColumns = [
 		"var(--vertical-row-header-width)",
-		...matrix.secondaryAxis.map(() => "var(--vertical-group-column-width)"),
+		...matrix.secondaryAxis.map(() => "max-content"),
 	].join(" ");
 	$: groupedGridTemplateRows = [
 		"max-content",
@@ -227,7 +227,6 @@
 <style lang="scss">
 	.matrix-vertical {
 		--vertical-row-header-width: clamp(220px, 24vw, 280px);
-		--vertical-group-column-width: calc(var(--column-width, 300px) + (2 * var(--size-4-4)));
 		position: relative;
 		padding-bottom: var(--size-4-4);
 
@@ -296,7 +295,7 @@
 	.group-header-cell {
 		display: flex;
 		align-items: center;
-		min-width: 0;
+		min-width: var(--column-width, 300px);
 		padding: var(--size-4-3) var(--size-4-4);
 		overflow: clip;
 
@@ -360,32 +359,12 @@
 			display: flex;
 			align-self: stretch;
 			min-height: 96px;
-			min-width: 0;
-			box-sizing: border-box;
+			min-width: var(--column-width, 300px);
 			background: color-mix(in srgb, var(--background-primary) 88%, var(--background-secondary));
 			border-right: var(--border-width) solid var(--background-modifier-border);
 
 			&.collapsed {
 				display: none;
-			}
-
-			:global(.tasks-wrapper.vertical-flow),
-			:global(.tasks-wrapper.vertical-flow .tasks),
-			:global(.tasks-wrapper.vertical-flow .task-slot),
-			:global(.tasks-wrapper.vertical-flow .task),
-			:global(.new-task-input.vertical-flow) {
-				width: 100%;
-				min-width: 0;
-				box-sizing: border-box;
-			}
-
-			:global(.tasks-wrapper.vertical-flow .tasks) {
-				flex-direction: column;
-				flex-wrap: nowrap;
-			}
-
-			:global(.tasks-wrapper.vertical-flow .task-slot) {
-				flex: 0 0 auto;
 			}
 		}
 	}

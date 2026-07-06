@@ -1259,8 +1259,11 @@
 
 		.columns {
 			flex: 1 1 0;
+			width: 100%;
+			min-width: 0;
 			min-height: 0;
-			max-width: 100vw;
+			max-width: 100%;
+			box-sizing: border-box;
 			overflow-x: scroll;
 			overflow-y: auto;
 			padding-bottom: var(--size-4-4);
