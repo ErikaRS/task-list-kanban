@@ -239,75 +239,9 @@
 	let viewEditorExpanded = false;
 	let filterBarContainer: HTMLDivElement | undefined;
 	let viewControlContainer: HTMLDivElement | undefined;
-	let viewEditorPopover: HTMLDivElement | undefined;
-	let viewEditorPopoverStyle = "";
 
-	const VIEW_EDITOR_POPOVER_GAP = 8;
-	const VIEW_EDITOR_POPOVER_MARGIN = 12;
-
-	$: if (viewEditorExpanded) {
-		void tick().then(updateViewEditorPopoverPosition);
-	}
-
-	function toggleViewEditor(e: MouseEvent) {
-		if (viewEditorExpanded) {
-			viewEditorExpanded = false;
-			return;
-		}
-		const triggerRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		viewEditorPopoverStyle = initialViewEditorPopoverStyle(triggerRect);
-		viewEditorExpanded = true;
-	}
-
-	function initialViewEditorPopoverStyle(triggerRect: DOMRect) {
-		const margin = VIEW_EDITOR_POPOVER_MARGIN;
-		const gap = VIEW_EDITOR_POPOVER_GAP;
-		return [
-			`top: ${Math.round(triggerRect.bottom + gap)}px`,
-			`left: ${Math.round(Math.max(margin, triggerRect.left))}px`,
-			`max-width: ${Math.round(Math.max(240, window.innerWidth - margin * 2))}px`,
-			`max-height: ${Math.round(Math.max(180, window.innerHeight - triggerRect.bottom - gap - margin))}px`,
-		].join("; ");
-	}
-
-	function updateViewEditorPopoverPosition() {
-		if (!viewEditorExpanded || !viewControlContainer || !viewEditorPopover) {
-			return;
-		}
-		const triggerRect = viewControlContainer.getBoundingClientRect();
-		const popoverRect = viewEditorPopover.getBoundingClientRect();
-		const viewportWidth = window.innerWidth;
-		const viewportHeight = window.innerHeight;
-		const margin = VIEW_EDITOR_POPOVER_MARGIN;
-		const gap = VIEW_EDITOR_POPOVER_GAP;
-		const maxWidth = Math.max(240, viewportWidth - margin * 2);
-		const popoverWidth = Math.min(popoverRect.width, maxWidth);
-
-		let left = triggerRect.left;
-		if (left + popoverWidth > viewportWidth - margin) {
-			left = viewportWidth - margin - popoverWidth;
-		}
-		left = Math.max(margin, left);
-
-		const preferredTop = triggerRect.bottom + gap;
-		const availableBelow = viewportHeight - preferredTop - margin;
-		const availableAbove = triggerRect.top - gap - margin;
-		const openAbove = availableBelow < 180 && availableAbove > availableBelow;
-		const maxHeight = Math.max(
-			180,
-			openAbove ? availableAbove : availableBelow,
-		);
-		const visibleHeight = Math.min(popoverRect.height, maxHeight);
-		const top = openAbove
-			? Math.max(margin, triggerRect.top - gap - visibleHeight)
-			: Math.min(preferredTop, viewportHeight - margin - visibleHeight);
-
-		viewEditorPopoverStyle = [
-			`top: ${Math.round(top)}px`,
-			`left: ${Math.round(left)}px`,
-			`max-width: ${Math.round(maxWidth)}px`,
-			`max-height: ${Math.round(maxHeight)}px`,
-		].join("; ");
+	function toggleViewEditor() {
+		viewEditorExpanded = !viewEditorExpanded;
 	}
 
 	// Committing canonicalizes the draft (quoting, $TODAY casing, token
@@ -594,10 +528,6 @@
 		}
 	}
 
-	function handleWindowViewportChange() {
-		updateViewEditorPopoverPosition();
-	}
-
 	$: filteredTasks = isFiltered
 		? $tasksStore.filter((task) =>
 				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
@@ -850,8 +780,6 @@
 <svelte:window
 	on:keydown={handleWindowKeydown}
 	on:mousedown={handleWindowMousedown}
-	on:resize={handleWindowViewportChange}
-	on:scroll={handleWindowViewportChange}
 />
 
 <div class="main">
@@ -873,11 +801,7 @@
 					</span>
 				</button>
 				{#if viewEditorExpanded}
-					<div
-						class="view-editor-popover"
-						bind:this={viewEditorPopover}
-						style={viewEditorPopoverStyle}
-					>
+					<div class="view-editor-popover">
 						<ViewEditor
 							{sortSelectValue}
 							{availableSortKeys}
@@ -1151,10 +1075,13 @@
 		}
 
 		.view-editor-popover {
-			position: fixed;
+			position: absolute;
+			top: calc(100% + var(--view-editor-popover-gap));
+			left: 0;
 			z-index: 130;
 			width: max-content;
 			max-width: calc(100vw - var(--size-4-8));
+			max-height: min(680px, calc(100vh - 120px));
 			overflow: auto;
 		}
 
@@ -1228,10 +1155,11 @@
 		}
 
 		.board-content {
+			--view-editor-popover-gap: 8px;
 			display: flex;
 			flex-direction: column;
 			height: 100%;
-			overflow: hidden;
+			overflow: visible;
 			padding: var(--size-4-2) var(--size-4-4) 0 var(--size-4-4);
 			background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
 		}
