@@ -66,6 +66,8 @@ export class SettingsModal extends Modal {
 	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
 	private focusTagEditorColumnId: string | null = null;
 	private embeddedSubmitTimer: ReturnType<typeof setTimeout> | null = null;
+	private defaultTaskFileInputEl: HTMLInputElement | null = null;
+	private defaultTaskFileErrorEl: HTMLElement | null = null;
 
 	constructor(
 		app: App,
@@ -1058,7 +1060,78 @@ export class SettingsModal extends Modal {
 		this.validateColumns();
 		void this.refreshAvailableColumnTags();
 
-		new Setting(taskPropertiesSection)
+		this.renderTaskPropertiesSection(taskPropertiesSection);
+		this.renderScopeSection(scopeSection);
+		this.renderDisplaySection(displaySection);
+		this.renderStatusMarkersSection(statusMarkersSection);
+
+		if (!this.isEmbedded()) {
+			this.renderButtonBar();
+		}
+
+		// Apply validation state to save button now that it exists
+		if (this.validationError && this.saveBtn) {
+			this.saveBtn.disabled = true;
+		}
+	}
+
+	private setDefaultTaskFileError(message: string) {
+		if (!this.defaultTaskFileInputEl) return;
+		if (message) {
+			this.defaultTaskFileInputEl.style.outline =
+				"2px solid var(--text-error)";
+			this.defaultTaskFileInputEl.style.outlineOffset = "-1px";
+			this.defaultTaskFileInputEl.title = message;
+			if (this.defaultTaskFileErrorEl) {
+				this.defaultTaskFileErrorEl.setText(message);
+				this.defaultTaskFileErrorEl.style.visibility = "visible";
+			}
+		} else {
+			this.defaultTaskFileInputEl.style.outline = "";
+			this.defaultTaskFileInputEl.style.outlineOffset = "";
+			this.defaultTaskFileInputEl.title = "";
+			if (this.defaultTaskFileErrorEl) {
+				this.defaultTaskFileErrorEl.setText("");
+				this.defaultTaskFileErrorEl.style.visibility = "hidden";
+			}
+		}
+	}
+
+	/** Re-checked from the scope controls too: scope decides file validity. */
+	private validateDefaultTaskFile() {
+		if (this.isGlobalDefaultsMode()) {
+			this.setDefaultTaskFileError("");
+			return;
+		}
+		const value = this.settings.defaultTaskFile ?? "";
+		if (!value) {
+			this.setDefaultTaskFileError("");
+			return;
+		}
+		const abstractFile =
+			this.app.vault.getAbstractFileByPath(value);
+		if (!(abstractFile instanceof TFile)) {
+			this.setDefaultTaskFileError("File not found");
+			return;
+		}
+		const scopeFilter = this.getScopeFilter();
+		if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], this.boardFolderPath)) {
+			const excludePaths = this.settings.excludePaths ?? [];
+			const isExcludedByPath = excludePaths.length > 0 &&
+				shouldIncludeFilePath(value, scopeFilter) &&
+				!shouldIncludeFilePath(value, scopeFilter, excludePaths, this.boardFolderPath);
+			this.setDefaultTaskFileError(
+				isExcludedByPath
+					? "File is excluded from the board's scope"
+					: "File is outside the board's folder scope"
+			);
+			return;
+		}
+		this.setDefaultTaskFileError("");
+	}
+
+	private renderTaskPropertiesSection(container: HTMLDivElement) {
+		new Setting(container)
 			.setName("Property schema")
 			.setDesc("Which format to use for extracting task properties.")
 			.addDropdown((dropdown) => {
@@ -1073,7 +1146,7 @@ export class SettingsModal extends Modal {
 					});
 			});
 
-		new Setting(taskPropertiesSection)
+		new Setting(container)
 			.setName("Show properties")
 			.setDesc(
 				"How parsed property values are displayed below task text. \"Pretty\" shows formatted values; \"Debug (JSON)\" shows the raw parsed data."
@@ -1090,7 +1163,7 @@ export class SettingsModal extends Modal {
 					});
 			});
 
-		new Setting(taskPropertiesSection)
+		new Setting(container)
 			.setName("Treat nested tasks as subtasks")
 			.setDesc("Display nested task rows inside their root task card instead of as separate cards.")
 			.addToggle((toggle) => {
@@ -1102,62 +1175,41 @@ export class SettingsModal extends Modal {
 					});
 			});
 
-		// Validation for default task file — shared between scope dropdown and text input
-		let defaultTaskFileInputEl: HTMLInputElement | null = null;
-		let defaultTaskFileErrorEl: HTMLElement | null = null;
-		const setDefaultTaskFileError = (message: string) => {
-			if (!defaultTaskFileInputEl) return;
-			if (message) {
-				defaultTaskFileInputEl.style.outline =
-					"2px solid var(--text-error)";
-				defaultTaskFileInputEl.style.outlineOffset = "-1px";
-				defaultTaskFileInputEl.title = message;
-				if (defaultTaskFileErrorEl) {
-					defaultTaskFileErrorEl.setText(message);
-					defaultTaskFileErrorEl.style.visibility = "visible";
-				}
-			} else {
-				defaultTaskFileInputEl.style.outline = "";
-				defaultTaskFileInputEl.style.outlineOffset = "";
-				defaultTaskFileInputEl.title = "";
-				if (defaultTaskFileErrorEl) {
-					defaultTaskFileErrorEl.setText("");
-					defaultTaskFileErrorEl.style.visibility = "hidden";
-				}
-			}
-		};
-		const validateDefaultTaskFile = () => {
-			if (this.isGlobalDefaultsMode()) {
-				setDefaultTaskFileError("");
-				return;
-			}
-			const value = this.settings.defaultTaskFile ?? "";
-			if (!value) {
-				setDefaultTaskFileError("");
-				return;
-			}
-			const abstractFile =
-				this.app.vault.getAbstractFileByPath(value);
-			if (!(abstractFile instanceof TFile)) {
-				setDefaultTaskFileError("File not found");
-				return;
-			}
-			const scopeFilter = this.getScopeFilter();
-			if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], this.boardFolderPath)) {
-				const excludePaths = this.settings.excludePaths ?? [];
-				const isExcludedByPath = excludePaths.length > 0 &&
-					shouldIncludeFilePath(value, scopeFilter) &&
-					!shouldIncludeFilePath(value, scopeFilter, excludePaths, this.boardFolderPath);
-				setDefaultTaskFileError(
-					isExcludedByPath
-						? "File is excluded from the board's scope"
-						: "File is outside the board's folder scope"
-				);
-				return;
-			}
-			setDefaultTaskFileError("");
-		};
+		if (!this.isGlobalDefaultsMode()) {
+			const defaultTaskFileSetting = new Setting(container)
+				.setName("Default task file")
+				.setDesc(
+					"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
+				)
+				.addText((text) => {
+					this.defaultTaskFileInputEl = text.inputEl;
+					text.setPlaceholder("e.g., notes/tasks.md");
+					text.setValue(this.settings.defaultTaskFile ?? "");
+					text.onChange((value) => {
+						this.settings.defaultTaskFile = value;
+						this.validateDefaultTaskFile();
+						this.updateDirtyBanner();
+					});
+					new FileSuggest(this.app, text.inputEl);
+				});
+			defaultTaskFileSetting.controlEl.style.flexDirection = "column";
+			defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
+			const errorEl = createEl("div", {
+				cls: "setting-error-message",
+			});
+			errorEl.style.color = "var(--text-error)";
+			errorEl.style.fontSize = "var(--font-smallest)";
+			errorEl.style.fontStyle = "italic";
+			errorEl.style.marginTop = "4px";
+			errorEl.style.minHeight = "1.2em";
+			errorEl.style.visibility = "hidden";
+			defaultTaskFileSetting.controlEl.appendChild(errorEl);
+			this.defaultTaskFileErrorEl = errorEl;
+			this.validateDefaultTaskFile();
+		}
+	}
 
+	private renderScopeSection(scopeSection: HTMLDivElement) {
 		// --- Folder scope dropdown + selected folders UI ---
 		const scopeContainer = scopeSection.createDiv();
 
@@ -1190,7 +1242,7 @@ export class SettingsModal extends Modal {
 						? validatedValue.data
 						: defaultSettings.scope;
 					updateFolderListVisibility();
-					validateDefaultTaskFile();
+					this.validateDefaultTaskFile();
 					this.updateDirtyBanner();
 				});
 			});
@@ -1222,7 +1274,7 @@ export class SettingsModal extends Modal {
 					new FolderSuggest(this.app, inputEl, commit);
 				},
 				onChanged: () => {
-					validateDefaultTaskFile();
+					this.validateDefaultTaskFile();
 					this.updateDirtyBanner();
 				},
 				removeStyle: "icon",
@@ -1257,13 +1309,15 @@ export class SettingsModal extends Modal {
 				new PathSuggest(this.app, inputEl, commit);
 			},
 			onChanged: () => {
-				validateDefaultTaskFile();
+				this.validateDefaultTaskFile();
 				this.updateDirtyBanner();
 			},
 			removeStyle: "icon",
 			warnWhenMissingFromVault: true,
 		});
+	}
 
+	private renderDisplaySection(displaySection: HTMLDivElement) {
 		const excludedTagsContainer = displaySection.createDiv({ cls: "settings-subsection" });
 
 		new Setting(excludedTagsContainer)
@@ -1333,38 +1387,6 @@ export class SettingsModal extends Modal {
 			monospaceLabels: true,
 		});
 
-		if (!this.isGlobalDefaultsMode()) {
-			const defaultTaskFileSetting = new Setting(taskPropertiesSection)
-				.setName("Default task file")
-				.setDesc(
-					"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
-				)
-				.addText((text) => {
-					defaultTaskFileInputEl = text.inputEl;
-					text.setPlaceholder("e.g., notes/tasks.md");
-					text.setValue(this.settings.defaultTaskFile ?? "");
-					text.onChange((value) => {
-						this.settings.defaultTaskFile = value;
-						validateDefaultTaskFile();
-						this.updateDirtyBanner();
-					});
-					new FileSuggest(this.app, text.inputEl);
-				});
-			defaultTaskFileSetting.controlEl.style.flexDirection = "column";
-			defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
-			defaultTaskFileErrorEl = createEl("div", {
-				cls: "setting-error-message",
-			});
-			defaultTaskFileErrorEl.style.color = "var(--text-error)";
-			defaultTaskFileErrorEl.style.fontSize = "var(--font-smallest)";
-			defaultTaskFileErrorEl.style.fontStyle = "italic";
-			defaultTaskFileErrorEl.style.marginTop = "4px";
-			defaultTaskFileErrorEl.style.minHeight = "1.2em";
-			defaultTaskFileErrorEl.style.visibility = "hidden";
-			defaultTaskFileSetting.controlEl.appendChild(defaultTaskFileErrorEl);
-			validateDefaultTaskFile();
-		}
-
 		new Setting(displaySection)
 			.setName("Show filepath")
 			.setDesc("Show the filepath on each task in Kanban?")
@@ -1388,7 +1410,9 @@ export class SettingsModal extends Modal {
 					this.updateDirtyBanner();
 				});
 			});
+	}
 
+	private renderStatusMarkersSection(statusMarkersSection: HTMLDivElement) {
 		this.addValidatedTextSetting(statusMarkersSection, {
 			name: "Status marker order",
 			desc: "Ascending order for status grouping and status sorting. Unchecked tasks come first unless this order includes a literal space. Unspecified markers appear afterward alphabetically, followed by done markers.",
@@ -1432,38 +1456,33 @@ export class SettingsModal extends Modal {
 				this.settings.ignoredStatusMarkers = value;
 			},
 		});
+	}
 
-		if (!this.isEmbedded()) {
-			// Button bar (after scroll wrapper, still inside contentEl)
-			const buttonBar = this.contentEl.createDiv({ cls: "settings-button-bar" });
+	private renderButtonBar() {
+		// Button bar (after scroll wrapper, still inside contentEl)
+		const buttonBar = this.contentEl.createDiv({ cls: "settings-button-bar" });
 
-			const cancelBtn = buttonBar.createEl("button", { text: "Cancel" });
-			cancelBtn.addEventListener("click", () => {
+		const cancelBtn = buttonBar.createEl("button", { text: "Cancel" });
+		cancelBtn.addEventListener("click", () => {
+			this.close();
+		});
+
+		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
+		this.saveBtn.addEventListener("click", async () => {
+			if (this.saveBtn) {
+				this.saveBtn.disabled = true;
+			}
+			try {
+				await this.onSubmit(this.settings, {
+					updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+				});
 				this.close();
-			});
-
-			this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
-			this.saveBtn.addEventListener("click", async () => {
+			} finally {
 				if (this.saveBtn) {
-					this.saveBtn.disabled = true;
+					this.saveBtn.disabled = false;
 				}
-				try {
-					await this.onSubmit(this.settings, {
-						updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
-					});
-					this.close();
-				} finally {
-					if (this.saveBtn) {
-						this.saveBtn.disabled = false;
-					}
-				}
-			});
-		}
-
-		// Apply validation state to save button now that it exists
-		if (this.validationError && this.saveBtn) {
-			this.saveBtn.disabled = true;
-		}
+			}
+		});
 	}
 
 	onClose() {
