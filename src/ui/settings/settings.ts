@@ -35,6 +35,14 @@ import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest } from "./suggest";
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
 
+function normalizePathInput(raw: string): string {
+	return raw.trim().replace(/^\//, "").replace(/\/$/, "");
+}
+
+function normalizeTagInput(raw: string): string {
+	return raw.trim().replace(/^#/, "");
+}
+
 interface SettingsModalOptions {
 	title?: string;
 	mode?: "board" | "globalDefaults";
@@ -430,6 +438,96 @@ export class SettingsModal extends Modal {
 					}
 				});
 			});
+	}
+
+	/**
+	 * A string-list editor: an input row (suggester + Enter/Add commit)
+	 * above removable rows. Empty, duplicate, and rejected values are
+	 * silently ignored.
+	 */
+	private createStringListEditor(
+		container: HTMLDivElement,
+		options: {
+			placeholder: string;
+			normalize: (raw: string) => string;
+			/** Values silently refused on add (e.g. the board's own folder). */
+			reject?: (value: string) => boolean;
+			getItems: () => string[];
+			setItems: (items: string[]) => void;
+			/** Items to display; defaults to getItems. */
+			renderItems?: () => string[];
+			createSuggest: (inputEl: HTMLInputElement, commit: () => void) => void;
+			/** Runs after every add/remove. */
+			onChanged?: () => void;
+			removeStyle: "icon" | "text";
+			monospaceLabels?: boolean;
+			warnWhenMissingFromVault?: boolean;
+			/** Non-removable first row (the board's own folder). */
+			pinnedRow?: { label: string; badge: string };
+		},
+	): { addRowEl: HTMLDivElement; refresh: () => void } {
+		const addRowEl = container.createDiv({ cls: "settings-list-add-row" });
+		const inputEl = addRowEl.createEl("input", {
+			type: "text",
+			placeholder: options.placeholder,
+		});
+		inputEl.addClass("setting-input");
+		const listEl = container.createDiv();
+
+		const refresh = () => {
+			listEl.empty();
+			if (options.pinnedRow) {
+				const row = listEl.createDiv({ cls: "settings-list-row" });
+				row.createSpan({ cls: "settings-list-label", text: options.pinnedRow.label });
+				row.createSpan({ cls: "settings-list-note", text: options.pinnedRow.badge });
+			}
+			for (const item of (options.renderItems ?? options.getItems)()) {
+				const row = listEl.createDiv({ cls: "settings-list-row" });
+				row.createSpan({
+					cls: options.monospaceLabels ? "settings-list-label-mono" : "settings-list-label",
+					text: item,
+				});
+				if (options.warnWhenMissingFromVault && !this.app.vault.getAbstractFileByPath(item)) {
+					row.createSpan({ cls: "settings-list-note is-warning", text: " (not found)" });
+				}
+				const removeButton = row.createEl("button", {
+					text: options.removeStyle === "icon" ? "✕" : "Remove",
+					cls:
+						options.removeStyle === "icon"
+							? "settings-list-remove-icon"
+							: "settings-list-remove-text",
+				});
+				removeButton.addEventListener("click", () => {
+					options.setItems(options.getItems().filter((candidate) => candidate !== item));
+					refresh();
+					options.onChanged?.();
+				});
+			}
+		};
+
+		const add = () => {
+			const value = options.normalize(inputEl.value);
+			if (!value || options.reject?.(value)) return;
+			const items = options.getItems();
+			if (items.includes(value)) return;
+			options.setItems([...items, value]);
+			inputEl.value = "";
+			refresh();
+			options.onChanged?.();
+		};
+		options.createSuggest(inputEl, add);
+
+		const addButton = addRowEl.createEl("button", { text: "Add" });
+		addButton.addEventListener("click", add);
+		inputEl.addEventListener("keydown", (event: KeyboardEvent) => {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				add();
+			}
+		});
+
+		refresh();
+		return { addRowEl, refresh };
 	}
 
 	private getStatusMarkerOptions(): Array<{ value: string; label: string }> {
@@ -1064,79 +1162,6 @@ export class SettingsModal extends Modal {
 		const scopeContainer = scopeSection.createDiv();
 
 		let folderListContainer: HTMLDivElement | null = null;
-		let folderListEl: HTMLDivElement | null = null;
-
-		const renderFolderRow = (
-			container: HTMLDivElement,
-			folder: string,
-			removable: boolean
-		) => {
-			const row = container.createDiv();
-			row.style.display = "flex";
-			row.style.alignItems = "center";
-			row.style.justifyContent = "space-between";
-			row.style.padding = "4px 8px";
-			row.style.borderBottom =
-				"1px solid var(--background-modifier-border)";
-
-			const label = row.createSpan();
-			label.setText(folder);
-			label.style.flexGrow = "1";
-
-			if (!removable) {
-				const badge = row.createSpan();
-				badge.setText(" (this board)");
-				badge.style.color = "var(--text-muted)";
-				badge.style.fontStyle = "italic";
-				badge.style.fontSize = "var(--font-smallest)";
-			} else {
-				// Check if folder exists in vault
-				const abstractFolder =
-					this.app.vault.getAbstractFileByPath(folder);
-				if (!abstractFolder) {
-					const warning = row.createSpan();
-					warning.setText(" (not found)");
-					warning.style.color = "var(--text-error)";
-					warning.style.fontStyle = "italic";
-					warning.style.fontSize = "var(--font-smallest)";
-				}
-
-				const removeBtn = row.createEl("button");
-				removeBtn.setText("✕");
-				removeBtn.style.marginLeft = "8px";
-				removeBtn.style.cursor = "pointer";
-				removeBtn.style.background = "none";
-				removeBtn.style.border = "none";
-				removeBtn.style.color = "var(--text-muted)";
-				removeBtn.style.padding = "2px 6px";
-				removeBtn.addEventListener("click", () => {
-					this.settings.scopeFolders = (
-						this.settings.scopeFolders ?? []
-					).filter((f) => f !== folder);
-					renderFolderList();
-					validateDefaultTaskFile();
-					this.updateDirtyBanner();
-				});
-			}
-		};
-
-		const renderFolderList = () => {
-			if (!folderListEl) return;
-			folderListEl.empty();
-
-			// Always show the board's own folder first (non-removable)
-			if (this.boardFolderPath) {
-				renderFolderRow(folderListEl, this.boardFolderPath, false);
-			}
-
-			// Show user-added folders (removable)
-			const folders = (this.settings.scopeFolders ?? []).filter(
-				(f) => f !== this.boardFolderPath
-			);
-			for (const folder of folders) {
-				renderFolderRow(folderListEl, folder, true);
-			}
-		};
 
 		const updateFolderListVisibility = () => {
 			if (!folderListContainer) return;
@@ -1177,109 +1202,40 @@ export class SettingsModal extends Modal {
 			});
 		} else {
 			// Selected folders list UI
-			folderListContainer = scopeContainer.createDiv();
-			folderListContainer.style.marginLeft = "16px";
-			folderListContainer.style.marginBottom = "12px";
-
-			const addFolderRow = folderListContainer.createDiv();
-			addFolderRow.style.display = "flex";
-			addFolderRow.style.gap = "8px";
-			addFolderRow.style.marginBottom = "8px";
-
-			const folderInput = addFolderRow.createEl("input", {
-				type: "text",
+			folderListContainer = scopeContainer.createDiv({
+				cls: "settings-list-indent settings-list-block",
+			});
+			this.createStringListEditor(folderListContainer, {
 				placeholder: "e.g., projects/active",
+				normalize: normalizePathInput,
+				// The board's own folder is already included implicitly.
+				reject: (value) => value === this.boardFolderPath,
+				getItems: () => this.settings.scopeFolders ?? [],
+				setItems: (items) => {
+					this.settings.scopeFolders = items;
+				},
+				renderItems: () =>
+					(this.settings.scopeFolders ?? []).filter(
+						(folder) => folder !== this.boardFolderPath,
+					),
+				createSuggest: (inputEl, commit) => {
+					new FolderSuggest(this.app, inputEl, commit);
+				},
+				onChanged: () => {
+					validateDefaultTaskFile();
+					this.updateDirtyBanner();
+				},
+				removeStyle: "icon",
+				warnWhenMissingFromVault: true,
+				pinnedRow: this.boardFolderPath
+					? { label: this.boardFolderPath, badge: " (this board)" }
+					: undefined,
 			});
-			folderInput.style.flexGrow = "1";
-			folderInput.addClass("setting-input");
-
-			const addFolder = () => {
-				const raw = folderInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
-				if (!raw) return;
-				if (raw === this.boardFolderPath) return; // already included implicitly
-				const folders = this.settings.scopeFolders ?? [];
-				if (folders.includes(raw)) return;
-				this.settings.scopeFolders = [...folders, raw];
-				folderInput.value = "";
-				renderFolderList();
-				validateDefaultTaskFile();
-				this.updateDirtyBanner();
-			};
-			new FolderSuggest(this.app, folderInput, () => addFolder());
-
-			const addBtn = addFolderRow.createEl("button", { text: "Add" });
-			addBtn.addEventListener("click", addFolder);
-
-			folderInput.addEventListener("keydown", (e: KeyboardEvent) => {
-				if (e.key === "Enter") {
-					e.preventDefault();
-					addFolder();
-				}
-			});
-
-			folderListEl = folderListContainer.createDiv();
-			renderFolderList();
 			updateFolderListVisibility();
 		}
 
 		// --- Excluded paths UI ---
-		let excludeListEl: HTMLDivElement;
-
-		const renderExcludeRow = (
-			container: HTMLDivElement,
-			path: string
-		) => {
-			const row = container.createDiv();
-			row.style.display = "flex";
-			row.style.alignItems = "center";
-			row.style.justifyContent = "space-between";
-			row.style.padding = "4px 8px";
-			row.style.borderBottom =
-				"1px solid var(--background-modifier-border)";
-
-			const label = row.createSpan();
-			label.setText(path);
-			label.style.flexGrow = "1";
-
-			// Check if path exists in vault
-			const abstractPath =
-				this.app.vault.getAbstractFileByPath(path);
-			if (!abstractPath) {
-				const warning = row.createSpan();
-				warning.setText(" (not found)");
-				warning.style.color = "var(--text-error)";
-				warning.style.fontStyle = "italic";
-				warning.style.fontSize = "var(--font-smallest)";
-			}
-
-			const removeBtn = row.createEl("button");
-			removeBtn.setText("✕");
-			removeBtn.style.marginLeft = "8px";
-			removeBtn.style.cursor = "pointer";
-			removeBtn.style.background = "none";
-			removeBtn.style.border = "none";
-			removeBtn.style.color = "var(--text-muted)";
-			removeBtn.style.padding = "2px 6px";
-			removeBtn.addEventListener("click", () => {
-				this.settings.excludePaths = (
-					this.settings.excludePaths ?? []
-				).filter((p) => p !== path);
-				renderExcludeList();
-				validateDefaultTaskFile();
-				this.updateDirtyBanner();
-			});
-		};
-
-		const renderExcludeList = () => {
-			excludeListEl.empty();
-			const paths = this.settings.excludePaths ?? [];
-			for (const path of paths) {
-				renderExcludeRow(excludeListEl, path);
-			}
-		};
-
 		const excludeContainer = scopeSection.createDiv({ cls: "settings-subsection" });
-		excludeContainer.style.marginBottom = "12px";
 
 		new Setting(excludeContainer)
 			.setName("Excluded paths")
@@ -1287,50 +1243,28 @@ export class SettingsModal extends Modal {
 				"Folders and files the board skips after included folders are chosen."
 			);
 
-		const excludeInputContainer = excludeContainer.createDiv();
-		excludeInputContainer.style.marginLeft = "16px";
-
-		const addExcludeRow = excludeInputContainer.createDiv();
-		addExcludeRow.style.display = "flex";
-		addExcludeRow.style.gap = "8px";
-		addExcludeRow.style.marginBottom = "8px";
-
-		const excludeInput = addExcludeRow.createEl("input", {
-			type: "text",
+		const excludeInputContainer = excludeContainer.createDiv({ cls: "settings-list-indent" });
+		this.createStringListEditor(excludeInputContainer, {
 			placeholder: "e.g., templates or notes/scratch.md",
+			normalize: normalizePathInput,
+			// The board's own folder can't be excluded directly.
+			reject: (value) => value === this.boardFolderPath,
+			getItems: () => this.settings.excludePaths ?? [],
+			setItems: (items) => {
+				this.settings.excludePaths = items;
+			},
+			createSuggest: (inputEl, commit) => {
+				new PathSuggest(this.app, inputEl, commit);
+			},
+			onChanged: () => {
+				validateDefaultTaskFile();
+				this.updateDirtyBanner();
+			},
+			removeStyle: "icon",
+			warnWhenMissingFromVault: true,
 		});
-		excludeInput.style.flexGrow = "1";
-		excludeInput.addClass("setting-input");
-
-		const addExcludePath = () => {
-			const raw = excludeInput.value.trim().replace(/^\//, "").replace(/\/$/, "");
-			if (!raw) return;
-			if (raw === this.boardFolderPath) return; // can't exclude the board folder directly
-			const paths = this.settings.excludePaths ?? [];
-			if (paths.includes(raw)) return;
-			this.settings.excludePaths = [...paths, raw];
-			excludeInput.value = "";
-			renderExcludeList();
-			validateDefaultTaskFile();
-			this.updateDirtyBanner();
-		};
-		new PathSuggest(this.app, excludeInput, () => addExcludePath());
-
-		const addExcludeBtn = addExcludeRow.createEl("button", { text: "Add" });
-		addExcludeBtn.addEventListener("click", addExcludePath);
-
-		excludeInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") {
-				e.preventDefault();
-				addExcludePath();
-			}
-		});
-
-		excludeListEl = excludeInputContainer.createDiv();
-		renderExcludeList();
 
 		const excludedTagsContainer = displaySection.createDiv({ cls: "settings-subsection" });
-		excludedTagsContainer.style.marginBottom = "12px";
 
 		new Setting(excludedTagsContainer)
 			.setName("Hidden Tags")
@@ -1338,73 +1272,27 @@ export class SettingsModal extends Modal {
 				"Tags to hide from display on task cards. The tasks themselves will still appear on the board."
 			);
 
-		const excludedTagsInputContainer = excludedTagsContainer.createDiv();
-		excludedTagsInputContainer.style.marginLeft = "16px";
-
-		const addExcludedTagRow = excludedTagsInputContainer.createDiv();
-		addExcludedTagRow.style.display = "flex";
-		addExcludedTagRow.style.gap = "8px";
-		addExcludedTagRow.style.marginBottom = "8px";
-
-		const excludedTagInput = addExcludedTagRow.createEl("input", {
-			type: "text",
+		const excludedTagsInputContainer = excludedTagsContainer.createDiv({
+			cls: "settings-list-indent",
+		});
+		const hiddenTagsEditor = this.createStringListEditor(excludedTagsInputContainer, {
 			placeholder: "e.g., status",
-		});
-		excludedTagInput.style.flexGrow = "1";
-		excludedTagInput.addClass("setting-input");
-		
-		let excludedTagsListEl: HTMLDivElement;
-
-		const renderExcludedTagsList = () => {
-			excludedTagsListEl.empty();
-			const tags = this.settings.excludedTags ?? [];
-			for (const tag of tags) {
-				const row = excludedTagsListEl.createDiv();
-				row.style.display = "flex";
-				row.style.justifyContent = "space-between";
-				row.style.alignItems = "center";
-				row.style.padding = "4px 8px";
-				row.style.borderBottom = "1px solid var(--background-modifier-border)";
-				
-				const label = row.createSpan();
-				label.setText(tag);
-				label.style.fontFamily = "var(--font-monospace)";
-				label.style.fontSize = "var(--font-ui-smaller)";
-
-				const removeBtn = row.createEl("button", { text: "Remove" });
-				removeBtn.style.padding = "2px 8px";
-				removeBtn.style.fontSize = "var(--font-ui-smaller)";
-				removeBtn.addEventListener("click", () => {
-					this.settings.excludedTags = (this.settings.excludedTags ?? []).filter((t) => t !== tag);
-					renderExcludedTagsList();
-					this.updateDirtyBanner();
-				});
-			}
-		};
-
-		const addExcludedTag = () => {
-			const raw = excludedTagInput.value.trim().replace(/^#/, "");
-			if (!raw) return;
-			const tags = this.settings.excludedTags ?? [];
-			if (tags.includes(raw)) return;
-			this.settings.excludedTags = [...tags, raw];
-			excludedTagInput.value = "";
-			renderExcludedTagsList();
-			this.updateDirtyBanner();
-		};
-		new TagSuggest(this.app, excludedTagInput, () => addExcludedTag());
-
-		const addExcludedTagBtn = addExcludedTagRow.createEl("button", { text: "Add" });
-		addExcludedTagBtn.addEventListener("click", addExcludedTag);
-
-		excludedTagInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") {
-				e.preventDefault();
-				addExcludedTag();
-			}
+			normalize: normalizeTagInput,
+			getItems: () => this.settings.excludedTags ?? [],
+			setItems: (items) => {
+				this.settings.excludedTags = items;
+			},
+			createSuggest: (inputEl, commit) => {
+				new TagSuggest(this.app, inputEl, commit);
+			},
+			onChanged: () => this.updateDirtyBanner(),
+			removeStyle: "text",
+			monospaceLabels: true,
 		});
 
-		const excludeColumnTagsBtn = addExcludedTagRow.createEl("button", { text: "Exclude column tags" });
+		const excludeColumnTagsBtn = hiddenTagsEditor.addRowEl.createEl("button", {
+			text: "Exclude column tags",
+		});
 		excludeColumnTagsBtn.title = "Automatically add all configured column placement tags to the exclusion list";
 		excludeColumnTagsBtn.addEventListener("click", () => {
 			const currentExcluded = new Set(this.settings.excludedTags ?? []);
@@ -1415,15 +1303,11 @@ export class SettingsModal extends Modal {
 				}
 			}
 			this.settings.excludedTags = Array.from(currentExcluded);
-			renderExcludedTagsList();
+			hiddenTagsEditor.refresh();
 			this.updateDirtyBanner();
 		});
 
-		excludedTagsListEl = excludedTagsInputContainer.createDiv();
-		renderExcludedTagsList();
-
 		const excludedTaskTagsContainer = displaySection.createDiv({ cls: "settings-subsection" });
-		excludedTaskTagsContainer.style.marginBottom = "12px";
 
 		new Setting(excludedTaskTagsContainer)
 			.setName("Excluded task tags")
@@ -1431,74 +1315,23 @@ export class SettingsModal extends Modal {
 				"Tasks containing these tags will be completely excluded from the board."
 			);
 
-		const excludedTaskTagsInputContainer = excludedTaskTagsContainer.createDiv();
-		excludedTaskTagsInputContainer.style.marginLeft = "16px";
-
-		const addExcludedTaskTagRow = excludedTaskTagsInputContainer.createDiv();
-		addExcludedTaskTagRow.style.display = "flex";
-		addExcludedTaskTagRow.style.gap = "8px";
-		addExcludedTaskTagRow.style.marginBottom = "8px";
-
-		const excludedTaskTagInput = addExcludedTaskTagRow.createEl("input", {
-			type: "text",
+		const excludedTaskTagsInputContainer = excludedTaskTagsContainer.createDiv({
+			cls: "settings-list-indent",
+		});
+		this.createStringListEditor(excludedTaskTagsInputContainer, {
 			placeholder: "e.g., archived",
+			normalize: normalizeTagInput,
+			getItems: () => this.settings.excludedTaskTags ?? [],
+			setItems: (items) => {
+				this.settings.excludedTaskTags = items;
+			},
+			createSuggest: (inputEl, commit) => {
+				new TagSuggest(this.app, inputEl, commit);
+			},
+			onChanged: () => this.updateDirtyBanner(),
+			removeStyle: "text",
+			monospaceLabels: true,
 		});
-		excludedTaskTagInput.style.flexGrow = "1";
-		excludedTaskTagInput.addClass("setting-input");
-		
-		let excludedTaskTagsListEl: HTMLDivElement;
-
-		const renderExcludedTaskTagsList = () => {
-			excludedTaskTagsListEl.empty();
-			const tags = this.settings.excludedTaskTags ?? [];
-			for (const tag of tags) {
-				const row = excludedTaskTagsListEl.createDiv();
-				row.style.display = "flex";
-				row.style.justifyContent = "space-between";
-				row.style.alignItems = "center";
-				row.style.padding = "4px 8px";
-				row.style.borderBottom = "1px solid var(--background-modifier-border)";
-				
-				const label = row.createSpan();
-				label.setText(tag);
-				label.style.fontFamily = "var(--font-monospace)";
-				label.style.fontSize = "var(--font-ui-smaller)";
-
-				const removeBtn = row.createEl("button", { text: "Remove" });
-				removeBtn.style.padding = "2px 8px";
-				removeBtn.style.fontSize = "var(--font-ui-smaller)";
-				removeBtn.addEventListener("click", () => {
-					this.settings.excludedTaskTags = (this.settings.excludedTaskTags ?? []).filter((t) => t !== tag);
-					renderExcludedTaskTagsList();
-					this.updateDirtyBanner();
-				});
-			}
-		};
-
-		const addExcludedTaskTag = () => {
-			const raw = excludedTaskTagInput.value.trim().replace(/^#/, "");
-			if (!raw) return;
-			const tags = this.settings.excludedTaskTags ?? [];
-			if (tags.includes(raw)) return;
-			this.settings.excludedTaskTags = [...tags, raw];
-			excludedTaskTagInput.value = "";
-			renderExcludedTaskTagsList();
-			this.updateDirtyBanner();
-		};
-		new TagSuggest(this.app, excludedTaskTagInput, () => addExcludedTaskTag());
-
-		const addExcludedTaskTagBtn = addExcludedTaskTagRow.createEl("button", { text: "Add" });
-		addExcludedTaskTagBtn.addEventListener("click", addExcludedTaskTag);
-
-		excludedTaskTagInput.addEventListener("keydown", (e: KeyboardEvent) => {
-			if (e.key === "Enter") {
-				e.preventDefault();
-				addExcludedTaskTag();
-			}
-		});
-
-		excludedTaskTagsListEl = excludedTaskTagsInputContainer.createDiv();
-		renderExcludedTaskTagsList();
 
 		if (!this.isGlobalDefaultsMode()) {
 			const defaultTaskFileSetting = new Setting(taskPropertiesSection)

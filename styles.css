@@ -1219,3 +1219,67 @@ If your plugin does not need CSS, delete this file.
 		max-width: 100%;
 	}
 }
+
+/* Shared add/remove string-list editors in the settings modal */
+.settings-list-add-row {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.settings-list-add-row input[type="text"] {
+	flex-grow: 1;
+}
+
+.settings-list-indent {
+	margin-left: 16px;
+}
+
+.settings-list-block {
+	margin-bottom: 12px;
+}
+
+.settings-list-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.settings-list-label {
+	flex-grow: 1;
+}
+
+.settings-list-label-mono {
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.settings-list-note {
+	color: var(--text-muted);
+	font-style: italic;
+	font-size: var(--font-smallest);
+}
+
+.settings-list-note.is-warning {
+	color: var(--text-error);
+}
+
+.settings-list-remove-icon {
+	margin-left: 8px;
+	cursor: pointer;
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	padding: 2px 6px;
+}
+
+.settings-list-remove-text {
+	padding: 2px 8px;
+	font-size: var(--font-ui-smaller);
+}
+
+.settings-subsection {
+	margin-bottom: 12px;
+}
