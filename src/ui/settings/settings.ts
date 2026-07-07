@@ -12,11 +12,9 @@ import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers, validateStatusMarkerOrder } from "../tasks/task";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { TASKS_PRIORITY_OPTIONS } from "../../parsing/properties/tasks_schema";
-import { shouldIncludeFilePath } from "../tasks/scope";
-import { kebab } from "src/parsing/kebab/kebab";
+import { resolveScopeFilter, shouldIncludeFilePath } from "../tasks/scope";
 import { getTagsFromContent } from "src/parsing/tags/tags";
 import {
-	RESERVED_COLUMN_KEYS,
 	type ColumnDefinition,
 	getColumnWriteTags,
 } from "../columns/columns";
@@ -1656,18 +1654,7 @@ export class SettingsModal extends Modal {
 	}
 
 	private getScopeFilter(): string[] | null {
-		switch (this.settings.scope) {
-			case ScopeOption.Folder:
-				return this.boardFolderPath ? [this.boardFolderPath] : null;
-			case ScopeOption.SelectedFolders: {
-				const selected = this.settings.scopeFolders ?? [];
-				return this.boardFolderPath
-					? [this.boardFolderPath, ...selected.filter((folder) => folder !== this.boardFolderPath)]
-					: selected;
-			}
-			default:
-				return null;
-		}
+		return resolveScopeFilter(this.settings.scope, this.settings.scopeFolders, this.boardFolderPath);
 	}
 }
 

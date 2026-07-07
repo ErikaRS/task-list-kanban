@@ -4,11 +4,11 @@ import Main from "./main.svelte";
 import { SettingsModal } from "./settings/settings";
 import {
 	createSettingsStore,
-	ScopeOption,
 	type BoardSettingsStore,
 	type SavedView,
 	type SettingValues,
 } from "./settings/settings_store";
+import { resolveScopeFilter } from "./tasks/scope";
 import { get, type Readable, type Writable } from "svelte/store";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
@@ -63,26 +63,11 @@ export class KanbanView extends TextFileView {
 		this.settingsStore = createSettingsStore(inheritedSettingsStore);
 		this.destroySettingsStore = this.settingsStore.subscribe((settings) => {
 			this.boardFolderPath = this.file?.parent?.path ?? null;
-
-			switch (settings.scope) {
-				case ScopeOption.Everywhere:
-					this.filenameFilter = null;
-					break;
-				case ScopeOption.Folder: {
-					this.filenameFilter = this.boardFolderPath !== null ? [this.boardFolderPath] : null;
-					break;
-				}
-				case ScopeOption.SelectedFolders: {
-					const selected = settings.scopeFolders ?? [];
-					this.filenameFilter = this.boardFolderPath !== null
-						? [this.boardFolderPath, ...selected.filter((f) => f !== this.boardFolderPath)]
-						: selected;
-					break;
-				}
-				default:
-					this.filenameFilter = null;
-					break;
-			}
+			this.filenameFilter = resolveScopeFilter(
+				settings.scope,
+				settings.scopeFolders,
+				this.boardFolderPath,
+			);
 
 			const excludePaths = settings.excludePaths ?? [];
 			this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;

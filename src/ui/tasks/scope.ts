@@ -1,3 +1,5 @@
+import { ScopeOption } from "../settings/settings_store";
+
 function normalizePath(path: string): string {
 	return path.replace(/^\//, "").replace(/\/$/, "");
 }
@@ -63,4 +65,28 @@ export function shouldIncludeFilePath(
 	}
 
 	return true;
+}
+
+/**
+ * The folder filter a board's scope settings resolve to: null means "search
+ * everywhere". The board's own folder is always included, and duplicate
+ * selected-folder entries of it are dropped.
+ */
+export function resolveScopeFilter(
+	scope: ScopeOption,
+	scopeFolders: string[] | undefined,
+	boardFolderPath: string | null,
+): string[] | null {
+	switch (scope) {
+		case ScopeOption.Folder:
+			return boardFolderPath !== null ? [boardFolderPath] : null;
+		case ScopeOption.SelectedFolders: {
+			const selected = scopeFolders ?? [];
+			return boardFolderPath !== null
+				? [boardFolderPath, ...selected.filter((folder) => folder !== boardFolderPath)]
+				: selected;
+		}
+		default:
+			return null;
+	}
 }

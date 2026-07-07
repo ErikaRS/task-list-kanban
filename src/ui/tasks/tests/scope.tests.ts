@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { shouldIncludeFilePath } from "../scope";
+import { resolveScopeFilter, shouldIncludeFilePath } from "../scope";
+import { ScopeOption } from "../../settings/settings_store";
 
 describe("shouldIncludeFilePath", () => {
 	it.each([
@@ -63,5 +64,29 @@ describe("shouldIncludeFilePath with board folder override", () => {
 		["todo.md", null, [""], "", true],
 	])("applies board folder protection for %s", (path, includeFilter, excludeFilter, boardFolderPath, expected) => {
 		expect(shouldIncludeFilePath(path, includeFilter, excludeFilter, boardFolderPath)).toBe(expected);
+	});
+});
+
+describe("resolveScopeFilter", () => {
+	it("searches everywhere for the everywhere scope", () => {
+		expect(resolveScopeFilter(ScopeOption.Everywhere, ["projects"], "boards")).toBeNull();
+	});
+
+	it("limits the folder scope to the board's own folder", () => {
+		expect(resolveScopeFilter(ScopeOption.Folder, undefined, "boards")).toEqual(["boards"]);
+		expect(resolveScopeFilter(ScopeOption.Folder, undefined, null)).toBeNull();
+	});
+
+	it("always includes the board folder first for selected folders", () => {
+		expect(
+			resolveScopeFilter(ScopeOption.SelectedFolders, ["projects", "boards"], "boards"),
+		).toEqual(["boards", "projects"]);
+	});
+
+	it("uses only the selected folders when the board folder is unknown", () => {
+		expect(resolveScopeFilter(ScopeOption.SelectedFolders, ["projects"], null)).toEqual([
+			"projects",
+		]);
+		expect(resolveScopeFilter(ScopeOption.SelectedFolders, undefined, null)).toEqual([]);
 	});
 });
