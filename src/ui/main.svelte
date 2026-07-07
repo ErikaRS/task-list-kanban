@@ -883,9 +883,8 @@
 							onSetColumnWidth={setColumnWidth}
 							savedViews={mergedSavedViews}
 							{savedViewListExpanded}
-
 							canSaveView={canSaveCurrentView}
-
+							currentViewProperties={currentSavedViewProperties}
 							onSaveCurrentView={saveCurrentView}
 							onApplySavedView={applySavedView}
 							onDeleteSavedView={(view) => (savedViewPendingDelete = view)}

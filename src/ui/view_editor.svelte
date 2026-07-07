@@ -5,6 +5,7 @@
 	import {
 		savedViewPropertyLabels,
 		type SavedViewListEntry,
+		type SavedViewProperties,
 	} from "./views/saved_views";
 	import type { SortDirection } from "../parsing/properties/comparators";
 	import type { GroupSource } from "./tasks/task_grouping";
@@ -46,6 +47,9 @@
 	export let savedViewListExpanded = false;
 
 	export let canSaveView = false;
+	export let currentViewProperties: SavedViewProperties = {};
+
+	$: currentViewPropertyLabels = savedViewPropertyLabels(currentViewProperties);
 
 	export let onSaveCurrentView: (name: string | undefined) => void;
 	export let onApplySavedView: (view: SavedViewListEntry) => void;
@@ -288,7 +292,7 @@
 		<div class="view-editor-label">
 			<span>Save as</span>
 		</div>
-		<div class="view-editor-controls">
+		<div class="view-editor-controls view-editor-controls-stack">
 			<div class="save-view-row">
 				<input
 					type="text"
@@ -308,6 +312,13 @@
 					Save
 				</button>
 			</div>
+			<p class="view-editor-hint">
+				{#if canSaveView}
+					Saves: {currentViewPropertyLabels.join(" · ")}
+				{:else}
+					Nothing set to save — change a filter, sort, group, flow, or width first.
+				{/if}
+			</p>
 		</div>
 	</div>
 
