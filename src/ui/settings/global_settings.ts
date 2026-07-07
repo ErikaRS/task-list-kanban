@@ -191,18 +191,6 @@ export function setBoardDefault<K extends (typeof BOARD_DEFAULT_SETTING_KEYS)[nu
 	};
 }
 
-export function clearBoardDefault(
-	settings: GlobalSettings,
-	key: (typeof BOARD_DEFAULT_SETTING_KEYS)[number],
-): GlobalSettings {
-	const nextBoardDefaults = { ...settings.boardDefaults };
-	delete nextBoardDefaults[key];
-	return {
-		...settings,
-		boardDefaults: nextBoardDefaults,
-	};
-}
-
 function savedViewPropertiesHaveValues(view: SavedViewProperties): boolean {
 	return Object.keys(view).length > 0;
 }

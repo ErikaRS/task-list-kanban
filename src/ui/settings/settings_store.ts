@@ -554,33 +554,6 @@ export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 	}
 }
 
-export function viewPropertiesToSettings(view: SavedViewProperties | undefined): Partial<SettingValues> {
-	if (!view) {
-		return {};
-	}
-
-	const settings: Partial<SettingValues> = {};
-	if (view.query !== undefined) {
-		settings.lastFilter = view.query;
-	}
-	if (view.sort) {
-		settings.columnOrderMode = view.sort.mode;
-		settings.sortProperty = view.sort.property ?? null;
-		settings.sortDirection = view.sort.direction;
-	}
-	if (view.group) {
-		settings.groupSource = JSON.parse(JSON.stringify(view.group.source)) as GroupSource;
-		settings.groupDirection = view.group.direction;
-	}
-	if (view.flowDirection !== undefined) {
-		settings.flowDirection = view.flowDirection;
-	}
-	if (view.columnWidth !== undefined) {
-		settings.columnWidth = view.columnWidth;
-	}
-	return settings;
-}
-
 export function resolveSettings(
 	overrides: Partial<SettingValues>,
 	inheritedSettings: Partial<SettingValues> = {},

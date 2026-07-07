@@ -166,7 +166,6 @@ export class KanbanView extends TextFileView {
 	}
 
 	getViewType() {
-		this.leaf.openFile;
 		return KANBAN_VIEW_NAME;
 	}
 

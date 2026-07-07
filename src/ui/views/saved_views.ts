@@ -2,11 +2,12 @@ import { ColumnOrderMode } from "../../parsing/properties/comparators";
 import {
 	FlowDirection,
 	type SavedView,
+	type SavedViewProperties,
 	type SettingValues,
 } from "../settings/settings_store";
 import type { GroupSource } from "../tasks/task_grouping";
 
-export type SavedViewProperties = Omit<SavedView, "id" | "name">;
+export type { SavedViewProperties } from "../settings/settings_store";
 export type SavedViewListEntry = SavedView & { isGlobal?: boolean };
 
 function hasOwn<T extends object, K extends PropertyKey>(
