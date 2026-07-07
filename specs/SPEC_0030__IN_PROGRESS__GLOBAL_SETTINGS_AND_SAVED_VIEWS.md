@@ -424,6 +424,12 @@ captures) and Phase 2 (the view editor hosting the controls and save row).
 - The View popover now has a compact "Save as" row plus a saved-views zippy
   list. The filter editor's Saved list is backed by the query-only subset of
   saved views, so old saved filters keep the same affordance after migration.
+- Post-review follow-up: a view-editor save now also captures the applied
+  filter query (read from the `lastFilter` override; an empty/cleared query
+  is treated as unset), so filter + arrangement combos can be saved
+  board-locally as Part B describes. The save row shows an
+  included-properties hint ("Saves: Filter · Group") mirroring the
+  spec mockup.
 
 ### Phase 4: Global settings (closes #8) 🚧 IN PROGRESS
 **Goal:** Plugin-level defaults inherited by boards that haven't overridden
@@ -437,11 +443,22 @@ them.
    `PluginSettingTab` with Tier 1 defaults
 4. ✅ Layout-only "Default view" section in the plugin tab, resolved as the
    Tier 2 default layer for flow direction and card width
-5. ☐ Board modal: inherited-vs-overridden indication + per-section reset
+5. ☐ Board modal: inherited-vs-overridden indication + per-section reset.
+   Scope also includes the override-lifecycle gaps found in review:
+   - Pinning a field at the inherited value (today only value-*changing*
+	 writes record an override, so a board cannot deliberately freeze a
+	 value that currently equals the global default)
+   - Clearing the plugin-level default view (flow direction is force-set
+	 to LTR at parse and card width has no unset affordance, so "no
+	 default view" is not a representable state)
+   - Shedding overrides on legacy fully-materialized boards (Part A's
+	 "Prune settings that match defaults" command), without which every
+	 Tier 2 field counts as set and view saves always capture all
+	 arrangement properties
 6. ✅ "Use this board's settings as global defaults" command (optionally
    capturing its current arrangement as the default view)
-7. ✅ Tests: resolution precedence for both tiers, live propagation, reset
-   flows
+7. ✅ Tests: resolution precedence for both tiers, live propagation
+8. ☐ Tests: reset flows (lands with task 5)
 
 **Deliverable:** Change default columns once; new and untouched boards follow.
 **Size:** L
