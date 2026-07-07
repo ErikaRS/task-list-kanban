@@ -63,6 +63,12 @@
 		savedViewIsQueryOnly,
 		type SavedViewListEntry,
 	} from "./views/saved_views";
+	import {
+		propertyKeyFromOptionValue,
+		propertyOptionValue,
+		sortSelectValueFor,
+		sortSelectionFromValue,
+	} from "./views/view_editor_options";
 
 	type TagGroupInputMode = "prefix" | "include";
 
@@ -656,23 +662,14 @@
 	})();
 	$: availableGroupKeys = availableSortKeys;
 
-	const SORT_FILE_VALUE = "__file__";
-	const SORT_TASK_NAME_VALUE = "__task_name__";
-	const SORT_MANUAL_VALUE = "__manual__";
 	$: orderMode = $settingsStore.columnOrderMode ?? ColumnOrderMode.FileOrder;
 	$: isTaskNameSort = orderMode === ColumnOrderMode.TaskName;
 	$: isPropertySort = orderMode === ColumnOrderMode.Property;
 	$: isDirectionalSort = isTaskNameSort || isPropertySort;
 	$: isManualOrder = orderMode === ColumnOrderMode.Manual;
-	$: sortSelectValue = isManualOrder
-		? SORT_MANUAL_VALUE
-		: isTaskNameSort
-			? SORT_TASK_NAME_VALUE
-			: isPropertySort && $settingsStore.sortProperty
-			? `prop:${$settingsStore.sortProperty}`
-			: SORT_FILE_VALUE;
+	$: sortSelectValue = sortSelectValueFor(orderMode, $settingsStore.sortProperty);
 	$: groupSelectValue = $settingsStore.groupSource?.kind === "property"
-		? `prop:${$settingsStore.groupSource.key}`
+		? propertyOptionValue($settingsStore.groupSource.key)
 		: $settingsStore.groupSource?.kind ?? "none";
 	$: isDirectionalGroup = ($settingsStore.groupSource?.kind ?? "none") !== "none";
 	$: isTagPrefixGrouping = $settingsStore.groupSource?.kind === "tag-prefix";
@@ -684,20 +681,16 @@
 		: [];
 
 	function onSortChange(value: string) {
-		if (value.startsWith("prop:")) {
-			$settingsStore.columnOrderMode = ColumnOrderMode.Property;
-			$settingsStore.sortProperty = value.slice("prop:".length);
-		} else if (value === SORT_TASK_NAME_VALUE) {
-			$settingsStore.columnOrderMode = ColumnOrderMode.TaskName;
-		} else if (value === SORT_MANUAL_VALUE) {
-			$settingsStore.columnOrderMode = ColumnOrderMode.Manual;
-		} else {
-			$settingsStore.columnOrderMode = ColumnOrderMode.FileOrder;
+		const selection = sortSelectionFromValue(value);
+		$settingsStore.columnOrderMode = selection.mode;
+		if (selection.property !== undefined) {
+			$settingsStore.sortProperty = selection.property;
 		}
 		requestSave();
 	}
 
 	function onGroupChange(value: string) {
+		const groupProperty = propertyKeyFromOptionValue(value);
 		if (value === "file") {
 			$settingsStore.groupSource = { kind: "file" };
 		} else if (value === "tag-prefix") {
@@ -710,10 +703,10 @@
 				: { kind: "tag-prefix", prefix: "" };
 			$settingsStore.groupSource = nextGroupSource;
 			tagGroupInputMode = tagGroupInputModeForSource(nextGroupSource);
-		} else if (value.startsWith("prop:")) {
+		} else if (groupProperty !== undefined) {
 			$settingsStore.groupSource = {
 				kind: "property",
-				key: value.slice("prop:".length),
+				key: groupProperty,
 				collapsePastDates: $settingsStore.groupSource?.kind === "property"
 					? $settingsStore.groupSource.collapsePastDates
 					: undefined,

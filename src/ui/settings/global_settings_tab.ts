@@ -4,6 +4,7 @@ import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/co
 import {
 	FlowDirection,
 	defaultSettings,
+	isFlowDirection,
 	resolveSettings,
 	type SavedViewProperties,
 	type SettingValues,
@@ -427,10 +428,6 @@ function groupSourceFromDraft(kind: string, tagPrefix: string): GroupSource | un
 		return { kind: "tag-prefix", prefix: tagPrefix.trim() };
 	}
 	return undefined;
-}
-
-function isFlowDirection(value: string): value is FlowDirection {
-	return (Object.values(FlowDirection) as string[]).includes(value);
 }
 
 function mergeChangedBoardDefaults(

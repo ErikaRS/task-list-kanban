@@ -1,12 +1,18 @@
 <script lang="ts">
 	import CompactTagSelect from "./components/select/compact_tag_select.svelte";
 	import Icon from "./components/icon.svelte";
-	import { FlowDirection } from "./settings/settings_store";
+	import { FlowDirection, isFlowDirection } from "./settings/settings_store";
 	import {
 		savedViewPropertyLabels,
 		type SavedViewListEntry,
 		type SavedViewProperties,
 	} from "./views/saved_views";
+	import {
+		SORT_FILE_VALUE,
+		SORT_MANUAL_VALUE,
+		SORT_TASK_NAME_VALUE,
+		propertyOptionValue,
+	} from "./views/view_editor_options";
 	import type { SortDirection } from "../parsing/properties/comparators";
 	import type { GroupSource } from "./tasks/task_grouping";
 
@@ -56,20 +62,12 @@
 	export let onDeleteSavedView: (view: SavedViewListEntry) => void;
 	export let onToggleSavedViewList: (expanded: boolean) => void;
 
-	const SORT_FILE_VALUE = "__file__";
-	const SORT_TASK_NAME_VALUE = "__task_name__";
-	const SORT_MANUAL_VALUE = "__manual__";
-
 	const flowDirectionOptions: Array<{ value: FlowDirection; label: string }> = [
 		{ value: FlowDirection.LeftToRight, label: "LTR" },
 		{ value: FlowDirection.RightToLeft, label: "RTL" },
 		{ value: FlowDirection.TopToBottom, label: "TTB" },
 		{ value: FlowDirection.BottomToTop, label: "BTT" },
 	];
-
-	function isFlowDirection(value: string): value is FlowDirection {
-		return (Object.values(FlowDirection) as string[]).includes(value);
-	}
 
 	function handleFlowDirectionChange(value: string) {
 		if (isFlowDirection(value)) {
@@ -85,8 +83,6 @@
 	}
 
 	let saveViewName = "";
-
-
 
 	function saveView() {
 		if (!canSaveView) {
@@ -122,7 +118,7 @@
 				{#if availableSortKeys.length > 0}
 					<optgroup label="Properties">
 						{#each availableSortKeys as sortKey (sortKey.key)}
-							<option value={`prop:${sortKey.key}`}>{sortKey.label}</option>
+							<option value={propertyOptionValue(sortKey.key)}>{sortKey.label}</option>
 						{/each}
 					</optgroup>
 				{/if}
@@ -164,7 +160,7 @@
 					{#if availableGroupKeys.length > 0}
 						<optgroup label="Properties">
 							{#each availableGroupKeys as groupKey (groupKey.key)}
-								<option value={`prop:${groupKey.key}`}>{groupKey.label}</option>
+								<option value={propertyOptionValue(groupKey.key)}>{groupKey.label}</option>
 							{/each}
 						</optgroup>
 					{/if}
@@ -790,8 +786,6 @@
 		}
 	}
 
-
-
 	@media (max-width: 680px) {
 		.view-editor {
 			max-width: 100%;
@@ -827,8 +821,6 @@
 		.saved-view-list li {
 			flex-wrap: wrap;
 		}
-
-
 
 		.view-editor-icon-button {
 			width: 100%;

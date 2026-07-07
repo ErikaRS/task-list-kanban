@@ -59,6 +59,10 @@ export enum FlowDirection {
 	BottomToTop = "btt",
 }
 
+export function isFlowDirection(value: string): value is FlowDirection {
+	return (Object.values(FlowDirection) as string[]).includes(value);
+}
+
 export enum PropertyDisplayMode {
 	None = "none",
 	Pretty = "pretty",
