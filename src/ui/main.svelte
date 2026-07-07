@@ -57,12 +57,11 @@
 	import {
 		applySavedViewProperties,
 		captureSavedViewProperties,
+		defaultSavedViewName,
 		mergeLocalAndGlobalSavedViews,
 		savedViewHasProperties,
 		savedViewIsQueryOnly,
-		savedViewPropertyLabels,
 		type SavedViewListEntry,
-		type SavedViewProperties,
 	} from "./views/saved_views";
 
 	type TagGroupInputMode = "prefix" | "include";
@@ -480,13 +479,6 @@
 		$settingsStore.savedViews = savedViews.filter((view) => view.id !== localId);
 		requestSave();
 	}
-
-	function defaultSavedViewName(properties: SavedViewProperties): string {
-		const labels = savedViewPropertyLabels(properties);
-		return labels.length > 0 ? labels.join(" + ") : "View";
-	}
-
-
 
 	function saveCurrentView(name: string | undefined) {
 		const properties = currentSavedViewProperties;

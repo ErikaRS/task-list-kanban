@@ -7,6 +7,7 @@ import {
 	type SavedViewProperties,
 	type SettingValues,
 } from "./settings_store";
+import { savedViewHasProperties } from "../views/saved_views";
 
 export const GLOBAL_SETTINGS_VERSION = 1;
 
@@ -99,14 +100,14 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	parsedDefaultView.flowDirection = parsedDefaultView.flowDirection ?? FlowDirection.LeftToRight;
 	const parsedGlobalViews = rawGlobalViews
 		? (parseSettingsOverrides(JSON.stringify({ savedViews: rawGlobalViews })).savedViews ?? [])
-			.filter(savedViewHasViewProperties)
+			.filter(savedViewHasProperties)
 		: undefined;
 
 	const settings: GlobalSettings = {
 		version: GLOBAL_SETTINGS_VERSION,
 		boardDefaults: parsedBoardDefaults,
 	};
-	if (savedViewPropertiesHaveValues(parsedDefaultView)) {
+	if (savedViewHasProperties(parsedDefaultView)) {
 		settings.defaultView = parsedDefaultView;
 	}
 	if (parsedGlobalViews && parsedGlobalViews.length > 0) {
@@ -191,25 +192,11 @@ export function setBoardDefault<K extends (typeof BOARD_DEFAULT_SETTING_KEYS)[nu
 	};
 }
 
-function savedViewPropertiesHaveValues(view: SavedViewProperties): boolean {
-	return Object.keys(view).length > 0;
-}
-
-function savedViewHasViewProperties(view: SavedView): boolean {
-	return (
-		view.query !== undefined ||
-		view.sort !== undefined ||
-		view.group !== undefined ||
-		view.flowDirection !== undefined ||
-		view.columnWidth !== undefined
-	);
-}
-
 function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {
 	return {
 		version: GLOBAL_SETTINGS_VERSION,
 		boardDefaults: pickBoardDefaultSettings(settings.boardDefaults ?? {}),
-		...(settings.defaultView && savedViewPropertiesHaveValues(settings.defaultView)
+		...(settings.defaultView && savedViewHasProperties(settings.defaultView)
 			? { defaultView: cloneJson(settings.defaultView) }
 			: {}),
 		...(settings.globalViews && settings.globalViews.length > 0

@@ -5,34 +5,29 @@ import {
 	type SavedViewProperties,
 	type SettingValues,
 } from "../settings/settings_store";
-import type { GroupSource } from "../tasks/task_grouping";
 
 export type { SavedViewProperties } from "../settings/settings_store";
 export type SavedViewListEntry = SavedView & { isGlobal?: boolean };
+
+/**
+ * The properties a view can carry, with their UI badge labels. The single
+ * source of truth for "which fields make up a view": the predicates and
+ * label helpers below derive from it, so a new view property only needs an
+ * entry here plus capture/apply handling.
+ */
+const SAVED_VIEW_PROPERTIES = [
+	{ key: "query", label: "Filter" },
+	{ key: "sort", label: "Sort" },
+	{ key: "group", label: "Group" },
+	{ key: "flowDirection", label: "Flow" },
+	{ key: "columnWidth", label: "Width" },
+] as const satisfies ReadonlyArray<{ key: keyof SavedViewProperties; label: string }>;
 
 function hasOwn<T extends object, K extends PropertyKey>(
 	object: T,
 	key: K,
 ): object is T & Record<K, unknown> {
 	return Object.prototype.hasOwnProperty.call(object, key);
-}
-
-function cloneGroupSource(source: GroupSource): GroupSource {
-	if (source.kind === "tag-prefix") {
-		return {
-			kind: "tag-prefix",
-			prefix: source.prefix,
-			includeTags: source.includeTags ? [...source.includeTags] : undefined,
-		};
-	}
-	if (source.kind === "property") {
-		return {
-			kind: "property",
-			key: source.key,
-			collapsePastDates: source.collapsePastDates,
-		};
-	}
-	return { ...source };
 }
 
 export function captureSavedViewProperties(
@@ -61,7 +56,7 @@ export function captureSavedViewProperties(
 
 	if (hasOwn(overrides, "groupSource") || hasOwn(overrides, "groupDirection")) {
 		properties.group = {
-			source: cloneGroupSource(settings.groupSource ?? { kind: "none" }),
+			source: structuredClone(settings.groupSource ?? { kind: "none" }),
 			direction: settings.groupDirection ?? "asc",
 		};
 	}
@@ -78,33 +73,27 @@ export function captureSavedViewProperties(
 }
 
 export function savedViewHasProperties(view: SavedViewProperties): boolean {
-	return (
-		view.query !== undefined ||
-		view.sort !== undefined ||
-		view.group !== undefined ||
-		view.flowDirection !== undefined ||
-		view.columnWidth !== undefined
-	);
+	return SAVED_VIEW_PROPERTIES.some(({ key }) => view[key] !== undefined);
 }
 
 export function savedViewPropertyLabels(view: SavedViewProperties): string[] {
-	const labels: string[] = [];
-	if (view.query !== undefined) labels.push("Filter");
-	if (view.sort !== undefined) labels.push("Sort");
-	if (view.group !== undefined) labels.push("Group");
-	if (view.flowDirection !== undefined) labels.push("Flow");
-	if (view.columnWidth !== undefined) labels.push("Width");
-	return labels;
+	return SAVED_VIEW_PROPERTIES.filter(({ key }) => view[key] !== undefined).map(
+		({ label }) => label,
+	);
 }
 
 export function savedViewIsQueryOnly(view: SavedViewProperties): boolean {
 	return (
 		view.query !== undefined &&
-		view.sort === undefined &&
-		view.group === undefined &&
-		view.flowDirection === undefined &&
-		view.columnWidth === undefined
+		SAVED_VIEW_PROPERTIES.every(
+			({ key }) => key === "query" || view[key] === undefined,
+		)
 	);
+}
+
+export function defaultSavedViewName(properties: SavedViewProperties): string {
+	const labels = savedViewPropertyLabels(properties);
+	return labels.length > 0 ? labels.join(" + ") : "View";
 }
 
 export function applySavedViewProperties(
@@ -118,7 +107,7 @@ export function applySavedViewProperties(
 		next.sortDirection = view.sort.direction;
 	}
 	if (view.group) {
-		next.groupSource = cloneGroupSource(view.group.source);
+		next.groupSource = structuredClone(view.group.source);
 		next.groupDirection = view.group.direction;
 	}
 	if (view.flowDirection !== undefined) {

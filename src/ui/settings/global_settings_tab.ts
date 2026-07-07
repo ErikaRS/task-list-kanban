@@ -17,6 +17,7 @@ import {
 } from "./global_settings";
 import { SettingsModal } from "./settings";
 import {
+	defaultSavedViewName,
 	savedViewHasProperties,
 	savedViewPropertyLabels,
 } from "../views/saved_views";
@@ -420,11 +421,6 @@ function groupSourceFromDraft(kind: string, tagPrefix: string): GroupSource | un
 
 function isFlowDirection(value: string): value is FlowDirection {
 	return (Object.values(FlowDirection) as string[]).includes(value);
-}
-
-function defaultSavedViewName(properties: SavedViewProperties): string {
-	const labels = savedViewPropertyLabels(properties);
-	return labels.length > 0 ? labels.join(" + ") : "View";
 }
 
 function mergeChangedBoardDefaults(
