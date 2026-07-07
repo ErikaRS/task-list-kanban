@@ -40,6 +40,12 @@ export function captureSavedViewProperties(
 ): SavedViewProperties {
 	const properties: SavedViewProperties = {};
 
+	// The applied filter query persists as the lastFilter override; an empty
+	// string (filter cleared) is the unset state, not a capturable property.
+	if (hasOwn(overrides, "lastFilter") && settings.lastFilter) {
+		properties.query = settings.lastFilter;
+	}
+
 	if (
 		hasOwn(overrides, "columnOrderMode") ||
 		hasOwn(overrides, "sortProperty") ||

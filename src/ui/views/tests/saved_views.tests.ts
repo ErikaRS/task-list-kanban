@@ -24,6 +24,33 @@ describe("saved view helpers", () => {
 		expect(savedViewHasProperties(captured)).toBe(false);
 	});
 
+	it("captures the applied filter query from a lastFilter override", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			lastFilter: "tag:work due:<$TODAY",
+		};
+
+		const captured = captureSavedViewProperties(settings, {
+			lastFilter: settings.lastFilter,
+		});
+
+		expect(captured).toEqual({ query: "tag:work due:<$TODAY" });
+		expect(savedViewIsQueryOnly(captured)).toBe(true);
+		expect(savedViewPropertyLabels(captured)).toEqual(["Filter"]);
+	});
+
+	it("does not capture a cleared (empty) lastFilter override", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			lastFilter: "",
+		};
+
+		const captured = captureSavedViewProperties(settings, { lastFilter: "" });
+
+		expect(captured).toEqual({});
+		expect(savedViewHasProperties(captured)).toBe(false);
+	});
+
 	it("captures explicit sort, group, flow, and width overrides", () => {
 		const settings: SettingValues = {
 			...defaultSettings,
