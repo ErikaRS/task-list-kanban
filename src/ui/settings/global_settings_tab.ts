@@ -1,10 +1,10 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { ConfirmModal } from "./confirm_modal";
 import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 import {
 	FlowDirection,
 	defaultSettings,
 	resolveSettings,
-	type SavedView,
 	type SavedViewProperties,
 	type SettingValues,
 } from "./settings_store";
@@ -54,12 +54,17 @@ export class GlobalSettingsTab extends PluginSettingTab {
 				button
 					.setButtonText("Reset all")
 					.onClick(() => {
-						new ConfirmGlobalDefaultsResetModal(this.app, async () => {
-							await this.mutate((settings) => ({
-								...settings,
-								boardDefaults: {},
-							}));
-							this.display();
+						new ConfirmModal(this.app, {
+							title: "Reset global board defaults?",
+							body: "Boards that inherit these plugin-level defaults will fall back to the built-in defaults. Board-local overrides will not be changed.",
+							confirmText: "Reset defaults",
+							onConfirm: async () => {
+								await this.mutate((settings) => ({
+									...settings,
+									boardDefaults: {},
+								}));
+								this.display();
+							},
 						}).open();
 					});
 			});
@@ -348,14 +353,19 @@ export class GlobalSettingsTab extends PluginSettingTab {
 						.setButtonText("Delete")
 						.setWarning()
 						.onClick(() => {
-							new ConfirmGlobalSavedViewDeleteModal(this.app, view, async () => {
-								await this.mutate((settings) => ({
-									...settings,
-									globalViews: (settings.globalViews ?? []).filter(
-										(candidate) => candidate.id !== view.id,
-									),
-								}));
-								this.display();
+							new ConfirmModal(this.app, {
+								title: "Delete global saved view?",
+								body: `Delete "${view.name}" for every board. Board-local saved views will not be changed.`,
+								confirmText: "Delete",
+								onConfirm: async () => {
+									await this.mutate((settings) => ({
+										...settings,
+										globalViews: (settings.globalViews ?? []).filter(
+											(candidate) => candidate.id !== view.id,
+										),
+									}));
+									this.display();
+								},
 							}).open();
 						});
 				});
@@ -445,81 +455,3 @@ function mergeChangedBoardDefaults(
 	return nextDefaults;
 }
 
-class ConfirmGlobalDefaultsResetModal extends Modal {
-	constructor(
-		app: App,
-		private readonly onConfirm: () => void | Promise<void>,
-	) {
-		super(app);
-	}
-
-	onOpen() {
-		this.contentEl.addClass("task-list-kanban-confirm-modal");
-		this.contentEl.createEl("h2", { text: "Reset global board defaults?" });
-		this.contentEl.createEl("p", {
-			text: "Boards that inherit these plugin-level defaults will fall back to the built-in defaults. Board-local overrides will not be changed.",
-		});
-
-		const actions = this.contentEl.createDiv({ cls: "confirm-modal-actions" });
-		actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => {
-			this.close();
-		});
-		const confirmButton = actions.createEl("button", {
-			text: "Reset defaults",
-			cls: "mod-warning",
-		});
-		confirmButton.addEventListener("click", async () => {
-			confirmButton.disabled = true;
-			try {
-				await this.onConfirm();
-				this.close();
-			} finally {
-				confirmButton.disabled = false;
-			}
-		});
-	}
-
-	onClose() {
-		this.contentEl.empty();
-	}
-}
-
-class ConfirmGlobalSavedViewDeleteModal extends Modal {
-	constructor(
-		app: App,
-		private readonly view: SavedView,
-		private readonly onConfirm: () => void | Promise<void>,
-	) {
-		super(app);
-	}
-
-	onOpen() {
-		this.contentEl.addClass("task-list-kanban-confirm-modal");
-		this.contentEl.createEl("h2", { text: "Delete global saved view?" });
-		this.contentEl.createEl("p", {
-			text: `Delete "${this.view.name}" for every board. Board-local saved views will not be changed.`,
-		});
-
-		const actions = this.contentEl.createDiv({ cls: "confirm-modal-actions" });
-		actions.createEl("button", { text: "Cancel" }).addEventListener("click", () => {
-			this.close();
-		});
-		const confirmButton = actions.createEl("button", {
-			text: "Delete",
-			cls: "mod-warning",
-		});
-		confirmButton.addEventListener("click", async () => {
-			confirmButton.disabled = true;
-			try {
-				await this.onConfirm();
-				this.close();
-			} finally {
-				confirmButton.disabled = false;
-			}
-		});
-	}
-
-	onClose() {
-		this.contentEl.empty();
-	}
-}

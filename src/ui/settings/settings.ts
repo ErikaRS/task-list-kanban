@@ -1,4 +1,5 @@
 import { App, Modal, Setting, TFile, setIcon } from "obsidian";
+import { ConfirmModal } from "./confirm_modal";
 import CompactTagSelect from "../components/select/compact_tag_select.svelte";
 import type { SettingValues } from "./settings_store";
 import {
@@ -153,14 +154,20 @@ export class SettingsModal extends Modal {
 	}
 
 	private confirmRemoveColumn(column: ColumnDefinition) {
-		new ConfirmColumnRemovalModal(this.app, column.label, () => {
-			this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
-			this.updateExistingTaskTagsByColumnId.delete(column.id);
-			if (this.activeColumnPopover?.columnId === column.id) {
-				this.activeColumnPopover = null;
-			}
-			this.renderColumnsEditor();
-			this.touchSettings();
+		new ConfirmModal(this.app, {
+			title: "Remove column?",
+			body: `Remove "${column.label || "Untitled column"}" from this board's settings?`,
+			note: "This change is not saved until you save the settings modal.",
+			confirmText: "Remove",
+			onConfirm: () => {
+				this.settings.columns = this.settings.columns.filter((candidate) => candidate.id !== column.id);
+				this.updateExistingTaskTagsByColumnId.delete(column.id);
+				if (this.activeColumnPopover?.columnId === column.id) {
+					this.activeColumnPopover = null;
+				}
+				this.renderColumnsEditor();
+				this.touchSettings();
+			},
 		}).open();
 	}
 
@@ -1664,38 +1671,3 @@ export class SettingsModal extends Modal {
 	}
 }
 
-class ConfirmColumnRemovalModal extends Modal {
-	constructor(
-		app: App,
-		private readonly columnLabel: string,
-		private readonly onConfirm: () => void,
-	) {
-		super(app);
-	}
-
-	onOpen() {
-		this.contentEl.addClass("task-list-kanban-confirm-modal");
-		this.contentEl.createEl("h2", { text: "Remove column?" });
-		this.contentEl.createEl("p", {
-			text: `Remove "${this.columnLabel || "Untitled column"}" from this board's settings?`,
-		});
-		this.contentEl.createEl("p", {
-			text: "This change is not saved until you save the settings modal.",
-			cls: "setting-item-description",
-		});
-
-		const actions = this.contentEl.createDiv({ cls: "confirm-modal-actions" });
-		const cancelButton = actions.createEl("button", { text: "Cancel" });
-		cancelButton.addEventListener("click", () => this.close());
-		const removeButton = actions.createEl("button", { text: "Remove", cls: "mod-warning" });
-		removeButton.addEventListener("click", () => {
-			this.onConfirm();
-			this.close();
-		});
-		window.requestAnimationFrame(() => cancelButton.focus());
-	}
-
-	onClose() {
-		this.contentEl.empty();
-	}
-}
