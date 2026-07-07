@@ -11,7 +11,9 @@ import { DEFAULT_GROUP_BUCKET_ID, type GroupSource } from "../tasks/task_groupin
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 import type { ManualOrderStore } from "../tasks/manual_order";
-import { emptyFilterQuery, serializeFilterQuery } from "../filters/filter_query";
+// Runtime-safe despite the module pair: filter_state imports only types
+// from this module.
+import { savedFilterToQuery } from "../filters/filter_state";
 
 export interface SavedGrouping {
 	id: string;
@@ -443,34 +445,6 @@ export const createSettingsStore = (
 	};
 };
 
-function legacySavedFilterToQuery(filter: SavedFilter): string {
-	if (filter.query !== undefined) {
-		return filter.query;
-	}
-
-	const query = emptyFilterQuery();
-	const contentText = filter.content?.text.replace(/"/g, "").trim();
-	if (contentText) {
-		query.contentTerms.push(contentText);
-	}
-
-	const tags = (filter.tag?.tags ?? []).filter((tag) => tag !== "");
-	if (tags.length > 0) {
-		query.tagGroups.push(tags);
-	}
-
-	const filePath = filter.file?.filepaths[0]?.replace(/"/g, "").trim();
-	if (filePath) {
-		query.filePaths.push(filePath);
-	}
-
-	query.dateConditions = (filter.date?.conditions ?? []).map((condition) => ({
-		...condition,
-	}));
-
-	return serializeFilterQuery(query);
-}
-
 function migrateLegacySavedViews(
 	savedFilters: SavedFilter[] | undefined,
 	savedGroupings: SavedGrouping[] | undefined,
@@ -478,7 +452,7 @@ function migrateLegacySavedViews(
 	return [
 		...(savedFilters ?? [])
 			.map((filter): SavedView | undefined => {
-				const query = legacySavedFilterToQuery(filter);
+				const query = savedFilterToQuery(filter);
 				if (query === "") {
 					return undefined;
 				}
