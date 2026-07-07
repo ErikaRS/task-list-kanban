@@ -45,8 +45,6 @@ export const BOARD_DEFAULT_SETTING_KEYS = [
 	"propertyDisplay",
 ] as const satisfies readonly (keyof SettingValues)[];
 
-const boardDefaultSettingKeySet = new Set<keyof SettingValues>(BOARD_DEFAULT_SETTING_KEYS);
-
 export const defaultGlobalSettings: GlobalSettings = {
 	version: GLOBAL_SETTINGS_VERSION,
 	boardDefaults: {},
@@ -125,7 +123,7 @@ export function inheritedSettingsFromGlobalSettings(
 ): Partial<SettingValues> {
 	return {
 		...pickBoardDefaultSettings(settings.boardDefaults),
-		...globalDefaultViewToSettings(settings.defaultView),
+		...pickGlobalDefaultViewProperties(settings.defaultView ?? {}),
 	};
 }
 
@@ -142,38 +140,20 @@ export function pickGlobalDefaultViewProperties(
 	return picked;
 }
 
-function globalDefaultViewToSettings(
-	view: GlobalDefaultViewProperties | undefined,
-): Partial<SettingValues> {
-	if (!view) {
-		return {};
-	}
-
-	const settings: Partial<SettingValues> = {};
-	if (view.flowDirection !== undefined) {
-		settings.flowDirection = view.flowDirection;
-	}
-	if (view.columnWidth !== undefined) {
-		settings.columnWidth = view.columnWidth;
-	}
-	return settings;
-}
-
 export function pickBoardDefaultSettings(
 	settings: Partial<SettingValues>,
 ): Partial<SettingValues> {
 	const picked: Partial<SettingValues> = {};
-	const pickedRecord = picked as Record<string, unknown>;
-	const settingsRecord = settings as Record<string, unknown>;
-	for (const key of Object.keys(settingsRecord) as Array<keyof SettingValues>) {
-		if (!boardDefaultSettingKeySet.has(key)) {
-			continue;
+	// The generic keeps each key's value type correlated with its slot, so
+	// the copy needs no casts.
+	const copy = <K extends (typeof BOARD_DEFAULT_SETTING_KEYS)[number]>(key: K) => {
+		const value = settings[key];
+		if (value !== undefined) {
+			picked[key] = cloneJson(value);
 		}
-		const value = settingsRecord[key];
-		if (value === undefined) {
-			continue;
-		}
-		pickedRecord[key] = cloneJson(value);
+	};
+	for (const key of BOARD_DEFAULT_SETTING_KEYS) {
+		copy(key);
 	}
 	return picked;
 }
