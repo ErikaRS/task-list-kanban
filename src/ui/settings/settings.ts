@@ -397,6 +397,41 @@ export class SettingsModal extends Modal {
 		return `${tags.length} required tags`;
 	}
 
+	/**
+	 * A text setting that only commits valid values: invalid input gets an
+	 * error border and tooltip while the last valid value stays in effect.
+	 */
+	private addValidatedTextSetting(
+		container: HTMLElement,
+		options: {
+			name: string;
+			desc: string;
+			value: string;
+			validTitle: string;
+			validate: (value: string) => string[];
+			onValid: (value: string) => void;
+		},
+	) {
+		new Setting(container)
+			.setName(options.name)
+			.setDesc(options.desc)
+			.addText((text) => {
+				text.setValue(options.value);
+				text.onChange((value) => {
+					const errors = options.validate(value);
+					if (errors.length > 0) {
+						text.inputEl.style.borderColor = "var(--text-error)";
+						text.inputEl.title = `Invalid: ${errors.join(", ")}`;
+					} else {
+						text.inputEl.style.borderColor = "";
+						text.inputEl.title = options.validTitle;
+						options.onValid(value);
+						this.touchSettings();
+					}
+				});
+			});
+	}
+
 	private getStatusMarkerOptions(): Array<{ value: string; label: string }> {
 		const values = new Set<string>([" "]);
 		for (const marker of Array.from(this.settings.statusMarkerOrder ?? "")) {
@@ -1521,92 +1556,49 @@ export class SettingsModal extends Modal {
 				});
 			});
 
-		new Setting(statusMarkersSection)
-			.setName("Status marker order")
-			.setDesc(
-				"Ascending order for status grouping and status sorting. Unchecked tasks come first unless this order includes a literal space. Unspecified markers appear afterward alphabetically, followed by done markers."
-			)
-			.addText((text) => {
-				text.setValue(this.settings.statusMarkerOrder ?? "");
-				text.onChange((value) => {
-					const errors = validateStatusMarkerOrder(value);
-					if (errors.length > 0) {
-						text.inputEl.style.borderColor = "var(--text-error)";
-						text.inputEl.title = `Invalid: ${errors.join(', ')}`;
-					} else {
-						text.inputEl.style.borderColor = "";
-						text.inputEl.title = "Valid status marker order";
-						this.settings.statusMarkerOrder = value;
-						this.touchSettings();
-					}
-				});
-			});
+		this.addValidatedTextSetting(statusMarkersSection, {
+			name: "Status marker order",
+			desc: "Ascending order for status grouping and status sorting. Unchecked tasks come first unless this order includes a literal space. Unspecified markers appear afterward alphabetically, followed by done markers.",
+			value: this.settings.statusMarkerOrder ?? "",
+			validTitle: "Valid status marker order",
+			validate: validateStatusMarkerOrder,
+			onValid: (value) => {
+				this.settings.statusMarkerOrder = value;
+			},
+		});
 
-		new Setting(statusMarkersSection)
-			.setName("Done status markers")
-			.setDesc(
-				"Characters that mark a task as done (e.g., 'xX' for [x] and [X]). Each character should be a single Unicode character without spaces."
-			)
-			.addText((text) => {
-				text.setValue(this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS);
-				text.onChange((value) => {
-					// Validate the input and provide immediate feedback
-					const errors = validateDoneStatusMarkers(value);
-					if (errors.length > 0) {
-						text.inputEl.style.borderColor = "var(--text-error)";
-						text.inputEl.title = `Invalid: ${errors.join(', ')}`;
-					} else {
-						text.inputEl.style.borderColor = "";
-						text.inputEl.title = "Valid done status markers";
-						this.settings.doneStatusMarkers = value;
-						this.touchSettings();
-					}
-				});
-			});
+		this.addValidatedTextSetting(statusMarkersSection, {
+			name: "Done status markers",
+			desc: "Characters that mark a task as done (e.g., 'xX' for [x] and [X]). Each character should be a single Unicode character without spaces.",
+			value: this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+			validTitle: "Valid done status markers",
+			validate: validateDoneStatusMarkers,
+			onValid: (value) => {
+				this.settings.doneStatusMarkers = value;
+			},
+		});
 
-		new Setting(statusMarkersSection)
-			.setName("Cancelled status markers")
-			.setDesc(
-				"Characters that mark a task as cancelled (e.g., '-' for [-]). Each character should be a single Unicode character without spaces."
-			)
-			.addText((text) => {
-				text.setValue(this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS);
-				text.onChange((value) => {
-					// Validate the input and provide immediate feedback
-					const errors = validateCancelledStatusMarkers(value);
-					if (errors.length > 0) {
-						text.inputEl.style.borderColor = "var(--text-error)";
-						text.inputEl.title = `Invalid: ${errors.join(', ')}`;
-					} else {
-						text.inputEl.style.borderColor = "";
-						text.inputEl.title = "Valid cancelled status markers";
-						this.settings.cancelledStatusMarkers = value;
-						this.touchSettings();
-					}
-				});
-			});
+		this.addValidatedTextSetting(statusMarkersSection, {
+			name: "Cancelled status markers",
+			desc: "Characters that mark a task as cancelled (e.g., '-' for [-]). Each character should be a single Unicode character without spaces.",
+			value: this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
+			validTitle: "Valid cancelled status markers",
+			validate: validateCancelledStatusMarkers,
+			onValid: (value) => {
+				this.settings.cancelledStatusMarkers = value;
+			},
+		});
 
-		new Setting(statusMarkersSection)
-			.setName("Ignored status markers")
-			.setDesc(
-				"Characters that mark tasks to be completely ignored by the kanban (e.g., '-' for [-] cancelled tasks). Leave empty to process all task-like strings. Each character should be a single Unicode character without spaces."
-			)
-			.addText((text) => {
-				text.setValue(this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS);
-				text.onChange((value) => {
-					// Validate the input and provide immediate feedback
-					const errors = validateIgnoredStatusMarkers(value);
-					if (errors.length > 0) {
-						text.inputEl.style.borderColor = "var(--text-error)";
-						text.inputEl.title = `Invalid: ${errors.join(', ')}`;
-					} else {
-						text.inputEl.style.borderColor = "";
-						text.inputEl.title = "Valid ignored status markers";
-						this.settings.ignoredStatusMarkers = value;
-						this.touchSettings();
-					}
-				});
-			});
+		this.addValidatedTextSetting(statusMarkersSection, {
+			name: "Ignored status markers",
+			desc: "Characters that mark tasks to be completely ignored by the kanban (e.g., '-' for [-] cancelled tasks). Leave empty to process all task-like strings. Each character should be a single Unicode character without spaces.",
+			value: this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			validTitle: "Valid ignored status markers",
+			validate: validateIgnoredStatusMarkers,
+			onValid: (value) => {
+				this.settings.ignoredStatusMarkers = value;
+			},
+		});
 
 		if (!this.isEmbedded()) {
 			// Button bar (after scroll wrapper, still inside contentEl)
