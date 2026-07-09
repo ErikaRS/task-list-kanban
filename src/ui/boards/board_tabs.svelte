@@ -1,14 +1,73 @@
 <script lang="ts">
-	import type { BoardIndexEntry } from "./board_index";
+	import { movePathRelativeTo, type BoardIndexEntry } from "./board_index";
 
 	export let entries: BoardIndexEntry[];
 	export let currentPath: string | null;
 	export let onSelect: (path: string) => void;
+	export let onReorder: ((orderedPaths: string[]) => void) | undefined = undefined;
+
+	type DropPosition = "before" | "after";
+
+	let draggedPath: string | null = null;
+	let dropTarget: { path: string; position: DropPosition } | null = null;
 
 	function handleSelect(entry: BoardIndexEntry) {
 		if (entry.path !== currentPath) {
 			onSelect(entry.path);
 		}
+	}
+
+	function handleDragStart(entry: BoardIndexEntry, event: DragEvent) {
+		if (!onReorder) {
+			return;
+		}
+		draggedPath = entry.path;
+		dropTarget = null;
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = "move";
+			event.dataTransfer.setData("text/plain", entry.path);
+		}
+	}
+
+	function handleDragOver(entry: BoardIndexEntry, event: DragEvent) {
+		if (!onReorder || !draggedPath || draggedPath === entry.path) {
+			return;
+		}
+		event.preventDefault();
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const position: DropPosition =
+			event.clientX > rect.left + rect.width / 2 ? "after" : "before";
+		dropTarget = { path: entry.path, position };
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = "move";
+		}
+	}
+
+	function handleDragLeave(entry: BoardIndexEntry) {
+		if (dropTarget?.path === entry.path) {
+			dropTarget = null;
+		}
+	}
+
+	function handleDrop(entry: BoardIndexEntry, event: DragEvent) {
+		if (!onReorder || !draggedPath) {
+			return;
+		}
+		event.preventDefault();
+		const position = dropTarget?.path === entry.path ? dropTarget.position : "before";
+		const orderedPaths = movePathRelativeTo(
+			entries.map((candidate) => candidate.path),
+			draggedPath,
+			entry.path,
+			position,
+		);
+		clearDragState();
+		onReorder(orderedPaths);
+	}
+
+	function clearDragState() {
+		draggedPath = null;
+		dropTarget = null;
 	}
 </script>
 
@@ -19,9 +78,18 @@
 			role="tab"
 			class="board-tab"
 			class:active={entry.path === currentPath}
+			class:is-dragging={entry.path === draggedPath}
+			class:is-drop-before={dropTarget?.path === entry.path && dropTarget.position === "before"}
+			class:is-drop-after={dropTarget?.path === entry.path && dropTarget.position === "after"}
 			aria-selected={entry.path === currentPath}
 			title={entry.path}
+			draggable={onReorder !== undefined}
 			on:click={() => handleSelect(entry)}
+			on:dragstart={(event) => handleDragStart(entry, event)}
+			on:dragover={(event) => handleDragOver(entry, event)}
+			on:dragleave={() => handleDragLeave(entry)}
+			on:drop={(event) => handleDrop(entry, event)}
+			on:dragend={clearDragState}
 		>
 			{entry.name}
 		</button>
@@ -42,6 +110,7 @@
 	}
 
 	.board-tab {
+		position: relative;
 		flex: 0 0 auto;
 		max-width: 220px;
 		overflow: hidden;
@@ -68,6 +137,19 @@
 			border-bottom-color: var(--interactive-accent);
 			color: var(--text-normal);
 			font-weight: 600;
+		}
+
+		&.is-dragging {
+			opacity: 0.5;
+		}
+
+		// Drop indicator: an accent bar on the edge the tab would land on.
+		&.is-drop-before {
+			box-shadow: inset 2px 0 0 var(--interactive-accent);
+		}
+
+		&.is-drop-after {
+			box-shadow: inset -2px 0 0 var(--interactive-accent);
 		}
 	}
 </style>

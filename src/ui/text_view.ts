@@ -62,6 +62,7 @@ export class KanbanView extends TextFileView {
 		private readonly globalViewsStore?: Readable<SavedView[]>,
 		private readonly boardIndexStore?: Readable<BoardIndexEntry[]>,
 		private readonly tabsSettingsStore?: Readable<TabsSettings | undefined>,
+		private readonly onReorderTabs?: (orderedPaths: string[]) => void,
 	) {
 		super(leaf);
 
@@ -232,6 +233,7 @@ export class KanbanView extends TextFileView {
 				tabsSettingsStore: this.tabsSettingsStore,
 				currentPathStore: this.currentPathStore,
 				openBoard: (path: string) => void this.openBoard(path),
+				onReorderTabs: this.onReorderTabs,
 				requestSave: () => this.requestSave(),
 			},
 		});

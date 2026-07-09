@@ -129,6 +129,31 @@ describe("global settings parsing", () => {
 		expect(parseGlobalSettings({ version: 1, tabs: "yes" }).tabs).toBeUndefined();
 		expect(parseGlobalSettings({ version: 1 }).tabs).toBeUndefined();
 	});
+
+	it("normalizes tab order and unpinned paths and keeps them while tabs are disabled", () => {
+		const parsed = parseGlobalSettings({
+			version: 1,
+			tabs: {
+				enabled: true,
+				boardPaths: [" projects/Work.md ", "", "Home.md", "projects/Work.md", 7],
+				unpinnedPaths: ["archive/Old.md", "archive/Old.md", " "],
+			},
+		});
+		expect(parsed.tabs).toEqual({
+			enabled: true,
+			boardPaths: ["projects/Work.md", "Home.md"],
+			unpinnedPaths: ["archive/Old.md"],
+		});
+
+		// Order and unpinned lists survive toggling tabs off, so re-enabling
+		// restores the previous strip.
+		expect(
+			parseGlobalSettings({
+				version: 1,
+				tabs: { enabled: false, unpinnedPaths: ["Home.md"] },
+			}).tabs,
+		).toEqual({ enabled: false, unpinnedPaths: ["Home.md"] });
+	});
 });
 
 describe("global settings inheritance", () => {

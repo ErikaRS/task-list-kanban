@@ -9,7 +9,11 @@ import {
 	serializeGlobalSettings,
 } from "./ui/settings/global_settings";
 import { GlobalSettingsTab } from "./ui/settings/global_settings_tab";
-import { createBoardIndex, type BoardIndex } from "./ui/boards/board_index";
+import {
+	createBoardIndex,
+	rewriteBoardPath,
+	type BoardIndex,
+} from "./ui/boards/board_index";
 
 export default class Base extends Plugin {
 	private readonly globalSettingsStore = createGlobalSettingsStore();
@@ -37,6 +41,7 @@ export default class Base extends Plugin {
 					this.globalViewsStore,
 					boardIndex.store,
 					this.tabsSettingsStore,
+					(orderedPaths) => void this.reorderTabs(orderedPaths),
 				),
 		);
 		this.addSettingTab(
@@ -44,6 +49,7 @@ export default class Base extends Plugin {
 				this.app,
 				this,
 				this.globalSettingsStore,
+				boardIndex.store,
 				() => this.saveGlobalSettings(),
 			),
 		);
@@ -77,6 +83,14 @@ export default class Base extends Plugin {
 			})
 		);
 
+		// Pinned tab paths follow renames — from the tab menu and the file
+		// explorer alike (SPEC 0032).
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				void this.rewritePinnedTabPaths(oldPath, file.path);
+			})
+		);
+
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
 				menu.addItem((item) => {
@@ -102,6 +116,48 @@ export default class Base extends Plugin {
 
 	private async saveGlobalSettings() {
 		await this.saveData(serializeGlobalSettings(this.globalSettingsStore.get()));
+	}
+
+	private async rewritePinnedTabPaths(oldPath: string, newPath: string) {
+		const tabs = this.globalSettingsStore.get().tabs;
+		const boardPaths = tabs?.boardPaths ?? [];
+		const unpinnedPaths = tabs?.unpinnedPaths ?? [];
+		const rewrittenBoardPaths = boardPaths.map((path) =>
+			rewriteBoardPath(path, oldPath, newPath),
+		);
+		const rewrittenUnpinnedPaths = unpinnedPaths.map((path) =>
+			rewriteBoardPath(path, oldPath, newPath),
+		);
+		if (
+			rewrittenBoardPaths.every((path, index) => path === boardPaths[index]) &&
+			rewrittenUnpinnedPaths.every((path, index) => path === unpinnedPaths[index])
+		) {
+			return;
+		}
+		this.globalSettingsStore.update((settings) => ({
+			...settings,
+			tabs: {
+				...settings.tabs!,
+				...(rewrittenBoardPaths.length > 0 ? { boardPaths: rewrittenBoardPaths } : {}),
+				...(rewrittenUnpinnedPaths.length > 0
+					? { unpinnedPaths: rewrittenUnpinnedPaths }
+					: {}),
+			},
+		}));
+		await this.saveGlobalSettings();
+	}
+
+	// Tab-strip drag reorder: the shown order, with the dragged tab moved,
+	// becomes the explicit tab order. Unpinned state is left untouched.
+	private async reorderTabs(orderedPaths: string[]) {
+		this.globalSettingsStore.update((settings) => ({
+			...settings,
+			tabs: {
+				...(settings.tabs ?? { enabled: false }),
+				boardPaths: orderedPaths,
+			},
+		}));
+		await this.saveGlobalSettings();
 	}
 
 	private async useCurrentBoardSettingsAsGlobalDefaults(view: KanbanView) {

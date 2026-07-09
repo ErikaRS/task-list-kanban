@@ -16,6 +16,11 @@ import {
 	type GlobalSettings,
 	type GlobalSettingsStore,
 } from "./global_settings";
+import { get, type Readable } from "svelte/store";
+import { movePathRelativeTo, type BoardIndexEntry } from "../boards/board_index";
+import type { DropPosition } from "./column_reorder";
+import type { TabsSettings } from "./global_settings";
+import { setIcon } from "obsidian";
 import { SettingsModal } from "./settings";
 import {
 	defaultSavedViewName,
@@ -26,11 +31,15 @@ import type { GroupSource } from "../tasks/task_grouping";
 
 export class GlobalSettingsTab extends PluginSettingTab {
 	private destroyBoardDefaultsEditor: (() => void) | null = null;
+	private destroyPinnedBoardsList: (() => void) | null = null;
+	private draggedTabPath: string | null = null;
+	private tabDropPreview: { path: string; position: DropPosition } | null = null;
 
 	constructor(
 		app: App,
 		plugin: Plugin,
 		private readonly globalSettingsStore: GlobalSettingsStore,
+		private readonly boardIndexStore: Readable<BoardIndexEntry[]>,
 		private readonly onChange: () => Promise<void>,
 	) {
 		super(app, plugin);
@@ -39,6 +48,8 @@ export class GlobalSettingsTab extends PluginSettingTab {
 	display(): void {
 		this.destroyBoardDefaultsEditor?.();
 		this.destroyBoardDefaultsEditor = null;
+		this.destroyPinnedBoardsList?.();
+		this.destroyPinnedBoardsList = null;
 		const { containerEl } = this;
 		containerEl.empty();
 		containerEl.addClass("task-list-kanban-global-settings");
@@ -81,6 +92,8 @@ export class GlobalSettingsTab extends PluginSettingTab {
 	hide(): void {
 		this.destroyBoardDefaultsEditor?.();
 		this.destroyBoardDefaultsEditor = null;
+		this.destroyPinnedBoardsList?.();
+		this.destroyPinnedBoardsList = null;
 		this.containerEl.empty();
 	}
 
@@ -187,10 +200,226 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					.onChange((value) => {
 						void this.mutate((settings) => ({
 							...settings,
-							tabs: value ? { enabled: true } : undefined,
+							tabs: {
+								...(settings.tabs ?? {}),
+								enabled: value,
+							},
 						}));
 					});
 			});
+
+		new Setting(containerEl)
+			.setName("Board tabs")
+			.setDesc(
+				"Boards shown as tabs, in order. Drag to reorder, remove to hide a board from the strip, and add removed boards back. New boards are shown automatically.",
+			);
+
+		const listEl = containerEl.createDiv();
+		// Discovery is async and boards can be created or renamed while the
+		// settings tab is open, so the list re-renders with the index.
+		this.destroyPinnedBoardsList?.();
+		this.destroyPinnedBoardsList = this.boardIndexStore.subscribe(() => {
+			this.renderPinnedBoardsList(listEl);
+		});
+	}
+
+	private renderPinnedBoardsList(listEl: HTMLElement) {
+		listEl.empty();
+		const boards = get(this.boardIndexStore);
+		const tabs = this.globalSettingsStore.get().tabs;
+		const orderedPaths = tabs?.boardPaths ?? [];
+		const orderedPathSet = new Set(orderedPaths);
+		const unpinnedPaths = new Set(tabs?.unpinnedPaths ?? []);
+		const boardsByPath = new Map(boards.map((board) => [board.path, board]));
+		const rerender = () => this.renderPinnedBoardsList(listEl);
+
+		if (boards.length === 0 && orderedPaths.length === 0) {
+			listEl.createEl("p", {
+				text: "No kanban boards found in this vault yet.",
+				cls: "setting-item-description",
+			});
+			return;
+		}
+
+		// The rows mirror the tab strip: explicitly ordered boards first,
+		// the rest alphabetically (the board index is already sorted). Stale
+		// ordered paths stay visible so they can be cleaned up.
+		const shownRows: { path: string; board: BoardIndexEntry | undefined }[] = [
+			...orderedPaths
+				.filter((path) => !unpinnedPaths.has(path))
+				.map((path) => ({ path, board: boardsByPath.get(path) })),
+			...boards
+				.filter(
+					(board) =>
+						!orderedPathSet.has(board.path) && !unpinnedPaths.has(board.path),
+				)
+				.map((board) => ({ path: board.path, board: board as BoardIndexEntry | undefined })),
+		];
+		const shownPaths = shownRows.map((row) => row.path);
+
+		const rowsEl = listEl.createDiv({ cls: "column-editor-list" });
+		for (const { path, board } of shownRows) {
+			this.renderPinnedBoardRow(rowsEl, path, board, shownPaths, rerender);
+		}
+
+		// Add back a board that was removed from the strip.
+		const removedBoards = boards.filter((board) => unpinnedPaths.has(board.path));
+		if (removedBoards.length > 0) {
+			new Setting(listEl).setName("Add board").addDropdown((dropdown) => {
+				dropdown.addOption("", "Choose a board…");
+				for (const board of removedBoards) {
+					dropdown.addOption(board.path, `${board.name} (${board.path})`);
+				}
+				dropdown.setValue("").onChange((path) => {
+					if (path === "") {
+						return;
+					}
+					void this.pinBoard(path).then(rerender);
+				});
+			});
+		}
+	}
+
+	private renderPinnedBoardRow(
+		rowsEl: HTMLElement,
+		path: string,
+		board: BoardIndexEntry | undefined,
+		shownPaths: string[],
+		rerender: () => void,
+	) {
+		const row = rowsEl.createDiv({ cls: "column-editor-row" });
+		const dragHandle = row.createEl("button", {
+			text: "⋮⋮",
+			cls: "column-editor-handle clickable-icon",
+		});
+		dragHandle.setAttribute("aria-label", `Reorder ${board?.name ?? path} tab`);
+		this.wireTabRowDragAndDrop(rowsEl, row, dragHandle, path, shownPaths, rerender);
+
+		const content = row.createDiv({ cls: "column-editor-row-content" });
+		content.createDiv({ text: board?.name ?? path });
+		content.createDiv({
+			text: board ? path : `${path} — board not found`,
+			cls: "setting-item-description",
+		});
+
+		const removeButton = row.createEl("button", { cls: "clickable-icon" });
+		setIcon(removeButton, "x");
+		removeButton.setAttribute("aria-label", "Remove from tabs");
+		removeButton.addEventListener("click", () => {
+			void this.unpinBoard(path).then(rerender);
+		});
+	}
+
+	private wireTabRowDragAndDrop(
+		rowsEl: HTMLElement,
+		row: HTMLDivElement,
+		dragHandle: HTMLButtonElement,
+		path: string,
+		shownPaths: string[],
+		rerender: () => void,
+	) {
+		dragHandle.draggable = true;
+		dragHandle.addEventListener("dragstart", (event) => {
+			this.draggedTabPath = path;
+			this.tabDropPreview = null;
+			row.addClass("is-dragging");
+			if (event.dataTransfer) {
+				event.dataTransfer.effectAllowed = "move";
+				event.dataTransfer.setData("text/plain", path);
+			}
+		});
+		dragHandle.addEventListener("dragend", () => {
+			this.clearTabDragState(rowsEl);
+		});
+		row.addEventListener("dragover", (event) => {
+			if (!this.draggedTabPath || this.draggedTabPath === path) {
+				return;
+			}
+			event.preventDefault();
+			const rowRect = row.getBoundingClientRect();
+			const position: DropPosition =
+				event.clientY > rowRect.top + rowRect.height / 2 ? "after" : "before";
+			this.tabDropPreview = { path, position };
+			row.addClass("is-drop-target");
+			row.classList.toggle("is-drop-before", position === "before");
+			row.classList.toggle("is-drop-after", position === "after");
+			if (event.dataTransfer) {
+				event.dataTransfer.dropEffect = "move";
+			}
+		});
+		row.addEventListener("dragleave", () => {
+			if (this.tabDropPreview?.path === path) {
+				this.tabDropPreview = null;
+			}
+			row.removeClass("is-drop-target");
+			row.removeClass("is-drop-before");
+			row.removeClass("is-drop-after");
+		});
+		row.addEventListener("drop", (event) => {
+			event.preventDefault();
+			const position =
+				this.tabDropPreview?.path === path ? this.tabDropPreview.position : "before";
+			const draggedPath =
+				this.draggedTabPath ?? event.dataTransfer?.getData("text/plain") ?? "";
+			this.clearTabDragState(rowsEl);
+			// Dropping materializes the full shown order as the explicit one.
+			const nextOrder = movePathRelativeTo(shownPaths, draggedPath, path, position);
+			if (nextOrder !== shownPaths) {
+				void this.setTabOrder(nextOrder).then(rerender);
+			}
+		});
+	}
+
+	private clearTabDragState(rowsEl: HTMLElement) {
+		this.draggedTabPath = null;
+		this.tabDropPreview = null;
+		for (const candidate of Array.from(rowsEl.querySelectorAll(".column-editor-row"))) {
+			candidate.removeClass("is-drop-target");
+			candidate.removeClass("is-drop-before");
+			candidate.removeClass("is-drop-after");
+			candidate.removeClass("is-dragging");
+		}
+	}
+
+	private async setTabOrder(boardPaths: string[]) {
+		await this.mutate((settings) => ({
+			...settings,
+			tabs: buildTabsSettings(
+				settings.tabs?.enabled ?? false,
+				boardPaths,
+				settings.tabs?.unpinnedPaths ?? [],
+			),
+		}));
+	}
+
+	private async pinBoard(path: string) {
+		await this.mutate((settings) => ({
+			...settings,
+			tabs: buildTabsSettings(
+				settings.tabs?.enabled ?? false,
+				settings.tabs?.boardPaths ?? [],
+				(settings.tabs?.unpinnedPaths ?? []).filter((candidate) => candidate !== path),
+			),
+		}));
+	}
+
+	private async unpinBoard(path: string) {
+		const isKnownBoard = get(this.boardIndexStore).some((board) => board.path === path);
+		await this.mutate((settings) => {
+			const boardPaths = (settings.tabs?.boardPaths ?? []).filter(
+				(candidate) => candidate !== path,
+			);
+			const currentUnpinned = settings.tabs?.unpinnedPaths ?? [];
+			// A stale path just gets dropped from the order; only boards that
+			// still exist need to be remembered as removed.
+			const unpinnedPaths = isKnownBoard
+				? [...currentUnpinned.filter((candidate) => candidate !== path), path]
+				: currentUnpinned;
+			return {
+				...settings,
+				tabs: buildTabsSettings(settings.tabs?.enabled ?? false, boardPaths, unpinnedPaths),
+			};
+		});
 	}
 
 	private renderGlobalSavedViews(containerEl: HTMLElement) {
@@ -398,6 +627,18 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		this.globalSettingsStore.update(updater);
 		await this.onChange();
 	}
+}
+
+function buildTabsSettings(
+	enabled: boolean,
+	boardPaths: string[],
+	unpinnedPaths: string[],
+): TabsSettings {
+	return {
+		enabled,
+		...(boardPaths.length > 0 ? { boardPaths } : {}),
+		...(unpinnedPaths.length > 0 ? { unpinnedPaths } : {}),
+	};
 }
 
 function buildSavedViewProperties(input: {

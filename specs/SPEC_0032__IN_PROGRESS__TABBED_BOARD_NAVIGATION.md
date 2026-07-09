@@ -15,14 +15,19 @@ spec). Depends on SPEC 0030's plugin-level `GlobalSettings` storage.
    a tab opens that board **in the same leaf** (confirmed in SPEC 0030 open
    questions: in-leaf is the requested UX).
 2. Tabs are opt-in via plugin settings (off by default).
-3. The user can optionally restrict tabs to a pinned subset of boards, whose
-   list order is the tab order (manual ordering "can be a list in plugin
-   settings first" per SPEC 0030 Part D).
-4. Board discovery is automatic and stays current as boards are created,
+3. **Every board is a tab by default** (review feedback: opt-in pinning was
+   unintuitive). The user curates by *removing* boards from the strip and
+   adding them back; newly created boards appear automatically.
+4. Tabs are reorderable by drag and drop — both in the plugin settings list
+   (same UI as the settings modal's column editor) and directly in the tab
+   strip on the board.
+5. Board discovery is automatic and stays current as boards are created,
    deleted, renamed, or gain/lose the `kanban_plugin` frontmatter key.
+6. Right-clicking a tab offers **Rename board**: renames the underlying
+   file in place (same folder, new name) without opening it.
 
-Non-goals (v1, per SPEC 0030 Part D): nested tab groups, drag-to-reorder,
-"recently used" ordering.
+Non-goals (v1, per SPEC 0030 Part D): nested tab groups, "recently used"
+ordering.
 
 ## High-Level Design
 
@@ -54,19 +59,32 @@ interface BoardIndexEntry {
 
 ```ts
 interface TabsSettings {
-	enabled: boolean;      // default false
-	boardPaths?: string[]; // pinned subset + manual order; absent/empty = all boards
+	enabled: boolean;         // default false
+	boardPaths?: string[];    // explicit tab order (may be partial)
+	unpinnedPaths?: string[]; // boards hidden from the strip
 }
 ```
 
+- **Everything-shown-by-default model** (reworked twice on review
+  feedback: first from a path textarea, then from opt-in pinning): every
+  discovered board is a tab unless listed in `unpinnedPaths`. `boardPaths`
+  fixes an explicit order for the boards it lists; boards absent from it —
+  including boards created later — follow alphabetically, so new boards
+  appear as tabs with zero configuration. Reordering materializes the
+  currently shown order into `boardPaths`.
 - Parsed/serialized with the rest of `GlobalSettings` (`data.json`).
   Unknown board paths are kept (the board may exist later); entries that
-  don't resolve to a discovered board are simply not shown.
+  don't resolve to a discovered board are simply not shown as tabs.
 - Tabs are plugin-wide *behavior*, not an inheritable board default, so
   their controls live in a plugin-settings block at the **top** of the
   plugin tab, above the "Board defaults" / "Default view" / "Global saved
-  views" defaults sections: a "Show board tabs" toggle and (Phase 2) a
-  one-path-per-line text area for the pinned list.
+  views" defaults sections: a "Show board tabs" toggle and a **board tabs
+  list** showing only the boards currently shown as tabs, in tab order —
+  each row drag-reorderable exactly like the settings modal's column
+  editor (same row/handle UI) with a remove ("✕") button, plus an **"Add
+  board" dropdown** listing removed boards to restore. Stale ordered paths
+  stay listed as "not found" so they can be cleaned up; removing a stale
+  row just drops it from the order rather than recording it as unpinned.
 
 ### Tab strip UI (`src/ui/boards/board_tabs.svelte`)
 
@@ -74,12 +92,15 @@ interface TabsSettings {
 - Visible only when tabs are enabled **and** at least two tabs would show;
   a strip with one tab is noise.
 - Tab resolution is a pure function (`resolveTabEntries`):
-  - No pinned list → all discovered boards, alphabetical by name
-    (case-insensitive, path tie-break).
-  - Pinned list → those boards in list order.
-  - The current board always gets a tab even if it isn't pinned (appended
+  - Explicitly ordered boards (`boardPaths`) first, in list order; all
+    other discovered boards follow alphabetically by name
+    (case-insensitive, path tie-break); `unpinnedPaths` boards are hidden.
+  - The current board always gets a tab even if it is unpinned (appended
     at the end), so the active tab is never missing.
 - The active tab is the view's current file; clicking it is a no-op.
+- Tabs are drag-reorderable in the strip itself: dropping a tab writes the
+  shown order (with the dragged tab moved) into `boardPaths` via a
+  plugin-provided callback; the unpinned list is untouched.
 
 ### In-leaf switching
 
@@ -117,6 +138,19 @@ await this.leaf.setViewState({
   suggestion state reset with the new board's own persisted state (the
   board's `lastFilter` etc.), exactly as if the board had been opened
   fresh.
+- **Tab rename (right-click):** an Obsidian `Menu` on tab context-click
+  with a "Rename board" item opening a name-prompt modal prefilled with
+  the current name. The rename goes through `app.fileManager.renameFile`
+  (not `vault.rename`) so vault-wide links to the board update. The target
+  path keeps the board's folder — rename never moves the file. Validation:
+  empty names and path separators are rejected; a collision with an
+  existing file shows a Notice and keeps the modal open state simple by
+  aborting. Renaming the currently open board keeps the view (Obsidian's
+  `FileView.onRename` fires); the view updates its current-path store so
+  the active tab highlight follows.
+- **Pinned paths follow renames:** the plugin listens to `vault.on("rename")`
+  and rewrites matching `tabs.boardPaths` entries to the new path, so pins
+  survive renames from the tab menu *and* from the file explorer alike.
 
 ## Implementation Plan
 
@@ -155,14 +189,70 @@ alphabetical tab strip of all boards; clicking switches in-leaf.
   list misses it — a no-op in all-boards mode, load-bearing once Phase 2's
   pinned subsets land.
 
-### Phase 2: Pinned board subset + manual order
-**Goal:** Plugin settings can restrict tabs to a chosen, ordered list.
+### Phase 2: Tab curation + ordering 🚧 IN PROGRESS
+**Goal:** All boards are tabs by default; the user removes/re-adds boards
+and reorders tabs by drag and drop, in settings and in the strip.
 
-1. ☐ `boardPaths` list editing in the "Board tabs" section (one per line)
-2. ☐ `resolveTabEntries`: pinned order, unknown paths skipped, current
-   board appended when unpinned
-3. ☐ Tests: pinned ordering, unknown-path skip, current-board append
-4. ☐ Manual: pin a subset, reorder lines, verify tab order follows
+1. ✅ Board tabs editor in the plugin-settings block: shown boards as
+   drag-reorderable rows (column-editor UI) with remove buttons, plus an
+   "Add board" dropdown of removed boards (reworked twice per review
+   feedback: from a path textarea, then from opt-in pin toggles)
+2. ✅ `resolveTabEntries`: ordered boards first, rest alphabetical,
+   `unpinnedPaths` hidden, current board appended when hidden
+3. ✅ Drag-reorder within the board tab strip itself, materializing the
+   shown order into `boardPaths` via a plugin callback
+4. ✅ Order and unpinned paths rewritten on `vault.on("rename")` so
+   curation survives renames
+5. ✅ Tests: order + hidden resolution, current-board append,
+   `movePathRelativeTo`, parse normalization of both lists, rename
+   rewrite (file + folder)
+6. ☐ Manual: remove/re-add boards, drag-reorder in settings and in the
+   strip, verify a new board appears automatically
 
 **Deliverable:** Curated tab strips (closes #130).
+**Size:** S–M
+
+**Implementation notes (Phase 2):**
+- `boardPaths` and `unpinnedPaths` are normalized at parse (trim, drop
+  empties, dedupe) and kept in `data.json` even while `enabled` is false,
+  so toggling tabs off and back on preserves the curation.
+- The rename rewrite also handles folder renames by prefix
+  (`rewriteBoardPath`), since Obsidian fires one rename event for a folder
+  rather than one per child file.
+- The board tabs editor subscribes to the board index while the tab is
+  open (discovery is async; boards can be created or renamed with settings
+  open) and re-renders only its own list container on changes — never the
+  whole tab, which would tear down the embedded board-defaults editor.
+- The settings rows reuse the column editor's CSS classes
+  (`column-editor-row` / `-handle` / drag-state classes), so both editors
+  share one look and one stylesheet.
+- Removing a board records it in `unpinnedPaths` (and drops it from the
+  order); re-adding removes it from `unpinnedPaths`, letting it fall back
+  into the alphabetical tail until reordered.
+
+### Phase 3: Rename board from tab context menu 🚧 IN PROGRESS
+**Goal:** Right-click a tab → "Rename board" renames the file in place.
+
+1. ✅ Pure target-path helper (folder preserved, `.md` appended, name
+   validation) + rename glue via `app.fileManager.renameFile`
+2. ✅ Name-prompt modal (prefilled, Enter submits, collision Notice)
+3. ✅ Context menu on tabs wired through `main.svelte`; current-path store
+   updated in `KanbanView.onRename` so the active tab follows a rename of
+   the open board
+4. ✅ Tests: target-path computation and validation edge cases (root
+   folder incl. the "/" spelling, nested folder, trims, rejects
+   empty/separators); collision handling is Obsidian glue, covered by the
+   manual pass
+5. ☐ Manual: rename via tab menu (open board and background board), verify
+   links to the board update, label updates, and the file did not move
+
+**Deliverable:** Boards renameable directly from the tab strip.
 **Size:** S
+
+**Implementation notes (Phase 3):**
+- `board_rename.ts` holds only the pure target computation; the
+  `fileManager.renameFile` glue lives in `rename_board_modal.ts` because a
+  runtime `obsidian` import cannot load under vitest (the npm package is
+  types-only).
+- Rename of a pinned board updates the pin via the Phase 2 vault-rename
+  listener; nothing rename-specific was needed in the tab flow.

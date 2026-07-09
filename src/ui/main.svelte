@@ -89,6 +89,7 @@
 	export let tabsSettingsStore: Readable<TabsSettings | undefined> = readable(undefined);
 	export let currentPathStore: Readable<string | null> = readable(null);
 	export let openBoard: (path: string) => void = () => undefined;
+	export let onReorderTabs: ((orderedPaths: string[]) => void) | undefined = undefined;
 	export let requestSave: () => void;
 
 	$: boardTabEntries = resolveTabEntries($boardIndexStore, $tabsSettingsStore, $currentPathStore);
@@ -830,6 +831,7 @@
 				entries={boardTabEntries}
 				currentPath={$currentPathStore}
 				onSelect={openBoard}
+				onReorder={onReorderTabs}
 			/>
 		{/if}
 		<div class="board-toolbar">

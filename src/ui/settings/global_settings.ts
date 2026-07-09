@@ -19,8 +19,13 @@ export interface GlobalSettings {
 	tabs?: TabsSettings;
 }
 
+// Every discovered board is a pinned tab by default. `unpinnedPaths` hides
+// boards; `boardPaths` fixes an explicit order for the boards it lists —
+// boards absent from it (e.g. created later) follow alphabetically.
 export interface TabsSettings {
 	enabled: boolean;
+	boardPaths?: string[];
+	unpinnedPaths?: string[];
 }
 
 export type GlobalDefaultViewProperties = Pick<SavedViewProperties, "flowDirection" | "columnWidth">;
@@ -124,13 +129,45 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	return settings;
 }
 
-// Tabs settings persist only in their non-default state (enabled), so a
-// default `data.json` stays free of the key.
+// Tabs settings persist only in a non-default state, so a default
+// `data.json` stays free of the key. Order and unpinned lists are kept
+// even while tabs are disabled, so toggling tabs off and on preserves them.
 function parseTabsSettings(raw: Record<string, unknown> | undefined): TabsSettings | undefined {
-	if (!raw || raw.enabled !== true) {
+	if (!raw) {
 		return undefined;
 	}
-	return { enabled: true };
+	const enabled = raw.enabled === true;
+	const boardPaths = normalizeBoardPaths(
+		Array.isArray(raw.boardPaths) ? raw.boardPaths : [],
+	);
+	const unpinnedPaths = normalizeBoardPaths(
+		Array.isArray(raw.unpinnedPaths) ? raw.unpinnedPaths : [],
+	);
+	if (!enabled && boardPaths.length === 0 && unpinnedPaths.length === 0) {
+		return undefined;
+	}
+	return {
+		enabled,
+		...(boardPaths.length > 0 ? { boardPaths } : {}),
+		...(unpinnedPaths.length > 0 ? { unpinnedPaths } : {}),
+	};
+}
+
+export function normalizeBoardPaths(paths: unknown[]): string[] {
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+	for (const path of paths) {
+		if (typeof path !== "string") {
+			continue;
+		}
+		const trimmed = path.trim();
+		if (trimmed === "" || seen.has(trimmed)) {
+			continue;
+		}
+		seen.add(trimmed);
+		normalized.push(trimmed);
+	}
+	return normalized;
 }
 
 export function serializeGlobalSettings(settings: GlobalSettings): GlobalSettings {
@@ -201,7 +238,12 @@ function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {
 		...(settings.globalViews && settings.globalViews.length > 0
 			? { globalViews: cloneJson(settings.globalViews) }
 			: {}),
-		...(settings.tabs?.enabled ? { tabs: cloneJson(settings.tabs) } : {}),
+		...(settings.tabs &&
+		(settings.tabs.enabled ||
+			(settings.tabs.boardPaths?.length ?? 0) > 0 ||
+			(settings.tabs.unpinnedPaths?.length ?? 0) > 0)
+			? { tabs: cloneJson(settings.tabs) }
+			: {}),
 	};
 }
 
