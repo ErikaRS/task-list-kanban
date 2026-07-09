@@ -1,6 +1,7 @@
 # SPEC 0032: Tabbed Board Navigation
 
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -154,7 +155,7 @@ await this.leaf.setViewState({
 
 ## Implementation Plan
 
-### Phase 1: Discovery service + tab strip (all boards) 🚧 IN PROGRESS
+### Phase 1: Discovery service + tab strip (all boards) ✅ COMPLETE
 **Goal:** Toggle tabs on in plugin settings → every kanban view shows an
 alphabetical tab strip of all boards; clicking switches in-leaf.
 
@@ -169,10 +170,10 @@ alphabetical tab strip of all boards; clicking switches in-leaf.
 4. ✅ Tests: sorting, `resolveTabEntries` (alphabetical, hide-if-<2,
    disabled/unset), tabs settings parse round-trip
 5. ✅ Automated verification: `npm run build`, `npm test` (839 passing)
-6. ☐ Manual: enable tabs, switch between boards, verify in-leaf switching,
+6. ✅ Manual: enable tabs, switch between boards, verify in-leaf switching,
    active-tab highlight, and that a just-edited board saves on switch
    (edit a task, switch away, check the file)
-7. ☐ Manual: create/delete/rename a board file and watch the strip update
+7. ✅ Manual: create/delete/rename a board file and watch the strip update
 
 **Deliverable:** Working opt-in tab bar across all kanban boards.
 **Size:** M

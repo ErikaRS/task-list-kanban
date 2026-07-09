@@ -1,6 +1,6 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN_PROGRESS (Phases 1-3 and 5 complete; Phase 4 in progress)
+Status: IN_PROGRESS (Phases 1-3, 5, and 6 complete; Phase 4 in progress)
 
 ## Feature Request Summary
 
@@ -513,15 +513,14 @@ them.
 - Tests cover global-view parsing isolation, local-before-global merge order,
   and the existing apply-merge behavior.
 
-### Phase 6: Tabbed navigation (scoping level; spun out — #130) 🚧 IN PROGRESS
+### Phase 6: Tabbed navigation (scoping level; spun out — #130) ✅ COMPLETE
 **Goal:** Switch between boards without leaving the kanban view.
 
-Spun out into `SPEC_0032__IN_PROGRESS__TABBED_BOARD_NAVIGATION.md`; progress
-tracks there (plus a tab-menu board rename added during review).
+Spun out into `complete/SPEC_0032__COMPLETE__TABBED_BOARD_NAVIGATION.md`
+(plus a tab-menu board rename added during review); implemented 2026-07.
 
 1. ✅ Board discovery service on `metadataCache`
-2. ✅ Tab strip UI + in-leaf switching (save-on-switch verification pending
-   in SPEC 0032 Phase 1 manual items)
+2. ✅ Tab strip UI + in-leaf switching (save-on-switch verified manually)
 3. ✅ `tabs` config in plugin settings (enable, curated board list, order)
 
 **Deliverable:** In-view tab bar across kanban boards.
