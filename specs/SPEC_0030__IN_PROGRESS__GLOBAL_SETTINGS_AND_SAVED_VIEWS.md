@@ -517,11 +517,12 @@ them.
 **Goal:** Switch between boards without leaving the kanban view.
 
 Spun out into `SPEC_0032__IN_PROGRESS__TABBED_BOARD_NAVIGATION.md`; progress
-tracks there.
+tracks there (plus a tab-menu board rename added during review).
 
-1. ☐ Board discovery service on `metadataCache`
-2. ☐ Tab strip UI + in-leaf switching (verify save-on-switch)
-3. ☐ `tabs` config in plugin settings (enable, board list, order)
+1. ✅ Board discovery service on `metadataCache`
+2. ✅ Tab strip UI + in-leaf switching (save-on-switch verification pending
+   in SPEC 0032 Phase 1 manual items)
+3. ✅ `tabs` config in plugin settings (enable, curated board list, order)
 
 **Deliverable:** In-view tab bar across kanban boards.
 **Size:** M

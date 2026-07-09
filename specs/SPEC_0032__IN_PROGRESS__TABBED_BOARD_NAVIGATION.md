@@ -177,6 +177,8 @@ alphabetical tab strip of all boards; clicking switches in-leaf.
 **Deliverable:** Working opt-in tab bar across all kanban boards.
 **Size:** M
 
+**Implemented by:** [06d4910](https://github.com/ErikaRS/task-list-kanban/commit/06d4910bcc766665e1eb2a8af179fda8f8ae24ae)
+
 **Implementation notes (Phase 1):**
 - Board detection uses key presence (`"kanban_plugin" in frontmatter`)
   rather than `entry.ts`'s truthiness check, so an empty-string value still
@@ -189,7 +191,7 @@ alphabetical tab strip of all boards; clicking switches in-leaf.
   list misses it — a no-op in all-boards mode, load-bearing once Phase 2's
   pinned subsets land.
 
-### Phase 2: Tab curation + ordering 🚧 IN PROGRESS
+### Phase 2: Tab curation + ordering ✅ COMPLETE
 **Goal:** All boards are tabs by default; the user removes/re-adds boards
 and reorders tabs by drag and drop, in settings and in the strip.
 
@@ -206,11 +208,13 @@ and reorders tabs by drag and drop, in settings and in the strip.
 5. ✅ Tests: order + hidden resolution, current-board append,
    `movePathRelativeTo`, parse normalization of both lists, rename
    rewrite (file + folder)
-6. ☐ Manual: remove/re-add boards, drag-reorder in settings and in the
+6. ✅ Manual: remove/re-add boards, drag-reorder in settings and in the
    strip, verify a new board appears automatically
 
 **Deliverable:** Curated tab strips (closes #130).
 **Size:** S–M
+
+**Implemented by:** [bddf905](https://github.com/ErikaRS/task-list-kanban/commit/bddf9054b7ad27ee4ef53f753f8e42aeb3b5fe94)
 
 **Implementation notes (Phase 2):**
 - `boardPaths` and `unpinnedPaths` are normalized at parse (trim, drop
@@ -230,7 +234,7 @@ and reorders tabs by drag and drop, in settings and in the strip.
   order); re-adding removes it from `unpinnedPaths`, letting it fall back
   into the alphabetical tail until reordered.
 
-### Phase 3: Rename board from tab context menu 🚧 IN PROGRESS
+### Phase 3: Rename board from tab context menu ✅ COMPLETE
 **Goal:** Right-click a tab → "Rename board" renames the file in place.
 
 1. ✅ Pure target-path helper (folder preserved, `.md` appended, name
@@ -243,11 +247,13 @@ and reorders tabs by drag and drop, in settings and in the strip.
    folder incl. the "/" spelling, nested folder, trims, rejects
    empty/separators); collision handling is Obsidian glue, covered by the
    manual pass
-5. ☐ Manual: rename via tab menu (open board and background board), verify
+5. ✅ Manual: rename via tab menu (open board and background board), verify
    links to the board update, label updates, and the file did not move
 
 **Deliverable:** Boards renameable directly from the tab strip.
 **Size:** S
+
+**Implemented by:** [2f0fe72](https://github.com/ErikaRS/task-list-kanban/commit/2f0fe72d0d40bb93ec6929f24a15eee972b0dbf5)
 
 **Implementation notes (Phase 3):**
 - `board_rename.ts` holds only the pure target computation; the
