@@ -1,4 +1,4 @@
-import { Notice, TextFileView, WorkspaceLeaf } from "obsidian";
+import { Notice, TextFileView, WorkspaceLeaf, type TFile } from "obsidian";
 
 import Main from "./main.svelte";
 import { SettingsModal } from "./settings/settings";
@@ -184,6 +184,13 @@ export class KanbanView extends TextFileView {
 
 	getSettingsOverridesSnapshot(): Partial<SettingValues> {
 		return structuredClone(this.settingsStore.getOverrides());
+	}
+
+	// Renaming the open board keeps this view; only the path store needs to
+	// follow so the active tab highlight does too.
+	async onRename(file: TFile): Promise<void> {
+		await super.onRename(file);
+		this.currentPathStore.set(file.path);
 	}
 
 	setViewData(data: string, clear?: boolean): void {

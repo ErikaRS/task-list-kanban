@@ -4,6 +4,7 @@
 	export let entries: BoardIndexEntry[];
 	export let currentPath: string | null;
 	export let onSelect: (path: string) => void;
+	export let onContextMenu: (entry: BoardIndexEntry, event: MouseEvent) => void;
 	export let onReorder: ((orderedPaths: string[]) => void) | undefined = undefined;
 
 	type DropPosition = "before" | "after";
@@ -85,6 +86,7 @@
 			title={entry.path}
 			draggable={onReorder !== undefined}
 			on:click={() => handleSelect(entry)}
+			on:contextmenu|preventDefault={(event) => onContextMenu(entry, event)}
 			on:dragstart={(event) => handleDragStart(entry, event)}
 			on:dragover={(event) => handleDragOver(entry, event)}
 			on:dragleave={() => handleDragLeave(entry)}

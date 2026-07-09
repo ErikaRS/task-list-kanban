@@ -71,6 +71,8 @@
 	} from "./views/view_editor_options";
 	import BoardTabs from "./boards/board_tabs.svelte";
 	import { resolveTabEntries, type BoardIndexEntry } from "./boards/board_index";
+	import { RenameBoardModal } from "./boards/rename_board_modal";
+	import { Menu } from "obsidian";
 	import type { TabsSettings } from "./settings/global_settings";
 
 	type TagGroupInputMode = "prefix" | "include";
@@ -93,6 +95,17 @@
 	export let requestSave: () => void;
 
 	$: boardTabEntries = resolveTabEntries($boardIndexStore, $tabsSettingsStore, $currentPathStore);
+
+	function handleTabContextMenu(entry: BoardIndexEntry, event: MouseEvent) {
+		const menu = new Menu();
+		menu.addItem((item) =>
+			item
+				.setTitle("Rename board")
+				.setIcon("pencil")
+				.onClick(() => new RenameBoardModal(app, entry).open()),
+		);
+		menu.showAtMouseEvent(event);
+	}
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
 	// Ticks at local midnight so $TODAY filters re-evaluate without a reload.
@@ -831,6 +844,7 @@
 				entries={boardTabEntries}
 				currentPath={$currentPathStore}
 				onSelect={openBoard}
+				onContextMenu={handleTabContextMenu}
 				onReorder={onReorderTabs}
 			/>
 		{/if}
