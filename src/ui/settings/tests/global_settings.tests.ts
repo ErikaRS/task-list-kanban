@@ -120,6 +120,15 @@ describe("global settings parsing", () => {
 			{ id: "global", name: "Global", query: "due:<$TODAY" },
 		]);
 	});
+
+	it("round-trips enabled board tabs and drops the disabled default", () => {
+		expect(parseGlobalSettings({ version: 1, tabs: { enabled: true } }).tabs).toEqual({
+			enabled: true,
+		});
+		expect(parseGlobalSettings({ version: 1, tabs: { enabled: false } }).tabs).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1, tabs: "yes" }).tabs).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1 }).tabs).toBeUndefined();
+	});
 });
 
 describe("global settings inheritance", () => {

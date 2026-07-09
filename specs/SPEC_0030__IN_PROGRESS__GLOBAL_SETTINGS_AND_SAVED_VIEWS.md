@@ -513,11 +513,14 @@ them.
 - Tests cover global-view parsing isolation, local-before-global merge order,
   and the existing apply-merge behavior.
 
-### Phase 6: Tabbed navigation (scoping level; spin out own spec — #130)
+### Phase 6: Tabbed navigation (scoping level; spun out — #130) 🚧 IN PROGRESS
 **Goal:** Switch between boards without leaving the kanban view.
 
+Spun out into `SPEC_0032__IN_PROGRESS__TABBED_BOARD_NAVIGATION.md`; progress
+tracks there.
+
 1. ☐ Board discovery service on `metadataCache`
-2. ☐ Tab strip UI + in-leaf `openFile` switching (verify save-on-switch)
+2. ☐ Tab strip UI + in-leaf switching (verify save-on-switch)
 3. ☐ `tabs` config in plugin settings (enable, board list, order)
 
 **Deliverable:** In-view tab bar across kanban boards.

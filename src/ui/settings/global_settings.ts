@@ -16,6 +16,11 @@ export interface GlobalSettings {
 	boardDefaults: Partial<SettingValues>;
 	defaultView?: GlobalDefaultViewProperties;
 	globalViews?: SavedView[];
+	tabs?: TabsSettings;
+}
+
+export interface TabsSettings {
+	enabled: boolean;
 }
 
 export type GlobalDefaultViewProperties = Pick<SavedViewProperties, "flowDirection" | "columnWidth">;
@@ -88,6 +93,7 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	const rawBoardDefaults = isRecord(data.boardDefaults) ? data.boardDefaults : {};
 	const rawDefaultView = isRecord(data.defaultView) ? data.defaultView : undefined;
 	const rawGlobalViews = Array.isArray(data.globalViews) ? data.globalViews : undefined;
+	const rawTabs = isRecord(data.tabs) ? data.tabs : undefined;
 
 	const parsedBoardDefaults = pickBoardDefaultSettings(
 		parseSettingsOverrides(JSON.stringify(rawBoardDefaults)),
@@ -111,7 +117,20 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	if (parsedGlobalViews && parsedGlobalViews.length > 0) {
 		settings.globalViews = parsedGlobalViews;
 	}
+	const parsedTabs = parseTabsSettings(rawTabs);
+	if (parsedTabs) {
+		settings.tabs = parsedTabs;
+	}
 	return settings;
+}
+
+// Tabs settings persist only in their non-default state (enabled), so a
+// default `data.json` stays free of the key.
+function parseTabsSettings(raw: Record<string, unknown> | undefined): TabsSettings | undefined {
+	if (!raw || raw.enabled !== true) {
+		return undefined;
+	}
+	return { enabled: true };
 }
 
 export function serializeGlobalSettings(settings: GlobalSettings): GlobalSettings {
@@ -182,6 +201,7 @@ function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {
 		...(settings.globalViews && settings.globalViews.length > 0
 			? { globalViews: cloneJson(settings.globalViews) }
 			: {}),
+		...(settings.tabs?.enabled ? { tabs: cloneJson(settings.tabs) } : {}),
 	};
 }
 

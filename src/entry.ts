@@ -9,6 +9,7 @@ import {
 	serializeGlobalSettings,
 } from "./ui/settings/global_settings";
 import { GlobalSettingsTab } from "./ui/settings/global_settings_tab";
+import { createBoardIndex, type BoardIndex } from "./ui/boards/board_index";
 
 export default class Base extends Plugin {
 	private readonly globalSettingsStore = createGlobalSettingsStore();
@@ -17,12 +18,26 @@ export default class Base extends Plugin {
 		this.globalSettingsStore,
 		(settings) => settings.globalViews ?? [],
 	);
+	private readonly tabsSettingsStore = derived(
+		this.globalSettingsStore,
+		(settings) => settings.tabs,
+	);
+	private boardIndex: BoardIndex | undefined;
 
 	async onload() {
 		this.globalSettingsStore.set(parseGlobalSettings(await this.loadData()));
+		const boardIndex = createBoardIndex(this.app, this.registerEvent.bind(this));
+		this.boardIndex = boardIndex;
 		this.registerView(
 			KANBAN_VIEW_NAME,
-			(leaf) => new KanbanView(leaf, this.inheritedSettingsStore, this.globalViewsStore),
+			(leaf) =>
+				new KanbanView(
+					leaf,
+					this.inheritedSettingsStore,
+					this.globalViewsStore,
+					boardIndex.store,
+					this.tabsSettingsStore,
+				),
 		);
 		this.addSettingTab(
 			new GlobalSettingsTab(
@@ -81,7 +96,9 @@ export default class Base extends Plugin {
 		);
 	}
 
-	onunload() {}
+	onunload() {
+		this.boardIndex?.destroy();
+	}
 
 	private async saveGlobalSettings() {
 		await this.saveData(serializeGlobalSettings(this.globalSettingsStore.get()));

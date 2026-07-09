@@ -69,6 +69,9 @@
 		sortSelectValueFor,
 		sortSelectionFromValue,
 	} from "./views/view_editor_options";
+	import BoardTabs from "./boards/board_tabs.svelte";
+	import { resolveTabEntries, type BoardIndexEntry } from "./boards/board_index";
+	import type { TabsSettings } from "./settings/global_settings";
 
 	type TagGroupInputMode = "prefix" | "include";
 
@@ -82,7 +85,13 @@
 	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 	export let settingsStore: BoardSettingsStore;
 	export let globalViewsStore: Readable<SavedView[]> = readable([]);
+	export let boardIndexStore: Readable<BoardIndexEntry[]> = readable([]);
+	export let tabsSettingsStore: Readable<TabsSettings | undefined> = readable(undefined);
+	export let currentPathStore: Readable<string | null> = readable(null);
+	export let openBoard: (path: string) => void = () => undefined;
 	export let requestSave: () => void;
+
+	$: boardTabEntries = resolveTabEntries($boardIndexStore, $tabsSettingsStore, $currentPathStore);
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
 	// Ticks at local midnight so $TODAY filters re-evaluate without a reload.
@@ -816,6 +825,13 @@
 
 <div class="main">
 	<div class="board-content" bind:this={boardContentEl}>
+		{#if boardTabEntries.length > 0}
+			<BoardTabs
+				entries={boardTabEntries}
+				currentPath={$currentPathStore}
+				onSelect={openBoard}
+			/>
+		{/if}
 		<div class="board-toolbar">
 			<div class="view-control" bind:this={viewControlContainer}>
 				<button

@@ -43,13 +43,16 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.addClass("task-list-kanban-global-settings");
 		containerEl.createEl("h2", { text: "Task List Kanban" });
+		this.renderPluginSettings(containerEl);
+
+		new Setting(containerEl).setName("Board defaults").setHeading();
 		containerEl.createEl("p", {
 			text: "Defaults here apply to boards that have not saved a local override for the same setting.",
 			cls: "setting-item-description",
 		});
 
 		new Setting(containerEl)
-			.setName("Board defaults")
+			.setName("Reset board defaults")
 			.setDesc("Clear plugin-level board defaults and fall back to the built-in defaults.")
 			.addButton((button) => {
 				button
@@ -170,6 +173,24 @@ export class GlobalSettingsTab extends PluginSettingTab {
 				defaultView: Object.keys(view).length > 0 ? view : undefined,
 			};
 		});
+	}
+
+	// Plugin-wide behavior settings — unlike everything below, these are not
+	// defaults that boards inherit, so they sit above the defaults sections.
+	private renderPluginSettings(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName("Show board tabs")
+			.setDesc("Show a tab strip on every kanban board for switching between boards in the same pane.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.globalSettingsStore.get().tabs?.enabled ?? false)
+					.onChange((value) => {
+						void this.mutate((settings) => ({
+							...settings,
+							tabs: value ? { enabled: true } : undefined,
+						}));
+					});
+			});
 	}
 
 	private renderGlobalSavedViews(containerEl: HTMLElement) {

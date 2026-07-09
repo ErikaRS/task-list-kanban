@@ -9,7 +9,9 @@ import {
 	type SettingValues,
 } from "./settings/settings_store";
 import { resolveScopeFilter } from "./tasks/scope";
-import { get, type Readable, type Writable } from "svelte/store";
+import { get, writable, type Readable, type Writable } from "svelte/store";
+import type { BoardIndexEntry } from "./boards/board_index";
+import type { TabsSettings } from "./settings/global_settings";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
@@ -44,6 +46,7 @@ export class KanbanView extends TextFileView {
 	private filenameFilter: string[] | null = null;
 	private excludeFilter: string[] | null = null;
 	private boardFolderPath: string | null = null;
+	private readonly currentPathStore = writable<string | null>(null);
 
 	private readonly tasksStore: Writable<Task[]>;
 	private readonly taskActions: TaskActions;
@@ -57,6 +60,8 @@ export class KanbanView extends TextFileView {
 		leaf: WorkspaceLeaf,
 		inheritedSettingsStore?: Readable<Partial<SettingValues>>,
 		private readonly globalViewsStore?: Readable<SavedView[]>,
+		private readonly boardIndexStore?: Readable<BoardIndexEntry[]>,
+		private readonly tabsSettingsStore?: Readable<TabsSettings | undefined>,
 	) {
 		super(leaf);
 
@@ -150,6 +155,20 @@ export class KanbanView extends TextFileView {
 		});
 	}
 
+	// In-leaf board switching (SPEC 0032). Setting the view state straight
+	// to the kanban type skips the markdown-view detour `openFile` would
+	// take; the unload of the current file flushes any pending save first.
+	private async openBoard(path: string): Promise<void> {
+		if (path === this.file?.path) {
+			return;
+		}
+		await this.leaf.setViewState({
+			type: KANBAN_VIEW_NAME,
+			state: { file: path },
+			active: true,
+		});
+	}
+
 	getViewType() {
 		return KANBAN_VIEW_NAME;
 	}
@@ -168,6 +187,7 @@ export class KanbanView extends TextFileView {
 
 	setViewData(data: string, clear?: boolean): void {
 		this.data = data;
+		this.currentPathStore.set(this.file?.path ?? null);
 
 		const selfWriteIndex = this.pendingSelfTaskFileWrites.indexOf(data);
 		if (selfWriteIndex !== -1) {
@@ -208,6 +228,10 @@ export class KanbanView extends TextFileView {
 				openSettings: () => this.openSettingsModal(),
 				settingsStore: this.settingsStore,
 				globalViewsStore: this.globalViewsStore,
+				boardIndexStore: this.boardIndexStore,
+				tabsSettingsStore: this.tabsSettingsStore,
+				currentPathStore: this.currentPathStore,
+				openBoard: (path: string) => void this.openBoard(path),
 				requestSave: () => this.requestSave(),
 			},
 		});
