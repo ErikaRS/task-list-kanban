@@ -467,6 +467,10 @@ them.
 **Deliverable:** Change default columns once; new and untouched boards follow.
 **Size:** L
 
+**Implemented by:** earlier Phase 4 commits plus
+[1b4cee8](https://github.com/ErikaRS/task-list-kanban/commit/1b4cee8)
+(override lifecycle, prune command, default-view normalization)
+
 **Implementation notes (Phase 4):**
 - Added `src/ui/settings/global_settings.ts` with versioned plugin-level
   settings, Tier 1 filtering, default-view-to-settings mapping, inherited
