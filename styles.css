@@ -688,6 +688,76 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-muted);
 }
 
+.settings-section-header-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: flex-start;
+	gap: 10px;
+}
+
+.settings-section-header-row h2 {
+	margin: 0 0 4px;
+	font-size: 1.35em;
+}
+
+/* Inherited-vs-overridden indicator (SPEC 0030 Phase 4). Reads as small
+   bold text, not a button: Obsidian's default button chrome is stripped
+   and the flex sizing pinned so row layouts can't stretch it. */
+.settings-override-chip {
+	appearance: none;
+	background: none;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+	height: auto;
+	flex: 0 0 auto;
+	align-self: center;
+	width: auto;
+	color: var(--text-faint);
+	cursor: pointer;
+	font-size: var(--font-smallest);
+	font-weight: var(--font-semibold, 600);
+	line-height: 1.4;
+	margin-left: 8px;
+	padding: 0;
+	vertical-align: middle;
+}
+
+.settings-override-chip:hover {
+	background: none;
+	box-shadow: none;
+	color: var(--text-muted);
+	text-decoration: underline;
+}
+
+.settings-override-chip.is-overridden {
+	color: var(--text-normal);
+}
+
+/* The section-level reset shares the chip's text styling; it sits right
+   after the section title and dims when nothing in the section is
+   overridden. */
+.settings-section-reset {
+	flex: 0 0 auto;
+	margin-left: 0;
+	color: var(--text-normal);
+	/* A step above the item-level chips, still well below the h2, so the
+	   section action reads as the top of the reset hierarchy. */
+	font-size: var(--font-small, 0.875em);
+}
+
+.settings-section-reset:hover:not(:disabled) {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+
+.settings-section-reset:disabled {
+	color: var(--text-faint);
+	cursor: default;
+	text-decoration: none;
+	opacity: 0.6;
+}
+
 .settings-section-body > .setting-item:first-child {
 	border-top: 0;
 }
@@ -848,7 +918,14 @@ If your plugin does not need CSS, delete this file.
 }
 
 .column-editor-row.is-bookend .column-editor-summary {
-	grid-template-columns: minmax(180px, 1fr) minmax(150px, auto);
+	/* The trailing auto column holds the override chip; it collapses to
+	   nothing in the global-defaults editor where no chip is rendered. */
+	grid-template-columns: minmax(180px, 1fr) minmax(150px, auto) auto;
+}
+
+.column-editor-summary > .settings-override-chip {
+	justify-self: start;
+	margin-left: 0;
 }
 
 .column-editor-pill {

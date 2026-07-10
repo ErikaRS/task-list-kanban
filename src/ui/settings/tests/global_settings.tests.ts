@@ -19,15 +19,50 @@ import {
 } from "../global_settings";
 
 describe("global settings parsing", () => {
-	it("defaults the global layout flow to left-to-right", () => {
+	it("treats an absent default view as no layout defaults", () => {
 		const parsed = parseGlobalSettings({});
 
-		expect(parsed.defaultView).toEqual({
-			flowDirection: FlowDirection.LeftToRight,
+		expect(parsed.defaultView).toBeUndefined();
+		expect(inheritedSettingsFromGlobalSettings(parsed)).toEqual({});
+	});
+
+	it("keeps non-builtin layout defaults and drops an emptied default view", () => {
+		const withFlow = parseGlobalSettings({
+			version: 1,
+			defaultView: { flowDirection: FlowDirection.TopToBottom },
 		});
-		expect(inheritedSettingsFromGlobalSettings(parsed)).toEqual({
-			flowDirection: FlowDirection.LeftToRight,
+		expect(withFlow.defaultView).toEqual({
+			flowDirection: FlowDirection.TopToBottom,
 		});
+
+		// "No default view" is representable (the previous parser force-set
+		// flow back to left-to-right).
+		const cleared = parseGlobalSettings({ version: 1, defaultView: {} });
+		expect(cleared.defaultView).toBeUndefined();
+		expect(inheritedSettingsFromGlobalSettings(cleared)).toEqual({});
+	});
+
+	it("normalizes layout defaults equal to the builtins to no default", () => {
+		// An explicit LTR flow or 300px width is indistinguishable from the
+		// builtin defaults, so neither is stored (also sheds the LTR that
+		// earlier builds pinned into data.json).
+		const parsed = parseGlobalSettings({
+			version: 1,
+			defaultView: {
+				flowDirection: FlowDirection.LeftToRight,
+				columnWidth: defaultSettings.columnWidth,
+			},
+		});
+		expect(parsed.defaultView).toBeUndefined();
+
+		const mixed = parseGlobalSettings({
+			version: 1,
+			defaultView: {
+				flowDirection: FlowDirection.LeftToRight,
+				columnWidth: 420,
+			},
+		});
+		expect(mixed.defaultView).toEqual({ columnWidth: 420 });
 	});
 
 	it("keeps only Tier 1 board defaults", () => {

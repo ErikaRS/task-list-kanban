@@ -378,6 +378,24 @@ export interface BoardSettingsStore extends Writable<SettingValues> {
 	load(overrides: Partial<SettingValues>): void;
 	/** The sparse overrides layer — what gets written to frontmatter. */
 	getOverrides(): Partial<SettingValues>;
+	/**
+	 * The values the board falls back to where it has no override
+	 * (builtin defaults ⊕ inherited globals). Deep-cloned.
+	 */
+	getBaseSettings(): SettingValues;
+	/**
+	 * Records the fields' current resolved values as overrides even when
+	 * they equal the inherited value — the explicit "freeze this here"
+	 * affordance diff-based tracking cannot express.
+	 */
+	pinOverrides(keys: readonly (keyof SettingValues)[]): void;
+	/** Sheds overrides so the fields fall back to inherited/builtin values. */
+	clearOverrides(keys: readonly (keyof SettingValues)[]): void;
+	/**
+	 * Sheds every override whose value equals what the board would inherit
+	 * anyway. Returns the shed keys.
+	 */
+	pruneOverridesMatchingDefaults(): (keyof SettingValues)[];
 	/** Releases subscriptions owned by this store. */
 	destroy(): void;
 }
@@ -395,6 +413,7 @@ export const createSettingsStore = (
 	let snapshot = new Map<string, string | undefined>();
 
 	const resolve = (): SettingValues => ({ ...defaultSettings, ...inheritedSettings, ...overrides });
+	const resolveBase = (): SettingValues => ({ ...defaultSettings, ...inheritedSettings });
 
 	const takeSnapshot = (resolved: SettingValues) => {
 		snapshot = new Map(
@@ -445,6 +464,39 @@ export const createSettingsStore = (
 			commit();
 		},
 		getOverrides: () => ({ ...overrides }),
+		getBaseSettings: () => structuredClone(resolveBase()),
+		pinOverrides: (keys) => {
+			const resolved = resolve() as unknown as Record<string, unknown>;
+			const overridesRecord = overrides as Record<string, unknown>;
+			for (const key of keys) {
+				const json = JSON.stringify(resolved[key]);
+				if (json !== undefined) {
+					overridesRecord[key] = JSON.parse(json);
+				}
+			}
+			commit();
+		},
+		clearOverrides: (keys) => {
+			for (const key of keys) {
+				delete overrides[key];
+			}
+			commit();
+		},
+		pruneOverridesMatchingDefaults: () => {
+			const base = resolveBase() as unknown as Record<string, unknown>;
+			const overridesRecord = overrides as Record<string, unknown>;
+			const pruned: (keyof SettingValues)[] = [];
+			for (const key of Object.keys(overridesRecord)) {
+				if (JSON.stringify(overridesRecord[key]) === JSON.stringify(base[key])) {
+					delete overridesRecord[key];
+					pruned.push(key as keyof SettingValues);
+				}
+			}
+			if (pruned.length > 0) {
+				commit();
+			}
+			return pruned;
+		},
 		destroy: () => unsubscribeInherited?.(),
 	};
 };

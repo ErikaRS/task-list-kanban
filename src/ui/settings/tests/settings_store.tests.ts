@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { get } from "svelte/store";
+import { get, writable } from "svelte/store";
 import {
 	createSettingsStore,
 	defaultSettings,
@@ -181,6 +181,82 @@ describe("BoardSettingsStore override tracking (SPEC 0030)", () => {
 		expect(store.getOverrides()).toEqual({ flowDirection: FlowDirection.RightToLeft });
 		expect(get(store).columnWidth).toBe(defaultSettings.columnWidth);
 		expect(get(store).flowDirection).toBe(FlowDirection.RightToLeft);
+	});
+});
+
+describe("Override lifecycle: pin, clear, prune (SPEC 0030 Phase 4)", () => {
+	it("getBaseSettings resolves defaults plus inherited without board overrides", () => {
+		const inherited = writable({ columnWidth: 360 });
+		const store = createSettingsStore(inherited);
+		store.update((s) => ({ ...s, columnWidth: 500 }));
+
+		expect(store.getBaseSettings().columnWidth).toBe(360);
+		expect(store.getBaseSettings().flowDirection).toBe(defaultSettings.flowDirection);
+		expect(get(store).columnWidth).toBe(500);
+		store.destroy();
+	});
+
+	it("pinOverrides freezes a field at the inherited value", () => {
+		const inherited = writable({ columnWidth: 360 });
+		const store = createSettingsStore(inherited);
+
+		// A value-preserving write records nothing…
+		store.update((s) => ({ ...s, columnWidth: 360 }));
+		expect(store.getOverrides()).toEqual({});
+
+		// …but pinning does, so a later global change no longer moves it.
+		store.pinOverrides(["columnWidth"]);
+		expect(store.getOverrides()).toEqual({ columnWidth: 360 });
+		inherited.set({ columnWidth: 420 });
+		expect(get(store).columnWidth).toBe(360);
+		store.destroy();
+	});
+
+	it("clearOverrides sheds a field back to live inherited values", () => {
+		const inherited = writable({ columnWidth: 360 });
+		const store = createSettingsStore(inherited);
+		store.update((s) => ({ ...s, columnWidth: 500, flowDirection: FlowDirection.RightToLeft }));
+
+		store.clearOverrides(["columnWidth"]);
+
+		expect(store.getOverrides()).toEqual({ flowDirection: FlowDirection.RightToLeft });
+		expect(get(store).columnWidth).toBe(360);
+		inherited.set({ columnWidth: 420 });
+		expect(get(store).columnWidth).toBe(420);
+		store.destroy();
+	});
+
+	it("pruneOverridesMatchingDefaults sheds only overrides equal to the base", () => {
+		const inherited = writable({ columnWidth: 360, scope: ScopeOption.Everywhere });
+		const store = createSettingsStore(inherited);
+		// A legacy fully-materialized board: some overrides match what the
+		// board would inherit anyway, some genuinely differ.
+		store.load({
+			columnWidth: 360,
+			scope: ScopeOption.Everywhere,
+			flowDirection: defaultSettings.flowDirection,
+			columns: migrateColumnDefinitions(["Only", "Here"]),
+			doneColumnName: "Finished",
+		});
+
+		const pruned = store.pruneOverridesMatchingDefaults();
+
+		expect([...pruned].sort()).toEqual(["columnWidth", "flowDirection", "scope"]);
+		expect(Object.keys(store.getOverrides()).sort()).toEqual(["columns", "doneColumnName"]);
+		// Resolved values are unchanged by the prune…
+		expect(get(store).columnWidth).toBe(360);
+		// …but the pruned fields follow inherited changes again.
+		inherited.set({ columnWidth: 420, scope: ScopeOption.Everywhere });
+		expect(get(store).columnWidth).toBe(420);
+		store.destroy();
+	});
+
+	it("prune on a board with no matching overrides returns nothing", () => {
+		const store = createSettingsStore();
+		store.update((s) => ({ ...s, columnWidth: 500 }));
+		expect(store.pruneOverridesMatchingDefaults()).toEqual([]);
+		expect(store.getOverrides()).toEqual({ columnWidth: 500 });
+		store.destroy();
 	});
 });
 

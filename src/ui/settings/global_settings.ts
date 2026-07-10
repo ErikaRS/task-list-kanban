@@ -1,8 +1,9 @@
 import { derived, writable, type Readable, type Writable } from "svelte/store";
 import {
+	defaultSettings,
+	FlowDirection,
 	parseSavedViewProperties,
 	parseSettingsOverrides,
-	FlowDirection,
 	type SavedView,
 	type SavedViewProperties,
 	type SettingValues,
@@ -58,9 +59,6 @@ export const BOARD_DEFAULT_SETTING_KEYS = [
 export const defaultGlobalSettings: GlobalSettings = {
 	version: GLOBAL_SETTINGS_VERSION,
 	boardDefaults: {},
-	defaultView: {
-		flowDirection: FlowDirection.LeftToRight,
-	},
 };
 
 export function createGlobalSettingsStore(
@@ -103,10 +101,20 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	const parsedBoardDefaults = pickBoardDefaultSettings(
 		parseSettingsOverrides(JSON.stringify(rawBoardDefaults)),
 	);
+	// An absent default view means "boards use the builtin layout defaults".
+	// Explicit values equal to the builtin defaults (left-to-right flow,
+	// 300px width) are indistinguishable from that, so they normalize to no
+	// stored default (this also sheds the forced LTR that earlier builds
+	// pinned into data.json).
 	const parsedDefaultView = pickGlobalDefaultViewProperties(
 		parseSavedViewProperties(rawDefaultView),
 	);
-	parsedDefaultView.flowDirection = parsedDefaultView.flowDirection ?? FlowDirection.LeftToRight;
+	if (parsedDefaultView.flowDirection === FlowDirection.LeftToRight) {
+		delete parsedDefaultView.flowDirection;
+	}
+	if (parsedDefaultView.columnWidth === defaultSettings.columnWidth) {
+		delete parsedDefaultView.columnWidth;
+	}
 	const parsedGlobalViews = rawGlobalViews
 		? (parseSettingsOverrides(JSON.stringify({ savedViews: rawGlobalViews })).savedViews ?? [])
 			.filter(savedViewHasProperties)

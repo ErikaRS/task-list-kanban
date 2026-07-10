@@ -1,7 +1,7 @@
 import { Notice, TextFileView, WorkspaceLeaf, type TFile } from "obsidian";
 
 import Main from "./main.svelte";
-import { SettingsModal } from "./settings/settings";
+import { SettingsModal, type SettingsSubmitOptions } from "./settings/settings";
 import {
 	createSettingsStore,
 	type BoardSettingsStore,
@@ -117,7 +117,7 @@ export class KanbanView extends TextFileView {
 
 	private async onLocalSettingsChange(
 		newSettings: SettingValues,
-		options: { updateExistingTaskTagsByColumnId: Record<string, boolean> },
+		options: SettingsSubmitOptions,
 	) {
 		const previousSettings = structuredClone(get(this.settingsStore));
 		try {
@@ -135,6 +135,16 @@ export class KanbanView extends TextFileView {
 		}
 
 		this.settingsStore.set(newSettings);
+		// Pin/reset decisions from the modal come after the value write:
+		// set() only records overrides for value-*changing* writes, so
+		// pinning at the inherited value and shedding an override both need
+		// the explicit lifecycle calls.
+		if (options.pinnedSettingKeys.length > 0) {
+			this.settingsStore.pinOverrides(options.pinnedSettingKeys);
+		}
+		if (options.clearedSettingKeys.length > 0) {
+			this.settingsStore.clearOverrides(options.clearedSettingKeys);
+		}
 		this.initialiseTasksStore();
 		this.requestSave();
 	}
@@ -144,7 +154,15 @@ export class KanbanView extends TextFileView {
 			this.app,
 			structuredClone(get(this.settingsStore)),
 			(newSettings, options) => this.onLocalSettingsChange(newSettings, options),
-			this.file?.parent?.path ?? null
+			this.file?.parent?.path ?? null,
+			{
+				overrideContext: {
+					overriddenKeys: Object.keys(
+						this.settingsStore.getOverrides(),
+					) as (keyof SettingValues)[],
+					baseSettings: this.settingsStore.getBaseSettings(),
+				},
+			},
 		);
 
 		settingsModal.open();
@@ -184,6 +202,21 @@ export class KanbanView extends TextFileView {
 
 	getSettingsOverridesSnapshot(): Partial<SettingValues> {
 		return structuredClone(this.settingsStore.getOverrides());
+	}
+
+	// The escape hatch for legacy fully-materialized boards (SPEC 0030
+	// Part A): sheds every override that matches what the board would
+	// inherit anyway, so those fields start following the defaults again.
+	pruneSettingsMatchingDefaults(): void {
+		const prunedKeys = this.settingsStore.pruneOverridesMatchingDefaults();
+		if (prunedKeys.length === 0) {
+			new Notice("No board settings match the defaults.");
+			return;
+		}
+		this.requestSave();
+		new Notice(
+			`Pruned ${prunedKeys.length} board setting${prunedKeys.length === 1 ? "" : "s"} matching the defaults.`,
+		);
 	}
 
 	// Renaming the open board keeps this view; only the path store needs to

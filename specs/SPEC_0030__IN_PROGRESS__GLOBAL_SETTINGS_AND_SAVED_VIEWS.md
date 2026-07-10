@@ -1,6 +1,7 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN_PROGRESS (Phases 1-3, 5, and 6 complete; Phase 4 in progress)
+Status: IN_PROGRESS (Phases 1-6 complete; Phase 7 to be spun out into its
+own spec)
 
 ## Feature Request Summary
 
@@ -431,7 +432,7 @@ captures) and Phase 2 (the view editor hosting the controls and save row).
   included-properties hint ("Saves: Filter · Group") mirroring the
   spec mockup.
 
-### Phase 4: Global settings (closes #8) 🚧 IN PROGRESS
+### Phase 4: Global settings (closes #8) ✅ COMPLETE
 **Goal:** Plugin-level defaults inherited by boards that haven't overridden
 them.
 
@@ -443,27 +444,30 @@ them.
    `PluginSettingTab` with Tier 1 defaults
 4. ✅ Layout-only "Default view" section in the plugin tab, resolved as the
    Tier 2 default layer for flow direction and card width
-5. ☐ Board modal: inherited-vs-overridden indication + per-section reset.
+5. ✅ Board modal: inherited-vs-overridden indication + per-section reset.
    Scope also includes the override-lifecycle gaps found in review:
-   - Pinning a field at the inherited value (today only value-*changing*
+   - ✅ Pinning a field at the inherited value (today only value-*changing*
 	 writes record an override, so a board cannot deliberately freeze a
 	 value that currently equals the global default)
-   - Clearing the plugin-level default view (flow direction is force-set
+   - ✅ Clearing the plugin-level default view (flow direction is force-set
 	 to LTR at parse and card width has no unset affordance, so "no
 	 default view" is not a representable state)
-   - Shedding overrides on legacy fully-materialized boards (Part A's
+   - ✅ Shedding overrides on legacy fully-materialized boards (Part A's
 	 "Prune settings that match defaults" command), without which every
 	 Tier 2 field counts as set and view saves always capture all
 	 arrangement properties
 6. ✅ "Use this board's settings as global defaults" command (optionally
    capturing its current arrangement as the default view)
 7. ✅ Tests: resolution precedence for both tiers, live propagation
-8. ☐ Tests: reset flows (lands with task 5)
+8. ✅ Tests: reset flows (pin, clear, prune; clearable default view)
+9. ✅ Manual Obsidian pass: chips + section resets in the board modal,
+   pinning, pruning a legacy board, layout-default normalization, and live
+   inheritance to open boards (verified 2026-07-10)
 
 **Deliverable:** Change default columns once; new and untouched boards follow.
 **Size:** L
 
-**Implementation notes (Phase 4 in progress):**
+**Implementation notes (Phase 4):**
 - Added `src/ui/settings/global_settings.ts` with versioned plugin-level
   settings, Tier 1 filtering, default-view-to-settings mapping, inherited
   settings derivation, and serialization for `data.json`.
@@ -482,13 +486,41 @@ them.
   global board defaults now requires confirmation.
 - The plugin-level default view is intentionally layout-only: it inherits
   flow direction and card width, while filter, sort, and grouping remain
-  temporary board options with no global default. Flow defaults to
-  left-to-right, card width is edited with a slider, and legacy/default data
-  that includes query/sort/group is pruned during global settings parse.
-- Inherited/overridden indicators and board reset affordances remain pending.
+  temporary board options with no global default. Legacy/default data that
+  includes query/sort/group is pruned during global settings parse.
+- "No default view" is a representable state, reached by normalization
+  rather than extra UI: the default-view controls always show a value, and
+  choosing the builtin defaults (left-to-right flow, 300px width) stores
+  nothing. Parse applies the same normalization, which sheds the
+  `flowDirection: "ltr"` that earlier Phase 4 builds pinned into data.json.
+- Override lifecycle (task 5): `BoardSettingsStore` gained explicit
+  `pinOverrides` / `clearOverrides` / `pruneOverridesMatchingDefaults` /
+  `getBaseSettings` operations alongside the diff-based tracking. The board
+  settings modal shows an Inherited/Overridden chip beside every Tier 1
+  field (clicking toggles pin ↔ reset-to-inherited), and each section header
+  gains "Reset to defaults" covering that section's Tier 1 keys; board-local
+  (Tier 3) fields have no chip and are untouched by section resets. The
+  modal reports pinned/cleared keys to `KanbanView` on save, which applies
+  them after the value write. A new command — "Prune board settings that
+  match the defaults" — sheds every override on the active board that equals
+  its inherited/builtin value (the legacy fully-materialized board escape
+  hatch, which also stops view saves from capturing every arrangement
+  property on such boards).
+- Manual testing found and fixed a save bug in the embedded global-defaults
+  editor: the tab passed its resolved-settings object into the modal by
+  reference, and since the modal mutates its settings in place, the
+  change-detection diff compared the object against itself — the first edit
+  after opening the tab was silently dropped. The editor now gets its own
+  clone (board mode already did).
+- The override chips render as small bold text (not buttons): "Reset to
+  defaults" when overridden (click resets), "Inherited" otherwise (click
+  pins). Each section header carries a slightly larger section-level "Reset
+  to defaults" beside the title; the aggregate `columns` field is covered by
+  the Columns section reset rather than a chip of its own.
 - Tests cover global settings sanitization, Tier 1 copy behavior, default
-  view inheritance, live propagation, and board override precedence. Reset
-  flow tests remain pending with task 5.
+  view inheritance, live propagation, board override precedence, pin/clear
+  lifecycle, prune behavior against the inherited base, and
+  builtin-equal layout-default normalization.
 
 ### Phase 5: Global saved views ✅ COMPLETE
 **Goal:** Views defined once, available on every board.

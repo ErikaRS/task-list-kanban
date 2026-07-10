@@ -75,6 +75,21 @@ export default class Base extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "prune-board-settings-matching-defaults",
+			name: "Prune board settings that match the defaults",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(KanbanView);
+				if (!view) {
+					return false;
+				}
+				if (!checking) {
+					view.pruneSettingsMatchingDefaults();
+				}
+				return true;
+			},
+		});
+
 		this.switchToKanbanAfterLoad();
 
 		this.registerEvent(

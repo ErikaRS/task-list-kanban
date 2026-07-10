@@ -55,6 +55,25 @@ interface SettingsModalOptions {
 	title?: string;
 	mode?: "board" | "globalDefaults";
 	layout?: "modal" | "embedded";
+	/**
+	 * Board mode only: enables inherited-vs-overridden indication with
+	 * pin/reset affordances. `overriddenKeys` is the board's sparse override
+	 * set at open time; `baseSettings` is what a field falls back to when
+	 * its override is shed (builtin defaults ⊕ global defaults).
+	 */
+	overrideContext?: {
+		overriddenKeys: (keyof SettingValues)[];
+		baseSettings: SettingValues;
+	};
+}
+
+/** The override lifecycle decisions a modal session hands back on submit. */
+export interface SettingsSubmitOptions {
+	updateExistingTaskTagsByColumnId: Record<string, boolean>;
+	/** Fields to freeze at their current value even though it matches the default. */
+	pinnedSettingKeys: (keyof SettingValues)[];
+	/** Fields whose overrides should be shed so they follow the defaults again. */
+	clearedSettingKeys: (keyof SettingValues)[];
 }
 
 export class SettingsModal extends Modal {
@@ -76,13 +95,21 @@ export class SettingsModal extends Modal {
 	private embeddedSubmitTimer: ReturnType<typeof setTimeout> | null = null;
 	private defaultTaskFileInputEl: HTMLInputElement | null = null;
 	private defaultTaskFileErrorEl: HTMLElement | null = null;
+	// Override lifecycle state (SPEC 0030 Phase 4): which fields the board
+	// overrode at open time, and the pin/reset decisions made this session.
+	// Updaters refresh every chip and section-reset button after each change;
+	// stale entries (from re-renders) drop out when they report disconnected.
+	private readonly initialOverriddenKeys: Set<keyof SettingValues>;
+	private readonly pinnedKeys = new Set<keyof SettingValues>();
+	private readonly clearedKeys = new Set<keyof SettingValues>();
+	private overrideChipUpdaters: Array<() => boolean> = [];
 
 	constructor(
 		app: App,
 		private settings: SettingValues,
 		private readonly onSubmit: (
 			newSettings: SettingValues,
-			options: { updateExistingTaskTagsByColumnId: Record<string, boolean> },
+			options: SettingsSubmitOptions,
 		) => void | Promise<void>,
 		private readonly boardFolderPath: string | null,
 		private readonly options: SettingsModalOptions = {},
@@ -90,6 +117,7 @@ export class SettingsModal extends Modal {
 		super(app);
 		this.originalSettings = structuredClone(settings);
 		this.originalSettingsSnapshot = JSON.stringify(settings);
+		this.initialOverriddenKeys = new Set(options.overrideContext?.overriddenKeys ?? []);
 	}
 
 	private isGlobalDefaultsMode(): boolean {
@@ -107,7 +135,176 @@ export class SettingsModal extends Modal {
 	}
 
 	private isDirty(): boolean {
-		return JSON.stringify(this.settings) !== this.originalSettingsSnapshot;
+		return (
+			JSON.stringify(this.settings) !== this.originalSettingsSnapshot ||
+			this.pinnedKeys.size > 0 ||
+			this.clearedKeys.size > 0
+		);
+	}
+
+	private overrideTrackingEnabled(): boolean {
+		return !this.isGlobalDefaultsMode() && !!this.options.overrideContext;
+	}
+
+	private baseSettingsRecord(): Record<string, unknown> {
+		return (this.options.overrideContext?.baseSettings ??
+			defaultSettings) as unknown as Record<string, unknown>;
+	}
+
+	/**
+	 * Whether a field would be persisted as an override if the modal were
+	 * saved now: it was an override at open time (and not reset since), it
+	 * was pinned this session, or its value was edited away from the
+	 * original resolved value.
+	 */
+	private isEffectivelyOverridden(key: keyof SettingValues): boolean {
+		const settingsRecord = this.settings as unknown as Record<string, unknown>;
+		if (this.clearedKeys.has(key)) {
+			// Editing a field after resetting it re-overrides it.
+			return (
+				JSON.stringify(settingsRecord[key]) !==
+				JSON.stringify(this.baseSettingsRecord()[key])
+			);
+		}
+		if (this.initialOverriddenKeys.has(key) || this.pinnedKeys.has(key)) {
+			return true;
+		}
+		const originalRecord = this.originalSettings as unknown as Record<string, unknown>;
+		return JSON.stringify(settingsRecord[key]) !== JSON.stringify(originalRecord[key]);
+	}
+
+	/** Sheds the fields' overrides: restores base values and marks them cleared. */
+	private resetOverrideKeys(keys: readonly (keyof SettingValues)[]) {
+		const settingsRecord = this.settings as unknown as Record<string, unknown>;
+		const baseRecord = this.baseSettingsRecord();
+		let valuesChanged = false;
+		for (const key of keys) {
+			if (!this.isEffectivelyOverridden(key)) {
+				continue;
+			}
+			if (this.pinnedKeys.delete(key) && !this.initialOverriddenKeys.has(key)) {
+				// A pin from this session froze the value at the base; undoing
+				// the pin is the whole reset.
+				continue;
+			}
+			if (
+				JSON.stringify(settingsRecord[key]) !== JSON.stringify(baseRecord[key])
+			) {
+				settingsRecord[key] = structuredClone(baseRecord[key]);
+				valuesChanged = true;
+			}
+			this.clearedKeys.add(key);
+		}
+		if (valuesChanged) {
+			this.rerender();
+		}
+		this.touchSettings();
+	}
+
+	/**
+	 * Pins fields at their current values. On a field that was reset earlier
+	 * this session, this instead undoes the reset (restores the original
+	 * override value).
+	 */
+	private pinOverrideKeys(keys: readonly (keyof SettingValues)[]) {
+		const settingsRecord = this.settings as unknown as Record<string, unknown>;
+		const originalRecord = this.originalSettings as unknown as Record<string, unknown>;
+		let valuesChanged = false;
+		for (const key of keys) {
+			if (this.clearedKeys.delete(key)) {
+				if (
+					this.initialOverriddenKeys.has(key) &&
+					JSON.stringify(settingsRecord[key]) !== JSON.stringify(originalRecord[key])
+				) {
+					settingsRecord[key] = structuredClone(originalRecord[key]);
+					valuesChanged = true;
+				}
+			} else {
+				this.pinnedKeys.add(key);
+			}
+		}
+		if (valuesChanged) {
+			this.rerender();
+		}
+		this.touchSettings();
+	}
+
+	/** The pin/reset decisions to hand to onSubmit, reconciled with edits. */
+	private overrideLifecycleOptions(): Pick<
+		SettingsSubmitOptions,
+		"pinnedSettingKeys" | "clearedSettingKeys"
+	> {
+		if (!this.overrideTrackingEnabled()) {
+			return { pinnedSettingKeys: [], clearedSettingKeys: [] };
+		}
+		const settingsRecord = this.settings as unknown as Record<string, unknown>;
+		const baseRecord = this.baseSettingsRecord();
+		// A reset followed by fresh edits is an override again, not a clear.
+		const clearedSettingKeys = [...this.clearedKeys].filter(
+			(key) =>
+				JSON.stringify(settingsRecord[key]) === JSON.stringify(baseRecord[key]),
+		);
+		const clearedSet = new Set(clearedSettingKeys);
+		const pinnedSettingKeys = [...this.pinnedKeys].filter((key) => !clearedSet.has(key));
+		return { pinnedSettingKeys, clearedSettingKeys };
+	}
+
+	/**
+	 * The inherited/overridden chip shown beside a setting. One chip can
+	 * cover several fields (e.g. a bookend column's name and visibility);
+	 * clicking toggles between resetting to the inherited values and
+	 * pinning the current ones.
+	 */
+	private createOverrideChip(
+		containerEl: HTMLElement,
+		keys: readonly (keyof SettingValues)[],
+	) {
+		if (!this.overrideTrackingEnabled()) {
+			return;
+		}
+		const chip = containerEl.createEl("button", { cls: "settings-override-chip" });
+		chip.type = "button";
+		const update = () => {
+			if (!chip.isConnected) {
+				return false;
+			}
+			const overridden = keys.some((key) => this.isEffectivelyOverridden(key));
+			// The overridden state reads as its action so it is discoverable;
+			// the inherited state stays a status label (clicking pins).
+			chip.setText(overridden ? "Reset to defaults" : "Inherited");
+			chip.toggleClass("is-overridden", overridden);
+			chip.setAttribute(
+				"aria-label",
+				overridden
+					? "This board overrides the default. Click to reset to the inherited value."
+					: "Following the default. Click to pin the current value to this board.",
+			);
+			chip.title = chip.getAttribute("aria-label") ?? "";
+			return true;
+		};
+		update();
+		this.overrideChipUpdaters.push(update);
+		chip.addEventListener("click", () => {
+			const overridden = keys.some((key) => this.isEffectivelyOverridden(key));
+			if (overridden) {
+				this.resetOverrideKeys(keys);
+			} else {
+				this.pinOverrideKeys(keys);
+			}
+		});
+	}
+
+	/** Rebuilds the whole modal body (used when a reset changes field values). */
+	private rerender() {
+		const scrollTop = this.scrollWrapper?.scrollTop ?? 0;
+		for (const destroy of this.mountedColumnControls) {
+			destroy();
+		}
+		this.mountedColumnControls = [];
+		this.overrideChipUpdaters = [];
+		this.contentEl.empty();
+		this.onOpen();
+		this.scrollWrapper.scrollTop = scrollTop;
 	}
 
 	private validateColumns() {
@@ -136,6 +333,7 @@ export class SettingsModal extends Modal {
 			this.embeddedSubmitTimer = null;
 			void this.onSubmit(this.settings, {
 				updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+				...this.overrideLifecycleOptions(),
 			});
 		}, 150);
 	}
@@ -291,6 +489,7 @@ export class SettingsModal extends Modal {
 			title: "Uncategorized",
 			label: this.settings.uncategorizedColumnName ?? "",
 			placeholder: "Uncategorized",
+			overrideKeys: ["uncategorizedColumnName", "uncategorizedVisibility"],
 			visibility: this.settings.uncategorizedVisibility ?? VisibilityOption.Auto,
 			onLabelChange: (value) => {
 				this.settings.uncategorizedColumnName = value;
@@ -313,6 +512,7 @@ export class SettingsModal extends Modal {
 			title: "Done",
 			label: this.settings.doneColumnName ?? "",
 			placeholder: "Done",
+			overrideKeys: ["doneColumnName", "doneVisibility"],
 			visibility: this.settings.doneVisibility ?? VisibilityOption.AlwaysShow,
 			onLabelChange: (value) => {
 				this.settings.doneColumnName = value;
@@ -350,6 +550,7 @@ export class SettingsModal extends Modal {
 			title: string;
 			label: string;
 			placeholder: string;
+			overrideKeys: readonly (keyof SettingValues)[];
 			visibility: VisibilityOption;
 			onLabelChange: (value: string) => void;
 			onVisibilityChange: (value: string) => void;
@@ -393,6 +594,8 @@ export class SettingsModal extends Modal {
 		visibilitySelect.addEventListener("change", () => {
 			options.onVisibilityChange(visibilitySelect.value);
 		});
+
+		this.createOverrideChip(fields, options.overrideKeys);
 	}
 
 	private getColumnMatchSummary(column: ColumnDefinition): string {
@@ -426,6 +629,7 @@ export class SettingsModal extends Modal {
 			desc: string;
 			value: string;
 			validTitle: string;
+			overrideKey?: keyof SettingValues;
 			validate: (value: string) => string[];
 			onValid: (value: string) => void;
 		},
@@ -447,6 +651,11 @@ export class SettingsModal extends Modal {
 						this.touchSettings();
 					}
 				});
+			})
+			.then((setting) => {
+				if (options.overrideKey) {
+					this.createOverrideChip(setting.nameEl, [options.overrideKey]);
+				}
 			});
 	}
 
@@ -1014,6 +1223,7 @@ export class SettingsModal extends Modal {
 			this.headerDirtyPill.setText(isDirty ? "Unsaved changes" : "");
 			this.headerDirtyPill.toggleClass("is-visible", isDirty);
 		}
+		this.overrideChipUpdaters = this.overrideChipUpdaters.filter((update) => update());
 		this.scheduleEmbeddedSubmit();
 	}
 
@@ -1043,6 +1253,7 @@ export class SettingsModal extends Modal {
 			id: string,
 			title: string,
 			description: string,
+			resetKeys?: readonly (keyof SettingValues)[],
 		): HTMLDivElement => {
 			const section = settingsContent.createDiv({
 				cls: "settings-section",
@@ -1057,35 +1268,76 @@ export class SettingsModal extends Modal {
 			}
 
 			const sectionHeader = section.createDiv({ cls: "settings-section-header" });
-			sectionHeader.createEl("h2", { text: title });
+			const headerRow = sectionHeader.createDiv({ cls: "settings-section-header-row" });
+			headerRow.createEl("h2", { text: title });
+			if (resetKeys && this.overrideTrackingEnabled()) {
+				const resetButton = headerRow.createEl("button", {
+					text: "Reset to defaults",
+					cls: "settings-override-chip settings-section-reset",
+				});
+				resetButton.type = "button";
+				resetButton.title =
+					"Reset this section's settings to the inherited defaults. Board-only settings are not changed.";
+				resetButton.addEventListener("click", () => this.resetOverrideKeys(resetKeys));
+				const update = () => {
+					if (!resetButton.isConnected) {
+						return false;
+					}
+					resetButton.disabled = !resetKeys.some((key) =>
+						this.isEffectivelyOverridden(key),
+					);
+					return true;
+				};
+				update();
+				this.overrideChipUpdaters.push(update);
+			}
 			sectionHeader.createEl("p", { text: description, cls: "setting-item-description" });
 			return section.createDiv({ cls: "settings-section-body" });
 		};
 
+		// Only globally-inheritable (Tier 1) fields participate in section
+		// resets; board-local state (scope folders, default task file, …)
+		// has no global default to fall back to.
 		const columnsSection = createSection(
 			"columns",
 			"Columns",
 			"Board columns, column labels, matching rules, and color accents.",
+			[
+				"columns",
+				"uncategorizedColumnName",
+				"uncategorizedVisibility",
+				"doneColumnName",
+				"doneVisibility",
+			],
 		);
 		const taskPropertiesSection = createSection(
 			"task-properties",
 			"Task properties",
 			"Property parsing, card property display, and task creation defaults.",
+			["propertySchema", "propertyDisplay", "treatNestedTasksAsSubtasks"],
 		);
 		const scopeSection = createSection(
 			"scope",
 			"Scope",
 			"Choose where the board looks for tasks, then subtract paths it should ignore.",
+			["scope", "excludePaths"],
 		);
 		const displaySection = createSection(
 			"display",
 			"Display",
 			"Card metadata, filepath, and tag display behavior.",
+			["excludedTags", "excludedTaskTags", "showFilepath", "consolidateTags"],
 		);
 		const statusMarkersSection = createSection(
 			"status-markers",
 			"Status markers",
 			"Task status markers and status-specific board behavior.",
+			[
+				"statusMarkerOrder",
+				"doneStatusMarkers",
+				"cancelledStatusMarkers",
+				"ignoredStatusMarkers",
+			],
 		);
 
 		this.columnsEditorEl = columnsSection;
@@ -1177,7 +1429,8 @@ export class SettingsModal extends Modal {
 						this.settings.propertySchema = value as PropertySchemaOption;
 						this.updateDirtyBanner();
 					});
-			});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["propertySchema"]));
 
 		new Setting(container)
 			.setName("Show properties")
@@ -1194,7 +1447,8 @@ export class SettingsModal extends Modal {
 						this.settings.propertyDisplay = value as PropertyDisplayMode;
 						this.updateDirtyBanner();
 					});
-			});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["propertyDisplay"]));
 
 		new Setting(container)
 			.setName("Treat nested tasks as subtasks")
@@ -1206,7 +1460,10 @@ export class SettingsModal extends Modal {
 						this.settings.treatNestedTasksAsSubtasks = value;
 						this.updateDirtyBanner();
 					});
-			});
+			})
+			.then((setting) =>
+				this.createOverrideChip(setting.nameEl, ["treatNestedTasksAsSubtasks"]),
+			);
 
 		if (!this.isGlobalDefaultsMode()) {
 			const defaultTaskFileSetting = new Setting(container)
@@ -1278,7 +1535,8 @@ export class SettingsModal extends Modal {
 					this.validateDefaultTaskFile();
 					this.updateDirtyBanner();
 				});
-			});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["scope"]));
 
 		if (this.isGlobalDefaultsMode()) {
 			scopeContainer.createEl("p", {
@@ -1326,7 +1584,8 @@ export class SettingsModal extends Modal {
 			.setName("Excluded paths")
 			.setDesc(
 				"Folders and files the board skips after included folders are chosen."
-			);
+			)
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["excludePaths"]));
 
 		const excludeInputContainer = excludeContainer.createDiv({ cls: "settings-list-indent" });
 		this.createStringListEditor(excludeInputContainer, {
@@ -1357,7 +1616,8 @@ export class SettingsModal extends Modal {
 			.setName("Hidden Tags")
 			.setDesc(
 				"Tags to hide from display on task cards. The tasks themselves will still appear on the board."
-			);
+			)
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["excludedTags"]));
 
 		const excludedTagsInputContainer = excludedTagsContainer.createDiv({
 			cls: "settings-list-indent",
@@ -1400,7 +1660,8 @@ export class SettingsModal extends Modal {
 			.setName("Excluded task tags")
 			.setDesc(
 				"Tasks containing these tags will be completely excluded from the board."
-			);
+			)
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["excludedTaskTags"]));
 
 		const excludedTaskTagsInputContainer = excludedTaskTagsContainer.createDiv({
 			cls: "settings-list-indent",
@@ -1429,7 +1690,8 @@ export class SettingsModal extends Modal {
 					this.settings.showFilepath = value;
 					this.updateDirtyBanner();
 				});
-			});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["showFilepath"]));
 
 		new Setting(displaySection)
 			.setName("Consolidate tags")
@@ -1442,12 +1704,14 @@ export class SettingsModal extends Modal {
 					this.settings.consolidateTags = value;
 					this.updateDirtyBanner();
 				});
-			});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["consolidateTags"]));
 	}
 
 	private renderStatusMarkersSection(statusMarkersSection: HTMLDivElement) {
 		this.addValidatedTextSetting(statusMarkersSection, {
 			name: "Status marker order",
+			overrideKey: "statusMarkerOrder",
 			desc: "Ascending order for status grouping and status sorting. Unchecked tasks come first unless this order includes a literal space. Unspecified markers appear afterward alphabetically, followed by done markers.",
 			value: this.settings.statusMarkerOrder ?? "",
 			validTitle: "Valid status marker order",
@@ -1459,6 +1723,7 @@ export class SettingsModal extends Modal {
 
 		this.addValidatedTextSetting(statusMarkersSection, {
 			name: "Done status markers",
+			overrideKey: "doneStatusMarkers",
 			desc: "Characters that mark a task as done (e.g., 'xX' for [x] and [X]). Each character should be a single Unicode character without spaces.",
 			value: this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 			validTitle: "Valid done status markers",
@@ -1470,6 +1735,7 @@ export class SettingsModal extends Modal {
 
 		this.addValidatedTextSetting(statusMarkersSection, {
 			name: "Cancelled status markers",
+			overrideKey: "cancelledStatusMarkers",
 			desc: "Characters that mark a task as cancelled (e.g., '-' for [-]). Each character should be a single Unicode character without spaces.",
 			value: this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 			validTitle: "Valid cancelled status markers",
@@ -1481,6 +1747,7 @@ export class SettingsModal extends Modal {
 
 		this.addValidatedTextSetting(statusMarkersSection, {
 			name: "Ignored status markers",
+			overrideKey: "ignoredStatusMarkers",
 			desc: "Characters that mark tasks to be completely ignored by the kanban (e.g., '-' for [-] cancelled tasks). Leave empty to process all task-like strings. Each character should be a single Unicode character without spaces.",
 			value: this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
 			validTitle: "Valid ignored status markers",
@@ -1508,6 +1775,7 @@ export class SettingsModal extends Modal {
 			try {
 				await this.onSubmit(this.settings, {
 					updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
+					...this.overrideLifecycleOptions(),
 				});
 				this.close();
 			} finally {

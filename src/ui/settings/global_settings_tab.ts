@@ -102,9 +102,13 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		const originalGlobalSettings = this.globalSettingsStore.get();
 		let currentDefaults = originalGlobalSettings.boardDefaults;
 		let currentResolvedSettings = resolveSettings(currentDefaults);
+		// The editor must get its own clone: the modal mutates its settings
+		// object in place, so passing currentResolvedSettings directly would
+		// alias the merge's "before" baseline to its "after" input and the
+		// diff below would drop the first change made after opening the tab.
 		const editor = new SettingsModal(
 			this.app,
-			currentResolvedSettings,
+			structuredClone(currentResolvedSettings),
 			async (newSettings) => {
 				const nextDefaults = mergeChangedBoardDefaults(
 					currentDefaults,
@@ -147,12 +151,20 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					.setValue(defaultView.flowDirection ?? FlowDirection.LeftToRight)
 					.onChange((value) => {
 						void this.updateDefaultView((view) => {
-							view.flowDirection = value as FlowDirection;
+							// Left to right is the builtin default, so an
+							// explicit LTR default is indistinguishable from
+							// no default — store nothing.
+							if (isFlowDirection(value) && value !== FlowDirection.LeftToRight) {
+								view.flowDirection = value;
+							} else {
+								delete view.flowDirection;
+							}
 						});
 					});
 			});
 
-		const columnWidth = defaultView.columnWidth ?? defaultSettings.columnWidth ?? 300;
+		const builtinColumnWidth = defaultSettings.columnWidth ?? 300;
+		const columnWidth = defaultView.columnWidth ?? builtinColumnWidth;
 		let columnWidthLabel: HTMLElement | null = null;
 		new Setting(containerEl)
 			.setName("Default card width")
@@ -165,7 +177,13 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					.onChange((value) => {
 						columnWidthLabel?.setText(`${value}px`);
 						void this.updateDefaultView((view) => {
-							view.columnWidth = value;
+							// The builtin width is the default already —
+							// storing it explicitly would be the same thing.
+							if (value === builtinColumnWidth) {
+								delete view.columnWidth;
+							} else {
+								view.columnWidth = value;
+							}
 						});
 					});
 			})
