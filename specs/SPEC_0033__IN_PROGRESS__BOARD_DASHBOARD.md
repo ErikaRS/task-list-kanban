@@ -288,27 +288,29 @@ board; selecting one closes the panel and swaps the board in-leaf.
 **Goal:** The panel honors board order and hidden boards ("Other boards"
 zippy), the card menu curates and renames, and the tab strip is gone.
 
-1. ☑ `GlobalSettings.boardList` replacing `tabs` (no migration — never
+1. ✅ `GlobalSettings.boardList` replacing `tabs` (no migration — never
    released); settings-tab board list removed entirely (revised in review
    from "relabeled" — curation is all in-panel)
-2. ☑ Shown/hidden resolver replacing `resolveTabEntries`; "Other boards"
+2. ✅ Shown/hidden resolver replacing `resolveTabEntries`; "Other boards"
    zippy in the panel
-3. ☑ Card context menu: rename (reusing SPEC 0032 modal), hide/show
-4. ☑ Card drag-reorder in the shown grid writing `boardPaths`
+3. ✅ Card context menu: rename (reusing SPEC 0032 modal), hide/show
+4. ✅ Card drag-reorder in the shown grid writing `boardPaths`
    (self-cleaning; added in review, promoted from polish)
-5. ☑ Delete `board_tabs.svelte` + strip wiring; superseded-by note in
+5. ✅ Delete `board_tabs.svelte` + strip wiring; superseded-by note in
    SPEC 0032; SPEC 0030 Phase 6 pointer updated
-6. ☑ Tests: boardList parse round-trip (stray `tabs` key ignored),
+6. ✅ Tests: boardList parse round-trip (stray `tabs` key ignored),
    resolver shown/hidden ordering, rename rewrite still covering both
    lists
-7. ☑ Automated verification: `npm run build`, `npm test`
-8. ☑ Manual: drag-reorder cards persists across reopen, hide/show via
+7. ✅ Automated verification: `npm run build`, `npm test`
+8. ✅ Manual: drag-reorder cards persists across reopen, hide/show via
    card menu (zippy appears/empties), rename from card menu, strip gone,
    vertical space reclaimed, settings tab has no board list, legacy
    data.json sheds its `tabs` key
 
 **Deliverable:** One integrated board-navigation surface.
 **Size:** M
+
+**Implemented by:** [63efbf5](https://github.com/ErikaRS/task-list-kanban/commit/63efbf591c506d31922cc4298633aa2b7362bb1a)
 
 **Implementation notes (Phase 2):**
 - The card markup moved into `dashboard_card.svelte` so the shown grid and
