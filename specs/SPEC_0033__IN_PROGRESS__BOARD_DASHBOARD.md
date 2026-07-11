@@ -356,6 +356,8 @@ computed lazily with mtime-keyed caching.
    panel updates; change global default markers → untouched board's
    counts follow
 
+**Implemented by:** [c50a9fa](https://github.com/ErikaRS/task-list-kanban/commit/c50a9fa831435142b475400b8d5d856fc14f1b28)
+
 **Implementation notes (Phase 3):**
 
 - `createBoardStatsService` (`src/ui/dashboard/board_stats.ts`) lives at
