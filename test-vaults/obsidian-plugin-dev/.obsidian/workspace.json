@@ -68,10 +68,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "periodic/Kanban-Another.md"
+                    "file": "periodic/Kanban-Test.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-Another"
+                  "title": "Kanban-Test"
                 }
               }
             ],
@@ -239,10 +239,10 @@
   },
   "active": "1cb795da7bad7f19",
   "lastOpenFiles": [
-    "Kanban-CoolBeans.md",
-    "Kanban-Whee.md",
     "periodic/Kanban-Another.md",
     "periodic/Kanban-Test.md",
+    "Kanban-CoolBeans.md",
+    "Kanban-Whee.md",
     "periodic/2025-05-01.md",
     "Kanban-1783614999866.md",
     "tasks/Even more tasks.md",
