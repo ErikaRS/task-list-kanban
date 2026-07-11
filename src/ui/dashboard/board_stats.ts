@@ -10,14 +10,25 @@ import {
 	type GlobalSettings,
 } from "../settings/global_settings";
 import { resolveScopeFilter, shouldIncludeFilePath } from "../tasks/scope";
-import { createColumnData } from "../columns/columns";
+import { createColumnData, RESERVED_COLUMN_KEYS } from "../columns/columns";
 import { getMarkerSettings, updateMapsFromFile, type Metadata } from "../tasks/tasks";
 import { getBoardTaskCount } from "../board_counts";
 import type { Task } from "../tasks/task";
 
+export interface BoardColumnCount {
+	label: string;
+	count: number;
+}
+
 export interface BoardTaskCounts {
 	open: number;
 	done: number;
+	/**
+	 * Open counts per column in the board's own layout order:
+	 * uncategorized first (only when non-zero, like the board's auto
+	 * visibility), the board's columns (zero counts included), done last.
+	 */
+	columns: BoardColumnCount[];
 }
 
 /**
@@ -50,7 +61,8 @@ export interface BoardStatsService {
 }
 
 // The resolved settings that can change what a board counts: file selection
-// (scope/excludes) and task parsing (columns, markers, schema, subtasks).
+// (scope/excludes), task parsing (columns, markers, schema, subtasks), and
+// the two default-column names (they feed the breakdown's labels).
 // Display-only settings — visibility toggles, persisted filters, sort — are
 // deliberately absent: counts reflect what the board tracks, not what it
 // currently shows.
@@ -66,6 +78,8 @@ const COUNT_SETTING_KEYS = [
 	"excludedTaskTags",
 	"propertySchema",
 	"treatNestedTasksAsSubtasks",
+	"uncategorizedColumnName",
+	"doneColumnName",
 ] as const satisfies readonly (keyof SettingValues)[];
 
 /**
@@ -94,7 +108,7 @@ export function createBoardStatsService(host: BoardStatsHost): BoardStatsService
 				next.delete(path);
 				return next;
 			}
-			if (existing?.open === counts.open && existing?.done === counts.done) {
+			if (existing && countsEqual(existing, counts)) {
 				return current;
 			}
 			return new Map(current).set(path, counts);
@@ -168,12 +182,54 @@ export function createBoardStatsService(host: BoardStatsHost): BoardStatsService
 		}
 
 		const tasks = [...tasksByTaskId.values()];
+
+		// The same bucketing as main.svelte's groupByColumnTag: the done
+		// check comes first, unchecked archived tasks land nowhere, and
+		// anything without a known column is uncategorized.
+		const countsByColumnId = new Map<string, number>(
+			settings.columns
+				.filter((column) => !RESERVED_COLUMN_KEYS.has(column.id))
+				.map((column) => [column.id, 0]),
+		);
+		let uncategorized = 0;
+		let done = 0;
+		for (const task of tasks) {
+			if (task.done || task.column === "done") {
+				done += 1;
+			} else if (task.column === "archived") {
+				// ignored
+			} else if (task.column !== undefined && countsByColumnId.has(task.column)) {
+				countsByColumnId.set(task.column, (countsByColumnId.get(task.column) ?? 0) + 1);
+			} else {
+				uncategorized += 1;
+			}
+		}
+
+		const columns: BoardColumnCount[] = [
+			// Non-zero only, like the board's auto uncategorized visibility;
+			// real columns list at zero so the breakdown mirrors the layout.
+			...(uncategorized > 0
+				? [
+						{
+							label: settings.uncategorizedColumnName || "Uncategorized",
+							count: uncategorized,
+						},
+					]
+				: []),
+			...settings.columns
+				.filter((column) => !RESERVED_COLUMN_KEYS.has(column.id))
+				.map((column) => ({
+					label: column.label,
+					count: countsByColumnId.get(column.id) ?? 0,
+				})),
+			{ label: settings.doneColumnName || "Done", count: done },
+		];
+
 		return {
 			// The board-corner rule: not done, not archived, not in done.
 			open: getBoardTaskCount(tasks),
-			// The done bucket in main.svelte's groupByColumnTag; unchecked
-			// archived tasks land in neither count.
-			done: tasks.filter((task) => task.done || task.column === "done").length,
+			done,
+			columns,
 		};
 	}
 
@@ -219,6 +275,19 @@ export function createBoardStatsService(host: BoardStatsHost): BoardStatsService
 			queued.clear();
 		},
 	};
+}
+
+function countsEqual(a: BoardTaskCounts, b: BoardTaskCounts): boolean {
+	return (
+		a.open === b.open &&
+		a.done === b.done &&
+		a.columns.length === b.columns.length &&
+		a.columns.every(
+			(column, index) =>
+				column.label === b.columns[index]?.label &&
+				column.count === b.columns[index]?.count,
+		)
+	);
 }
 
 // Cheap to compute (no reads): any change that could alter counts —

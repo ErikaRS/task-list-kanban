@@ -118,7 +118,7 @@ describe("createBoardStatsService", () => {
 
 		await harness.request("Board.md");
 
-		expect(harness.counts("Board.md")).toEqual({ open: 2, done: 2 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 2, done: 2 });
 	});
 
 	it("does not track excluded task tags or ignored status markers", async () => {
@@ -139,7 +139,7 @@ describe("createBoardStatsService", () => {
 
 		await harness.request("Board.md");
 
-		expect(harness.counts("Board.md")).toEqual({ open: 1, done: 0 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 1, done: 0 });
 	});
 
 	it("counts only root tasks in nested-subtasks mode", async () => {
@@ -158,8 +158,8 @@ describe("createBoardStatsService", () => {
 		await flat.request("Board.md");
 		await subtasks.request("Board.md");
 
-		expect(flat.counts("Board.md")).toEqual({ open: 2, done: 0 });
-		expect(subtasks.counts("Board.md")).toEqual({ open: 1, done: 0 });
+		expect(flat.counts("Board.md")).toMatchObject({ open: 2, done: 0 });
+		expect(subtasks.counts("Board.md")).toMatchObject({ open: 1, done: 0 });
 	});
 
 	it("applies global defaults to untouched boards and lets board overrides win", async () => {
@@ -181,8 +181,8 @@ describe("createBoardStatsService", () => {
 
 		await harness.request("a/Untouched.md", "b/Override.md");
 
-		expect(harness.counts("a/Untouched.md")).toEqual({ open: 1, done: 1 });
-		expect(harness.counts("b/Override.md")).toEqual({ open: 1, done: 0 });
+		expect(harness.counts("a/Untouched.md")).toMatchObject({ open: 1, done: 1 });
+		expect(harness.counts("b/Override.md")).toMatchObject({ open: 1, done: 0 });
 	});
 
 	it("falls back to defaults when the board's settings payload is malformed", async () => {
@@ -196,7 +196,7 @@ describe("createBoardStatsService", () => {
 
 		await harness.request("Board.md");
 
-		expect(harness.counts("Board.md")).toEqual({ open: 0, done: 1 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 0, done: 1 });
 	});
 
 	it("selects in-scope files via the board's scope and excludes", async () => {
@@ -213,7 +213,7 @@ describe("createBoardStatsService", () => {
 
 		await harness.request("boards/Board.md");
 
-		expect(harness.counts("boards/Board.md")).toEqual({ open: 2, done: 0 });
+		expect(harness.counts("boards/Board.md")).toMatchObject({ open: 2, done: 0 });
 	});
 
 	it("skips all reads on an unchanged board and recomputes on any invalidator", async () => {
@@ -233,7 +233,7 @@ describe("createBoardStatsService", () => {
 		harness.setContent("notes.md", "- [ ] two\n- [x] three");
 		await harness.request("Board.md");
 		expect(harness.cachedRead).toHaveBeenCalledTimes(4);
-		expect(harness.counts("Board.md")).toEqual({ open: 2, done: 1 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 2, done: 1 });
 
 		// Count-relevant global settings invalidate.
 		harness.setGlobalSettings({
@@ -247,13 +247,13 @@ describe("createBoardStatsService", () => {
 		harness.addFile({ path: "new.md", content: "- [ ] four" });
 		await harness.request("Board.md");
 		expect(harness.cachedRead).toHaveBeenCalledTimes(9);
-		expect(harness.counts("Board.md")).toEqual({ open: 3, done: 1 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 3, done: 1 });
 
 		// …and so does one disappearing.
 		harness.removeFile("new.md");
 		await harness.request("Board.md");
 		expect(harness.cachedRead).toHaveBeenCalledTimes(11);
-		expect(harness.counts("Board.md")).toEqual({ open: 2, done: 1 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 2, done: 1 });
 	});
 
 	it("counts a shared file per board with each board's own settings", async () => {
@@ -271,8 +271,8 @@ describe("createBoardStatsService", () => {
 
 		await harness.request("A.md", "B.md");
 
-		expect(harness.counts("A.md")).toEqual({ open: 2, done: 0 });
-		expect(harness.counts("B.md")).toEqual({ open: 1, done: 1 });
+		expect(harness.counts("A.md")).toMatchObject({ open: 2, done: 0 });
+		expect(harness.counts("B.md")).toMatchObject({ open: 1, done: 1 });
 	});
 
 	it("drops the published entry when the board file disappears", async () => {
@@ -281,7 +281,7 @@ describe("createBoardStatsService", () => {
 		]);
 
 		await harness.request("Board.md");
-		expect(harness.counts("Board.md")).toEqual({ open: 1, done: 0 });
+		expect(harness.counts("Board.md")).toMatchObject({ open: 1, done: 0 });
 
 		harness.removeFile("Board.md");
 		await harness.request("Board.md");
@@ -304,6 +304,81 @@ describe("createBoardStatsService", () => {
 		// The first board's counts land before the second computes.
 		expect(emissions).toContainEqual([true, false]);
 		expect(emissions.at(-1)).toEqual([true, true]);
+	});
+
+	it("breaks counts down by column in the board's layout order", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: {
+					columns: ["Todo", "Doing"] as never,
+					uncategorizedColumnName: "Inbox",
+					doneColumnName: "Shipped",
+				},
+				content: [
+					"- [ ] first #todo",
+					"- [ ] second #todo",
+					"- [ ] untagged lands in uncategorized",
+					"- [x] finished",
+				].join("\n"),
+			},
+		]);
+
+		await harness.request("Board.md");
+
+		expect(harness.counts("Board.md")).toEqual({
+			open: 3,
+			done: 1,
+			columns: [
+				{ label: "Inbox", count: 1 },
+				{ label: "Todo", count: 2 },
+				{ label: "Doing", count: 0 },
+				{ label: "Shipped", count: 1 },
+			],
+		});
+	});
+
+	it("omits an empty uncategorized bucket from the breakdown", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: { columns: ["Todo"] as never },
+				content: "- [ ] categorized #todo",
+			},
+		]);
+
+		await harness.request("Board.md");
+
+		expect(harness.counts("Board.md")?.columns).toEqual([
+			{ label: "Todo", count: 1 },
+			{ label: "Done", count: 0 },
+		]);
+	});
+
+	it("refreshes breakdown labels when a global default column name changes", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: {},
+				content: "- [x] finished",
+			},
+		]);
+
+		await harness.request("Board.md");
+		expect(harness.counts("Board.md")?.columns.at(-1)).toEqual({
+			label: "Done",
+			count: 1,
+		});
+
+		harness.setGlobalSettings({
+			...defaultGlobalSettings,
+			boardDefaults: { doneColumnName: "Shipped" },
+		});
+		await harness.request("Board.md");
+		expect(harness.counts("Board.md")?.columns.at(-1)).toEqual({
+			label: "Shipped",
+			count: 1,
+		});
 	});
 
 	it("stops computing after destroy", async () => {

@@ -3,6 +3,7 @@
 	import { formatLastModified } from "./dashboard_cards";
 	import type { DropPosition } from "../settings/column_reorder";
 	import type { BoardTaskCounts } from "./board_stats";
+	import Icon from "../components/icon.svelte";
 
 	export let card: BoardCard;
 	export let current: boolean;
@@ -23,6 +24,9 @@
 	export let onDragOver: ((position: DropPosition) => boolean) | undefined = undefined;
 	export let onDragLeave: (() => void) | undefined = undefined;
 	export let onDrop: ((position: DropPosition) => void) | undefined = undefined;
+
+	// Per-card and transient, like the panel's own zippy.
+	let columnsExpanded = false;
 
 	// The grid wraps, but order is one-dimensional: the pointer's side of
 	// the card's horizontal midpoint decides before/after.
@@ -49,15 +53,21 @@
 	}
 </script>
 
-<button
-	type="button"
+<!--
+	The root is the pointer surface (whole-card click, drag, context menu);
+	keyboard access rides on the inner main button, whose Enter-activated
+	click bubbles here — one select handler, no double-fire. A single
+	<button> can't hold the columns zippy: interactive elements don't nest.
+-->
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y-click-events-have-key-events -->
+<div
 	class="board-card"
 	class:current
 	class:is-dragging={dragging}
 	class:drop-before={dropPosition === "before"}
 	class:drop-after={dropPosition === "after"}
 	title={card.path}
-	aria-current={current ? "true" : undefined}
 	draggable={reorderable}
 	on:click={() => onSelect(card.path)}
 	on:contextmenu|preventDefault={(event) => onContextMenu(card, event)}
@@ -73,23 +83,50 @@
 	on:dragleave={() => onDragLeave?.()}
 	on:drop={handleDrop}
 >
-	<span class="board-card-name">{card.name}</span>
-	{#if card.folder}
-		<span class="board-card-folder">{card.folder}</span>
+	<button
+		type="button"
+		class="board-card-main"
+		aria-current={current ? "true" : undefined}
+	>
+		<span class="board-card-name">{card.name}</span>
+		{#if card.folder}
+			<span class="board-card-folder">{card.folder}</span>
+		{/if}
+		{#if counts}
+			<span class="board-card-counts">
+				{counts.open} open · {counts.done} done
+			</span>
+		{:else}
+			<span class="board-card-counts pending">Counting…</span>
+		{/if}
+		{#if card.lastModified !== undefined}
+			<span class="board-card-modified">
+				Updated {formatLastModified(card.lastModified, now)}
+			</span>
+		{/if}
+	</button>
+	{#if counts && counts.columns.length > 0}
+		<button
+			type="button"
+			class="board-card-columns-toggle"
+			aria-expanded={columnsExpanded}
+			on:click|stopPropagation={() => (columnsExpanded = !columnsExpanded)}
+		>
+			<Icon name={columnsExpanded ? "chevron-down" : "chevron-right"} size={14} />
+			<span>Columns</span>
+		</button>
+		{#if columnsExpanded}
+			<ul class="board-card-columns">
+				{#each counts.columns as columnCount}
+					<li>
+						<span class="board-card-column-label">{columnCount.label}</span>
+						<span class="board-card-column-count">{columnCount.count}</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	{/if}
-	{#if counts}
-		<span class="board-card-counts">
-			{counts.open} open · {counts.done} done
-		</span>
-	{:else}
-		<span class="board-card-counts pending">Counting…</span>
-	{/if}
-	{#if card.lastModified !== undefined}
-		<span class="board-card-modified">
-			Updated {formatLastModified(card.lastModified, now)}
-		</span>
-	{/if}
-</button>
+</div>
 
 <style lang="scss">
 	.board-card {
@@ -99,7 +136,6 @@
 		gap: var(--size-2-2);
 		margin: 0;
 		padding: var(--size-4-3);
-		height: auto;
 		background: var(--background-secondary);
 		border: 1px solid var(--background-modifier-border);
 		border-radius: var(--radius-m);
@@ -131,6 +167,24 @@
 		&.drop-after {
 			box-shadow: 3px 0 0 0 var(--interactive-accent);
 		}
+	}
+
+	// A button for keyboard reach only — the root supplies the card look.
+	.board-card-main {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--size-2-2);
+		width: 100%;
+		height: auto;
+		margin: 0;
+		padding: 0;
+		background: transparent;
+		border: none;
+		border-radius: 0;
+		box-shadow: none;
+		text-align: left;
+		cursor: pointer;
 	}
 
 	.board-card-name {
@@ -165,5 +219,51 @@
 	.board-card-modified {
 		color: var(--text-faint);
 		font-size: var(--font-ui-smaller);
+	}
+
+	.board-card-columns-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2-2);
+		margin: 0;
+		padding: 0;
+		height: auto;
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		font-weight: 600;
+		cursor: pointer;
+
+		&:hover {
+			color: var(--text-normal);
+		}
+	}
+
+	.board-card-columns {
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+
+		li {
+			display: flex;
+			justify-content: space-between;
+			gap: var(--size-4-2);
+			color: var(--text-muted);
+			font-size: var(--font-ui-small);
+		}
+	}
+
+	.board-card-column-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.board-card-column-count {
+		color: var(--text-normal);
+		font-variant-numeric: tabular-nums;
 	}
 </style>

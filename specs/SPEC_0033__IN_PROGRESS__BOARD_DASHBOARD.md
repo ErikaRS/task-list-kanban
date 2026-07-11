@@ -389,6 +389,30 @@ computed lazily with mtime-keyed caching.
 **Deliverable:** Dashboard cards with live, exact task stats.
 **Size:** M–L
 
+### Phase 3b: Per-column count breakdown (post-review extension)
+**Goal:** Each card gets a zippy expanding to that board's per-column
+open counts, mirroring the board's own layout.
+
+1. ✅ `BoardTaskCounts` grows `columns: { label, count }[]`: uncategorized
+   first (only when non-zero, like the board's auto visibility), then the
+   board's columns in settings order (zero counts shown, reserved ids
+   skipped), then done — labels from the board's resolved
+   `uncategorizedColumnName`/`doneColumnName`; those two keys join the
+   cache digest since they now feed output
+2. ✅ Card UI: root becomes a non-interactive wrapper (drag/context-menu
+   surface + whole-card click); the main content stays a real button for
+   keyboard access; below it a per-card transient zippy
+   (chevron + "Columns") expands the breakdown list
+3. ✅ Tests: breakdown grouping/order/names, zero-count columns listed,
+   empty uncategorized omitted, global default column-name change
+   refreshes labels (cache digest covers them)
+4. ✅ Automated verification: `npm run build`, `npm test`
+5. ☐ Manual: breakdown matches the open board's columns; zippy state is
+   per-card and transient
+
+**Deliverable:** Cards answer "where is the work?" without opening the board.
+**Size:** S–M
+
 ### Phase 4: Performance validation
 **Goal:** Confirm the lazy/cached pipeline holds up on a large vault;
 build the fallback only if it does not.
