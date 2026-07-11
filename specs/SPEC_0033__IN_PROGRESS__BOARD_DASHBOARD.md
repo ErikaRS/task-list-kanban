@@ -336,24 +336,53 @@ zippy), the card menu curates and renames, and the tab strip is gone.
 **Goal:** Every card shows exact open and done counts that stay current,
 computed lazily with mtime-keyed caching.
 
-1. ☐ `board_stats.ts`: settings resolution from cached frontmatter +
+1. ✅ `board_stats.ts`: settings resolution from cached frontmatter +
    global layer; in-scope file selection; count computation via
    `updateMapsFromFile` (vault parameter narrowed to `Pick<Vault, "read">`,
-   panel passes a `cachedRead` facade)
-2. ☐ Cache keyed by count-relevant settings + in-scope `(path, mtime)`
+   service passes a `cachedRead` facade)
+2. ✅ Cache keyed by count-relevant settings + in-scope `(path, mtime)`
    pairs; sequential per-board compute publishing progressively, starting
    on panel open; hidden boards deferred until the zippy expands
-3. ☐ Card UI: pending placeholder → open/done counts; recompute pass on
+3. ✅ Card UI: pending placeholder → open/done counts; recompute pass on
    the debounced modify tick while open
-4. ☐ Tests: count semantics (done tag vs. done marker, cancelled open,
+4. ✅ Tests: count semantics (done tag vs. done marker, cancelled open,
    archived in neither, excluded task tags, ignored markers, subtasks
-   mode), settings resolution precedence (global default columns affect an
-   untouched board's counts), scope + exclude selection, cache key
-   invalidation (mtime, settings, file add/remove), no cross-board leakage
-5. ☐ Automated verification: `npm run build`, `npm test`
-6. ☐ Manual: counts match a board's own column totals; edit a task →
-   panel updates; change global default columns → untouched board's
+   mode), settings resolution precedence (global default markers affect an
+   untouched board's counts, board overrides win), scope + exclude
+   selection, cache key invalidation (mtime, settings, file add/remove),
+   no cross-board leakage / shared-file independence
+5. ✅ Automated verification: `npm run build`, `npm test`
+6. ✅ Manual: counts match a board's own column totals; edit a task →
+   panel updates; change global default markers → untouched board's
    counts follow
+
+**Implementation notes (Phase 3):**
+
+- `createBoardStatsService` (`src/ui/dashboard/board_stats.ts`) lives at
+  the **plugin** level (`entry.ts`), not the panel: the cache and the
+  published counts survive panel close/reopen, while computes only ever
+  start from a panel request — so nothing runs while the panel is closed.
+  The panel re-requests all visible boards on its existing debounced
+  modify tick; unchanged boards cost a cache-key check (stat mtimes +
+  settings digest), zero reads.
+- The service consumes a narrow `BoardStatsHost` (get markdown files,
+  `cachedRead`, frontmatter payload, global settings) so tests fake it
+  with plain objects; cache-invalidation tests assert on `cachedRead`
+  call counts rather than inspecting key strings.
+- `getMarkerSettings` moved from `tasks/store.ts` to `tasks/tasks.ts`
+  (both the live store and the stats pass build `updateMapsFromFile`
+  options from it; `store.ts` has a runtime `obsidian` import that the
+  test environment cannot load). `toSettingsPayload` is now exported from
+  `kanban_frontmatter.ts` for the metadata-cache settings source.
+- The test item's "global default columns" became "global default
+  markers": column definitions only redistribute open tasks among
+  columns — they cannot change open/done totals (`done`/`archived` are
+  built-in tags, and the reserved `done` column id can't be a user
+  column), so marker defaults are the count-visible way to exercise the
+  inheritance layer.
+- Done-bucket rule matches `groupByColumnTag` exactly (`task.done ||
+  task.column === "done"`, checked before archived) — so a checked task
+  in the archived column counts as done, same as the board UI shows it.
 
 **Deliverable:** Dashboard cards with live, exact task stats.
 **Size:** M–L

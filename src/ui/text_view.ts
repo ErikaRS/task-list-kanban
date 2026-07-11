@@ -12,6 +12,7 @@ import { resolveScopeFilter } from "./tasks/scope";
 import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { BoardIndexEntry } from "./boards/board_index";
 import type { BoardListSettings } from "./settings/global_settings";
+import type { BoardTaskCounts } from "./dashboard/board_stats";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
@@ -67,6 +68,8 @@ export class KanbanView extends TextFileView {
 		private readonly boardListSettingsStore?: Readable<BoardListSettings | undefined>,
 		private readonly onSetBoardHidden?: (path: string, hidden: boolean) => void,
 		private readonly onReorderBoards?: (orderedPaths: string[]) => void,
+		private readonly boardCountsStore?: Readable<ReadonlyMap<string, BoardTaskCounts>>,
+		private readonly onRequestBoardCounts?: (paths: string[]) => void,
 	) {
 		super(leaf);
 
@@ -286,6 +289,8 @@ export class KanbanView extends TextFileView {
 				openBoard: (path: string) => void this.openBoard(path),
 				onSetBoardHidden: this.onSetBoardHidden,
 				onReorderBoards: this.onReorderBoards,
+				boardCountsStore: this.boardCountsStore,
+				onRequestBoardCounts: this.onRequestBoardCounts,
 				requestSave: () => this.requestSave(),
 			},
 		});

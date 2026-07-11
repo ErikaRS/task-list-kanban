@@ -1,5 +1,14 @@
 import type { TFile, Vault } from "obsidian";
-import { isTrackedTaskString, Task } from "./task";
+import {
+	DEFAULT_CANCELLED_STATUS_MARKERS,
+	DEFAULT_DONE_STATUS_MARKERS,
+	DEFAULT_IGNORED_STATUS_MARKERS,
+	isTrackedTaskString,
+	Task,
+} from "./task";
+import type { SettingValues } from "../settings/settings_store";
+import { getSchemaImpl } from "../../parsing/properties/index";
+import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import {
 	parseSourceTaskLine,
 	type SourceBlockNode,
@@ -14,6 +23,26 @@ export type Metadata = {
 	rowIndex: number;
 	fileHandle: TFile;
 };
+
+/**
+ * The parse-affecting slice of a board's settings, with defaults applied —
+ * everything `updateMapsFromFile` needs beyond the column tables. Shared by
+ * the live tasks store and the dashboard's stats pass (SPEC 0033) so both
+ * parse identically.
+ */
+export function getMarkerSettings(settings: SettingValues) {
+	return {
+		consolidateTags: settings.consolidateTags ?? false,
+		doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
+		cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
+		ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		excludedTaskTags: new Set(
+			(settings.excludedTaskTags ?? []).map((t) => t.trim().toLowerCase())
+		),
+		propertySchema: getSchemaImpl(settings.propertySchema ?? PropertySchemaOption.None),
+		treatNestedTasksAsSubtasks: settings.treatNestedTasksAsSubtasks ?? false,
+	};
+}
 
 /**
  * mutates the supplied Maps
@@ -38,7 +67,9 @@ export async function updateMapsFromFile({
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
 	taskIdsByFileHandle: Map<TFile, Set<string>>;
-	vault: Vault;
+	// Only reads — so the dashboard's stats pass can substitute a
+	// `cachedRead` facade for the tasks store's live vault (SPEC 0033).
+	vault: Pick<Vault, "read">;
 	columnDefinitionsStore: Readable<ColumnDefinition[]>;
 	columnPlacementTagTableStore: Readable<ColumnPlacementTagTable>;
 	consolidateTags: boolean;

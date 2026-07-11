@@ -14,6 +14,11 @@ import {
 	rewriteBoardListPaths,
 	type BoardIndex,
 } from "./ui/boards/board_index";
+import {
+	createBoardStatsService,
+	type BoardStatsService,
+} from "./ui/dashboard/board_stats";
+import { toSettingsPayload } from "./ui/kanban_frontmatter";
 
 export default class Base extends Plugin {
 	private readonly globalSettingsStore = createGlobalSettingsStore();
@@ -27,11 +32,26 @@ export default class Base extends Plugin {
 		(settings) => settings.boardList,
 	);
 	private boardIndex: BoardIndex | undefined;
+	private boardStats: BoardStatsService | undefined;
 
 	async onload() {
 		this.globalSettingsStore.set(parseGlobalSettings(await this.loadData()));
 		const boardIndex = createBoardIndex(this.app, this.registerEvent.bind(this));
 		this.boardIndex = boardIndex;
+		// Plugin-level so the count cache survives panel close/reopen; only
+		// panel requests trigger computes (SPEC 0033 Phase 3).
+		const boardStats = createBoardStatsService({
+			getMarkdownFiles: () => this.app.vault.getMarkdownFiles(),
+			cachedRead: (file) => this.app.vault.cachedRead(file),
+			getBoardSettingsPayload: (file) =>
+				toSettingsPayload(
+					this.app.metadataCache.getFileCache(file)?.frontmatter?.[
+						"kanban_plugin"
+					],
+				),
+			getGlobalSettings: () => this.globalSettingsStore.get(),
+		});
+		this.boardStats = boardStats;
 		this.registerView(
 			KANBAN_VIEW_NAME,
 			(leaf) =>
@@ -43,6 +63,8 @@ export default class Base extends Plugin {
 					this.boardListSettingsStore,
 					(path, hidden) => void this.setBoardHidden(path, hidden),
 					(orderedPaths) => void this.reorderBoards(orderedPaths),
+					boardStats.countsStore,
+					(paths) => boardStats.requestCounts(paths),
 				),
 		);
 		this.addSettingTab(
@@ -144,6 +166,7 @@ export default class Base extends Plugin {
 
 	onunload() {
 		this.boardIndex?.destroy();
+		this.boardStats?.destroy();
 	}
 
 	private async saveGlobalSettings() {

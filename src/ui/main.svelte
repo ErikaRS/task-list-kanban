@@ -74,6 +74,7 @@
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
 	import { TFile } from "obsidian";
 	import type { BoardListSettings } from "./settings/global_settings";
+	import type { BoardTaskCounts } from "./dashboard/board_stats";
 
 	type TagGroupInputMode = "prefix" | "include";
 
@@ -96,6 +97,9 @@
 	export let onSetBoardHidden: ((path: string, hidden: boolean) => void) | undefined =
 		undefined;
 	export let onReorderBoards: ((orderedPaths: string[]) => void) | undefined = undefined;
+	export let boardCountsStore: Readable<ReadonlyMap<string, BoardTaskCounts>> =
+		readable(new Map());
+	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
 	export let requestSave: () => void;
 
 	// --- Board dashboard panel (SPEC 0033) ---
@@ -1091,6 +1095,8 @@
 					onSelect={handleDashboardSelect}
 					{onSetBoardHidden}
 					{onReorderBoards}
+					{boardCountsStore}
+					{onRequestBoardCounts}
 					onClose={() => dashboardOpenStore.set(false)}
 				/>
 			{/if}

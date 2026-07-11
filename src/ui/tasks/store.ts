@@ -1,28 +1,13 @@
 import { TFile, Vault, type EventRef, Workspace } from "obsidian";
-import { updateMapsFromFile, type Metadata } from "./tasks";
-import { Task, DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS } from "./task";
+import { getMarkerSettings, updateMapsFromFile, type Metadata } from "./tasks";
+import { Task } from "./task";
 import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { ColumnDefinition, ColumnPlacementTagTable } from "../columns/columns";
 import { createTaskActions, type TaskActions } from "./actions";
 import type { SettingValues } from "../settings/settings_store";
 import { shouldIncludeFilePath } from "./scope";
-import { getSchemaImpl } from "../../parsing/properties/index";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import type { PrepareFileContentsForWrite } from "./source_line_editor";
-
-function getMarkerSettings(settings: SettingValues) {
-	return {
-		consolidateTags: settings.consolidateTags ?? false,
-		doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
-		cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
-		ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
-		excludedTaskTags: new Set(
-			(settings.excludedTaskTags ?? []).map((t) => t.trim().toLowerCase())
-		),
-		propertySchema: getSchemaImpl(settings.propertySchema ?? PropertySchemaOption.None),
-		treatNestedTasksAsSubtasks: settings.treatNestedTasksAsSubtasks ?? false,
-	};
-}
 
 export function createTasksStore(
 	vault: Vault,

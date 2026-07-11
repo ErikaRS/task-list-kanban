@@ -92,7 +92,14 @@ function ensureTrailingNewline(value: string): string {
 	return value.endsWith("\n") ? value : `${value}\n`;
 }
 
-function toSettingsPayload(value: unknown): string {
+/**
+ * A raw frontmatter `kanban_plugin` value as the JSON string
+ * `parseSettingsOverrides` expects. The value is a string when this module
+ * wrote it, but hand-authored or template frontmatter can carry an object
+ * (`kanban_plugin: {}`) — and the metadata cache (the dashboard's no-read
+ * settings source) surfaces whichever shape the file has.
+ */
+export function toSettingsPayload(value: unknown): string {
 	if (typeof value === "string") {
 		return value;
 	}

@@ -13,6 +13,7 @@
 	import Icon from "../components/icon.svelte";
 	import DashboardCard from "./dashboard_card.svelte";
 	import { buildBoardCards, type BoardCard, type BoardStatLookup } from "./dashboard_cards";
+	import type { BoardTaskCounts } from "./board_stats";
 	import {
 		panelSlide,
 		panelTransitionDuration,
@@ -29,6 +30,9 @@
 	export let onSetBoardHidden: ((path: string, hidden: boolean) => void) | undefined =
 		undefined;
 	export let onReorderBoards: ((orderedPaths: string[]) => void) | undefined = undefined;
+	export let boardCountsStore: Readable<ReadonlyMap<string, BoardTaskCounts>> =
+		readable(new Map());
+	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
 	export let onClose: () => void;
 
 	const duration = panelTransitionDuration(
@@ -57,6 +61,24 @@
 		const resolved = resolveBoardList($boardIndexStore, $boardListSettingsStore);
 		shownCards = buildBoardCards(resolved.shown, getBoardStat);
 		hiddenCards = buildBoardCards(resolved.hidden, getBoardStat);
+	}
+
+	// Counts are lazy: only visible cards get requested — hidden boards wait
+	// for the zippy — and the refresh tick re-requests them all (unchanged
+	// boards cache-hit without reads, edited ones recompute).
+	$: requestVisibleCounts(shownCards, hiddenCards, otherBoardsExpanded);
+	function requestVisibleCounts(
+		shown: BoardCard[],
+		hidden: BoardCard[],
+		hiddenExpanded: boolean,
+	) {
+		const paths = [
+			...shown.map((card) => card.path),
+			...(hiddenExpanded ? hidden.map((card) => card.path) : []),
+		];
+		if (paths.length > 0) {
+			onRequestBoardCounts?.(paths);
+		}
 	}
 
 	onMount(() => {
@@ -193,6 +215,7 @@
 						{card}
 						current={card.path === currentPath}
 						{now}
+						counts={$boardCountsStore.get(card.path) ?? null}
 						{onSelect}
 						onContextMenu={(menuCard, event) =>
 							handleCardContextMenu(menuCard, event, false)}
@@ -233,6 +256,7 @@
 								{card}
 								current={card.path === currentPath}
 								{now}
+								counts={$boardCountsStore.get(card.path) ?? null}
 								{onSelect}
 								onContextMenu={(menuCard, event) =>
 									handleCardContextMenu(menuCard, event, true)}

@@ -2,10 +2,13 @@
 	import type { BoardCard } from "./dashboard_cards";
 	import { formatLastModified } from "./dashboard_cards";
 	import type { DropPosition } from "../settings/column_reorder";
+	import type { BoardTaskCounts } from "./board_stats";
 
 	export let card: BoardCard;
 	export let current: boolean;
 	export let now: number;
+	/** null = still computing (counts land progressively, one board at a time). */
+	export let counts: BoardTaskCounts | null = null;
 	export let onSelect: (path: string) => void;
 	export let onContextMenu: (card: BoardCard, event: MouseEvent) => void;
 	// Drag-reorder wiring (shown grid only; the "Other boards" zippy stays
@@ -74,6 +77,13 @@
 	{#if card.folder}
 		<span class="board-card-folder">{card.folder}</span>
 	{/if}
+	{#if counts}
+		<span class="board-card-counts">
+			{counts.open} open · {counts.done} done
+		</span>
+	{:else}
+		<span class="board-card-counts pending">Counting…</span>
+	{/if}
 	{#if card.lastModified !== undefined}
 		<span class="board-card-modified">
 			Updated {formatLastModified(card.lastModified, now)}
@@ -139,6 +149,17 @@
 		white-space: nowrap;
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
+	}
+
+	.board-card-counts {
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+
+		// The pre-count placeholder; same footprint as the counts line so
+		// cards don't reflow when the number lands.
+		&.pending {
+			color: var(--text-faint);
+		}
 	}
 
 	.board-card-modified {
