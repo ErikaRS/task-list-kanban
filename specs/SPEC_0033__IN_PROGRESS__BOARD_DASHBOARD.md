@@ -259,6 +259,18 @@ board; selecting one closes the panel and swaps the board in-leaf.
 **Deliverable:** Working slide-over launchpad (tabs still present).
 **Size:** M
 
+**Implemented by:** [d245005](https://github.com/ErikaRS/task-list-kanban/commit/d24500506d06a481225970762edbcd17ef09f8c3)
+
+**Implementation notes (Phase 1):**
+- Panel-open state lives in `KanbanView` (not `main.svelte`) so the
+  gated command can reach it via `getActiveViewOfType`; focus return
+  and popover collapse hang off the store's open/close edges in
+  `main.svelte`, covering every open/close path uniformly.
+- Phase 1 review feedback folded in: 350ms `cubicOut` slide (was 250ms
+  linear), panel anchored below the chrome row with the toolbar inert +
+  dimmed (dashboard button stays live as the accidental-click undo),
+  and an explicit header X alongside Esc/scrim/button dismissal.
+
 ### Phase 2: Curation + tab strip removal
 **Goal:** The panel honors board order and hidden boards ("Other boards"
 zippy), the card menu curates and renames, and the tab strip is gone.
