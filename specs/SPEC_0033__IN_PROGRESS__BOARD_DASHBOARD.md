@@ -441,6 +441,8 @@ Obsidian records, so the plugin stamps it itself.
    now"/"X ago" lines in the current session and after an Obsidian
    restart; rename a stamped board → its line survives
 
+**Implemented by:** [1975271](https://github.com/ErikaRS/task-list-kanban/commit/1975271d1fb333876f18e239e8788c9ff00cadb1)
+
 **Deliverable:** Cards answer "when was I last here?" (original issue's
 last-accessed ask).
 **Size:** S
