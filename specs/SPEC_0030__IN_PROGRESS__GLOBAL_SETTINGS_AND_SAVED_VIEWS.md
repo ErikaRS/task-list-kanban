@@ -562,8 +562,11 @@ Spun out into `complete/SPEC_0032__COMPLETE__TABBED_BOARD_NAVIGATION.md`
 **Deliverable:** In-view tab bar across kanban boards.
 **Size:** M
 
-### Phase 7: Dashboard (scoping level; spin out own spec — #132)
+### Phase 7: Dashboard (scoping level; spun out — #132)
 **Goal:** Summary + launchpad view over all boards.
+
+Spun out into `SPEC_0033__IN_PROGRESS__BOARD_DASHBOARD.md`; tracking below
+is scoping-level only — the implementation spec is the source of truth.
 
 1. ☐ `kanban-dashboard` ItemView, ribbon + command entry points
 2. ☐ Board cards from discovery service (name, folder, last modified)

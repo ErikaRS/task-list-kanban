@@ -47,6 +47,9 @@ export class KanbanView extends TextFileView {
 	private excludeFilter: string[] | null = null;
 	private boardFolderPath: string | null = null;
 	private readonly currentPathStore = writable<string | null>(null);
+	// Transient by design (SPEC 0033): the dashboard never reopens itself
+	// after a reload or board switch.
+	private readonly dashboardOpenStore = writable(false);
 
 	private readonly tasksStore: Writable<Task[]>;
 	private readonly taskActions: TaskActions;
@@ -188,6 +191,12 @@ export class KanbanView extends TextFileView {
 		});
 	}
 
+	// The "Show board dashboard" command's entry point; the button in the
+	// board chrome flips the same store.
+	toggleDashboard(): void {
+		this.dashboardOpenStore.update((open) => !open);
+	}
+
 	getViewType() {
 		return KANBAN_VIEW_NAME;
 	}
@@ -272,6 +281,7 @@ export class KanbanView extends TextFileView {
 				boardIndexStore: this.boardIndexStore,
 				tabsSettingsStore: this.tabsSettingsStore,
 				currentPathStore: this.currentPathStore,
+				dashboardOpenStore: this.dashboardOpenStore,
 				openBoard: (path: string) => void this.openBoard(path),
 				onReorderTabs: this.onReorderTabs,
 				requestSave: () => this.requestSave(),

@@ -60,6 +60,23 @@ export default class Base extends Plugin {
 			defaultMod: false,
 		});
 
+		// The dashboard is a slide-over inside the kanban view (SPEC 0033),
+		// so the command only applies while one is focused.
+		this.addCommand({
+			id: "show-board-dashboard",
+			name: "Show board dashboard",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(KanbanView);
+				if (!view) {
+					return false;
+				}
+				if (!checking) {
+					view.toggleDashboard();
+				}
+				return true;
+			},
+		});
+
 		this.addCommand({
 			id: "use-current-board-settings-as-global-defaults",
 			name: "Use current board settings as global defaults",

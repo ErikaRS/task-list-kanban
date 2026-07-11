@@ -21,7 +21,7 @@
 	} from "./tasks/task_grouping";
 	import IconButton from "./components/icon_button.svelte";
 	import Icon from "./components/icon.svelte";
-	import { readable, type Writable, type Readable } from "svelte/store";
+	import { readable, writable, type Writable, type Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
 	import { type BoardSettingsStore, type SavedView, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
@@ -72,7 +72,9 @@
 	import BoardTabs from "./boards/board_tabs.svelte";
 	import { resolveTabEntries, type BoardIndexEntry } from "./boards/board_index";
 	import { RenameBoardModal } from "./boards/rename_board_modal";
-	import { Menu } from "obsidian";
+	import DashboardPanel from "./dashboard/dashboard_panel.svelte";
+	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
+	import { Menu, TFile } from "obsidian";
 	import type { TabsSettings } from "./settings/global_settings";
 
 	type TagGroupInputMode = "prefix" | "include";
@@ -90,11 +92,49 @@
 	export let boardIndexStore: Readable<BoardIndexEntry[]> = readable([]);
 	export let tabsSettingsStore: Readable<TabsSettings | undefined> = readable(undefined);
 	export let currentPathStore: Readable<string | null> = readable(null);
+	export let dashboardOpenStore: Writable<boolean> = writable(false);
 	export let openBoard: (path: string) => void = () => undefined;
 	export let onReorderTabs: ((orderedPaths: string[]) => void) | undefined = undefined;
 	export let requestSave: () => void;
 
 	$: boardTabEntries = resolveTabEntries($boardIndexStore, $tabsSettingsStore, $currentPathStore);
+
+	// --- Board dashboard panel (SPEC 0033) ---
+	let dashboardButtonEl: HTMLButtonElement | undefined;
+	let dashboardWasOpen = false;
+
+	// Every open/close path (Esc, scrim, X, card select, button, command)
+	// flips the store, so acting on its edges covers them all: focus returns
+	// to the button on close, and open collapses the toolbar popovers before
+	// the toolbar goes inert.
+	$: {
+		if (dashboardWasOpen && !$dashboardOpenStore) {
+			dashboardButtonEl?.focus();
+		} else if (!dashboardWasOpen && $dashboardOpenStore) {
+			viewEditorExpanded = false;
+			filterEditorExpanded = false;
+		}
+		dashboardWasOpen = $dashboardOpenStore;
+	}
+
+	function toggleDashboard() {
+		dashboardOpenStore.update((open) => !open);
+	}
+
+	function handleDashboardSelect(path: string) {
+		// Fire the in-leaf switch immediately: the same view and component
+		// survive it (SPEC 0032), so the panel slides closed over the
+		// incoming board.
+		if (shouldSwitchBoard(path, $currentPathStore)) {
+			openBoard(path);
+		}
+		dashboardOpenStore.set(false);
+	}
+
+	function getDashboardBoardStat(path: string) {
+		const file = app.vault.getAbstractFileByPath(path);
+		return file instanceof TFile ? { mtime: file.stat.mtime } : null;
+	}
 
 	function handleTabContextMenu(entry: BoardIndexEntry, event: MouseEvent) {
 		const menu = new Menu();
@@ -848,8 +888,23 @@
 				onReorder={onReorderTabs}
 			/>
 		{/if}
-		<div class="board-toolbar">
-			<div class="view-control" bind:this={viewControlContainer}>
+		<div class="board-toolbar" class:dashboard-open={$dashboardOpenStore}>
+			<div class="dashboard-control">
+				<button
+					type="button"
+					class="dashboard-toggle"
+					class:active={$dashboardOpenStore}
+					aria-expanded={$dashboardOpenStore}
+					aria-label={$dashboardOpenStore
+						? "Hide board dashboard"
+						: "Show board dashboard"}
+					bind:this={dashboardButtonEl}
+					on:click={toggleDashboard}
+				>
+					<Icon name="layout-dashboard" size={16} />
+				</button>
+			</div>
+			<div class="view-control" bind:this={viewControlContainer} inert={$dashboardOpenStore}>
 				<button
 					type="button"
 					class="view-editor-toggle"
@@ -910,7 +965,7 @@
 					</div>
 				{/if}
 			</div>
-			<div class="filter-bar-container" bind:this={filterBarContainer}>
+			<div class="filter-bar-container" bind:this={filterBarContainer} inert={$dashboardOpenStore}>
 				<div class="filter-bar">
 					<Icon name="search" size={16} opacity={0.7} />
 					<input
@@ -971,7 +1026,7 @@
 					/>
 				{/if}
 			</div>
-			<div class="settings-control">
+			<div class="settings-control" inert={$dashboardOpenStore}>
 				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 			</div>
 		</div>
@@ -990,6 +1045,9 @@
 				onCancel={() => (savedViewPendingDelete = undefined)}
 			/>
 		{/if}
+			<!-- Positioning context for the dashboard slide-over, which covers
+			     the board area but leaves the chrome row above interactive. -->
+			<div class="board-area">
 			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
 				{#if !isVerticalFlow}
 					<BoardMatrixHorizontal
@@ -1044,6 +1102,17 @@
 					/>
 				{/if}
 			</div>
+			{#if $dashboardOpenStore}
+				<DashboardPanel
+					{app}
+					{boardIndexStore}
+					currentPath={$currentPathStore}
+					getBoardStat={getDashboardBoardStat}
+					onSelect={handleDashboardSelect}
+					onClose={() => dashboardOpenStore.set(false)}
+				/>
+			{/if}
+			</div>
 	</div>
 </div>
 
@@ -1055,6 +1124,54 @@
 		display: flex;
 		flex-direction: column;
 		font-size: var(--font-text-size);
+
+		.dashboard-control {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex: 0 0 auto;
+			height: var(--view-toolbar-control-height);
+		}
+
+		.dashboard-toggle {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: var(--view-toolbar-control-height);
+			height: var(--view-toolbar-control-height);
+			min-height: 0;
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+			border-radius: 999px;
+			background: var(--background-primary);
+			box-shadow: var(--shadow-s);
+			color: var(--text-normal);
+			cursor: pointer;
+
+			&:hover {
+				background: var(--background-modifier-hover);
+			}
+
+			&.active {
+				background: var(--background-primary);
+				border-color: color-mix(in srgb, var(--interactive-accent) 24%, transparent);
+				box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+			}
+		}
+
+		// While the dashboard is open the rest of the toolbar is inert (the
+		// markup sets `inert`, which blocks pointer and keyboard input); the
+		// dim is the visual half of that signal. The dashboard button stays
+		// fully live as the accidental-click undo.
+		.board-toolbar.dashboard-open {
+			.view-control,
+			.filter-bar-container,
+			.settings-control {
+				opacity: 0.5;
+			}
+		}
 
 		.board-toolbar {
 			position: relative;
@@ -1250,6 +1367,17 @@
 			.view-editor-popover {
 				width: calc(100vw - var(--size-4-8));
 			}
+		}
+
+		// Takes over the columns' flex slot; the columns fill it, and the
+		// dashboard panel absolutely positions against it.
+		.board-area {
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			flex: 1 1 0;
+			min-width: 0;
+			min-height: 0;
 		}
 
 		.columns {
