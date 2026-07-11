@@ -11,7 +11,7 @@ import {
 import { resolveScopeFilter } from "./tasks/scope";
 import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { BoardIndexEntry } from "./boards/board_index";
-import type { TabsSettings } from "./settings/global_settings";
+import type { BoardListSettings } from "./settings/global_settings";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
@@ -64,8 +64,9 @@ export class KanbanView extends TextFileView {
 		inheritedSettingsStore?: Readable<Partial<SettingValues>>,
 		private readonly globalViewsStore?: Readable<SavedView[]>,
 		private readonly boardIndexStore?: Readable<BoardIndexEntry[]>,
-		private readonly tabsSettingsStore?: Readable<TabsSettings | undefined>,
-		private readonly onReorderTabs?: (orderedPaths: string[]) => void,
+		private readonly boardListSettingsStore?: Readable<BoardListSettings | undefined>,
+		private readonly onSetBoardHidden?: (path: string, hidden: boolean) => void,
+		private readonly onReorderBoards?: (orderedPaths: string[]) => void,
 	) {
 		super(leaf);
 
@@ -279,11 +280,12 @@ export class KanbanView extends TextFileView {
 				settingsStore: this.settingsStore,
 				globalViewsStore: this.globalViewsStore,
 				boardIndexStore: this.boardIndexStore,
-				tabsSettingsStore: this.tabsSettingsStore,
+				boardListSettingsStore: this.boardListSettingsStore,
 				currentPathStore: this.currentPathStore,
 				dashboardOpenStore: this.dashboardOpenStore,
 				openBoard: (path: string) => void this.openBoard(path),
-				onReorderTabs: this.onReorderTabs,
+				onSetBoardHidden: this.onSetBoardHidden,
+				onReorderBoards: this.onReorderBoards,
 				requestSave: () => this.requestSave(),
 			},
 		});

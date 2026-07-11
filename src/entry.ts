@@ -11,7 +11,7 @@ import {
 import { GlobalSettingsTab } from "./ui/settings/global_settings_tab";
 import {
 	createBoardIndex,
-	rewriteBoardPath,
+	rewriteBoardListPaths,
 	type BoardIndex,
 } from "./ui/boards/board_index";
 
@@ -22,9 +22,9 @@ export default class Base extends Plugin {
 		this.globalSettingsStore,
 		(settings) => settings.globalViews ?? [],
 	);
-	private readonly tabsSettingsStore = derived(
+	private readonly boardListSettingsStore = derived(
 		this.globalSettingsStore,
-		(settings) => settings.tabs,
+		(settings) => settings.boardList,
 	);
 	private boardIndex: BoardIndex | undefined;
 
@@ -40,8 +40,9 @@ export default class Base extends Plugin {
 					this.inheritedSettingsStore,
 					this.globalViewsStore,
 					boardIndex.store,
-					this.tabsSettingsStore,
-					(orderedPaths) => void this.reorderTabs(orderedPaths),
+					this.boardListSettingsStore,
+					(path, hidden) => void this.setBoardHidden(path, hidden),
+					(orderedPaths) => void this.reorderBoards(orderedPaths),
 				),
 		);
 		this.addSettingTab(
@@ -49,7 +50,6 @@ export default class Base extends Plugin {
 				this.app,
 				this,
 				this.globalSettingsStore,
-				boardIndex.store,
 				() => this.saveGlobalSettings(),
 			),
 		);
@@ -115,11 +115,11 @@ export default class Base extends Plugin {
 			})
 		);
 
-		// Pinned tab paths follow renames — from the tab menu and the file
-		// explorer alike (SPEC 0032).
+		// Curated board-list paths follow renames — from the dashboard's card
+		// menu and the file explorer alike (SPEC 0032/0033).
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
-				void this.rewritePinnedTabPaths(oldPath, file.path);
+				void this.rewriteBoardListSettingsPaths(oldPath, file.path);
 			})
 		);
 
@@ -150,45 +150,58 @@ export default class Base extends Plugin {
 		await this.saveData(serializeGlobalSettings(this.globalSettingsStore.get()));
 	}
 
-	private async rewritePinnedTabPaths(oldPath: string, newPath: string) {
-		const tabs = this.globalSettingsStore.get().tabs;
-		const boardPaths = tabs?.boardPaths ?? [];
-		const unpinnedPaths = tabs?.unpinnedPaths ?? [];
-		const rewrittenBoardPaths = boardPaths.map((path) =>
-			rewriteBoardPath(path, oldPath, newPath),
+	private async rewriteBoardListSettingsPaths(oldPath: string, newPath: string) {
+		const rewritten = rewriteBoardListPaths(
+			this.globalSettingsStore.get().boardList,
+			oldPath,
+			newPath,
 		);
-		const rewrittenUnpinnedPaths = unpinnedPaths.map((path) =>
-			rewriteBoardPath(path, oldPath, newPath),
-		);
-		if (
-			rewrittenBoardPaths.every((path, index) => path === boardPaths[index]) &&
-			rewrittenUnpinnedPaths.every((path, index) => path === unpinnedPaths[index])
-		) {
+		if (!rewritten) {
 			return;
 		}
 		this.globalSettingsStore.update((settings) => ({
 			...settings,
-			tabs: {
-				...settings.tabs!,
-				...(rewrittenBoardPaths.length > 0 ? { boardPaths: rewrittenBoardPaths } : {}),
-				...(rewrittenUnpinnedPaths.length > 0
-					? { unpinnedPaths: rewrittenUnpinnedPaths }
-					: {}),
+			boardList: rewritten,
+		}));
+		await this.saveGlobalSettings();
+	}
+
+	// Dashboard card drag reorder: the shown order, with the dragged card
+	// moved, becomes the explicit board order. Unpinned state is left
+	// untouched, and stale paths fall out (the shown list only contains
+	// discovered boards).
+	private async reorderBoards(orderedPaths: string[]) {
+		this.globalSettingsStore.update((settings) => ({
+			...settings,
+			boardList: {
+				...settings.boardList,
+				boardPaths: orderedPaths,
 			},
 		}));
 		await this.saveGlobalSettings();
 	}
 
-	// Tab-strip drag reorder: the shown order, with the dragged tab moved,
-	// becomes the explicit tab order. Unpinned state is left untouched.
-	private async reorderTabs(orderedPaths: string[]) {
-		this.globalSettingsStore.update((settings) => ({
-			...settings,
-			tabs: {
-				...(settings.tabs ?? { enabled: false }),
-				boardPaths: orderedPaths,
-			},
-		}));
+	// The dashboard card menu's "Hide board" / "Show board": hidden boards
+	// move under the panel's "Other boards" zippy. Explicit order is left
+	// untouched, so hiding and re-showing an ordered board restores its slot.
+	private async setBoardHidden(path: string, hidden: boolean) {
+		this.globalSettingsStore.update((settings) => {
+			const unpinnedPaths = (settings.boardList?.unpinnedPaths ?? []).filter(
+				(candidate) => candidate !== path,
+			);
+			if (hidden) {
+				unpinnedPaths.push(path);
+			}
+			return {
+				...settings,
+				boardList: {
+					...settings.boardList,
+					...(unpinnedPaths.length > 0
+						? { unpinnedPaths }
+						: { unpinnedPaths: undefined }),
+				},
+			};
+		});
 		await this.saveGlobalSettings();
 	}
 

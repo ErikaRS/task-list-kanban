@@ -3,6 +3,14 @@
 Status: COMPLETE
 Implemented: 2026-07
 
+> **Superseded in part by SPEC 0033.** The tab strip UI (and its `tabs`
+> settings, including the enable toggle) was removed before ever shipping in
+> a release, replaced by the board dashboard's slide-over panel. The rest of
+> this spec remains load-bearing: the board discovery service, the in-leaf
+> `setViewState` switch, the rename-board modal, and the
+> `boardPaths`/`unpinnedPaths` curation model (now `GlobalSettings.boardList`)
+> all carry over into SPEC 0033.
+
 ## Feature Request Summary
 
 [#130](https://github.com/ErikaRS/task-list-kanban/issues/130) — Tabbed

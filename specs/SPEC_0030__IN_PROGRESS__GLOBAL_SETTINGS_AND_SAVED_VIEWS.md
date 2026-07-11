@@ -554,12 +554,16 @@ them.
 
 Spun out into `complete/SPEC_0032__COMPLETE__TABBED_BOARD_NAVIGATION.md`
 (plus a tab-menu board rename added during review); implemented 2026-07.
+The tab strip UI was later superseded by SPEC 0033's board dashboard
+(strip removed before release; discovery, in-leaf switching, rename, and
+the curation model — now `GlobalSettings.boardList` — carry over).
 
 1. ✅ Board discovery service on `metadataCache`
 2. ✅ Tab strip UI + in-leaf switching (save-on-switch verified manually)
 3. ✅ `tabs` config in plugin settings (enable, curated board list, order)
 
-**Deliverable:** In-view tab bar across kanban boards.
+**Deliverable:** In-view tab bar across kanban boards (superseded by the
+SPEC 0033 dashboard).
 **Size:** M
 
 ### Phase 7: Dashboard (scoping level; spun out — #132)

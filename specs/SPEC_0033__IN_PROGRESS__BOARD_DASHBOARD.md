@@ -49,6 +49,11 @@ survives and is load-bearing here: the board discovery service, the in-leaf
    boards first, the rest alphabetical; boards hidden from the main grid
    remain reachable under an **"Other boards" zippy** (more real estate
    than tabs had, so hidden ≠ inaccessible).
+   *(Revised in Phase 2 review: all curation is in-panel — cards
+   drag-reorder in the shown grid and the card context menu hides/shows —
+   so the settings-tab board list is removed entirely rather than
+   relabeled. The hidden section stays alphabetical: no ordering
+   complexity for a parking lot.)*
 6. **The tab bar is removed**, returning its vertical space. Follow-up
    (deliberately out of scope here): revisit a quick board-switching
    affordance that feels integrated with the dashboard — see Follow-ups.
@@ -140,11 +145,16 @@ interface BoardListSettings {
   hidden = unpinned boards (the zippy's content, alphabetical). The
   "minimum two tabs" rule and the current-board append hack die with the
   strip — the panel always shows everything, just sectioned.
-- Plugin settings tab: the "Board tabs" block becomes "Board dashboard" —
-  the drag-reorderable shown-boards list and "Add board" dropdown stay
-  exactly as built (same column-editor row UI); the "Show board tabs"
-  toggle is removed. The vault-rename rewrite of both path lists carries
-  over untouched.
+- Plugin settings tab: nothing. *(Phase 2 review revision — the original
+  plan relabeled the "Board tabs" block to "Board dashboard"; with card
+  drag-reorder and menu hide/show both living in the panel, the settings
+  list was pure duplication and is deleted. One curation surface.)* The
+  vault-rename rewrite of both path lists carries over untouched, as a
+  pure `rewriteBoardListPaths` helper.
+- Stale `boardPaths` entries (board deleted outside Obsidian) lose their
+  settings-row cleanup surface, but reorder writes are self-cleaning: a
+  drop materializes the shown order — which only contains discovered
+  boards — as the new explicit order.
 
 ### Tab strip removal
 
@@ -153,9 +163,12 @@ interface BoardListSettings {
   and the current-path store (the panel needs both). SPEC 0032 gets a
   superseded-by note; its spec file otherwise stands as the record of the
   surviving machinery.
-- Reordering boards lives in the plugin settings list (already
-  drag-reorderable). Card drag-reorder inside the panel is a candidate
-  polish item, not v1.
+- Reordering boards is card drag-and-drop in the panel's shown grid
+  (promoted from polish to v1 in Phase 2 review, replacing the settings
+  list). The drop position comes from the pointer's side of the card's
+  horizontal midpoint — grid wrapping doesn't matter because the order is
+  one-dimensional. A drag across the zippy boundary as a hide/show gesture
+  is the remaining polish candidate.
 
 ### Task counts (`src/ui/dashboard/board_stats.ts`, Phase 3)
 
@@ -238,20 +251,20 @@ Obsidian.
 **Goal:** Button + command open a slide-over dashboard listing every
 board; selecting one closes the panel and swaps the board in-leaf.
 
-1. ☑ Rework design v1: delete the `ItemView`/ribbon/leaf plumbing; keep
+1. ✅ Rework design v1: delete the `ItemView`/ribbon/leaf plumbing; keep
    `dashboard_cards.ts` + tests
-2. ☑ `dashboard_panel.svelte`: slide animation + scrim, reduced-motion
+2. ✅ `dashboard_panel.svelte`: slide animation + scrim, reduced-motion
    fallback, Esc/scrim/button close paths, focus management
-3. ☑ Chrome button (upper left) + gated "Show board dashboard" command
+3. ✅ Chrome button (upper left) + gated "Show board dashboard" command
    toggling the panel
-4. ☑ Card select → close + in-leaf switch; current board highlighted,
+4. ✅ Card select → close + in-leaf switch; current board highlighted,
    click-current closes
-5. ☑ Tests: card-model derivation and formatter (carried over), panel
+5. ✅ Tests: card-model derivation and formatter (carried over), panel
    open/close state logic where extractable
    (`dashboard_panel_state.tests.ts`: slide/fade curves, reduced-motion
    duration, select-current-closes)
-6. ☑ Automated verification: `npm run build`, `npm test`
-7. ☐ Manual: open via button and command, slide animation, all four
+6. ✅ Automated verification: `npm run build`, `npm test`
+7. ✅ Manual: open via button and command, slide animation, all four
    close paths (button, X, Esc, scrim), toolbar inert + dimmed while
    open, switch boards, current-board highlight, last-modified freshness
    while open
@@ -275,23 +288,47 @@ board; selecting one closes the panel and swaps the board in-leaf.
 **Goal:** The panel honors board order and hidden boards ("Other boards"
 zippy), the card menu curates and renames, and the tab strip is gone.
 
-1. ☐ `GlobalSettings.boardList` replacing `tabs` (no migration — never
-   released); settings-tab block relabeled, toggle removed
-2. ☐ Shown/hidden resolver replacing `resolveTabEntries`; "Other boards"
+1. ☑ `GlobalSettings.boardList` replacing `tabs` (no migration — never
+   released); settings-tab board list removed entirely (revised in review
+   from "relabeled" — curation is all in-panel)
+2. ☑ Shown/hidden resolver replacing `resolveTabEntries`; "Other boards"
    zippy in the panel
-3. ☐ Card context menu: rename (reusing SPEC 0032 modal), hide/show
-4. ☐ Delete `board_tabs.svelte` + strip wiring; superseded-by note in
+3. ☑ Card context menu: rename (reusing SPEC 0032 modal), hide/show
+4. ☑ Card drag-reorder in the shown grid writing `boardPaths`
+   (self-cleaning; added in review, promoted from polish)
+5. ☑ Delete `board_tabs.svelte` + strip wiring; superseded-by note in
    SPEC 0032; SPEC 0030 Phase 6 pointer updated
-5. ☐ Tests: boardList parse round-trip (stray `tabs` key ignored),
+6. ☑ Tests: boardList parse round-trip (stray `tabs` key ignored),
    resolver shown/hidden ordering, rename rewrite still covering both
    lists
-6. ☐ Automated verification: `npm run build`, `npm test`
-7. ☐ Manual: reorder in settings reflects in panel, hide/show via card
-   menu and settings, rename from card menu, strip gone, vertical space
-   reclaimed, legacy data.json migrates cleanly
+7. ☑ Automated verification: `npm run build`, `npm test`
+8. ☑ Manual: drag-reorder cards persists across reopen, hide/show via
+   card menu (zippy appears/empties), rename from card menu, strip gone,
+   vertical space reclaimed, settings tab has no board list, legacy
+   data.json sheds its `tabs` key
 
 **Deliverable:** One integrated board-navigation surface.
 **Size:** M
+
+**Implementation notes (Phase 2):**
+- The card markup moved into `dashboard_card.svelte` so the shown grid and
+  the "Other boards" zippy render the same card; the zippy (collapsed by
+  default, transient like the panel) shows the hidden count in its label.
+- The rename rewrite logic moved from `entry.ts` into a pure
+  `rewriteBoardListPaths` helper in `board_index.ts` so both path lists are
+  covered by a unit test, per this phase's test item.
+- Curation writes are plugin-owned callbacks threaded entry → view →
+  panel: `onSetBoardHidden` (menu hide/show) and `onReorderBoards` (card
+  drag). Hiding leaves `boardPaths` untouched, so re-showing an ordered
+  board restores its slot; a reorder drop materializes the full shown
+  order via `movePathRelativeTo`, shedding stale paths as a side effect.
+- The panel owns drag state; `dashboard_card.svelte` reports gestures with
+  a before/after position computed from the pointer's side of the card's
+  horizontal midpoint. Drop cue is an accent bar on the landing edge.
+- Phase 2 review feedback folded in: the settings-tab "Board tabs" block
+  (toggle + drag-reorderable list) was deleted rather than relabeled once
+  panel drag-reorder made it redundant; `GlobalSettingsTab` no longer
+  needs the board index at all. Hidden section stays alphabetical.
 
 ### Phase 3: Open/done task counts
 **Goal:** Every card shows exact open and done counts that stay current,

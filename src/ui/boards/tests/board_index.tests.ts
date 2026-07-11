@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
 	movePathRelativeTo,
-	resolveTabEntries,
+	resolveBoardList,
+	rewriteBoardListPaths,
 	rewriteBoardPath,
 	sortBoardEntries,
 	type BoardIndexEntry,
@@ -30,69 +31,86 @@ describe("sortBoardEntries", () => {
 	});
 });
 
-describe("resolveTabEntries", () => {
-	it("resolves nothing when tabs are disabled or unset", () => {
-		expect(resolveTabEntries([work, home], undefined, work.path)).toEqual([]);
-		expect(resolveTabEntries([work, home], { enabled: false }, work.path)).toEqual([]);
-	});
+describe("resolveBoardList", () => {
+	it("shows every board alphabetically with no curation", () => {
+		const resolved = resolveBoardList([work, home], undefined);
 
-	it("lists all boards alphabetically when enabled", () => {
-		const tabs = resolveTabEntries([work, home], { enabled: true }, home.path);
-
-		expect(tabs.map((board) => board.path)).toEqual(["Home.md", "projects/Work.md"]);
-	});
-
-	it("hides the strip when fewer than two tabs would show", () => {
-		expect(resolveTabEntries([work], { enabled: true }, work.path)).toEqual([]);
-		expect(resolveTabEntries([], { enabled: true }, null)).toEqual([]);
+		expect(resolved.shown.map((board) => board.path)).toEqual([
+			"Home.md",
+			"projects/Work.md",
+		]);
+		expect(resolved.hidden).toEqual([]);
 	});
 
 	it("puts explicitly ordered boards first and the rest alphabetically", () => {
-		const tabs = resolveTabEntries(
-			[work, home, archiveHome],
-			{ enabled: true, boardPaths: [work.path, "missing/Gone.md", home.path] },
-			work.path,
-		);
+		const resolved = resolveBoardList([work, home, archiveHome], {
+			boardPaths: [work.path, "missing/Gone.md", home.path],
+		});
 
-		expect(tabs.map((board) => board.path)).toEqual([
+		expect(resolved.shown.map((board) => board.path)).toEqual([
 			"projects/Work.md",
 			"Home.md",
 			"archive/Home.md",
 		]);
+		expect(resolved.hidden).toEqual([]);
 	});
 
-	it("hides unpinned boards", () => {
-		const tabs = resolveTabEntries(
-			[work, home, archiveHome],
-			{ enabled: true, unpinnedPaths: [archiveHome.path] },
-			work.path,
-		);
+	it("moves unpinned boards to the hidden section, alphabetical", () => {
+		const resolved = resolveBoardList([work, home, archiveHome], {
+			unpinnedPaths: [work.path, archiveHome.path],
+		});
 
-		expect(tabs.map((board) => board.path)).toEqual(["Home.md", "projects/Work.md"]);
-	});
-
-	it("appends the current board even when it is unpinned", () => {
-		const tabs = resolveTabEntries(
-			[work, home, archiveHome],
-			{ enabled: true, unpinnedPaths: [archiveHome.path] },
-			archiveHome.path,
-		);
-
-		expect(tabs.map((board) => board.path)).toEqual([
-			"Home.md",
-			"projects/Work.md",
+		expect(resolved.shown.map((board) => board.path)).toEqual(["Home.md"]);
+		expect(resolved.hidden.map((board) => board.path)).toEqual([
 			"archive/Home.md",
+			"projects/Work.md",
 		]);
 	});
 
-	it("ignores order and unpinned lists when tabs are disabled", () => {
+	it("hides an unpinned board even when it is also explicitly ordered", () => {
+		const resolved = resolveBoardList([work, home], {
+			boardPaths: [work.path, home.path],
+			unpinnedPaths: [work.path],
+		});
+
+		expect(resolved.shown.map((board) => board.path)).toEqual(["Home.md"]);
+		expect(resolved.hidden.map((board) => board.path)).toEqual(["projects/Work.md"]);
+	});
+
+	it("resolves a single board and an empty vault without special cases", () => {
+		// Unlike the tab strip's "minimum two tabs" rule, the dashboard
+		// always shows what exists.
+		expect(resolveBoardList([work], undefined).shown).toEqual([work]);
+		expect(resolveBoardList([], undefined)).toEqual({ shown: [], hidden: [] });
+	});
+});
+
+describe("rewriteBoardListPaths", () => {
+	it("rewrites both lists after a folder rename", () => {
 		expect(
-			resolveTabEntries(
-				[work, home],
-				{ enabled: false, boardPaths: [work.path], unpinnedPaths: [home.path] },
-				work.path,
+			rewriteBoardListPaths(
+				{
+					boardPaths: ["projects/Work.md", "Home.md"],
+					unpinnedPaths: ["projects/Old.md"],
+				},
+				"projects",
+				"active",
 			),
-		).toEqual([]);
+		).toEqual({
+			boardPaths: ["active/Work.md", "Home.md"],
+			unpinnedPaths: ["active/Old.md"],
+		});
+	});
+
+	it("returns null when the rename touches neither list", () => {
+		expect(
+			rewriteBoardListPaths(
+				{ boardPaths: ["Home.md"] },
+				"projects/Work.md",
+				"projects/Jobs.md",
+			),
+		).toBeNull();
+		expect(rewriteBoardListPaths(undefined, "a.md", "b.md")).toBeNull();
 	});
 });
 

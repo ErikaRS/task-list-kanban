@@ -156,38 +156,41 @@ describe("global settings parsing", () => {
 		]);
 	});
 
-	it("round-trips enabled board tabs and drops the disabled default", () => {
-		expect(parseGlobalSettings({ version: 1, tabs: { enabled: true } }).tabs).toEqual({
-			enabled: true,
-		});
-		expect(parseGlobalSettings({ version: 1, tabs: { enabled: false } }).tabs).toBeUndefined();
-		expect(parseGlobalSettings({ version: 1, tabs: "yes" }).tabs).toBeUndefined();
-		expect(parseGlobalSettings({ version: 1 }).tabs).toBeUndefined();
+	it("round-trips the board list and drops the empty default", () => {
+		expect(
+			parseGlobalSettings({
+				version: 1,
+				boardList: { boardPaths: ["Home.md"], unpinnedPaths: ["archive/Old.md"] },
+			}).boardList,
+		).toEqual({ boardPaths: ["Home.md"], unpinnedPaths: ["archive/Old.md"] });
+		expect(parseGlobalSettings({ version: 1, boardList: {} }).boardList).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1, boardList: "yes" }).boardList).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1 }).boardList).toBeUndefined();
 	});
 
-	it("normalizes tab order and unpinned paths and keeps them while tabs are disabled", () => {
+	it("normalizes board order and unpinned paths", () => {
 		const parsed = parseGlobalSettings({
 			version: 1,
-			tabs: {
-				enabled: true,
+			boardList: {
 				boardPaths: [" projects/Work.md ", "", "Home.md", "projects/Work.md", 7],
 				unpinnedPaths: ["archive/Old.md", "archive/Old.md", " "],
 			},
 		});
-		expect(parsed.tabs).toEqual({
-			enabled: true,
+		expect(parsed.boardList).toEqual({
 			boardPaths: ["projects/Work.md", "Home.md"],
 			unpinnedPaths: ["archive/Old.md"],
 		});
+	});
 
-		// Order and unpinned lists survive toggling tabs off, so re-enabling
-		// restores the previous strip.
-		expect(
-			parseGlobalSettings({
-				version: 1,
-				tabs: { enabled: false, unpinnedPaths: ["Home.md"] },
-			}).tabs,
-		).toEqual({ enabled: false, unpinnedPaths: ["Home.md"] });
+	it("ignores a stray legacy tabs key", () => {
+		// The tab strip (SPEC 0032) never shipped in a release, so its `tabs`
+		// key is dropped rather than migrated (SPEC 0033 Phase 2).
+		const parsed = parseGlobalSettings({
+			version: 1,
+			tabs: { enabled: true, boardPaths: ["Home.md"] },
+		});
+		expect(parsed.boardList).toBeUndefined();
+		expect(parsed).not.toHaveProperty("tabs");
 	});
 });
 

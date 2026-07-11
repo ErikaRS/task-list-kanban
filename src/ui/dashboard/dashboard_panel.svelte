@@ -1,14 +1,18 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import type { App, EventRef } from "obsidian";
-	import type { Readable } from "svelte/store";
-	import type { BoardIndexEntry } from "../boards/board_index";
-	import Icon from "../components/icon.svelte";
+	import { Menu, type App, type EventRef } from "obsidian";
+	import { readable, type Readable } from "svelte/store";
 	import {
-		buildBoardCards,
-		formatLastModified,
-		type BoardStatLookup,
-	} from "./dashboard_cards";
+		movePathRelativeTo,
+		resolveBoardList,
+		type BoardIndexEntry,
+	} from "../boards/board_index";
+	import { RenameBoardModal } from "../boards/rename_board_modal";
+	import type { BoardListSettings } from "../settings/global_settings";
+	import type { DropPosition } from "../settings/column_reorder";
+	import Icon from "../components/icon.svelte";
+	import DashboardCard from "./dashboard_card.svelte";
+	import { buildBoardCards, type BoardCard, type BoardStatLookup } from "./dashboard_cards";
 	import {
 		panelSlide,
 		panelTransitionDuration,
@@ -17,9 +21,14 @@
 
 	export let app: App;
 	export let boardIndexStore: Readable<BoardIndexEntry[]>;
+	export let boardListSettingsStore: Readable<BoardListSettings | undefined> =
+		readable(undefined);
 	export let currentPath: string | null;
 	export let getBoardStat: BoardStatLookup;
 	export let onSelect: (path: string) => void;
+	export let onSetBoardHidden: ((path: string, hidden: boolean) => void) | undefined =
+		undefined;
+	export let onReorderBoards: ((orderedPaths: string[]) => void) | undefined = undefined;
 	export let onClose: () => void;
 
 	const duration = panelTransitionDuration(
@@ -35,12 +44,19 @@
 	// so nothing ticks while it is closed.
 	let refreshTick = 0;
 
+	// Hidden boards stay reachable under this zippy (hidden ≠ inaccessible).
+	// Collapsed by default; transient like the panel itself.
+	let otherBoardsExpanded = false;
+
 	let now = Date.now();
-	let cards: ReturnType<typeof buildBoardCards> = [];
+	let shownCards: BoardCard[] = [];
+	let hiddenCards: BoardCard[] = [];
 	$: {
 		void refreshTick;
 		now = Date.now();
-		cards = buildBoardCards($boardIndexStore, getBoardStat);
+		const resolved = resolveBoardList($boardIndexStore, $boardListSettingsStore);
+		shownCards = buildBoardCards(resolved.shown, getBoardStat);
+		hiddenCards = buildBoardCards(resolved.hidden, getBoardStat);
 	}
 
 	onMount(() => {
@@ -75,6 +91,66 @@
 			onClose();
 		}
 	}
+
+	// --- Shown-grid drag reorder ---
+	// Dropping materializes the full shown order as the explicit
+	// `boardPaths` — which also sheds stale paths, since the shown list only
+	// ever contains discovered boards.
+	let draggedPath: string | null = null;
+	let dropTarget: { path: string; position: DropPosition } | null = null;
+
+	function handleCardDragOver(path: string, position: DropPosition): boolean {
+		if (!onReorderBoards || !draggedPath || draggedPath === path) {
+			return false;
+		}
+		dropTarget = { path, position };
+		return true;
+	}
+
+	function handleCardDrop(path: string, position: DropPosition) {
+		const dragged = draggedPath;
+		draggedPath = null;
+		dropTarget = null;
+		if (!onReorderBoards || !dragged || dragged === path) {
+			return;
+		}
+		const shownPaths = shownCards.map((card) => card.path);
+		const nextOrder = movePathRelativeTo(shownPaths, dragged, path, position);
+		if (nextOrder !== shownPaths) {
+			onReorderBoards(nextOrder);
+		}
+	}
+
+	function clearDragState() {
+		draggedPath = null;
+		dropTarget = null;
+	}
+
+	// Card context menu: rename (SPEC 0032's modal) plus hide/show writing
+	// the curated list — curation without a settings round-trip.
+	function handleCardContextMenu(card: BoardCard, event: MouseEvent, hidden: boolean) {
+		const entry: BoardIndexEntry = {
+			path: card.path,
+			name: card.name,
+			folder: card.folder,
+		};
+		const menu = new Menu();
+		menu.addItem((item) =>
+			item
+				.setTitle("Rename board")
+				.setIcon("pencil")
+				.onClick(() => new RenameBoardModal(app, entry).open()),
+		);
+		if (onSetBoardHidden) {
+			menu.addItem((item) =>
+				item
+					.setTitle(hidden ? "Show board" : "Hide board")
+					.setIcon(hidden ? "eye" : "eye-off")
+					.onClick(() => onSetBoardHidden?.(card.path, !hidden)),
+			);
+		}
+		menu.showAtMouseEvent(event);
+	}
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -105,34 +181,66 @@
 				<Icon name="x" size={18} />
 			</button>
 		</div>
-		{#if cards.length === 0}
+		{#if shownCards.length === 0 && hiddenCards.length === 0}
 			<p class="dashboard-empty">
 				No kanban boards found in this vault. Create one from a folder's
 				context menu with "New kanban".
 			</p>
 		{:else}
 			<div class="dashboard-grid">
-				{#each cards as card (card.path)}
-					<button
-						type="button"
-						class="board-card"
-						class:current={card.path === currentPath}
-						title={card.path}
-						aria-current={card.path === currentPath ? "true" : undefined}
-						on:click={() => onSelect(card.path)}
-					>
-						<span class="board-card-name">{card.name}</span>
-						{#if card.folder}
-							<span class="board-card-folder">{card.folder}</span>
-						{/if}
-						{#if card.lastModified !== undefined}
-							<span class="board-card-modified">
-								Updated {formatLastModified(card.lastModified, now)}
-							</span>
-						{/if}
-					</button>
+				{#each shownCards as card (card.path)}
+					<DashboardCard
+						{card}
+						current={card.path === currentPath}
+						{now}
+						{onSelect}
+						onContextMenu={(menuCard, event) =>
+							handleCardContextMenu(menuCard, event, false)}
+						reorderable={onReorderBoards !== undefined}
+						dragging={draggedPath === card.path}
+						dropPosition={dropTarget?.path === card.path
+							? dropTarget.position
+							: null}
+						onDragStart={() => (draggedPath = card.path)}
+						onDragEnd={clearDragState}
+						onDragOver={(position) => handleCardDragOver(card.path, position)}
+						onDragLeave={() => {
+							if (dropTarget?.path === card.path) {
+								dropTarget = null;
+							}
+						}}
+						onDrop={(position) => handleCardDrop(card.path, position)}
+					/>
 				{/each}
 			</div>
+			{#if hiddenCards.length > 0}
+				<button
+					type="button"
+					class="other-boards-toggle"
+					aria-expanded={otherBoardsExpanded}
+					on:click={() => (otherBoardsExpanded = !otherBoardsExpanded)}
+				>
+					<Icon
+						name={otherBoardsExpanded ? "chevron-down" : "chevron-right"}
+						size={16}
+					/>
+					<span>Other boards ({hiddenCards.length})</span>
+				</button>
+				{#if otherBoardsExpanded}
+					<div class="dashboard-grid">
+						{#each hiddenCards as card (card.path)}
+							<DashboardCard
+								{card}
+								current={card.path === currentPath}
+								{now}
+								{onSelect}
+								onContextMenu={(menuCard, event) =>
+									handleCardContextMenu(menuCard, event, true)}
+							/>
+						{/each}
+					</div>
+				{/if}
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -217,53 +325,22 @@
 		gap: var(--size-4-3);
 	}
 
-	.board-card {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
+	.other-boards-toggle {
+		display: inline-flex;
+		align-items: center;
 		gap: var(--size-2-2);
-		margin: 0;
-		padding: var(--size-4-3);
-		height: auto;
-		background: var(--background-secondary);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: var(--radius-m);
+		margin: var(--size-4-4) 0 var(--size-4-3) 0;
+		padding: 0;
+		background: transparent;
+		border: none;
 		box-shadow: none;
-		text-align: left;
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		font-weight: 600;
 		cursor: pointer;
 
 		&:hover {
-			background: var(--background-modifier-hover);
-			border-color: var(--background-modifier-border-hover);
+			color: var(--text-normal);
 		}
-
-		// The active-tab affordance, relocated from the tab strip.
-		&.current {
-			border-color: color-mix(in srgb, var(--interactive-accent) 48%, transparent);
-			box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
-		}
-	}
-
-	.board-card-name {
-		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--text-normal);
-		font-weight: 600;
-	}
-
-	.board-card-folder {
-		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		color: var(--text-muted);
-		font-size: var(--font-ui-small);
-	}
-
-	.board-card-modified {
-		color: var(--text-faint);
-		font-size: var(--font-ui-smaller);
 	}
 </style>

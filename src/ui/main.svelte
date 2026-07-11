@@ -69,13 +69,11 @@
 		sortSelectValueFor,
 		sortSelectionFromValue,
 	} from "./views/view_editor_options";
-	import BoardTabs from "./boards/board_tabs.svelte";
-	import { resolveTabEntries, type BoardIndexEntry } from "./boards/board_index";
-	import { RenameBoardModal } from "./boards/rename_board_modal";
+	import type { BoardIndexEntry } from "./boards/board_index";
 	import DashboardPanel from "./dashboard/dashboard_panel.svelte";
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
-	import { Menu, TFile } from "obsidian";
-	import type { TabsSettings } from "./settings/global_settings";
+	import { TFile } from "obsidian";
+	import type { BoardListSettings } from "./settings/global_settings";
 
 	type TagGroupInputMode = "prefix" | "include";
 
@@ -90,14 +88,15 @@
 	export let settingsStore: BoardSettingsStore;
 	export let globalViewsStore: Readable<SavedView[]> = readable([]);
 	export let boardIndexStore: Readable<BoardIndexEntry[]> = readable([]);
-	export let tabsSettingsStore: Readable<TabsSettings | undefined> = readable(undefined);
+	export let boardListSettingsStore: Readable<BoardListSettings | undefined> =
+		readable(undefined);
 	export let currentPathStore: Readable<string | null> = readable(null);
 	export let dashboardOpenStore: Writable<boolean> = writable(false);
 	export let openBoard: (path: string) => void = () => undefined;
-	export let onReorderTabs: ((orderedPaths: string[]) => void) | undefined = undefined;
+	export let onSetBoardHidden: ((path: string, hidden: boolean) => void) | undefined =
+		undefined;
+	export let onReorderBoards: ((orderedPaths: string[]) => void) | undefined = undefined;
 	export let requestSave: () => void;
-
-	$: boardTabEntries = resolveTabEntries($boardIndexStore, $tabsSettingsStore, $currentPathStore);
 
 	// --- Board dashboard panel (SPEC 0033) ---
 	let dashboardButtonEl: HTMLButtonElement | undefined;
@@ -134,17 +133,6 @@
 	function getDashboardBoardStat(path: string) {
 		const file = app.vault.getAbstractFileByPath(path);
 		return file instanceof TFile ? { mtime: file.stat.mtime } : null;
-	}
-
-	function handleTabContextMenu(entry: BoardIndexEntry, event: MouseEvent) {
-		const menu = new Menu();
-		menu.addItem((item) =>
-			item
-				.setTitle("Rename board")
-				.setIcon("pencil")
-				.onClick(() => new RenameBoardModal(app, entry).open()),
-		);
-		menu.showAtMouseEvent(event);
 	}
 
 	const collapsedColumnsStore = createCollapsedColumnsStore(settingsStore);
@@ -879,15 +867,6 @@
 
 <div class="main">
 	<div class="board-content" bind:this={boardContentEl}>
-		{#if boardTabEntries.length > 0}
-			<BoardTabs
-				entries={boardTabEntries}
-				currentPath={$currentPathStore}
-				onSelect={openBoard}
-				onContextMenu={handleTabContextMenu}
-				onReorder={onReorderTabs}
-			/>
-		{/if}
 		<div class="board-toolbar" class:dashboard-open={$dashboardOpenStore}>
 			<div class="dashboard-control">
 				<button
@@ -1106,9 +1085,12 @@
 				<DashboardPanel
 					{app}
 					{boardIndexStore}
+					{boardListSettingsStore}
 					currentPath={$currentPathStore}
 					getBoardStat={getDashboardBoardStat}
 					onSelect={handleDashboardSelect}
+					{onSetBoardHidden}
+					{onReorderBoards}
 					onClose={() => dashboardOpenStore.set(false)}
 				/>
 			{/if}

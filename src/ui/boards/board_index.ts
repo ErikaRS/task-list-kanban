@@ -1,6 +1,6 @@
 import type { App, EventRef, TFile } from "obsidian";
 import { writable, type Readable } from "svelte/store";
-import type { TabsSettings } from "../settings/global_settings";
+import type { BoardListSettings } from "../settings/global_settings";
 
 const KANBAN_PLUGIN_KEY = "kanban_plugin";
 
@@ -103,25 +103,25 @@ export function sortBoardEntries(entries: BoardIndexEntry[]): BoardIndexEntry[] 
 	);
 }
 
+export interface ResolvedBoardList {
+	shown: BoardIndexEntry[];
+	hidden: BoardIndexEntry[];
+}
+
 /**
- * The tabs actually shown for a board. Every discovered board is a tab by
+ * The dashboard's sectioned board list. Every discovered board shows by
  * default: explicitly ordered boards (`boardPaths`) come first, the rest
  * follow alphabetically — so newly created boards appear without any
- * configuration — and `unpinnedPaths` boards are hidden. The current board
- * always gets a tab even when unpinned. A strip with fewer than two tabs
- * is noise, so it resolves to nothing.
+ * configuration. `unpinnedPaths` boards move to the hidden section (the
+ * "Other boards" zippy, alphabetical) — hidden, not inaccessible.
  */
-export function resolveTabEntries(
+export function resolveBoardList(
 	boards: BoardIndexEntry[],
-	tabs: TabsSettings | undefined,
-	currentPath: string | null,
-): BoardIndexEntry[] {
-	if (!tabs?.enabled) {
-		return [];
-	}
-	const orderedPaths = tabs.boardPaths ?? [];
+	boardList: BoardListSettings | undefined,
+): ResolvedBoardList {
+	const orderedPaths = boardList?.boardPaths ?? [];
 	const orderedPathSet = new Set(orderedPaths);
-	const unpinnedPaths = new Set(tabs.unpinnedPaths ?? []);
+	const unpinnedPaths = new Set(boardList?.unpinnedPaths ?? []);
 	const boardsByPath = new Map(boards.map((board) => [board.path, board]));
 
 	const ordered = orderedPaths
@@ -133,20 +133,47 @@ export function resolveTabEntries(
 			(board) => !orderedPathSet.has(board.path) && !unpinnedPaths.has(board.path),
 		),
 	);
+	const hidden = sortBoardEntries(
+		boards.filter((board) => unpinnedPaths.has(board.path)),
+	);
 
-	let entries = [...ordered, ...rest];
-	if (currentPath !== null && !entries.some((entry) => entry.path === currentPath)) {
-		const current = boardsByPath.get(currentPath);
-		if (current) {
-			entries = [...entries, current];
-		}
-	}
-	return entries.length >= 2 ? entries : [];
+	return { shown: [...ordered, ...rest], hidden };
 }
 
 /**
- * A path list with `draggedPath` moved before/after `targetPath` — the tab
- * and pinned-list equivalent of the column editor's reorder.
+ * Board-list path lists after a vault rename, or null when nothing changed
+ * (so callers can skip the settings write).
+ */
+export function rewriteBoardListPaths(
+	boardList: BoardListSettings | undefined,
+	oldPath: string,
+	newPath: string,
+): BoardListSettings | null {
+	const boardPaths = boardList?.boardPaths ?? [];
+	const unpinnedPaths = boardList?.unpinnedPaths ?? [];
+	const rewrittenBoardPaths = boardPaths.map((path) =>
+		rewriteBoardPath(path, oldPath, newPath),
+	);
+	const rewrittenUnpinnedPaths = unpinnedPaths.map((path) =>
+		rewriteBoardPath(path, oldPath, newPath),
+	);
+	if (
+		rewrittenBoardPaths.every((path, index) => path === boardPaths[index]) &&
+		rewrittenUnpinnedPaths.every((path, index) => path === unpinnedPaths[index])
+	) {
+		return null;
+	}
+	return {
+		...(rewrittenBoardPaths.length > 0 ? { boardPaths: rewrittenBoardPaths } : {}),
+		...(rewrittenUnpinnedPaths.length > 0
+			? { unpinnedPaths: rewrittenUnpinnedPaths }
+			: {}),
+	};
+}
+
+/**
+ * A path list with `draggedPath` moved before/after `targetPath` — the
+ * dashboard card equivalent of the column editor's reorder.
  */
 export function movePathRelativeTo(
 	paths: string[],

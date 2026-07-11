@@ -17,14 +17,16 @@ export interface GlobalSettings {
 	boardDefaults: Partial<SettingValues>;
 	defaultView?: GlobalDefaultViewProperties;
 	globalViews?: SavedView[];
-	tabs?: TabsSettings;
+	boardList?: BoardListSettings;
 }
 
-// Every discovered board is a pinned tab by default. `unpinnedPaths` hides
-// boards; `boardPaths` fixes an explicit order for the boards it lists —
-// boards absent from it (e.g. created later) follow alphabetically.
-export interface TabsSettings {
-	enabled: boolean;
+// Dashboard curation (SPEC 0033, formerly the tabs settings). Every
+// discovered board shows by default. `unpinnedPaths` moves boards under the
+// dashboard's "Other boards" zippy; `boardPaths` fixes an explicit order for
+// the boards it lists — boards absent from it (e.g. created later) follow
+// alphabetically. A stray legacy `tabs` key in data.json is ignored (the
+// tab strip never shipped in a release).
+export interface BoardListSettings {
 	boardPaths?: string[];
 	unpinnedPaths?: string[];
 }
@@ -96,7 +98,7 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	const rawBoardDefaults = isRecord(data.boardDefaults) ? data.boardDefaults : {};
 	const rawDefaultView = isRecord(data.defaultView) ? data.defaultView : undefined;
 	const rawGlobalViews = Array.isArray(data.globalViews) ? data.globalViews : undefined;
-	const rawTabs = isRecord(data.tabs) ? data.tabs : undefined;
+	const rawBoardList = isRecord(data.boardList) ? data.boardList : undefined;
 
 	const parsedBoardDefaults = pickBoardDefaultSettings(
 		parseSettingsOverrides(JSON.stringify(rawBoardDefaults)),
@@ -130,32 +132,32 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	if (parsedGlobalViews && parsedGlobalViews.length > 0) {
 		settings.globalViews = parsedGlobalViews;
 	}
-	const parsedTabs = parseTabsSettings(rawTabs);
-	if (parsedTabs) {
-		settings.tabs = parsedTabs;
+	const parsedBoardList = parseBoardListSettings(rawBoardList);
+	if (parsedBoardList) {
+		settings.boardList = parsedBoardList;
 	}
 	return settings;
 }
 
-// Tabs settings persist only in a non-default state, so a default
-// `data.json` stays free of the key. Order and unpinned lists are kept
-// even while tabs are disabled, so toggling tabs off and on preserves them.
-function parseTabsSettings(raw: Record<string, unknown> | undefined): TabsSettings | undefined {
+// Board-list settings persist only in a non-default state ("everything
+// shown, alphabetical" needs no key), so a default `data.json` stays free
+// of the key.
+function parseBoardListSettings(
+	raw: Record<string, unknown> | undefined,
+): BoardListSettings | undefined {
 	if (!raw) {
 		return undefined;
 	}
-	const enabled = raw.enabled === true;
 	const boardPaths = normalizeBoardPaths(
 		Array.isArray(raw.boardPaths) ? raw.boardPaths : [],
 	);
 	const unpinnedPaths = normalizeBoardPaths(
 		Array.isArray(raw.unpinnedPaths) ? raw.unpinnedPaths : [],
 	);
-	if (!enabled && boardPaths.length === 0 && unpinnedPaths.length === 0) {
+	if (boardPaths.length === 0 && unpinnedPaths.length === 0) {
 		return undefined;
 	}
 	return {
-		enabled,
 		...(boardPaths.length > 0 ? { boardPaths } : {}),
 		...(unpinnedPaths.length > 0 ? { unpinnedPaths } : {}),
 	};
@@ -246,11 +248,10 @@ function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {
 		...(settings.globalViews && settings.globalViews.length > 0
 			? { globalViews: cloneJson(settings.globalViews) }
 			: {}),
-		...(settings.tabs &&
-		(settings.tabs.enabled ||
-			(settings.tabs.boardPaths?.length ?? 0) > 0 ||
-			(settings.tabs.unpinnedPaths?.length ?? 0) > 0)
-			? { tabs: cloneJson(settings.tabs) }
+		...(settings.boardList &&
+		((settings.boardList.boardPaths?.length ?? 0) > 0 ||
+			(settings.boardList.unpinnedPaths?.length ?? 0) > 0)
+			? { boardList: cloneJson(settings.boardList) }
 			: {}),
 	};
 }
