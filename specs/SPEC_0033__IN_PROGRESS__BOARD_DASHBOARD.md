@@ -410,6 +410,8 @@ open counts, mirroring the board's own layout.
 5. ☐ Manual: breakdown matches the open board's columns; zippy state is
    per-card and transient
 
+**Implemented by:** [3ab193c](https://github.com/ErikaRS/task-list-kanban/commit/3ab193c7240a719f714be6a427f6927f8f20544d)
+
 **Deliverable:** Cards answer "where is the work?" without opening the board.
 **Size:** S–M
 
