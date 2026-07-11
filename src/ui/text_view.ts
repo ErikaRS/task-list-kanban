@@ -70,6 +70,8 @@ export class KanbanView extends TextFileView {
 		private readonly onReorderBoards?: (orderedPaths: string[]) => void,
 		private readonly boardCountsStore?: Readable<ReadonlyMap<string, BoardTaskCounts>>,
 		private readonly onRequestBoardCounts?: (paths: string[]) => void,
+		private readonly lastOpenedStore?: Readable<Record<string, number>>,
+		private readonly onBoardOpened?: (path: string) => void,
 	) {
 		super(leaf);
 
@@ -232,6 +234,15 @@ export class KanbanView extends TextFileView {
 		);
 	}
 
+	// Fires once per file this view loads (initial open and in-leaf board
+	// switches alike) — unlike setViewData, never on external edits — so it
+	// is the "board opened" moment for the dashboard's last-opened stamps
+	// (SPEC 0033 Phase 3c).
+	async onLoadFile(file: TFile): Promise<void> {
+		await super.onLoadFile(file);
+		this.onBoardOpened?.(file.path);
+	}
+
 	// Renaming the open board keeps this view; only the path store needs to
 	// follow so the active tab highlight does too.
 	async onRename(file: TFile): Promise<void> {
@@ -291,6 +302,7 @@ export class KanbanView extends TextFileView {
 				onReorderBoards: this.onReorderBoards,
 				boardCountsStore: this.boardCountsStore,
 				onRequestBoardCounts: this.onRequestBoardCounts,
+				lastOpenedStore: this.lastOpenedStore,
 				requestSave: () => this.requestSave(),
 			},
 		});

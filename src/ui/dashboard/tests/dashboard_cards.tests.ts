@@ -40,6 +40,14 @@ describe("buildBoardCards", () => {
 
 		expect(card?.lastModified).toBeUndefined();
 	});
+
+	it("carries last-opened from the stamp map, unset for never-opened boards", () => {
+		const cards = buildBoardCards([work, rootBoard], () => null, {
+			[work.path]: 5678,
+		});
+
+		expect(cards.map((card) => card.lastOpened)).toEqual([5678, undefined]);
+	});
 });
 
 describe("formatLastModified", () => {

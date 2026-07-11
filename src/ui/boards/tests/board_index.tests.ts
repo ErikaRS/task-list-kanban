@@ -4,6 +4,7 @@ import {
 	resolveBoardList,
 	rewriteBoardListPaths,
 	rewriteBoardPath,
+	rewriteLastOpenedPaths,
 	sortBoardEntries,
 	type BoardIndexEntry,
 } from "../board_index";
@@ -111,6 +112,42 @@ describe("rewriteBoardListPaths", () => {
 			),
 		).toBeNull();
 		expect(rewriteBoardListPaths(undefined, "a.md", "b.md")).toBeNull();
+	});
+});
+
+describe("rewriteLastOpenedPaths", () => {
+	it("moves stamps for the renamed file and children of a renamed folder", () => {
+		expect(
+			rewriteLastOpenedPaths(
+				{ "projects/Work.md": 100, "Home.md": 200 },
+				"projects",
+				"active",
+			),
+		).toEqual({ "active/Work.md": 100, "Home.md": 200 });
+	});
+
+	it("keeps the later stamp when a rename collides with an existing entry", () => {
+		expect(
+			rewriteLastOpenedPaths(
+				{ "Old.md": 300, "New.md": 100 },
+				"Old.md",
+				"New.md",
+			),
+		).toEqual({ "New.md": 300 });
+		expect(
+			rewriteLastOpenedPaths(
+				{ "Old.md": 100, "New.md": 300 },
+				"Old.md",
+				"New.md",
+			),
+		).toEqual({ "New.md": 300 });
+	});
+
+	it("returns null when the rename touches no stamped path", () => {
+		expect(
+			rewriteLastOpenedPaths({ "Home.md": 100 }, "projects/Work.md", "projects/Jobs.md"),
+		).toBeNull();
+		expect(rewriteLastOpenedPaths(undefined, "a.md", "b.md")).toBeNull();
 	});
 });
 

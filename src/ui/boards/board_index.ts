@@ -172,6 +172,29 @@ export function rewriteBoardListPaths(
 }
 
 /**
+ * Last-opened timestamps after a vault rename (file or ancestor folder), or
+ * null when nothing changed (so callers can skip the settings write). A
+ * rename collision keeps the later timestamp.
+ */
+export function rewriteLastOpenedPaths(
+	lastOpenedByPath: Record<string, number> | undefined,
+	oldPath: string,
+	newPath: string,
+): Record<string, number> | null {
+	if (!lastOpenedByPath) {
+		return null;
+	}
+	let changed = false;
+	const rewritten: Record<string, number> = {};
+	for (const [path, openedAt] of Object.entries(lastOpenedByPath)) {
+		const nextPath = rewriteBoardPath(path, oldPath, newPath);
+		changed ||= nextPath !== path;
+		rewritten[nextPath] = Math.max(rewritten[nextPath] ?? 0, openedAt);
+	}
+	return changed ? rewritten : null;
+}
+
+/**
  * A path list with `draggedPath` moved before/after `targetPath` — the
  * dashboard card equivalent of the column editor's reorder.
  */

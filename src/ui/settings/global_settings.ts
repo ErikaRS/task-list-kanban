@@ -18,6 +18,14 @@ export interface GlobalSettings {
 	defaultView?: GlobalDefaultViewProperties;
 	globalViews?: SavedView[];
 	boardList?: BoardListSettings;
+	/**
+	 * Board path → epoch ms of the last time a kanban view loaded it
+	 * (SPEC 0033 Phase 3c). Usage state rather than a setting, but
+	 * data.json is the plugin's only per-vault persistence. Neither the
+	 * filesystem nor Obsidian records access times, so history starts empty
+	 * on install and fills in as boards are opened.
+	 */
+	lastOpenedByPath?: Record<string, number>;
 }
 
 // Dashboard curation (SPEC 0033, formerly the tabs settings). Every
@@ -99,6 +107,9 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	const rawDefaultView = isRecord(data.defaultView) ? data.defaultView : undefined;
 	const rawGlobalViews = Array.isArray(data.globalViews) ? data.globalViews : undefined;
 	const rawBoardList = isRecord(data.boardList) ? data.boardList : undefined;
+	const rawLastOpened = isRecord(data.lastOpenedByPath)
+		? data.lastOpenedByPath
+		: undefined;
 
 	const parsedBoardDefaults = pickBoardDefaultSettings(
 		parseSettingsOverrides(JSON.stringify(rawBoardDefaults)),
@@ -136,7 +147,29 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	if (parsedBoardList) {
 		settings.boardList = parsedBoardList;
 	}
+	const parsedLastOpened = parseLastOpenedByPath(rawLastOpened);
+	if (parsedLastOpened) {
+		settings.lastOpenedByPath = parsedLastOpened;
+	}
 	return settings;
+}
+
+// Like the board list, an empty map stays out of data.json entirely.
+function parseLastOpenedByPath(
+	raw: Record<string, unknown> | undefined,
+): Record<string, number> | undefined {
+	if (!raw) {
+		return undefined;
+	}
+	const parsed: Record<string, number> = {};
+	for (const [path, value] of Object.entries(raw)) {
+		const trimmed = path.trim();
+		if (trimmed === "" || typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+			continue;
+		}
+		parsed[trimmed] = value;
+	}
+	return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 // Board-list settings persist only in a non-default state ("everything
@@ -252,6 +285,10 @@ function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {
 		((settings.boardList.boardPaths?.length ?? 0) > 0 ||
 			(settings.boardList.unpinnedPaths?.length ?? 0) > 0)
 			? { boardList: cloneJson(settings.boardList) }
+			: {}),
+		...(settings.lastOpenedByPath &&
+		Object.keys(settings.lastOpenedByPath).length > 0
+			? { lastOpenedByPath: cloneJson(settings.lastOpenedByPath) }
 			: {}),
 	};
 }

@@ -182,6 +182,29 @@ describe("global settings parsing", () => {
 		});
 	});
 
+	it("round-trips last-opened stamps and drops junk entries", () => {
+		const parsed = parseGlobalSettings({
+			version: 1,
+			lastOpenedByPath: {
+				"projects/Work.md": 1_750_000_000_000,
+				" Home.md ": 1_760_000_000_000,
+				"": 1,
+				"junk/NaN.md": Number.NaN,
+				"junk/Negative.md": -5,
+				"junk/String.md": "yesterday",
+			},
+		});
+		expect(parsed.lastOpenedByPath).toEqual({
+			"projects/Work.md": 1_750_000_000_000,
+			"Home.md": 1_760_000_000_000,
+		});
+
+		expect(
+			parseGlobalSettings({ version: 1, lastOpenedByPath: {} }).lastOpenedByPath,
+		).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1 }).lastOpenedByPath).toBeUndefined();
+	});
+
 	it("ignores a stray legacy tabs key", () => {
 		// The tab strip (SPEC 0032) never shipped in a release, so its `tabs`
 		// key is dropped rather than migrated (SPEC 0033 Phase 2).

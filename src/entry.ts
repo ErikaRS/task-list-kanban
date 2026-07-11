@@ -12,6 +12,7 @@ import { GlobalSettingsTab } from "./ui/settings/global_settings_tab";
 import {
 	createBoardIndex,
 	rewriteBoardListPaths,
+	rewriteLastOpenedPaths,
 	type BoardIndex,
 } from "./ui/boards/board_index";
 import {
@@ -30,6 +31,10 @@ export default class Base extends Plugin {
 	private readonly boardListSettingsStore = derived(
 		this.globalSettingsStore,
 		(settings) => settings.boardList,
+	);
+	private readonly lastOpenedStore = derived(
+		this.globalSettingsStore,
+		(settings) => settings.lastOpenedByPath ?? {},
 	);
 	private boardIndex: BoardIndex | undefined;
 	private boardStats: BoardStatsService | undefined;
@@ -65,6 +70,8 @@ export default class Base extends Plugin {
 					(orderedPaths) => void this.reorderBoards(orderedPaths),
 					boardStats.countsStore,
 					(paths) => boardStats.requestCounts(paths),
+					this.lastOpenedStore,
+					(path) => void this.recordBoardOpened(path),
 				),
 		);
 		this.addSettingTab(
@@ -174,18 +181,45 @@ export default class Base extends Plugin {
 	}
 
 	private async rewriteBoardListSettingsPaths(oldPath: string, newPath: string) {
-		const rewritten = rewriteBoardListPaths(
-			this.globalSettingsStore.get().boardList,
+		const current = this.globalSettingsStore.get();
+		const rewrittenBoardList = rewriteBoardListPaths(
+			current.boardList,
 			oldPath,
 			newPath,
 		);
-		if (!rewritten) {
+		const rewrittenLastOpened = rewriteLastOpenedPaths(
+			current.lastOpenedByPath,
+			oldPath,
+			newPath,
+		);
+		if (!rewrittenBoardList && !rewrittenLastOpened) {
 			return;
 		}
 		this.globalSettingsStore.update((settings) => ({
 			...settings,
-			boardList: rewritten,
+			...(rewrittenBoardList ? { boardList: rewrittenBoardList } : {}),
+			...(rewrittenLastOpened ? { lastOpenedByPath: rewrittenLastOpened } : {}),
 		}));
+		await this.saveGlobalSettings();
+	}
+
+	// Stamped whenever a kanban view loads a board (SPEC 0033 Phase 3c) —
+	// neither the filesystem nor Obsidian tracks access times, so the plugin
+	// records its own. Entries for since-deleted files are shed on the same
+	// write, keeping data.json from accreting ghosts.
+	private async recordBoardOpened(path: string) {
+		this.globalSettingsStore.update((settings) => {
+			const lastOpenedByPath: Record<string, number> = {};
+			for (const [boardPath, openedAt] of Object.entries(
+				settings.lastOpenedByPath ?? {},
+			)) {
+				if (this.app.vault.getAbstractFileByPath(boardPath)) {
+					lastOpenedByPath[boardPath] = openedAt;
+				}
+			}
+			lastOpenedByPath[path] = Date.now();
+			return { ...settings, lastOpenedByPath };
+		});
 		await this.saveGlobalSettings();
 	}
 

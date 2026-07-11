@@ -100,6 +100,7 @@
 	export let boardCountsStore: Readable<ReadonlyMap<string, BoardTaskCounts>> =
 		readable(new Map());
 	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
+	export let lastOpenedStore: Readable<Record<string, number>> = readable({});
 	export let requestSave: () => void;
 
 	// --- Board dashboard panel (SPEC 0033) ---
@@ -1097,6 +1098,7 @@
 					{onReorderBoards}
 					{boardCountsStore}
 					{onRequestBoardCounts}
+					{lastOpenedStore}
 					onClose={() => dashboardOpenStore.set(false)}
 				/>
 			{/if}

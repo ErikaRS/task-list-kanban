@@ -407,13 +407,43 @@ open counts, mirroring the board's own layout.
    empty uncategorized omitted, global default column-name change
    refreshes labels (cache digest covers them)
 4. ✅ Automated verification: `npm run build`, `npm test`
-5. ☐ Manual: breakdown matches the open board's columns; zippy state is
+5. ✅ Manual: breakdown matches the open board's columns; zippy state is
    per-card and transient
 
 **Implemented by:** [3ab193c](https://github.com/ErikaRS/task-list-kanban/commit/3ab193c7240a719f714be6a427f6927f8f20544d)
 
 **Deliverable:** Cards answer "where is the work?" without opening the board.
 **Size:** S–M
+
+### Phase 3c: Last-opened timestamps (post-review extension)
+**Goal:** Cards show when each board was last opened, per the original
+issue's "last time accessed" — a signal neither the filesystem nor
+Obsidian records, so the plugin stamps it itself.
+
+1. ✅ `GlobalSettings` gains `lastOpenedByPath: Record<string, number>`
+   (epoch ms), parsed defensively (junk entries dropped, empty map stays
+   out of data.json) and persisted alongside the board list
+2. ✅ `KanbanView.onLoadFile` stamps the opened board via a plugin
+   callback — fires on initial open and in-leaf board switches, never on
+   external edits (unlike `setViewData`); the same write sheds entries
+   for since-deleted files
+3. ✅ Renames (file or ancestor folder) rewrite stamped paths in the same
+   handler as the curated board list (`rewriteLastOpenedPaths`; a
+   collision keeps the later stamp)
+4. ✅ Cards render "Opened X ago" under the modified line via the shared
+   relative formatter; boards never opened since install show no line
+   (history self-heals with use)
+5. ✅ Tests: parse round-trip + junk rejection, rename rewrite (file,
+   folder, collision, no-op null), card mapping for stamped and
+   never-opened boards
+6. ✅ Automated verification: `npm run build`, `npm test`
+7. ✅ Manual: open a few boards → dashboard shows fresh "Opened just
+   now"/"X ago" lines in the current session and after an Obsidian
+   restart; rename a stamped board → its line survives
+
+**Deliverable:** Cards answer "when was I last here?" (original issue's
+last-accessed ask).
+**Size:** S
 
 ### Phase 4: Performance validation
 **Goal:** Confirm the lazy/cached pipeline holds up on a large vault;

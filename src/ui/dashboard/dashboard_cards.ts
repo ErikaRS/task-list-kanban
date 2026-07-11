@@ -7,6 +7,12 @@ export interface BoardCard {
 	folder: string;
 	/** Epoch ms; undefined when the file cannot be found (e.g. mid-delete). */
 	lastModified: number | undefined;
+	/**
+	 * Epoch ms of the last time a kanban view loaded this board; undefined
+	 * for boards never opened since the plugin started recording
+	 * (SPEC 0033 Phase 3c).
+	 */
+	lastOpened: number | undefined;
 }
 
 export type BoardStatLookup = (path: string) => { mtime: number } | null;
@@ -14,12 +20,14 @@ export type BoardStatLookup = (path: string) => { mtime: number } | null;
 export function buildBoardCards(
 	entries: BoardIndexEntry[],
 	getStat: BoardStatLookup,
+	lastOpenedByPath: Readonly<Record<string, number>> = {},
 ): BoardCard[] {
 	return entries.map((entry) => ({
 		path: entry.path,
 		name: entry.name,
 		folder: normalizeCardFolder(entry.folder),
 		lastModified: getStat(entry.path)?.mtime,
+		lastOpened: lastOpenedByPath[entry.path],
 	}));
 }
 

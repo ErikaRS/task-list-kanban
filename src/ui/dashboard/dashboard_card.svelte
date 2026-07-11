@@ -100,8 +100,13 @@
 			<span class="board-card-counts pending">Counting…</span>
 		{/if}
 		{#if card.lastModified !== undefined}
-			<span class="board-card-modified">
+			<span class="board-card-meta">
 				Updated {formatLastModified(card.lastModified, now)}
+			</span>
+		{/if}
+		{#if card.lastOpened !== undefined}
+			<span class="board-card-meta">
+				Opened {formatLastModified(card.lastOpened, now)}
 			</span>
 		{/if}
 	</button>
@@ -216,7 +221,8 @@
 		}
 	}
 
-	.board-card-modified {
+	// The Updated/Opened footer lines.
+	.board-card-meta {
 		color: var(--text-faint);
 		font-size: var(--font-ui-smaller);
 	}

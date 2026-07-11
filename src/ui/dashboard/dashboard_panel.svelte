@@ -33,6 +33,7 @@
 	export let boardCountsStore: Readable<ReadonlyMap<string, BoardTaskCounts>> =
 		readable(new Map());
 	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
+	export let lastOpenedStore: Readable<Record<string, number>> = readable({});
 	export let onClose: () => void;
 
 	const duration = panelTransitionDuration(
@@ -59,8 +60,8 @@
 		void refreshTick;
 		now = Date.now();
 		const resolved = resolveBoardList($boardIndexStore, $boardListSettingsStore);
-		shownCards = buildBoardCards(resolved.shown, getBoardStat);
-		hiddenCards = buildBoardCards(resolved.hidden, getBoardStat);
+		shownCards = buildBoardCards(resolved.shown, getBoardStat, $lastOpenedStore);
+		hiddenCards = buildBoardCards(resolved.hidden, getBoardStat, $lastOpenedStore);
 	}
 
 	// Counts are lazy: only visible cards get requested — hidden boards wait
