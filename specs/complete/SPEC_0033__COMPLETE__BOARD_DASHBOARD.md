@@ -1,6 +1,8 @@
 # SPEC 0033: Board Dashboard Panel
 
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-07
+
 
 ## Feature Request Summary
 
@@ -237,7 +239,9 @@ machinery with each board's own resolved settings:
   explicitly wants to revisit a switching affordance that feels integrated
   with the dashboard (rather than keeping the strip as a bolt-on) — when
   this spec completes, prompt for that design conversation instead of
-  quietly closing the topic.
+  quietly closing the topic. *Done: that conversation produced
+  SPEC 0034 (board rail: an always-on left tab bar in multi-board
+  vaults, with the dashboard button on top).*
 
 ## Implementation Plan
 
@@ -451,13 +455,18 @@ last-accessed ask).
 **Goal:** Confirm the lazy/cached pipeline holds up on a large vault;
 build the fallback only if it does not.
 
-1. ☐ Manual perf pass on a large vault (many boards × broad scopes):
+1. ✅ Manual perf pass on a large vault (many boards × broad scopes):
    panel-open cost, time-to-all-counts, recompute cost on a single file
    edit
-2. ☐ If unacceptable: implement the SPEC 0030 Part E fallback (count
+2. ✅ If unacceptable: implement the SPEC 0030 Part E fallback (count
    done-vs-open checkbox markers in in-scope files without column
-   semantics) behind the same card UI
-3. ☐ Record findings + decision in this spec
+   semantics) behind the same card UI — **not needed** (see findings)
+3. ✅ Record findings + decision in this spec
+
+**Findings (2026-07-11):** The manual perf pass found the lazy/cached
+pipeline acceptable — panel open, progressive count fill-in, and the
+single-edit recompute all felt responsive. Decision: the SPEC 0030 Part E
+marker-scan fallback is not built.
 
 **Deliverable:** Dashboard performance validated (closes #132).
 **Size:** S
