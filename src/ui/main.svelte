@@ -74,9 +74,19 @@
 	import BoardRail from "./dashboard/board_rail.svelte";
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
 	import { railVisible as boardRailVisible, RAIL_MIN_WIDTH } from "./dashboard/board_rail_state";
-	import { TFile } from "obsidian";
+	import { Notice, TFile } from "obsidian";
 	import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
+	import {
+		getVisibleSelectedTaskIds,
+		resolveAddCardColumn,
+		type AddCardColumn,
+	} from "./commands/board_command_targets";
+	import {
+		clearTaskIdSelections,
+		taskSelectionStore,
+	} from "./selection/task_selection_store";
+	import { ConfirmModal } from "./settings/confirm_modal";
 
 	type TagGroupInputMode = "prefix" | "include";
 
@@ -125,6 +135,171 @@
 
 	// --- Board dashboard panel (SPEC 0033) ---
 	let dashboardWasOpen = false;
+	let lastInteractedColumn: AddCardColumn | null = null;
+	let lastInteractedAddCard: (() => boolean) | null = null;
+	const addCardTargets = new Map<ColumnTag | DefaultColumns, Set<() => boolean>>();
+
+	function handleColumnInteraction(
+		column: ColumnTag | DefaultColumns,
+		startAddCard: () => boolean,
+	) {
+		lastInteractedColumn = column as AddCardColumn;
+		lastInteractedAddCard = startAddCard;
+	}
+
+	function registerAddCardTarget(
+		column: ColumnTag | DefaultColumns,
+		startAddCard: () => boolean,
+	) {
+		const starters = addCardTargets.get(column) ?? new Set<() => boolean>();
+		starters.add(startAddCard);
+		addCardTargets.set(column, starters);
+		return () => {
+			const current = addCardTargets.get(column);
+			if (!current) return;
+			current.delete(startAddCard);
+			if (current.size === 0) {
+				addCardTargets.delete(column);
+			}
+			if (lastInteractedAddCard === startAddCard) {
+				lastInteractedAddCard = null;
+			}
+		};
+	}
+
+	function getRegisteredAddCardTarget(column: AddCardColumn) {
+		const starters = addCardTargets.get(column);
+		return starters?.values().next().value;
+	}
+
+	function getAddCardCommandTarget() {
+		return resolveAddCardColumn(
+			activeMatrix,
+			lastInteractedColumn,
+			lastInteractedColumn,
+		);
+	}
+
+	export function canAddCardToFocusedColumn() {
+		const column = getAddCardCommandTarget();
+		return !!column && !!(lastInteractedColumn === column && lastInteractedAddCard
+			? lastInteractedAddCard
+			: getRegisteredAddCardTarget(column));
+	}
+
+	export function addCardToFocusedColumn() {
+		const column = getAddCardCommandTarget();
+		if (!column) {
+			return false;
+		}
+		dashboardOpenStore.set(false);
+		viewEditorExpanded = false;
+		filterEditorExpanded = false;
+		const starter = lastInteractedColumn === column && lastInteractedAddCard
+			? lastInteractedAddCard
+			: getRegisteredAddCardTarget(column);
+		return starter?.() ?? false;
+	}
+
+	export async function openCurrentBoardSettings() {
+		dashboardOpenStore.set(false);
+		viewEditorExpanded = false;
+		filterEditorExpanded = false;
+		await tick();
+		await openSettings();
+		return true;
+	}
+
+	function getSelectedCommandTaskIds() {
+		return getVisibleSelectedTaskIds(
+			activeMatrix,
+			$taskSelectionStore,
+			$dashboardOpenStore,
+		);
+	}
+
+	export function hasVisibleSelectedCards() {
+		return getSelectedCommandTaskIds().length > 0;
+	}
+
+	async function runSelectedCardsAction(
+		action: (ids: string[]) => Promise<void>,
+	) {
+		const ids = getSelectedCommandTaskIds();
+		if (ids.length === 0) {
+			return false;
+		}
+		await action(ids);
+		clearTaskIdSelections(ids);
+		return true;
+	}
+
+	export async function markSelectedCardsDone() {
+		return runSelectedCardsAction((ids) => taskActions.moveTasksToColumn(ids, "done"));
+	}
+
+	export async function archiveSelectedCards() {
+		return runSelectedCardsAction((ids) => taskActions.archiveTasks(ids));
+	}
+
+	export async function cancelSelectedCards() {
+		return runSelectedCardsAction((ids) => taskActions.cancelTasks(ids));
+	}
+
+	export async function duplicateSelectedCards() {
+		const ids = getSelectedCommandTaskIds();
+		const completed: string[] = [];
+		for (const id of ids) {
+			try {
+				await taskActions.duplicateTask(id);
+				completed.push(id);
+			} catch (error) {
+				console.error("Failed to duplicate selected card", error);
+				new Notice("Failed to duplicate one selected card.");
+			}
+		}
+		if (completed.length > 0) {
+			clearTaskIdSelections(completed);
+		}
+		return completed.length > 0;
+	}
+
+	async function deleteSelectedCards(ids: string[]) {
+		const completed: string[] = [];
+		for (const id of ids) {
+			try {
+				await taskActions.deleteTask(id);
+				completed.push(id);
+			} catch (error) {
+				console.error("Failed to delete selected card", error);
+				new Notice("Failed to delete one selected card.");
+			}
+		}
+		if (completed.length > 0) {
+			clearTaskIdSelections(completed);
+		}
+		return completed.length > 0;
+	}
+
+	export async function deleteSelectedCardsCommand() {
+		const ids = getSelectedCommandTaskIds();
+		if (ids.length === 0) {
+			return false;
+		}
+		if (ids.length === 1) {
+			return deleteSelectedCards(ids);
+		}
+		new ConfirmModal(app, {
+			title: "Delete selected cards?",
+			body: `Delete ${ids.length} selected cards from their source files.`,
+			note: "This removes each selected card's owned source block.",
+			confirmText: "Delete cards",
+			onConfirm: async () => {
+				await deleteSelectedCards(ids);
+			},
+		}).open();
+		return true;
+	}
 
 	// Every open/close path (Esc, scrim, X, card select, button, command)
 	// flips the store, so acting on its edges covers them all: focus returns
@@ -1085,6 +1260,8 @@
 							{reorderEnabled}
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
+							onColumnInteraction={handleColumnInteraction}
+							onRegisterAddCardTarget={registerAddCardTarget}
 						/>
 					{:else}
 						<BoardMatrixVertical
@@ -1110,6 +1287,8 @@
 							{reorderEnabled}
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
+							onColumnInteraction={handleColumnInteraction}
+							onRegisterAddCardTarget={registerAddCardTarget}
 						/>
 					{/if}
 				</div>

@@ -40,6 +40,8 @@ import {
 } from "./source_line_editor";
 import { parseSourceTaskLine } from "./source_block";
 
+export type NewTaskColumn = ColumnTag | DefaultColumns;
+
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
 	/**
@@ -106,7 +108,7 @@ export type TaskActions = {
 		value: string | number | Date | null,
 	) => Promise<void>;
 	pickFileForNewTask: (
-		column: ColumnTag,
+		column: NewTaskColumn,
 		e: MouseEvent | KeyboardEvent,
 		onFileSelected: (file: TFile) => void,
 		forceShowPicker?: boolean,
@@ -114,7 +116,7 @@ export type TaskActions = {
 	createTask: (
 		file: TFile,
 		content: string,
-		column: ColumnTag,
+		column: NewTaskColumn,
 		additionalTags?: string[],
 		dateProperties?: Partial<Record<EditableDatePropertyKey, string>>,
 	) => Promise<void>;
@@ -837,13 +839,17 @@ export function createTaskActions({
 
 		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
 			const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
-			const columnDefinition = getColumnDefinitions().find((definition) => definition.id === column);
+			const columnDefinition = column === "uncategorised"
+				? undefined
+				: getColumnDefinitions().find((definition) => definition.id === column);
 			const priorityAdapter = getPropertyWriteAdapter(getColumnPrioritySchema(columnDefinition) ?? getPropertySchemaOption());
 			let taskLine = createTaskLine(
 				content,
-				getPlacementTagsForColumn(column),
+				column === "uncategorised" || column === "done"
+					? []
+					: getPlacementTagsForColumn(column),
 				additionalTags,
-				getColumnStatus(columnDefinition) ?? " ",
+				column === "done" ? "x" : getColumnStatus(columnDefinition) ?? " ",
 			);
 
 			const priority = getColumnPriority(columnDefinition);

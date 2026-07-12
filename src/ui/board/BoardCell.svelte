@@ -26,6 +26,7 @@
 		computePinnedIds,
 		type ManualOrderKey,
 	} from "../tasks/manual_order";
+	import { onDestroy } from "svelte";
 
 	export let app: App;
 	export let cell: BoardCell;
@@ -50,6 +51,14 @@
 	export let isManualOrder: boolean = false;
 	export let manualOrderEntries: ManualOrderKey[] | undefined = undefined;
 	export let reorderEnabled: boolean = false;
+	export let onColumnInteraction: (
+		column: BoardCell["primaryId"],
+		startAddCard: () => boolean,
+	) => void = () => undefined;
+	export let onRegisterAddCardTarget: (
+		column: BoardCell["primaryId"],
+		startAddCard: () => boolean,
+	) => () => void = () => () => undefined;
 
 	// The parent row or column handles collapse state for layout,
 	// but cell might hide its contents if collapsed.
@@ -80,6 +89,23 @@
 	);
 
 	let isDraggedOver = false;
+	let newTaskControls:
+		| { startNewTaskFromCommand: () => boolean }
+		| undefined;
+	let unregisterAddCardTarget: (() => void) | undefined;
+
+	function startAddCard() {
+		return newTaskControls?.startNewTaskFromCommand() ?? false;
+	}
+
+	$: if (newTaskControls) {
+		unregisterAddCardTarget?.();
+		unregisterAddCardTarget = onRegisterAddCardTarget(column, startAddCard);
+	}
+
+	onDestroy(() => {
+		unregisterAddCardTarget?.();
+	});
 
 	$: pinnedIds = isManualOrder
 		? computePinnedIds(tasks, manualOrderEntries)
@@ -150,6 +176,7 @@
 	$: canDrop = dropPlan !== null;
 
 	function handleDragOver(e: DragEvent) {
+		onColumnInteraction(column, startAddCard);
 		e.preventDefault();
 		if (!canDrop) {
 			if (e.dataTransfer) {
@@ -258,10 +285,13 @@
 	class:drop-active={!!draggingData && !isManualReorderDrag}
 	class:drop-hover={isDraggedOver}
 	on:dragover={handleDragOver}
+	on:focusin={() => onColumnInteraction(column, startAddCard)}
+	on:pointerdown={() => onColumnInteraction(column, startAddCard)}
 	on:dragleave={handleDragLeave}
 	on:drop={handleDrop}
 >
 	<NewTaskControls
+		bind:this={newTaskControls}
 		{taskActions}
 		{column}
 		{columnTagTableStore}

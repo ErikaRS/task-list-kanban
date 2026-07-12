@@ -33,6 +33,18 @@ import { applyChangedColumnTagUpdates } from "./settings/column_rename_migration
 
 export const KANBAN_VIEW_NAME = "kanban-view";
 
+type MainComponent = Main & {
+	canAddCardToFocusedColumn: () => boolean;
+	addCardToFocusedColumn: () => boolean;
+	openCurrentBoardSettings: () => Promise<boolean>;
+	hasVisibleSelectedCards: () => boolean;
+	markSelectedCardsDone: () => Promise<boolean>;
+	archiveSelectedCards: () => Promise<boolean>;
+	cancelSelectedCards: () => Promise<boolean>;
+	duplicateSelectedCards: () => Promise<boolean>;
+	deleteSelectedCardsCommand: () => Promise<boolean>;
+};
+
 export class KanbanView extends TextFileView {
 	private readonly settingsStore: BoardSettingsStore;
 	private readonly destroySettingsStore: () => void;
@@ -57,7 +69,7 @@ export class KanbanView extends TextFileView {
 	private readonly initialiseTasksStore: () => void;
 	private readonly pendingSelfTaskFileWrites: string[] = [];
 
-	component: Main | undefined;
+	component: MainComponent | undefined;
 	icon = "kanban-square";
 
 	constructor(
@@ -207,6 +219,42 @@ export class KanbanView extends TextFileView {
 		this.dashboardOpenStore.update((open) => !open);
 	}
 
+	canAddCardToFocusedColumn(): boolean {
+		return this.component?.canAddCardToFocusedColumn() ?? false;
+	}
+
+	addCardToFocusedColumn(): boolean {
+		return this.component?.addCardToFocusedColumn() ?? false;
+	}
+
+	openCurrentBoardSettings(): void {
+		void this.component?.openCurrentBoardSettings();
+	}
+
+	hasVisibleSelectedCards(): boolean {
+		return this.component?.hasVisibleSelectedCards() ?? false;
+	}
+
+	markSelectedCardsDone(): void {
+		void this.component?.markSelectedCardsDone();
+	}
+
+	archiveSelectedCards(): void {
+		void this.component?.archiveSelectedCards();
+	}
+
+	cancelSelectedCards(): void {
+		void this.component?.cancelSelectedCards();
+	}
+
+	duplicateSelectedCards(): void {
+		void this.component?.duplicateSelectedCards();
+	}
+
+	deleteSelectedCards(): void {
+		void this.component?.deleteSelectedCardsCommand();
+	}
+
 	getViewType() {
 		return KANBAN_VIEW_NAME;
 	}
@@ -314,7 +362,7 @@ export class KanbanView extends TextFileView {
 					this.onDeleteBoardFromDashboard?.(path) ?? false,
 				requestSave: () => this.requestSave(),
 			},
-		});
+		}) as MainComponent;
 	}
 
 	async onClose() {

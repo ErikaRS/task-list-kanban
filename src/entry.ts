@@ -165,6 +165,52 @@ export default class Base extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "open-current-board-settings",
+			name: "Open current board settings",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(KanbanView);
+				if (!view) {
+					return false;
+				}
+				if (!checking) {
+					view.openCurrentBoardSettings();
+				}
+				return true;
+			},
+		});
+
+		this.addCommand({
+			id: "add-card-to-focused-column",
+			name: "Add card to focused column",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(KanbanView);
+				if (!view || !view.canAddCardToFocusedColumn()) {
+					return false;
+				}
+				if (!checking) {
+					view.addCardToFocusedColumn();
+				}
+				return true;
+			},
+		});
+
+		this.addSelectedCardsCommand("mark-selected-cards-done", "Mark selected cards as done", (view) =>
+			view.markSelectedCardsDone(),
+		);
+		this.addSelectedCardsCommand("archive-selected-cards", "Archive selected cards", (view) =>
+			view.archiveSelectedCards(),
+		);
+		this.addSelectedCardsCommand("cancel-selected-cards", "Cancel selected cards", (view) =>
+			view.cancelSelectedCards(),
+		);
+		this.addSelectedCardsCommand("duplicate-selected-cards", "Duplicate selected cards", (view) =>
+			view.duplicateSelectedCards(),
+		);
+		this.addSelectedCardsCommand("delete-selected-cards", "Delete selected cards", (view) =>
+			view.deleteSelectedCards(),
+		);
+
 		this.switchToKanbanAfterLoad();
 
 		this.registerEvent(
@@ -206,6 +252,27 @@ export default class Base extends Plugin {
 	onunload() {
 		this.boardIndex?.destroy();
 		this.boardStats?.destroy();
+	}
+
+	private addSelectedCardsCommand(
+		id: string,
+		name: string,
+		run: (view: KanbanView) => void,
+	) {
+		this.addCommand({
+			id,
+			name,
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(KanbanView);
+				if (!view || !view.hasVisibleSelectedCards()) {
+					return false;
+				}
+				if (!checking) {
+					run(view);
+				}
+				return true;
+			},
+		});
 	}
 
 	private async saveGlobalSettings() {

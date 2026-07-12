@@ -56,3 +56,15 @@ export function clearColumnSelections(columnTaskIds: string[]) {
 		return new Map(map);
 	});
 }
+
+/**
+ * Clear selections for a specific set of task ids, regardless of column.
+ */
+export function clearTaskIdSelections(taskIds: string[]) {
+	taskSelectionStore.update((map) => {
+		for (const id of taskIds) {
+			map.delete(id);
+		}
+		return new Map(map);
+	});
+}
