@@ -9,7 +9,11 @@ import {
 	type SettingValues,
 } from "./settings_store";
 import { savedViewHasProperties } from "../views/saved_views";
-import { clampRailWidth, RAIL_MIN_WIDTH } from "../dashboard/board_rail_state";
+import {
+	clampRailWidth,
+	RAIL_MIN_WIDTH,
+	type RailDock,
+} from "../dashboard/board_rail_state";
 
 export const GLOBAL_SETTINGS_VERSION = 1;
 
@@ -28,15 +32,18 @@ export interface GlobalSettings {
 	 */
 	lastOpenedByPath?: Record<string, number>;
 	/**
-	 * Board rail width (SPEC 0034). Like lastOpenedByPath, usage state
-	 * rather than a setting — the rail's drag handle is the only control,
-	 * with no settings-tab UI. Absent = default (the button-column minimum).
+	 * Board rail (SPEC 0034). `width` is usage state like lastOpenedByPath —
+	 * the rail's drag handle is the only control, absent = default (the
+	 * button-column minimum). `dock` is a real plugin-wide setting chosen in
+	 * the settings tab; absent = left. The width is left-dock state but kept
+	 * while top-docked so switching back restores it.
 	 */
 	boardRail?: BoardRailSettings;
 }
 
 export interface BoardRailSettings {
 	width?: number;
+	dock?: RailDock;
 }
 
 // Dashboard curation (SPEC 0033, formerly the tabs settings). Every
@@ -170,17 +177,27 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	return settings;
 }
 
-// Only a non-default width persists: junk resets to the default (minimum),
-// out-of-range widths clamp, and a width equal to the default — including one
-// that clamps down to it — sheds the key entirely.
+// Only non-default state persists: junk resets each field to its default,
+// out-of-range widths clamp, a width equal to the default — including one
+// that clamps down to it — sheds the field, and only an explicit "top" dock
+// is stored ("left" is the default). An all-default rail sheds the key.
 function parseBoardRailSettings(
 	raw: Record<string, unknown> | undefined,
 ): BoardRailSettings | undefined {
-	if (!raw || typeof raw.width !== "number" || !Number.isFinite(raw.width)) {
+	if (!raw) {
 		return undefined;
 	}
-	const width = clampRailWidth(raw.width);
-	return width === RAIL_MIN_WIDTH ? undefined : { width };
+	const parsed: BoardRailSettings = {};
+	if (typeof raw.width === "number" && Number.isFinite(raw.width)) {
+		const width = clampRailWidth(raw.width);
+		if (width !== RAIL_MIN_WIDTH) {
+			parsed.width = width;
+		}
+	}
+	if (raw.dock === "top") {
+		parsed.dock = "top";
+	}
+	return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 // Like the board list, an empty map stays out of data.json entirely.
@@ -319,7 +336,9 @@ function cloneGlobalSettings(settings: GlobalSettings): GlobalSettings {
 		Object.keys(settings.lastOpenedByPath).length > 0
 			? { lastOpenedByPath: cloneJson(settings.lastOpenedByPath) }
 			: {}),
-		...(settings.boardRail?.width !== undefined
+		...(settings.boardRail &&
+		(settings.boardRail.width !== undefined ||
+			settings.boardRail.dock !== undefined)
 			? { boardRail: cloneJson(settings.boardRail) }
 			: {}),
 	};

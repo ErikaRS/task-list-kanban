@@ -8,6 +8,7 @@ import {
 	railChipLabel,
 	railDisplayMode,
 	railDropPosition,
+	railDropPositionHorizontal,
 	railVisible,
 } from "../board_rail_state";
 
@@ -74,6 +75,14 @@ describe("rail drop position", () => {
 		expect(railDropPosition(116, rect)).toBe("before"); // exact midpoint
 		expect(railDropPosition(117, rect)).toBe("after");
 		expect(railDropPosition(132, rect)).toBe("after");
+	});
+
+	it("uses the horizontal midpoint for the top-docked strip", () => {
+		const rect = { left: 100, width: 32 };
+		expect(railDropPositionHorizontal(100, rect)).toBe("before");
+		expect(railDropPositionHorizontal(116, rect)).toBe("before"); // exact midpoint
+		expect(railDropPositionHorizontal(117, rect)).toBe("after");
+		expect(railDropPositionHorizontal(132, rect)).toBe("after");
 	});
 });
 

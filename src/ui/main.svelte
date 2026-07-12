@@ -115,6 +115,11 @@
 	// exactly one visible dashboard trigger.
 	$: railVisible = boardRailVisible($boardIndexStore.length);
 	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
+	// Dock side is a plugin setting (default left); top turns the content
+	// row into a column with the rail strip on top, and the dashboard
+	// slides down out of it instead of out from the left.
+	$: railDock = $boardRailSettingsStore?.dock ?? "left";
+	$: railOnTop = railVisible && railDock === "top";
 	let railDashboardButtonEl: HTMLButtonElement | undefined;
 
 	// --- Board dashboard panel (SPEC 0033) ---
@@ -885,7 +890,28 @@
 />
 
 <div class="main">
-	<div class="board-content" bind:this={boardContentEl}>
+	<!-- The rail (multi-board vaults) spans the view's full height on the
+	     left — or its full width on top, per the dock setting. Because the
+	     dashboard slide-over anchors inside .board-body, it can cover the
+	     toolbar and board while the rail remains outside its positioning
+	     subtree. -->
+	<div class="board-content" class:rail-top={railOnTop}>
+		{#if railVisible}
+			<BoardRail
+				{boardIndexStore}
+				{boardListSettingsStore}
+				currentPath={$currentPathStore}
+				dashboardOpen={$dashboardOpenStore}
+				onToggleDashboard={toggleDashboard}
+				onSelect={handleDashboardSelect}
+				{onReorderBoards}
+				dock={railDock}
+				width={railWidth}
+				onSetWidth={onSetRailWidth}
+				bind:dashboardButtonEl={railDashboardButtonEl}
+			/>
+		{/if}
+		<div class="board-body" bind:this={boardContentEl}>
 		<div class="board-toolbar" class:dashboard-open={$dashboardOpenStore}>
 			{#if !railVisible}
 				<!-- Single-board vaults have no rail, so the dashboard trigger
@@ -1047,79 +1073,65 @@
 				onCancel={() => (savedViewPendingDelete = undefined)}
 			/>
 		{/if}
-			<!-- The rail (multi-board vaults) sits left of .board-main, which is
-			     the positioning context for the dashboard slide-over — so the
-			     panel and scrim anchor right of the rail and never cover it,
-			     while the chrome row above stays interactive. -->
-			<div class="board-area">
-			{#if railVisible}
-				<BoardRail
-					{boardIndexStore}
-					{boardListSettingsStore}
-					currentPath={$currentPathStore}
-					dashboardOpen={$dashboardOpenStore}
-					onToggleDashboard={toggleDashboard}
-					onSelect={handleDashboardSelect}
-					{onReorderBoards}
-					width={railWidth}
-					onSetWidth={onSetRailWidth}
-					bind:dashboardButtonEl={railDashboardButtonEl}
-				/>
-			{/if}
-			<div class="board-main" style={railVisible ? "--dashboard-overlay-left: 0;" : ""}>
-			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
-				{#if !isVerticalFlow}
-					<BoardMatrixHorizontal
-						{app}
-						matrix={activeMatrix}
-						{taskActions}
-						{columnTagTableStore}
-						{columnColourTableStore}
-						{columnMatchTagTableStore}
-						{columnSubtitleTableStore}
-						{showFilepath}
-						{consolidateTags}
-						excludedTags={$settingsStore.excludedTags ?? []}
-						{targetTaskFile}
-						{targetFileIsDefault}
-						onToggleCollapse={toggleColumnCollapse}
-						{uncategorizedColumnName}
-						{doneColumnName}
-						columnWidth="{columnWidth}px"
-						{propertyDisplay}
-						{propertySchemaOption}
-						{isManualOrder}
-						{manualOrder}
-						{reorderEnabled}
-						{treatNestedTasksAsSubtasks}
-						taskCountLabel={boardTaskCountLabel}
-					/>
-				{:else}
-					<BoardMatrixVertical
-						{app}
-						matrix={activeMatrix}
-						{taskActions}
-						{columnTagTableStore}
-						{columnColourTableStore}
-						{columnMatchTagTableStore}
-						{columnSubtitleTableStore}
-						{showFilepath}
-						{consolidateTags}
-						excludedTags={$settingsStore.excludedTags ?? []}
-						{targetTaskFile}
-						{targetFileIsDefault}
-						onToggleCollapse={toggleColumnCollapse}
-						{uncategorizedColumnName}
-						{doneColumnName}
-						{propertyDisplay}
-						{propertySchemaOption}
-						{isManualOrder}
-						{manualOrder}
-						{reorderEnabled}
-						{treatNestedTasksAsSubtasks}
-						taskCountLabel={boardTaskCountLabel}
-					/>
-				{/if}
+			<div class="board-main">
+				<div
+					class="columns"
+					class:vertical-flow={isVerticalFlow}
+					style="--column-width: {columnWidth}px;"
+				>
+					{#if !isVerticalFlow}
+						<BoardMatrixHorizontal
+							{app}
+							matrix={activeMatrix}
+							{taskActions}
+							{columnTagTableStore}
+							{columnColourTableStore}
+							{columnMatchTagTableStore}
+							{columnSubtitleTableStore}
+							{showFilepath}
+							{consolidateTags}
+							excludedTags={$settingsStore.excludedTags ?? []}
+							{targetTaskFile}
+							{targetFileIsDefault}
+							onToggleCollapse={toggleColumnCollapse}
+							{uncategorizedColumnName}
+							{doneColumnName}
+							columnWidth="{columnWidth}px"
+							{propertyDisplay}
+							{propertySchemaOption}
+							{isManualOrder}
+							{manualOrder}
+							{reorderEnabled}
+							{treatNestedTasksAsSubtasks}
+							taskCountLabel={boardTaskCountLabel}
+						/>
+					{:else}
+						<BoardMatrixVertical
+							{app}
+							matrix={activeMatrix}
+							{taskActions}
+							{columnTagTableStore}
+							{columnColourTableStore}
+							{columnMatchTagTableStore}
+							{columnSubtitleTableStore}
+							{showFilepath}
+							{consolidateTags}
+							excludedTags={$settingsStore.excludedTags ?? []}
+							{targetTaskFile}
+							{targetFileIsDefault}
+							onToggleCollapse={toggleColumnCollapse}
+							{uncategorizedColumnName}
+							{doneColumnName}
+							{propertyDisplay}
+							{propertySchemaOption}
+							{isManualOrder}
+							{manualOrder}
+							{reorderEnabled}
+							{treatNestedTasksAsSubtasks}
+							taskCountLabel={boardTaskCountLabel}
+						/>
+					{/if}
+				</div>
 			</div>
 			{#if $dashboardOpenStore}
 				<DashboardPanel
@@ -1134,10 +1146,10 @@
 					{boardCountsStore}
 					{onRequestBoardCounts}
 					{lastOpenedStore}
+					slideFrom={railOnTop ? "top" : "left"}
 					onClose={() => dashboardOpenStore.set(false)}
 				/>
 			{/if}
-			</div>
 			</div>
 	</div>
 </div>
@@ -1189,8 +1201,8 @@
 
 		// While the dashboard is open the rest of the toolbar is inert (the
 		// markup sets `inert`, which blocks pointer and keyboard input); the
-		// dim is the visual half of that signal. The dashboard button stays
-		// fully live as the accidental-click undo.
+		// dim is only visible during the panel's transition because the
+		// dashboard overlay covers the toolbar in its final state.
 		.board-toolbar.dashboard-open {
 			.view-control,
 			.filter-bar-container,
@@ -1364,14 +1376,33 @@
 			}
 		}
 
+		// Row: the full-height rail beside .board-body. The padding lives on
+		// the body so the rail can run edge to edge vertically; the shared
+		// background keeps the rail gutter part of the same surface.
 		.board-content {
 			--view-editor-popover-gap: 8px;
 			display: flex;
-			flex-direction: column;
+			flex-direction: row;
 			height: 100%;
 			overflow: visible;
-			padding: var(--size-4-2) var(--size-4-4) 0 var(--size-4-4);
 			background: color-mix(in srgb, var(--background-primary) 92%, var(--background-secondary));
+
+			// Top-docked rail: same two children, stacked instead of side by
+			// side — the rail strip spans the full width above the body.
+			&.rail-top {
+				flex-direction: column;
+			}
+		}
+
+		.board-body {
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			flex: 1 1 0;
+			min-width: 0;
+			min-height: 0;
+			overflow: visible;
+			padding: var(--size-4-2) var(--size-4-4) 0 var(--size-4-4);
 		}
 
 		@media (max-width: 760px) {
@@ -1395,18 +1426,8 @@
 			}
 		}
 
-		// Takes over the columns' flex slot: rail (when visible) beside
-		// .board-main, which holds the columns and is the positioning context
-		// the dashboard panel absolutely positions against — right of the
-		// rail, so the slide-over never covers its trigger.
-		.board-area {
-			display: flex;
-			flex-direction: row;
-			flex: 1 1 0;
-			min-width: 0;
-			min-height: 0;
-		}
-
+		// Holds the columns. The dashboard panel positions against
+		// .board-body, one level up, so it covers the toolbar as well.
 		.board-main {
 			position: relative;
 			display: flex;

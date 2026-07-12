@@ -1,6 +1,8 @@
 # SPEC 0034: Board Rail
 
-Status: IN PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -24,9 +26,11 @@ dashboard button and drag-widens to reveal board names.
 ## User Requirements
 
 1. **Multi-board vaults always show the rail**: a persistent vertical
-   strip on the left edge of the board area (below the chrome row) with
-   the dashboard button on top and one tab per shown board below it, in
-   the dashboard's curated order. No modes, no toggle.
+   strip on the left edge of the view, spanning the view's **full
+   height — chrome row included** (updated from "below the chrome row"
+   after Phase 1 manual testing) — with the dashboard button on top and
+   one tab per shown board below it, in the dashboard's curated order.
+   No modes, no toggle.
 2. **Single-board (and empty) vaults show no rail at all** — the whole
    surface is about switching, so it earns no space until there is
    something to switch to. The dashboard stays reachable via the chrome
@@ -57,12 +61,26 @@ dashboard button and drag-widens to reveal board names.
    rail's button and tabs stay live while the panel is open.
 8. The gated "Show board dashboard" command is unchanged and works in
    both layouts.
+9. **The rail can dock to the top instead** (added in Phase 2): a
+   plugin-wide "Board rail position" setting in the global settings
+   tab's top-level behavior block, defaulting to the left side.
+   Top-docked, the rail is a horizontal strip across the full width of
+   the view — dashboard button anchored top-left, tabs in a row after
+   it, always labels (chips and drag-resize are left-dock responses to
+   narrow width, so neither applies; a crowded strip scrolls
+   horizontally). The dashboard panel slides **down** out of the strip
+   instead of out from the left. Tab reorder still works (horizontal
+   midpoint, left/right accent cues). The persisted width applies only
+   while left-docked and survives a round trip through top docking.
 
 Non-goals (v1 — candidates for later phases):
 
 - Hover-expand / auto-hide behaviors (cut from an earlier draft; the
   panel opens by explicit click only).
-- Top docking (the rail is left-side only to start).
+- Drag-the-rail-to-an-edge re-docking — the dock side changes via the
+  setting only. (The physical drag gesture has to coexist with tab
+  reorder and the resize handle; it stays a follow-up until top docking
+  has proven itself.)
 - A user setting to hide the rail in multi-board vaults.
 - Tab context menus and count badges on tabs — hide/show, rename, and
   stats stay in the dashboard panel. (Drag-reorder, by contrast, is in:
@@ -75,10 +93,13 @@ Non-goals (v1 — candidates for later phases):
 
 ### Rail component (`src/ui/dashboard/board_rail.svelte`)
 
-- Rendered by `main.svelte` as a flex sibling **left of the columns
-  wrapper inside `.board-area`** — the rail takes layout space (columns
-  shrink) rather than overlaying, and sits below the chrome row like the
-  panel does.
+- Rendered by `main.svelte` as a flex sibling **left of the whole
+  toolbar+board column (`.board-body`)**, spanning the view's full
+  height — the rail takes layout space (columns shrink) rather than
+  overlaying. Because the dashboard slide-over anchors inside
+  `.board-body` (the toolbar+board column), it covers the toolbar and
+  board together while the rail sits outside the overlay's positioning
+  subtree and can never be covered by it.
 - **Visibility rule:** the rail renders only when the board index has
   more than one board (`$boardIndexStore.length > 1`). That count is
   shown + hidden together — every kanban the vault contains — so hiding
@@ -149,15 +170,16 @@ interface BoardRailSettings {
 - The panel open/close model is untouched: `dashboardOpenStore` stays a
   boolean, opened by the rail's top button (or the chrome button in
   single-board vaults, or the command); closed by button, X, Esc, scrim,
-  or board select. Focus management, toolbar inert/dimming, animation,
-  and reduced-motion behavior all stay exactly as shipped in SPEC 0033.
+  or board select. Focus management, toolbar inert state, animation, and
+  reduced-motion behavior all stay exactly as shipped in SPEC 0033.
 - When the rail is visible, the panel (and its scrim) anchor to the
-  columns region **right of the rail** instead of the full board area:
-  the existing slide-over, offset by the rail width. The rail is the
-  trigger, so the overlay must not cover it; its button and tabs stay
-  one-click live while the panel is open (selecting via tab closes the
-  panel and switches, same as selecting a card). The rail is **never**
-  inert — only the toolbar's other controls dim, as today.
+  toolbar+columns body **right of or below the rail**: the existing
+  slide-over emerges from the rail's edge, and the top-docked version
+  slides down from the strip. The rail is the trigger, so the overlay
+  must not cover it; its button and tabs stay one-click live while the
+  panel is open (selecting via tab closes the panel and switches, same
+  as selecting a card). The rail is **never** inert. The toolbar is
+  covered by the dashboard in both dock modes.
 - Focus return on panel close targets whichever dashboard button is
   visible (rail or chrome).
 
@@ -187,8 +209,9 @@ interface BoardRailSettings {
 
 ## Follow-ups
 
-- Top docking and an explicit hide-the-rail preference, if living with
-  the always-on rail demands them.
+- Drag-the-rail-to-an-edge re-docking (the gesture form of the Phase 2
+  setting) and an explicit hide-the-rail preference, if living with the
+  always-on rail demands them.
 - Hover affordances if wanted after living with v1: hover-dwell peek of
   the panel, or tooltips upgraded to a hover-expanded label overlay in
   chip mode.
@@ -227,8 +250,9 @@ panel itself behaves exactly as today.
 5. ✅ `main.svelte` layout: `.board-area` becomes rail + board row when
    the board index has >1 board; chrome dashboard button renders only
    when the rail does not; panel and scrim anchor right of the rail
-   (overlay never covers the rail; rail stays live while open); focus
-   return targets the visible button
+   (overlay never covers the rail; rail stays live while open; toolbar
+   coverage handled in Phase 1b); focus return targets the visible
+   button
 6. ✅ Tests: `boardRail` parse round-trip + junk rejection + width clamp,
    `railDisplayMode` threshold, rail visibility rule (0/1/many boards,
    hidden boards counted), first-letter chip derivation, rail entry
@@ -249,3 +273,66 @@ panel itself behaves exactly as today.
 where it matters and invisible where it doesn't.
 **Size:** M
 **Implemented by:** [8c9eb3b](https://github.com/ErikaRS/task-list-kanban/commit/8c9eb3b80a859fea9dd0ed7b82ee71a92f396ac2)
+
+### Phase 1b: Full-height rail
+
+**Goal:** The rail spans the view's full height — chrome row included —
+instead of starting below the toolbar (requirement 1 update from Phase 1
+manual testing). The toolbar and board become one column (`.board-body`)
+to the rail's right.
+
+1. ✅ `main.svelte` layout: `.board-content` becomes a row of rail +
+   `.board-body` (toolbar, modals, `.board-main`); the body carries the
+   old content padding so toolbar/columns geometry is unchanged; the
+   rail carries its own top/left padding and runs edge to edge
+   vertically
+2. ✅ Overlay simplification: with the rail outside `.board-body`'s
+   positioning subtree, the `--dashboard-overlay-left` override is no
+   longer needed — the panel's fixed left bleed now ends exactly at the
+   rail's border, so it emerges from the rail, covers the toolbar, and
+   can never cover the rail
+3. ✅ Automated verification: `npm run build`, `npm test`
+4. ✅ Manual/review: rail runs the view's full height beside the toolbar;
+   panel still slides out from the rail's edge (not over it) and covers
+   the toolbar; single-board layout unchanged; chrome-button layout
+   unchanged when the rail is hidden
+
+**Deliverable:** The rail reads as the view's spine rather than a board
+inset.
+**Size:** S
+
+### Phase 2: Top docking via a plugin setting
+
+**Goal:** Requirement 9 — the rail can dock to the top of the view as a
+horizontal strip, chosen by a plugin-wide setting (default: left). The
+cheap version deliberately: no drag-to-dock gesture, no top-mode resize.
+
+1. ✅ `boardRail.dock` (`"left" | "top"`, absent = left): defensive
+   parse stores only an explicit `"top"`; width and dock are
+   independent fields that survive each other's writes (the width
+   write merges instead of replacing)
+2. ✅ "Board rail position" dropdown in the settings tab's top-level
+   plugin-behavior block, above the defaults sections
+3. ✅ `board_rail.svelte` top mode: horizontal strip (button top-left,
+   separator, tab row), always label mode with per-tab max-width,
+   horizontal scroll on overflow, horizontal-midpoint reorder with
+   left/right accent cues, no resize handle
+4. ✅ `main.svelte`: `.board-content` flips to a column when the rail is
+   top-docked; the panel gets `slideFrom="top"`, a translateY variant
+   of `panelSlide`, so the dashboard slides down out of the strip and
+   covers the toolbar
+5. ✅ Tests: dock parse (round-trip, junk, default shedding, field
+   independence), horizontal drop midpoint
+6. ✅ Automated verification: `npm run build`, `npm test`
+7. ✅ Manual/review: setting shows at the top of the plugin settings; default
+   (left) behavior unchanged; switch to top → full-width strip with
+   button top-left and labeled tabs, reorder works with side cues,
+   panel slides down from the strip and covers the toolbar without
+   covering the rail, close paths and focus return intact; switch back
+   to left → prior width
+   restored; single-board vaults show no rail and no behavior change
+   in either dock
+
+**Deliverable:** Browser-style tabs for those who want them on top,
+one dropdown away, with the side rail as the default.
+**Size:** M

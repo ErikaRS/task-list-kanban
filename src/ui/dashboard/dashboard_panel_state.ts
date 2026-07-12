@@ -9,18 +9,21 @@ export function panelTransitionDuration(reducedMotion: boolean): number {
 }
 
 /**
- * Svelte transition: the panel slides in from the left edge. Without an
- * explicit easing Svelte animates linearly, which reads as abrupt; ease-out
- * gives the slide a settle.
+ * Svelte transition: the panel slides in from the left edge — or from the
+ * top when the rail is top-docked (SPEC 0034 phase 2), so it reads as
+ * coming out of the rail in both layouts. Without an explicit easing Svelte
+ * animates linearly, which reads as abrupt; ease-out gives the slide a
+ * settle.
  */
 export function panelSlide(
 	_node: Element,
-	options: { duration: number },
+	options: { duration: number; axis?: "x" | "y" },
 ): TransitionConfig {
+	const translate = options.axis === "y" ? "translateY" : "translateX";
 	return {
 		duration: options.duration,
 		easing: cubicOut,
-		css: (t) => `transform: translateX(${(t - 1) * 100}%)`,
+		css: (t) => `transform: ${translate}(${(t - 1) * 100}%)`,
 	};
 }
 

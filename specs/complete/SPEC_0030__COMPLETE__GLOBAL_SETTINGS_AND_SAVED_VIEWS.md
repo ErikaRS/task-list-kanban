@@ -1,7 +1,8 @@
 # SPEC 0030: Global Settings, Saved Views, Tabs, and Dashboard
 
-Status: IN_PROGRESS (Phases 1-6 complete; Phase 7 to be spun out into its
-own spec)
+Status: COMPLETE
+
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -552,7 +553,7 @@ them.
 ### Phase 6: Tabbed navigation (scoping level; spun out — #130) ✅ COMPLETE
 **Goal:** Switch between boards without leaving the kanban view.
 
-Spun out into `complete/SPEC_0032__COMPLETE__TABBED_BOARD_NAVIGATION.md`
+Spun out into `SPEC_0032__COMPLETE__TABBED_BOARD_NAVIGATION.md`
 (plus a tab-menu board rename added during review); implemented 2026-07.
 The tab strip UI was later superseded by SPEC 0033's board dashboard
 (strip removed before release; discovery, in-leaf switching, rename, and
@@ -566,17 +567,20 @@ the curation model — now `GlobalSettings.boardList` — carry over).
 SPEC 0033 dashboard).
 **Size:** M
 
-### Phase 7: Dashboard (scoping level; spun out — #132)
+### Phase 7: Dashboard (scoping level; spun out — #132) ✅ COMPLETE
 **Goal:** Summary + launchpad view over all boards.
 
-Spun out into `SPEC_0033__IN_PROGRESS__BOARD_DASHBOARD.md`; tracking below
-is scoping-level only — the implementation spec is the source of truth.
+Spun out into `SPEC_0033__COMPLETE__BOARD_DASHBOARD.md`; tracking
+below is scoping-level only — the implementation spec is the source of truth.
+The quick-switching follow-up from #130 was completed in
+`SPEC_0034__COMPLETE__BOARD_RAIL.md`, which restores one-click
+board switching on top of the dashboard model.
 
-1. ☐ `kanban-dashboard` ItemView, ribbon + command entry points
-2. ☐ Board cards from discovery service (name, folder, last modified)
-3. ☐ Lazy open/done counts using each board's resolved settings, with
+1. ✅ Dashboard panel command entry point
+2. ✅ Board cards from discovery service (name, folder, last modified)
+3. ✅ Lazy open/done counts using each board's resolved settings, with
    mtime-keyed caching
-4. ☐ Perf validation on a large vault; fallback strategy if needed
+4. ✅ Perf validation on a large vault; fallback strategy if needed
 
 **Deliverable:** Dashboard listing all boards with task stats (closes #132).
 **Size:** L

@@ -13,6 +13,8 @@
 		railChipLabel,
 		railDisplayMode,
 		railDropPosition,
+		railDropPositionHorizontal,
+		type RailDock,
 	} from "./board_rail_state";
 
 	export let boardIndexStore: Readable<BoardIndexEntry[]>;
@@ -23,7 +25,9 @@
 	export let onToggleDashboard: () => void;
 	export let onSelect: (path: string) => void;
 	export let onReorderBoards: ((orderedPaths: string[]) => void) | undefined = undefined;
-	/** Persisted width; a live drag is component-local until release. */
+	/** Dock side (plugin setting). Top lays the tabs out as a horizontal strip. */
+	export let dock: RailDock = "left";
+	/** Persisted width; a live drag is component-local until release. Left dock only. */
 	export let width: number;
 	export let onSetWidth: ((width: number) => void) | undefined = undefined;
 	/** Bound by the parent so panel-close focus return can target this button. */
@@ -38,7 +42,9 @@
 	let resizeStartX = 0;
 	let resizeStartWidth = 0;
 	$: displayWidth = dragWidth ?? width;
-	$: mode = railDisplayMode(displayWidth);
+	// The top-docked strip has no width to be narrow in, so it always shows
+	// labels; chips are a response to the left rail's compressed width.
+	$: mode = dock === "top" ? "label" : railDisplayMode(displayWidth);
 
 	function handleResizeStart(event: PointerEvent) {
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -89,12 +95,19 @@
 		draggedPath = tab.path;
 	}
 
+	// Midpoint rule along whichever axis the tabs run.
+	function tabDropPosition(event: DragEvent): DropPosition {
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		return dock === "top"
+			? railDropPositionHorizontal(event.clientX, rect)
+			: railDropPosition(event.clientY, rect);
+	}
+
 	function handleTabDragOver(path: string, event: DragEvent) {
 		if (!onReorderBoards || !draggedPath || draggedPath === path) {
 			return;
 		}
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-		dropTarget = { path, position: railDropPosition(event.clientY, rect) };
+		dropTarget = { path, position: tabDropPosition(event) };
 		event.preventDefault();
 		if (event.dataTransfer) {
 			event.dataTransfer.dropEffect = "move";
@@ -103,8 +116,7 @@
 
 	function handleTabDrop(path: string, event: DragEvent) {
 		event.preventDefault();
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-		const position = railDropPosition(event.clientY, rect);
+		const position = tabDropPosition(event);
 		const dragged = draggedPath;
 		clearDragState();
 		if (!onReorderBoards || !dragged || dragged === path) {
@@ -123,7 +135,12 @@
 	}
 </script>
 
-<nav class="board-rail" style="width: {displayWidth}px" aria-label="Kanban boards">
+<nav
+	class="board-rail"
+	class:top-dock={dock === "top"}
+	style={dock === "left" ? `width: ${displayWidth}px` : undefined}
+	aria-label="Kanban boards"
+>
 	<button
 		type="button"
 		class="rail-dashboard-toggle"
@@ -172,18 +189,24 @@
 			</button>
 		{/each}
 	</div>
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
-	<div
-		class="rail-resize-handle"
-		aria-hidden="true"
-		on:pointerdown={handleResizeStart}
-		on:pointermove={handleResizeMove}
-		on:pointerup={handleResizeEnd}
-		on:pointercancel={handleResizeEnd}
-	></div>
+	{#if dock === "left"}
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<div
+			class="rail-resize-handle"
+			aria-hidden="true"
+			on:pointerdown={handleResizeStart}
+			on:pointermove={handleResizeMove}
+			on:pointerup={handleResizeEnd}
+			on:pointercancel={handleResizeEnd}
+		></div>
+	{/if}
 </nav>
 
 <style lang="scss">
+	// Spans the view's full height (chrome row included), so it carries its
+	// own padding: the top offset mirrors the board body's, and left/right
+	// stay slim so the min width remains a comfortable button column. The
+	// body's own left padding provides the rail→board gap.
 	.board-rail {
 		position: relative;
 		display: flex;
@@ -191,8 +214,7 @@
 		flex: 0 0 auto;
 		box-sizing: border-box;
 		min-height: 0;
-		padding: 0 var(--size-2-3) var(--size-4-4) 0;
-		margin-right: var(--size-4-2);
+		padding: var(--size-4-2) var(--size-2-3) var(--size-4-4) var(--size-2-3);
 		border-right: 1px solid var(--background-modifier-border);
 	}
 
@@ -314,6 +336,52 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	// Top dock (SPEC 0034 phase 2): the same entries as a horizontal strip
+	// across the top of the view — dashboard button anchored top-left, tabs
+	// in a row after it. Always label mode, no resize; a crowded strip
+	// scrolls horizontally rather than wrapping.
+	.board-rail.top-dock {
+		flex-direction: row;
+		align-items: center;
+		width: auto;
+		padding: var(--size-2-3) var(--size-4-4);
+		border-right: none;
+		border-bottom: 1px solid var(--background-modifier-border);
+
+		.rail-dashboard-toggle {
+			width: auto;
+		}
+
+		.rail-separator {
+			width: 1px;
+			height: 20px;
+			margin: 0 var(--size-4-2);
+		}
+
+		.rail-tabs {
+			flex-direction: row;
+			align-items: center;
+			min-width: 0;
+			overflow-x: auto;
+			overflow-y: hidden;
+		}
+
+		.rail-tab {
+			width: auto;
+			max-width: 180px;
+		}
+
+		// The landing-edge cue rotates with the tabs: left/right instead of
+		// above/below.
+		.rail-tab.drop-before {
+			box-shadow: -3px 0 0 0 var(--interactive-accent);
+		}
+
+		.rail-tab.drop-after {
+			box-shadow: 3px 0 0 0 var(--interactive-accent);
+		}
 	}
 
 	// Straddles the rail's right border; wider than the border so it is

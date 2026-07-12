@@ -231,11 +231,12 @@ export default class Base extends Plugin {
 
 	// Board rail resize (SPEC 0034): persisted on drag release, plugin-wide
 	// like the rest of data.json. serializeGlobalSettings clamps the width
-	// and sheds the key when it is back at the default (minimum).
+	// and sheds the key when everything is back at the defaults. Merged so
+	// the width write never clobbers the dock setting.
 	private async setBoardRailWidth(width: number) {
 		this.globalSettingsStore.update((settings) => ({
 			...settings,
-			boardRail: { width },
+			boardRail: { ...settings.boardRail, width },
 		}));
 		await this.saveGlobalSettings();
 	}

@@ -11,6 +11,13 @@ export const RAIL_LABEL_MIN_WIDTH = 72;
 
 export type RailDisplayMode = "chip" | "label";
 
+/**
+ * Where the rail docks (SPEC 0034 phase 2). "left" is the default vertical
+ * rail; "top" lays the same tabs out as a horizontal strip across the top of
+ * the view. Chosen in the plugin settings tab, not by drag.
+ */
+export type RailDock = "left" | "top";
+
 export function railDisplayMode(width: number): RailDisplayMode {
 	return width >= RAIL_LABEL_MIN_WIDTH ? "label" : "chip";
 }
@@ -50,4 +57,12 @@ export function railDropPosition(
 	rect: { top: number; height: number },
 ): DropPosition {
 	return clientY > rect.top + rect.height / 2 ? "after" : "before";
+}
+
+/** The same midpoint rule along the x axis, for the top-docked rail's row. */
+export function railDropPositionHorizontal(
+	clientX: number,
+	rect: { left: number; width: number },
+): DropPosition {
+	return clientX > rect.left + rect.width / 2 ? "after" : "before";
 }

@@ -44,6 +44,30 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		containerEl.addClass("task-list-kanban-global-settings");
 		containerEl.createEl("h2", { text: "Task List Kanban" });
 
+		// Plugin-wide behavior settings live in this top-level block, above
+		// the defaults sections.
+		new Setting(containerEl)
+			.setName("Board rail position")
+			.setDesc(
+				"Where the board rail docks in vaults with more than one board. The rail lists every shown board for one-click switching.",
+			)
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("left", "Left side")
+					.addOption("top", "Top")
+					.setValue(this.globalSettingsStore.get().boardRail?.dock ?? "left")
+					.onChange((value) => {
+						void this.mutate((settings) => ({
+							...settings,
+							boardRail: {
+								...settings.boardRail,
+								// "left" is the default; only "top" is stored.
+								dock: value === "top" ? "top" : undefined,
+							},
+						}));
+					});
+			});
+
 		new Setting(containerEl).setName("Board defaults").setHeading();
 		containerEl.createEl("p", {
 			text: "Defaults here apply to boards that have not saved a local override for the same setting.",

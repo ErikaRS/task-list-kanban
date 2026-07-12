@@ -236,6 +236,33 @@ describe("global settings parsing", () => {
 		expect(parseGlobalSettings({ version: 1 }).boardRail).toBeUndefined();
 	});
 
+	it("round-trips the top dock and drops the default or junk dock", () => {
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { dock: "top" } }).boardRail,
+		).toEqual({ dock: "top" });
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 180, dock: "top" } })
+				.boardRail,
+		).toEqual({ width: 180, dock: "top" });
+
+		// "left" is the default dock, so it (and junk) sheds the field; each
+		// field survives the other going back to its default.
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { dock: "left" } }).boardRail,
+		).toBeUndefined();
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { dock: "sideways" } }).boardRail,
+		).toBeUndefined();
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 44, dock: "top" } })
+				.boardRail,
+		).toEqual({ dock: "top" });
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 180, dock: "left" } })
+				.boardRail,
+		).toEqual({ width: 180 });
+	});
+
 	it("ignores a stray legacy tabs key", () => {
 		// The tab strip (SPEC 0032) never shipped in a release, so its `tabs`
 		// key is dropped rather than migrated (SPEC 0033 Phase 2).

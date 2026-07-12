@@ -34,6 +34,8 @@
 		readable(new Map());
 	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
 	export let lastOpenedStore: Readable<Record<string, number>> = readable({});
+	/** Slide axis: from the left rail/edge, or down from a top-docked rail. */
+	export let slideFrom: "left" | "top" = "left";
 	export let onClose: () => void;
 
 	const duration = panelTransitionDuration(
@@ -191,7 +193,7 @@
 		aria-label="Board dashboard"
 		tabindex="-1"
 		bind:this={panelEl}
-		transition:panelSlide={{ duration }}
+		transition:panelSlide={{ duration, axis: slideFrom === "top" ? "y" : "x" }}
 	>
 		<div class="dashboard-header">
 			<h2 class="dashboard-title">Kanban boards</h2>
@@ -271,18 +273,15 @@
 </div>
 
 <style lang="scss">
-	// Anchored to the board area below the chrome row, so the toolbar (and
-	// the dashboard button, the accidental-click undo) stays interactive.
-	// Bleeds through board-content's padding so the slide starts at the
-	// view's edge and the scrim meets the toolbar without a gap — except on
-	// the left when the board rail is visible: main.svelte sets the override
-	// to 0 there so the overlay starts at the rail's right edge and never
-	// covers its trigger (SPEC 0034).
+	// Anchored to the board body so the dashboard covers the toolbar and
+	// columns together. It bleeds through the body's padding so the slide
+	// starts at the body's edge. The rail (SPEC 0034) lives outside this
+	// positioning subtree entirely, so the panel can never cover it.
 	.dashboard-overlay {
 		position: absolute;
 		top: calc(-1 * var(--size-4-2));
 		bottom: 0;
-		left: var(--dashboard-overlay-left, calc(-1 * var(--size-4-4)));
+		left: calc(-1 * var(--size-4-4));
 		right: calc(-1 * var(--size-4-4));
 		z-index: 200;
 		// Clips the slide transition: the panel translates in from -100%, and
