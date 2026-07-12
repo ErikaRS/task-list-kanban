@@ -63,15 +63,15 @@
                 }
               },
               {
-                "id": "1cb795da7bad7f19",
+                "id": "edb014cec5cbad69",
                 "type": "leaf",
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "Kanban-CoolBeans.md"
+                    "file": "periodic/Kanban-None.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-CoolBeans"
+                  "title": "Kanban-None"
                 }
               }
             ],
@@ -228,6 +228,7 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "task-list-kanban:New Kanban board": false,
       "switcher:Open quick switcher": false,
       "graph:Open graph view": false,
       "canvas:Create new canvas": false,
@@ -237,15 +238,19 @@
       "bases:Create new base": false
     }
   },
-  "active": "1cb795da7bad7f19",
+  "active": "edb014cec5cbad69",
   "lastOpenFiles": [
+    "periodic/Kanban-Tasks.md",
+    "Kanban-Dataview.md",
+    "tasks/Even more tasks.md",
+    "Kanban-1783820449763.md",
+    "Kanban-1783820428336.md",
+    "periodic/Kanban-1783820379565.md",
+    "tasks/Kanban-1783820357273.md",
     "periodic/2025-05-01.md",
-    "Kanban-CoolBeans.md",
-    "periodic/Kanban-Another.md",
-    "periodic/Kanban-Test.md",
+    "periodic/Kanban-None.md",
     "Kanban-Whee.md",
     "Kanban-1783614999866.md",
-    "tasks/Even more tasks.md",
     "Kanban-1783614950220.md",
     "periodic/tasks.md",
     "Kanban-1781896482430.md",
@@ -262,11 +267,7 @@
     "periodic/A test file with a very very very long name.md",
     "periodic/Kanban-repro.md",
     "periodic/Kanban-1774741608452.md",
-    "periodic/Kanban-1774741532408.md",
     "periodic/@",
-    "periodic/Kanban-1774741379127.md",
-    "Untitled Kanban.md",
-    "periodic/subfolder/2025-05-01.md",
     "tasks"
   ]
 }
