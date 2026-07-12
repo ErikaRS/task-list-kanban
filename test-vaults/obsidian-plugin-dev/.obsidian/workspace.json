@@ -68,10 +68,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "periodic/Kanban-Test.md"
+                    "file": "Kanban-CoolBeans.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-Test"
+                  "title": "Kanban-CoolBeans"
                 }
               }
             ],
