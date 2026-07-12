@@ -1,6 +1,8 @@
 # SPEC 0037: Board and Selected Card Commands
 
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -182,7 +184,7 @@ duplicate write, skip it with a notice rather than aborting the whole command.
 
 ## Implementation Plan
 
-### Phase 1: Board settings and add-card commands 🚧 IN PROGRESS
+### Phase 1: Board settings and add-card commands ✅ COMPLETE
 **Goal:** Issue #148's non-destructive board-level commands exist in the
 command palette without default hotkeys.
 
@@ -199,10 +201,13 @@ command palette without default hotkeys.
 7. ✅ Default the file dropdown to the selected board's valid default task file,
    then valid last-used file, then first scoped markdown file
 8. ✅ Persist the chosen file as the selected board's last-used task file
-9. [ ] Tests: command availability with and without active kanban view; modal
-   board/column/file defaults; add-card command writes the expected task line
+9. ✅ Tests and verification: command availability with and without active
+   kanban view; modal board/column/file defaults; add-card command writes the
+   expected task line
    - ✅ Added task-line builder coverage for Uncategorized and Done defaults
    - ✅ Existing task action tests cover configured status and priority columns
+   - ✅ Manual verification covered command availability, modal defaults, file
+     scoping, and source markdown writes
 10. ✅ Automated verification: `npm run build`, `npm test`
 11. ✅ Manual: command palette opens board settings; global Add card opens the
    modal without an active kanban view; board, column, and file dropdowns
@@ -215,7 +220,7 @@ card creation.
 
 **Implemented by:** [9c5ab60](https://github.com/ErikaRS/task-list-kanban/commit/9c5ab60)
 
-### Phase 2: Non-destructive selected-card commands 🚧 IN PROGRESS
+### Phase 2: Non-destructive selected-card commands ✅ COMPLETE
 **Goal:** Selected visible cards can be marked done, archived, cancelled, and
 duplicated from the command palette.
 
@@ -227,11 +232,13 @@ duplicated from the command palette.
    visible-selection gating; no default hotkeys
 4. ✅ Clear affected selections after successful operations, leaving
    selection mode unchanged
-5. [ ] Tests: visible-selection selector excludes hidden/stale ids and
+5. ✅ Tests and verification: visible-selection selector excludes hidden/stale ids and
    preserves display order; each command calls the expected `TaskActions`
    method(s); selections clear after success
    - ✅ Added visible-selection selector coverage for hidden/stale ids,
      dashboard-open state, display order, and selection clearing helper
+   - ✅ Manual verification covered command actions, markdown writes, and
+     selection clearing
 6. ✅ Automated verification: `npm run build`, `npm test`
 7. ✅ Manual: select cards across columns, run each command from the palette,
    verify underlying markdown writes and selection clearing
@@ -242,7 +249,7 @@ without reaching for the column bulk menu.
 
 **Implemented by:** [e56abd4](https://github.com/ErikaRS/task-list-kanban/commit/e56abd4), [9c5ab60](https://github.com/ErikaRS/task-list-kanban/commit/9c5ab60)
 
-### Phase 3: Delete selected cards 🚧 IN PROGRESS
+### Phase 3: Delete selected cards ✅ COMPLETE
 **Goal:** Destructive selected-card deletion is command-palette accessible
 with an explicit safety check.
 
@@ -253,9 +260,11 @@ with an explicit safety check.
 3. ✅ Register **Delete selected cards** with active-kanban and non-empty
    visible-selection gating; no default hotkey
 4. ✅ Clear only successfully deleted selections after completion
-5. [ ] Tests: multi-delete confirmation accept/cancel paths; single-delete
+5. ✅ Tests and verification: multi-delete confirmation accept/cancel paths; single-delete
    path follows the decided behavior; stale ids are skipped; successful ids
    clear from selection
+   - ✅ Manual verification covered single delete, multi-delete confirm,
+     confirmation cancel, source block removal, and selection clearing
 6. ✅ Automated verification: `npm run build`, `npm test`
 7. ✅ Manual: delete one selected card, delete multiple selected cards,
    cancel confirmation, verify source blocks and nested owned rows are removed
