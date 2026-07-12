@@ -5,11 +5,14 @@ Task List Kanban is a free, open source Obsidian plugin that turns Markdown task
 Use it to:
 - collect tasks from one folder, selected folders, or the whole vault
 - move tasks between columns with tags
+- manage multiple boards from a dashboard and board rail
 - edit, complete, cancel, archive, duplicate, and bulk-update tasks
 - filter by content, tag, file, or date with a single search query
+- save reusable views that combine filters, sorting, grouping, layout, and width
 - group tasks into swimlanes by file or tag, then flip group order to put the lanes you need first
 - sort tasks by file order, parsed task properties, or manual pinned order
 - display, sort, group, and edit Tasks Plugin or Dataview date metadata
+- keep nested Markdown blocks attached to their parent cards when you want subtasks
 
 ![Task List Kanban Screenshot](https://github.com/ErikaRS/task-list-kanban/assets/80379257/ddde01aa-3098-4cfc-8860-6af34f0ece57)
 
@@ -26,9 +29,21 @@ You can also right-click the folder where you want the board file, then choose
 
 ![Creating a new kanban](https://github.com/ErikaRS/task-list-kanban/assets/80379257/fbe25c3f-824f-4feb-b1b3-5acbdf1c8901)
 
+### Dashboard And Board Rail
+
+Open the dashboard from the board rail or run **Show board dashboard** while a
+kanban view is focused. The dashboard lists every board in the vault, shows
+task counts plus updated/opened timestamps, and lets you create or switch
+boards without hunting through files.
+
 From the dashboard, right-click a board card to rename, hide, show, or delete
 that board. Delete asks for confirmation and moves the board file through
-Obsidian's trash flow.
+Obsidian's trash flow. Drag cards to choose the dashboard order; hidden boards
+move under **Other boards** instead of becoming inaccessible.
+
+When your vault has more than one board, the board rail gives one-click board
+switching. Drag rail items to reorder boards. In plugin settings, dock the rail
+on the left or across the top; the left rail can also be resized.
 
 ### Add Tasks
 
@@ -47,6 +62,21 @@ Click **Add new** at the bottom of a column to create a task from the board. If 
 ## Board Configuration
 
 Open board settings with the settings icon in the top-right corner.
+
+Board settings inherit from plugin-wide board defaults unless the board has its
+own override. In the settings modal, inherited fields can be pinned to freeze
+the current board value, or reset so the board follows the defaults again. The
+command palette also includes **Use current board settings as global defaults**
+and **Prune board settings that match the defaults** for keeping older boards
+tidy.
+
+Plugin settings include:
+- **Board rail**: choose whether the board rail docks left or top.
+- **Board defaults**: set default columns, status markers, scope, tag display,
+  property behavior, and nested subtask behavior for boards that do not
+  override those fields.
+- **Default view**: set plugin-wide defaults for flow direction and card width.
+- **Global saved views**: create reusable views available from every board.
 
 ### Scope
 
@@ -89,6 +119,8 @@ Flow direction controls how columns are arranged:
 - **Top to bottom**: transposed board, with board columns as rows and cards flowing horizontally.
 - **Bottom to top**: transposed board in reverse row order.
 
+Card width can be adjusted from the view controls between 200px and 600px.
+
 ### Obsidian Tasks plugin / Dataview integration
 
 Enable a **Property schema** in settings to read and write task metadata from the Obsidian Tasks plugin or Dataview inline fields.
@@ -120,6 +152,17 @@ Completing an open task from the board adds a completion date when the selected 
 ```
 
 Existing completion dates are preserved. Reopening, moving, cancelling, archiving, or editing a task does not remove or rewrite historical completion metadata.
+
+### Nested Tasks And Source Blocks
+
+Enable **Treat nested tasks as subtasks** to show only the root task as a card
+while keeping nested tasks and notes inside that card. Nested rows can be
+edited, status-cycled, added, deleted, and reordered from the card without
+turning each child task into its own board card.
+
+When this mode is on, source-block actions stay together: moving, duplicating,
+deleting, or archiving the parent card operates on the owned nested Markdown
+block instead of only the first task line.
 
 ### Task Status Settings
 
@@ -154,6 +197,7 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 - **Archive**: archive tasks from the task menu or bulk menu. This marks open tasks done and adds the `#archived` tag.
 - **Duplicate**: duplicate a task directly below the original source line.
 - **Open source file**: click the file path or arrow icon on a card.
+- **Add card**: run **Add card** from the command palette to create a card on a visible board without first opening that board.
 
 ### Sorting
 
@@ -186,9 +230,15 @@ Details:
 - Date tokens use a date-typed property key from the active property schema (such as `due`, `scheduled`, `start`, `done`, `created`) with an operator (`<`, `<=`, `=`, `>=`, `>`) and either a `YYYY-MM-DD` date or `$TODAY`, which re-evaluates at midnight. Tasks without the referenced property are never hidden by a date token.
 - A token that doesn't parse as a filter (an unknown prefix like `note:` or a bad date value) is treated as plain content text.
 
-Filtering applies when you press Enter. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, and saved filter names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
+Filtering applies when you press Enter. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, and query-only saved view names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
 
-**Saved filters** live in the expanded editor: save the current query with an optional name, click a saved entry to apply it, click again to clear, or delete it with the × control. Named saved filters also appear as search bar suggestions.
+**Saved views** live in the expanded view controls. A saved view can capture the
+current filter, sort, grouping, flow direction, and card width. Save one with
+an optional name, click it to apply its stored view properties, or delete a
+board-local saved view with the × control. Query-only saved views also appear
+as search bar suggestions, so the older saved-filter workflow is still there in
+a more general form. Global saved views are read-only from the board and can be
+edited from plugin settings.
 
 ### Bulk Actions
 
@@ -197,7 +247,11 @@ Each column header has a **Done / Select** toggle.
 - **Done mode**: cards complete tasks.
 - **Select mode**: cards select tasks for bulk actions.
 
-After selecting tasks, use the column bulk menu to move, complete, cancel, restore, or archive them. Dragging one selected task moves all selected tasks in that column.
+After selecting tasks, use the column bulk menu to move, complete, cancel,
+restore, archive, duplicate, or delete them. Selected-card command palette
+actions are also available for marking done, cancelling, archiving,
+duplicating, and deleting. Dragging one selected task moves all selected tasks
+in that column.
 
 ### Grouping And Swimlanes
 
@@ -219,12 +273,24 @@ Tasks are grouped by source Markdown file.
 Tasks are grouped by tag, optionally limited to a configured prefix.
 
 - Use the include list in the grouping controls to show only specific tag swimlanes. Included swimlanes keep the configured order, and tasks without an included grouping tag appear in **Unassigned**.
-- Saved groupings let you reuse common tag grouping setups, including prefixes and include lists.
+
+#### Group By Property
+
+When a Tasks Plugin or Dataview property schema is enabled, tasks can also be
+grouped by parsed properties. Date groups support **Combine past dates** so
+overdue dates can collapse into one past bucket.
+
+Saved views replace the older saved grouping workflow and can reuse common
+grouping setups, including tag prefixes, include lists, property groups, group
+direction, and the surrounding layout.
 
 ## Screenshot Refresh Candidates
 
 The current README still uses older screenshots. Useful new or replacement screenshots would be:
 - the main board screenshot, showing current card footers, properties, and the **+ Date** control
+- the board dashboard and rail, showing board counts, updated/opened metadata, and **Other boards**
+- the saved views controls, showing combined filter/sort/group/flow/width saved views
+- plugin settings, showing board defaults, default view, global saved views, and board rail dock
 - the task date editor, showing due, scheduled, and start date inputs on a card
 - a grouped **Top to bottom** or **Bottom to top** board, showing the transposed grid with board columns as rows and groups across the top
 - the **Task properties** settings section, showing **Property schema** and **Show properties**
@@ -271,10 +337,11 @@ This copies the built plugin into `test-vaults/obsidian-plugin-dev/.obsidian/plu
 1. Bump the version:
 
    ```bash
-   npm version patch
+   npm run version
    ```
 
-2. Push `main` and the new tag.
+2. Commit the version changes, create an annotated tag, then push `main` and
+   the tag.
 3. Wait for GitHub Actions to create the draft release with built assets.
 4. Edit and publish that draft from the releases page.
 
