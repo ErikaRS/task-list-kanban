@@ -36,6 +36,10 @@ export default class Base extends Plugin {
 		this.globalSettingsStore,
 		(settings) => settings.lastOpenedByPath ?? {},
 	);
+	private readonly boardRailSettingsStore = derived(
+		this.globalSettingsStore,
+		(settings) => settings.boardRail,
+	);
 	private boardIndex: BoardIndex | undefined;
 	private boardStats: BoardStatsService | undefined;
 
@@ -72,6 +76,8 @@ export default class Base extends Plugin {
 					(paths) => boardStats.requestCounts(paths),
 					this.lastOpenedStore,
 					(path) => void this.recordBoardOpened(path),
+					this.boardRailSettingsStore,
+					(width) => void this.setBoardRailWidth(width),
 				),
 		);
 		this.addSettingTab(
@@ -220,6 +226,17 @@ export default class Base extends Plugin {
 			lastOpenedByPath[path] = Date.now();
 			return { ...settings, lastOpenedByPath };
 		});
+		await this.saveGlobalSettings();
+	}
+
+	// Board rail resize (SPEC 0034): persisted on drag release, plugin-wide
+	// like the rest of data.json. serializeGlobalSettings clamps the width
+	// and sheds the key when it is back at the default (minimum).
+	private async setBoardRailWidth(width: number) {
+		this.globalSettingsStore.update((settings) => ({
+			...settings,
+			boardRail: { width },
+		}));
 		await this.saveGlobalSettings();
 	}
 

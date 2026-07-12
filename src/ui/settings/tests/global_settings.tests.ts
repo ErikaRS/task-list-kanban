@@ -205,6 +205,37 @@ describe("global settings parsing", () => {
 		expect(parseGlobalSettings({ version: 1 }).lastOpenedByPath).toBeUndefined();
 	});
 
+	it("round-trips a non-default rail width and clamps out-of-range values", () => {
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 180 } }).boardRail,
+		).toEqual({ width: 180 });
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 9999 } }).boardRail,
+		).toEqual({ width: 320 });
+	});
+
+	it("drops the rail key at the default width and on junk", () => {
+		// The default (minimum) width needs no key — including a width that
+		// clamps down to it.
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 44 } }).boardRail,
+		).toBeUndefined();
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: 10 } }).boardRail,
+		).toBeUndefined();
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: "wide" } }).boardRail,
+		).toBeUndefined();
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: { width: Number.NaN } }).boardRail,
+		).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1, boardRail: {} }).boardRail).toBeUndefined();
+		expect(
+			parseGlobalSettings({ version: 1, boardRail: "wide" }).boardRail,
+		).toBeUndefined();
+		expect(parseGlobalSettings({ version: 1 }).boardRail).toBeUndefined();
+	});
+
 	it("ignores a stray legacy tabs key", () => {
 		// The tab strip (SPEC 0032) never shipped in a release, so its `tabs`
 		// key is dropped rather than migrated (SPEC 0033 Phase 2).

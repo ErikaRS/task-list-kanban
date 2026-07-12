@@ -71,9 +71,11 @@
 	} from "./views/view_editor_options";
 	import type { BoardIndexEntry } from "./boards/board_index";
 	import DashboardPanel from "./dashboard/dashboard_panel.svelte";
+	import BoardRail from "./dashboard/board_rail.svelte";
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
+	import { railVisible as boardRailVisible, RAIL_MIN_WIDTH } from "./dashboard/board_rail_state";
 	import { TFile } from "obsidian";
-	import type { BoardListSettings } from "./settings/global_settings";
+	import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
 
 	type TagGroupInputMode = "prefix" | "include";
@@ -101,7 +103,19 @@
 		readable(new Map());
 	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
 	export let lastOpenedStore: Readable<Record<string, number>> = readable({});
+	export let boardRailSettingsStore: Readable<BoardRailSettings | undefined> =
+		readable(undefined);
+	export let onSetRailWidth: ((width: number) => void) | undefined = undefined;
 	export let requestSave: () => void;
+
+	// --- Board rail (SPEC 0034) ---
+	// The rail exists exactly when the vault has something to switch to; the
+	// count includes hidden boards, so dashboard curation can't remove it.
+	// The chrome dashboard button renders in the complementary case, keeping
+	// exactly one visible dashboard trigger.
+	$: railVisible = boardRailVisible($boardIndexStore.length);
+	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
+	let railDashboardButtonEl: HTMLButtonElement | undefined;
 
 	// --- Board dashboard panel (SPEC 0033) ---
 	let dashboardButtonEl: HTMLButtonElement | undefined;
@@ -109,11 +123,11 @@
 
 	// Every open/close path (Esc, scrim, X, card select, button, command)
 	// flips the store, so acting on its edges covers them all: focus returns
-	// to the button on close, and open collapses the toolbar popovers before
-	// the toolbar goes inert.
+	// to whichever dashboard trigger is visible (rail or chrome) on close,
+	// and open collapses the toolbar popovers before the toolbar goes inert.
 	$: {
 		if (dashboardWasOpen && !$dashboardOpenStore) {
-			dashboardButtonEl?.focus();
+			(railVisible ? railDashboardButtonEl : dashboardButtonEl)?.focus();
 		} else if (!dashboardWasOpen && $dashboardOpenStore) {
 			viewEditorExpanded = false;
 			filterEditorExpanded = false;
@@ -873,21 +887,25 @@
 <div class="main">
 	<div class="board-content" bind:this={boardContentEl}>
 		<div class="board-toolbar" class:dashboard-open={$dashboardOpenStore}>
-			<div class="dashboard-control">
-				<button
-					type="button"
-					class="dashboard-toggle"
-					class:active={$dashboardOpenStore}
-					aria-expanded={$dashboardOpenStore}
-					aria-label={$dashboardOpenStore
-						? "Hide board dashboard"
-						: "Show board dashboard"}
-					bind:this={dashboardButtonEl}
-					on:click={toggleDashboard}
-				>
-					<Icon name="layout-dashboard" size={16} />
-				</button>
-			</div>
+			{#if !railVisible}
+				<!-- Single-board vaults have no rail, so the dashboard trigger
+				     lives in the chrome row as it did pre-rail (SPEC 0033). -->
+				<div class="dashboard-control">
+					<button
+						type="button"
+						class="dashboard-toggle"
+						class:active={$dashboardOpenStore}
+						aria-expanded={$dashboardOpenStore}
+						aria-label={$dashboardOpenStore
+							? "Hide board dashboard"
+							: "Show board dashboard"}
+						bind:this={dashboardButtonEl}
+						on:click={toggleDashboard}
+					>
+						<Icon name="layout-dashboard" size={16} />
+					</button>
+				</div>
+			{/if}
 			<div class="view-control" bind:this={viewControlContainer} inert={$dashboardOpenStore}>
 				<button
 					type="button"
@@ -1029,9 +1047,26 @@
 				onCancel={() => (savedViewPendingDelete = undefined)}
 			/>
 		{/if}
-			<!-- Positioning context for the dashboard slide-over, which covers
-			     the board area but leaves the chrome row above interactive. -->
+			<!-- The rail (multi-board vaults) sits left of .board-main, which is
+			     the positioning context for the dashboard slide-over — so the
+			     panel and scrim anchor right of the rail and never cover it,
+			     while the chrome row above stays interactive. -->
 			<div class="board-area">
+			{#if railVisible}
+				<BoardRail
+					{boardIndexStore}
+					{boardListSettingsStore}
+					currentPath={$currentPathStore}
+					dashboardOpen={$dashboardOpenStore}
+					onToggleDashboard={toggleDashboard}
+					onSelect={handleDashboardSelect}
+					{onReorderBoards}
+					width={railWidth}
+					onSetWidth={onSetRailWidth}
+					bind:dashboardButtonEl={railDashboardButtonEl}
+				/>
+			{/if}
+			<div class="board-main" style={railVisible ? "--dashboard-overlay-left: 0;" : ""}>
 			<div class="columns" class:vertical-flow={isVerticalFlow} style="--column-width: {columnWidth}px;">
 				{#if !isVerticalFlow}
 					<BoardMatrixHorizontal
@@ -1102,6 +1137,7 @@
 					onClose={() => dashboardOpenStore.set(false)}
 				/>
 			{/if}
+			</div>
 			</div>
 	</div>
 </div>
@@ -1359,9 +1395,19 @@
 			}
 		}
 
-		// Takes over the columns' flex slot; the columns fill it, and the
-		// dashboard panel absolutely positions against it.
+		// Takes over the columns' flex slot: rail (when visible) beside
+		// .board-main, which holds the columns and is the positioning context
+		// the dashboard panel absolutely positions against — right of the
+		// rail, so the slide-over never covers its trigger.
 		.board-area {
+			display: flex;
+			flex-direction: row;
+			flex: 1 1 0;
+			min-width: 0;
+			min-height: 0;
+		}
+
+		.board-main {
 			position: relative;
 			display: flex;
 			flex-direction: column;

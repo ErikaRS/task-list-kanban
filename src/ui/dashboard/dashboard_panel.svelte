@@ -274,14 +274,21 @@
 	// Anchored to the board area below the chrome row, so the toolbar (and
 	// the dashboard button, the accidental-click undo) stays interactive.
 	// Bleeds through board-content's padding so the slide starts at the
-	// view's edge and the scrim meets the toolbar without a gap.
+	// view's edge and the scrim meets the toolbar without a gap — except on
+	// the left when the board rail is visible: main.svelte sets the override
+	// to 0 there so the overlay starts at the rail's right edge and never
+	// covers its trigger (SPEC 0034).
 	.dashboard-overlay {
 		position: absolute;
 		top: calc(-1 * var(--size-4-2));
 		bottom: 0;
-		left: calc(-1 * var(--size-4-4));
+		left: var(--dashboard-overlay-left, calc(-1 * var(--size-4-4)));
 		right: calc(-1 * var(--size-4-4));
 		z-index: 200;
+		// Clips the slide transition: the panel translates in from -100%, and
+		// unclipped it would paint over the board rail on its way in. Masked
+		// at the overlay's left edge it emerges from the rail instead.
+		overflow: hidden;
 	}
 
 	.dashboard-scrim {
