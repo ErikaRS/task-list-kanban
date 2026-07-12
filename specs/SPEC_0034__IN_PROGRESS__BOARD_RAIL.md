@@ -248,3 +248,4 @@ panel itself behaves exactly as today.
 **Deliverable:** One-click board switching restored (#130), always on
 where it matters and invisible where it doesn't.
 **Size:** M
+**Implemented by:** [8c9eb3b](https://github.com/ErikaRS/task-list-kanban/commit/8c9eb3b80a859fea9dd0ed7b82ee71a92f396ac2)
