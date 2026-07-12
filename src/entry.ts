@@ -1,11 +1,12 @@
-import { MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
-import { derived } from "svelte/store";
+import { MarkdownView, Notice, Plugin, TFile, TFolder, WorkspaceLeaf } from "obsidian";
+import { derived, get } from "svelte/store";
 import { KANBAN_VIEW_NAME, KanbanView } from "./ui/text_view";
 import {
 	createGlobalSettingsStore,
 	createInheritedSettingsStore,
 	parseGlobalSettings,
 	pickBoardDefaultSettings,
+	removeBoardPathFromGlobalSettings,
 	serializeGlobalSettings,
 } from "./ui/settings/global_settings";
 import { GlobalSettingsTab } from "./ui/settings/global_settings_tab";
@@ -20,6 +21,14 @@ import {
 	type BoardStatsService,
 } from "./ui/dashboard/board_stats";
 import { toSettingsPayload } from "./ui/kanban_frontmatter";
+import {
+	BoardFolderPickerModal,
+	createBoardWithNotice,
+	createKanbanBoardInFolder,
+	getDefaultFolderForActiveFile,
+	getDefaultFolderForCurrentBoard,
+} from "./ui/boards/board_creation";
+import { trashBoardFile } from "./ui/boards/board_deletion";
 
 export default class Base extends Plugin {
 	private readonly globalSettingsStore = createGlobalSettingsStore();
@@ -78,6 +87,8 @@ export default class Base extends Plugin {
 					(path) => void this.recordBoardOpened(path),
 					this.boardRailSettingsStore,
 					(width) => void this.setBoardRailWidth(width),
+					(view) => this.createBoardFromDashboard(view),
+					(path) => this.deleteBoardFromDashboard(path),
 				),
 		);
 		this.addSettingTab(
@@ -97,6 +108,18 @@ export default class Base extends Plugin {
 
 		// The dashboard is a slide-over inside the kanban view (SPEC 0033),
 		// so the command only applies while one is focused.
+		this.addCommand({
+			id: "create-new-kanban-board",
+			name: "Create new kanban board",
+			callback: () => {
+				void this.createBoardFromGlobalSurface();
+			},
+		});
+
+		this.addRibbonIcon("square-kanban", "New Kanban board", () => {
+			void this.createBoardFromGlobalSurface();
+		});
+
 		this.addCommand({
 			id: "show-board-dashboard",
 			name: "Show board dashboard",
@@ -160,17 +183,20 @@ export default class Base extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file) => {
+				if (!(file instanceof TFolder)) {
+					return;
+				}
 				menu.addItem((item) => {
 					item.setTitle("New kanban")
 						.setIcon("square-kanban")
 						.onClick(async () => {
-							const newFile = await this.app.vault.create(
-								file.path + "/Kanban-" + Date.now() + ".md",
-								`---\nkanban_plugin: {}\n---\n`
+							const newFile = await createBoardWithNotice(
+								this.app.vault,
+								file.path,
 							);
-							this.app.workspace
-								.getActiveViewOfType(MarkdownView)
-								?.leaf.openFile(newFile);
+							if (newFile) {
+								await this.openCreatedBoard(newFile);
+							}
 						});
 				});
 			})
@@ -287,6 +313,110 @@ export default class Base extends Plugin {
 		}));
 		await this.saveGlobalSettings();
 		new Notice("Task List Kanban global board defaults updated.");
+	}
+
+	private async createBoardFromDashboard(view: KanbanView): Promise<boolean> {
+		const defaultFolderPath = getDefaultFolderForCurrentBoard(view.file?.path ?? null);
+		const newFile = await this.pickAndCreateBoard(defaultFolderPath);
+		if (!newFile) {
+			return false;
+		}
+		await view.openBoard(newFile.path);
+		return true;
+	}
+
+	private async createBoardFromGlobalSurface(): Promise<void> {
+		const defaultFolderPath = getDefaultFolderForActiveFile(
+			this.app.workspace.getActiveFile()?.path ?? null,
+		);
+		const newFile = await this.pickAndCreateBoard(defaultFolderPath);
+		if (newFile) {
+			await this.openCreatedBoard(newFile);
+		}
+	}
+
+	private pickAndCreateBoard(defaultFolderPath: string): Promise<TFile | null> {
+		return new Promise((resolve) => {
+			let resolved = false;
+			let creationStarted = false;
+			const resolveOnce = (file: TFile | null) => {
+				if (!resolved) {
+					resolved = true;
+					resolve(file);
+				}
+			};
+			const modal = new BoardFolderPickerModal(
+				this.app,
+				defaultFolderPath,
+				(folder) => {
+					creationStarted = true;
+					void (async () => {
+						try {
+							const newFile = await createKanbanBoardInFolder(
+								this.app.vault,
+								folder.path,
+							);
+							resolveOnce(newFile);
+						} catch (error) {
+							console.error("Failed to create kanban board", error);
+							new Notice("Failed to create kanban board.");
+							resolveOnce(null);
+						}
+					})();
+				},
+			);
+			const originalOnClose = modal.onClose.bind(modal);
+			modal.onClose = () => {
+				originalOnClose();
+				if (!creationStarted) {
+					resolveOnce(null);
+				}
+			};
+			modal.open();
+		});
+	}
+
+	private async openCreatedBoard(file: TFile): Promise<void> {
+		const kanbanView = this.app.workspace.getActiveViewOfType(KanbanView);
+		if (kanbanView) {
+			await kanbanView.openBoard(file.path);
+			return;
+		}
+		const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (markdownView) {
+			await markdownView.leaf.openFile(file);
+			return;
+		}
+		await this.app.workspace.getLeaf(false).openFile(file);
+	}
+
+	private async deleteBoardFromDashboard(path: string): Promise<boolean> {
+		const file = this.app.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile)) {
+			new Notice("Board file not found.");
+			return false;
+		}
+
+		const activeKanbanView = this.app.workspace.getActiveViewOfType(KanbanView);
+		const fallbackBoardPath = this.boardIndex
+			? get(this.boardIndex.store).find((board) => board.path !== path)?.path
+			: undefined;
+		const result = await trashBoardFile(this.app, path);
+		if (!result.ok) {
+			if (result.reason === "failed") {
+				console.error("Failed to delete board", result.error);
+			}
+			new Notice("Failed to delete board.");
+			return false;
+		}
+		this.globalSettingsStore.set(
+			removeBoardPathFromGlobalSettings(this.globalSettingsStore.get(), path),
+		);
+		await this.saveGlobalSettings();
+		if (activeKanbanView?.file?.path === path && fallbackBoardPath) {
+			await activeKanbanView.openBoard(fallbackBoardPath);
+		}
+		return true;
 	}
 
 	private switchToKanbanAfterLoad() {

@@ -106,6 +106,9 @@
 	export let boardRailSettingsStore: Readable<BoardRailSettings | undefined> =
 		readable(undefined);
 	export let onSetRailWidth: ((width: number) => void) | undefined = undefined;
+	export let onCreateBoard: (() => boolean | Promise<boolean>) | undefined = undefined;
+	export let onDeleteBoard: ((path: string) => boolean | Promise<boolean>) | undefined =
+		undefined;
 	export let requestSave: () => void;
 
 	// --- Board rail (SPEC 0034) ---
@@ -1124,6 +1127,8 @@
 					{boardCountsStore}
 					{onRequestBoardCounts}
 					{lastOpenedStore}
+					{onCreateBoard}
+					{onDeleteBoard}
 					slideFrom={railOnTop ? "top" : "left"}
 					onClose={() => dashboardOpenStore.set(false)}
 				/>

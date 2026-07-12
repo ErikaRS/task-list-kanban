@@ -74,6 +74,8 @@ export class KanbanView extends TextFileView {
 		private readonly onBoardOpened?: (path: string) => void,
 		private readonly boardRailSettingsStore?: Readable<BoardRailSettings | undefined>,
 		private readonly onSetRailWidth?: (width: number) => void,
+		private readonly onCreateBoardFromDashboard?: (view: KanbanView) => Promise<boolean>,
+		private readonly onDeleteBoardFromDashboard?: (path: string) => Promise<boolean>,
 	) {
 		super(leaf);
 
@@ -188,7 +190,7 @@ export class KanbanView extends TextFileView {
 	// In-leaf board switching (SPEC 0032). Setting the view state straight
 	// to the kanban type skips the markdown-view detour `openFile` would
 	// take; the unload of the current file flushes any pending save first.
-	private async openBoard(path: string): Promise<void> {
+	async openBoard(path: string): Promise<void> {
 		if (path === this.file?.path) {
 			return;
 		}
@@ -307,6 +309,9 @@ export class KanbanView extends TextFileView {
 				lastOpenedStore: this.lastOpenedStore,
 				boardRailSettingsStore: this.boardRailSettingsStore,
 				onSetRailWidth: this.onSetRailWidth,
+				onCreateBoard: () => this.onCreateBoardFromDashboard?.(this) ?? false,
+				onDeleteBoard: (path: string) =>
+					this.onDeleteBoardFromDashboard?.(path) ?? false,
 				requestSave: () => this.requestSave(),
 			},
 		});

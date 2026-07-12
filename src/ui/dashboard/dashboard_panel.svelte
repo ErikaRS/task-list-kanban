@@ -9,6 +9,7 @@
 	} from "../boards/board_index";
 	import { RenameBoardModal } from "../boards/rename_board_modal";
 	import type { BoardListSettings } from "../settings/global_settings";
+	import { ConfirmModal } from "../settings/confirm_modal";
 	import type { DropPosition } from "../settings/column_reorder";
 	import Icon from "../components/icon.svelte";
 	import DashboardCard from "./dashboard_card.svelte";
@@ -34,6 +35,9 @@
 		readable(new Map());
 	export let onRequestBoardCounts: ((paths: string[]) => void) | undefined = undefined;
 	export let lastOpenedStore: Readable<Record<string, number>> = readable({});
+	export let onCreateBoard: (() => boolean | Promise<boolean>) | undefined = undefined;
+	export let onDeleteBoard: ((path: string) => boolean | Promise<boolean>) | undefined =
+		undefined;
 	/** Slide axis: from the left rail/edge, or down from a top-docked rail. */
 	export let slideFrom: "left" | "top" = "left";
 	export let onClose: () => void;
@@ -117,6 +121,25 @@
 		}
 	}
 
+	async function handleCreateBoard() {
+		const created = await onCreateBoard?.();
+		if (created) {
+			onClose();
+		}
+	}
+
+	function confirmDeleteBoard(card: BoardCard) {
+		new ConfirmModal(app, {
+			title: "Delete board?",
+			body: `Delete "${card.name}" from the vault?`,
+			note: card.path,
+			confirmText: "Delete board",
+			onConfirm: async () => {
+				await onDeleteBoard?.(card.path);
+			},
+		}).open();
+	}
+
 	// --- Shown-grid drag reorder ---
 	// Dropping materializes the full shown order as the explicit
 	// `boardPaths` — which also sheds stale paths, since the shown list only
@@ -174,6 +197,14 @@
 					.onClick(() => onSetBoardHidden?.(card.path, !hidden)),
 			);
 		}
+		if (onDeleteBoard) {
+			menu.addItem((item) =>
+				item
+					.setTitle("Delete board")
+					.setIcon("trash-2")
+					.onClick(() => confirmDeleteBoard(card)),
+			);
+		}
 		menu.showAtMouseEvent(event);
 	}
 </script>
@@ -197,19 +228,31 @@
 	>
 		<div class="dashboard-header">
 			<h2 class="dashboard-title">Kanban boards</h2>
-			<button
-				type="button"
-				class="dashboard-close"
-				aria-label="Close dashboard"
-				on:click={onClose}
-			>
-				<Icon name="x" size={18} />
-			</button>
+			<div class="dashboard-actions">
+				{#if onCreateBoard}
+					<button
+						type="button"
+						class="dashboard-new-board"
+						on:click={handleCreateBoard}
+					>
+						<Icon name="plus" size={16} />
+						<span>New board</span>
+					</button>
+				{/if}
+				<button
+					type="button"
+					class="dashboard-close"
+					aria-label="Close dashboard"
+					on:click={onClose}
+				>
+					<Icon name="x" size={18} />
+				</button>
+			</div>
 		</div>
 		{#if shownCards.length === 0 && hiddenCards.length === 0}
 			<p class="dashboard-empty">
-				No kanban boards found in this vault. Create one from a folder's
-				context menu with "New kanban".
+				No kanban boards found in this vault. Use New board above, or create
+				one from a folder's context menu with "New kanban".
 			</p>
 		{:else}
 			<div class="dashboard-grid">
@@ -322,6 +365,26 @@
 
 	.dashboard-title {
 		margin: 0;
+	}
+
+	.dashboard-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-4-2);
+		flex: 0 0 auto;
+	}
+
+	.dashboard-new-board {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-4-1);
+		height: 32px;
+		margin: 0;
+		padding: 0 var(--size-4-2);
+		border-radius: var(--radius-s);
+		font-size: var(--font-ui-small);
+		font-weight: var(--font-medium);
+		cursor: pointer;
 	}
 
 	.dashboard-close {

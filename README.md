@@ -17,9 +17,18 @@ Use it to:
 
 ### Create a Board
 
-Right-click the folder where you want the board file, then choose **New kanban**.
+Click the **New Kanban board** ribbon icon, run **Create new kanban board**
+from the command palette, or open the dashboard and choose **New board**. Each
+flow lets you choose the destination folder.
+
+You can also right-click the folder where you want the board file, then choose
+**New kanban**.
 
 ![Creating a new kanban](https://github.com/ErikaRS/task-list-kanban/assets/80379257/fbe25c3f-824f-4feb-b1b3-5acbdf1c8901)
+
+From the dashboard, right-click a board card to rename, hide, show, or delete
+that board. Delete asks for confirmation and moves the board file through
+Obsidian's trash flow.
 
 ### Add Tasks
 

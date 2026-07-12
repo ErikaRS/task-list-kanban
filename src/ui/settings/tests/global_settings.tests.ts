@@ -15,6 +15,7 @@ import {
 	inheritedSettingsFromGlobalSettings,
 	parseGlobalSettings,
 	pickBoardDefaultSettings,
+	removeBoardPathFromGlobalSettings,
 	setBoardDefault,
 } from "../global_settings";
 
@@ -179,6 +180,50 @@ describe("global settings parsing", () => {
 		expect(parsed.boardList).toEqual({
 			boardPaths: ["projects/Work.md", "Home.md"],
 			unpinnedPaths: ["archive/Old.md"],
+		});
+	});
+
+	it("removes a deleted board from curation and last-opened state", () => {
+		const settings = parseGlobalSettings({
+			version: 1,
+			boardList: {
+				boardPaths: ["Home.md", "projects/Work.md"],
+				unpinnedPaths: ["archive/Old.md", "projects/Work.md"],
+			},
+			lastOpenedByPath: {
+				"Home.md": 100,
+				"projects/Work.md": 200,
+			},
+		});
+
+		expect(removeBoardPathFromGlobalSettings(settings, "projects/Work.md")).toEqual({
+			version: 1,
+			boardDefaults: {},
+			boardList: {
+				boardPaths: ["Home.md"],
+				unpinnedPaths: ["archive/Old.md"],
+			},
+			lastOpenedByPath: {
+				"Home.md": 100,
+			},
+		});
+	});
+
+	it("drops empty board curation and last-opened state after deletion", () => {
+		const settings = parseGlobalSettings({
+			version: 1,
+			boardList: {
+				boardPaths: ["Home.md"],
+				unpinnedPaths: ["Home.md"],
+			},
+			lastOpenedByPath: {
+				"Home.md": 100,
+			},
+		});
+
+		expect(removeBoardPathFromGlobalSettings(settings, "Home.md")).toEqual({
+			version: 1,
+			boardDefaults: {},
 		});
 	});
 

@@ -263,6 +263,35 @@ export function serializeGlobalSettings(settings: GlobalSettings): GlobalSetting
 	return cloneGlobalSettings(parseGlobalSettings(settings));
 }
 
+export function removeBoardPathFromGlobalSettings(
+	settings: GlobalSettings,
+	path: string,
+): GlobalSettings {
+	const boardPaths = (settings.boardList?.boardPaths ?? []).filter(
+		(candidate) => candidate !== path,
+	);
+	const unpinnedPaths = (settings.boardList?.unpinnedPaths ?? []).filter(
+		(candidate) => candidate !== path,
+	);
+	const lastOpenedByPath = { ...(settings.lastOpenedByPath ?? {}) };
+	delete lastOpenedByPath[path];
+
+	return cloneGlobalSettings({
+		...settings,
+		...(boardPaths.length > 0 || unpinnedPaths.length > 0
+			? {
+					boardList: {
+						...(boardPaths.length > 0 ? { boardPaths } : {}),
+						...(unpinnedPaths.length > 0 ? { unpinnedPaths } : {}),
+					},
+				}
+			: { boardList: undefined }),
+		...(Object.keys(lastOpenedByPath).length > 0
+			? { lastOpenedByPath }
+			: { lastOpenedByPath: undefined }),
+	});
+}
+
 export function inheritedSettingsFromGlobalSettings(
 	settings: GlobalSettings,
 ): Partial<SettingValues> {
