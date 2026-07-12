@@ -79,8 +79,6 @@
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
 	import {
 		getVisibleSelectedTaskIds,
-		resolveAddCardColumn,
-		type AddCardColumn,
 	} from "./commands/board_command_targets";
 	import {
 		clearTaskIdSelections,
@@ -135,71 +133,6 @@
 
 	// --- Board dashboard panel (SPEC 0033) ---
 	let dashboardWasOpen = false;
-	let lastInteractedColumn: AddCardColumn | null = null;
-	let lastInteractedAddCard: (() => boolean) | null = null;
-	const addCardTargets = new Map<ColumnTag | DefaultColumns, Set<() => boolean>>();
-
-	function handleColumnInteraction(
-		column: ColumnTag | DefaultColumns,
-		startAddCard: () => boolean,
-	) {
-		lastInteractedColumn = column as AddCardColumn;
-		lastInteractedAddCard = startAddCard;
-	}
-
-	function registerAddCardTarget(
-		column: ColumnTag | DefaultColumns,
-		startAddCard: () => boolean,
-	) {
-		const starters = addCardTargets.get(column) ?? new Set<() => boolean>();
-		starters.add(startAddCard);
-		addCardTargets.set(column, starters);
-		return () => {
-			const current = addCardTargets.get(column);
-			if (!current) return;
-			current.delete(startAddCard);
-			if (current.size === 0) {
-				addCardTargets.delete(column);
-			}
-			if (lastInteractedAddCard === startAddCard) {
-				lastInteractedAddCard = null;
-			}
-		};
-	}
-
-	function getRegisteredAddCardTarget(column: AddCardColumn) {
-		const starters = addCardTargets.get(column);
-		return starters?.values().next().value;
-	}
-
-	function getAddCardCommandTarget() {
-		return resolveAddCardColumn(
-			activeMatrix,
-			lastInteractedColumn,
-			lastInteractedColumn,
-		);
-	}
-
-	export function canAddCardToFocusedColumn() {
-		const column = getAddCardCommandTarget();
-		return !!column && !!(lastInteractedColumn === column && lastInteractedAddCard
-			? lastInteractedAddCard
-			: getRegisteredAddCardTarget(column));
-	}
-
-	export function addCardToFocusedColumn() {
-		const column = getAddCardCommandTarget();
-		if (!column) {
-			return false;
-		}
-		dashboardOpenStore.set(false);
-		viewEditorExpanded = false;
-		filterEditorExpanded = false;
-		const starter = lastInteractedColumn === column && lastInteractedAddCard
-			? lastInteractedAddCard
-			: getRegisteredAddCardTarget(column);
-		return starter?.() ?? false;
-	}
 
 	export async function openCurrentBoardSettings() {
 		dashboardOpenStore.set(false);
@@ -1260,8 +1193,6 @@
 							{reorderEnabled}
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
-							onColumnInteraction={handleColumnInteraction}
-							onRegisterAddCardTarget={registerAddCardTarget}
 						/>
 					{:else}
 						<BoardMatrixVertical
@@ -1287,8 +1218,6 @@
 							{reorderEnabled}
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
-							onColumnInteraction={handleColumnInteraction}
-							onRegisterAddCardTarget={registerAddCardTarget}
 						/>
 					{/if}
 				</div>

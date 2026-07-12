@@ -38,14 +38,6 @@
 	export let reorderEnabled: boolean = false;
 	export let treatNestedTasksAsSubtasks: boolean = false;
 	export let taskCountLabel: string = "";
-	export let onColumnInteraction: (
-		column: PrimaryBucketId,
-		startAddCard: () => boolean,
-	) => void = () => undefined;
-	export let onRegisterAddCardTarget: (
-		column: PrimaryBucketId,
-		startAddCard: () => boolean,
-	) => () => void = () => () => undefined;
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [
@@ -151,8 +143,6 @@
 					{isManualOrder}
 					manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 					{reorderEnabled}
-					{onColumnInteraction}
-					{onRegisterAddCardTarget}
 				/>
 			</div>
 		{/each}

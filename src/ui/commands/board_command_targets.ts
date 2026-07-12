@@ -1,42 +1,4 @@
-import type { ColumnTag, DefaultColumns } from "../columns/columns";
-import type { BoardMatrix, PrimaryBucketId } from "../board/board_matrix";
-
-export type AddCardColumn = ColumnTag | DefaultColumns;
-
-export function resolveAddCardColumn(
-	matrix: BoardMatrix,
-	focusedColumn: PrimaryBucketId | null,
-	lastInteractedColumn: PrimaryBucketId | null,
-): AddCardColumn | null {
-	const visibleColumns = matrix.primaryAxis.map((bucket) => bucket.id);
-	const visibleSet = new Set<PrimaryBucketId>(visibleColumns);
-
-	const doneIsOnlyVisibleColumn = visibleColumns.length === 1 && visibleColumns[0] === "done";
-
-	for (const candidate of [focusedColumn, lastInteractedColumn]) {
-		if (candidate && visibleSet.has(candidate) && (candidate !== "done" || doneIsOnlyVisibleColumn)) {
-			return candidate as AddCardColumn;
-		}
-	}
-
-	const firstNormal = visibleColumns.find(
-		(column): column is ColumnTag =>
-			column !== "uncategorised" && column !== "done",
-	);
-	if (firstNormal) {
-		return firstNormal;
-	}
-
-	if (visibleSet.has("uncategorised")) {
-		return "uncategorised";
-	}
-
-	if (doneIsOnlyVisibleColumn) {
-		return "done" as AddCardColumn;
-	}
-
-	return null;
-}
+import type { BoardMatrix } from "../board/board_matrix";
 
 export function getVisibleSelectedTaskIds(
 	matrix: BoardMatrix,

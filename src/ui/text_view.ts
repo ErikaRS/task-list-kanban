@@ -34,8 +34,6 @@ import { applyChangedColumnTagUpdates } from "./settings/column_rename_migration
 export const KANBAN_VIEW_NAME = "kanban-view";
 
 type MainComponent = Main & {
-	canAddCardToFocusedColumn: () => boolean;
-	addCardToFocusedColumn: () => boolean;
 	openCurrentBoardSettings: () => Promise<boolean>;
 	hasVisibleSelectedCards: () => boolean;
 	markSelectedCardsDone: () => Promise<boolean>;
@@ -217,14 +215,6 @@ export class KanbanView extends TextFileView {
 	// board chrome flips the same store.
 	toggleDashboard(): void {
 		this.dashboardOpenStore.update((open) => !open);
-	}
-
-	canAddCardToFocusedColumn(): boolean {
-		return this.component?.canAddCardToFocusedColumn() ?? false;
-	}
-
-	addCardToFocusedColumn(): boolean {
-		return this.component?.addCardToFocusedColumn() ?? false;
 	}
 
 	openCurrentBoardSettings(): void {

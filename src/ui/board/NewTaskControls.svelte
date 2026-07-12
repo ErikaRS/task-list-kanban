@@ -3,7 +3,7 @@
 	import type { Readable } from "svelte/store";
 	import { type ColumnTagTable, isColumnTag } from "../columns/columns";
 	import type { PrimaryBucketId } from "./board_matrix";
-	import type { NewTaskColumn, TaskActions } from "../tasks/actions";
+	import type { TaskActions } from "../tasks/actions";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
 	import IconButton from "../components/icon_button.svelte";
 	import {
@@ -29,15 +29,10 @@
 	let pendingCancelled = false;
 	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
 	let newTaskInputEl: HTMLDivElement | undefined;
-	let addNewButtonEl: HTMLDivElement | undefined;
 	const emptyDateValues: DateFieldValues = { due: "", scheduled: "", start: "" };
 	let newTaskDateValues: DateFieldValues = { ...emptyDateValues };
 	$: canEditNewTaskDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
-	$: canCreateInColumn = isNewTaskColumn(column);
-
-	function isNewTaskColumn(value: PrimaryBucketId): value is NewTaskColumn {
-		return value === "uncategorised" || value === "done" || isColumnTag(value, columnTagTableStore);
-	}
+	$: isColTag = isColumnTag(column, columnTagTableStore);
 
 	async function handleNewTaskSave(event?: FocusEvent) {
 		const nextTarget = event?.relatedTarget;
@@ -57,7 +52,7 @@
 		const targetColumn = column;
 		pendingNewTask = null;
 
-		if (!content || !file || !isNewTaskColumn(targetColumn)) {
+		if (!content || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
 			newTaskDateValues = { ...emptyDateValues };
 			return;
 		}
@@ -89,7 +84,7 @@
 
 	function handleAddNewClick(e: MouseEvent | KeyboardEvent) {
 		const targetColumn = column;
-		if (!isNewTaskColumn(targetColumn)) {
+		if (!isColumnTag(targetColumn, columnTagTableStore)) {
 			return;
 		}
 
@@ -107,7 +102,7 @@
 
 	function handleChooseTaskFileClick(e: MouseEvent | KeyboardEvent) {
 		const targetColumn = column;
-		if (!isNewTaskColumn(targetColumn)) {
+		if (!isColumnTag(targetColumn, columnTagTableStore)) {
 			return;
 		}
 
@@ -132,21 +127,11 @@
 		};
 	}
 
-	export function startNewTaskFromCommand() {
-		if (pendingNewTask || !addNewButtonEl) {
-			return false;
-		}
-		handleAddNewClick({
-			target: addNewButtonEl,
-		} as unknown as MouseEvent);
-		return true;
-	}
 </script>
 
-{#if canCreateInColumn}
+{#if isColTag}
 	<div class="add-new-controls" class:vertical-flow={isVerticalFlow}>
 		<div
-			bind:this={addNewButtonEl}
 			class="add-new-btn"
 			class:disabled={!!pendingNewTask}
 			role="button"

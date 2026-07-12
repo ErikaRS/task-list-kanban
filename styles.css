@@ -565,6 +565,56 @@ If your plugin does not need CSS, delete this file.
 	margin-top: 18px;
 }
 
+.task-list-kanban-create-card-modal-container {
+	width: min(680px, calc(100vw - 48px));
+}
+
+.task-list-kanban-create-card-modal h2 {
+	margin-top: 0;
+	margin-bottom: 18px;
+}
+
+.task-list-kanban-create-card-modal .create-card-setting {
+	display: grid;
+	grid-template-columns: 120px minmax(0, 1fr);
+	gap: 14px;
+	align-items: start;
+	padding: 10px 0;
+	border-top: 0;
+}
+
+.task-list-kanban-create-card-modal .create-card-setting .setting-item-info {
+	width: auto;
+	min-width: 0;
+	margin-right: 0;
+	padding-top: 6px;
+}
+
+.task-list-kanban-create-card-modal .create-card-setting .setting-item-control {
+	width: 100%;
+	min-width: 0;
+	justify-content: stretch;
+}
+
+.task-list-kanban-create-card-modal .create-card-text,
+.task-list-kanban-create-card-modal .create-card-select {
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
+}
+
+.task-list-kanban-create-card-modal .create-card-text {
+	min-height: 112px;
+	resize: vertical;
+	line-height: 1.35;
+}
+
+.task-list-kanban-create-card-modal .confirm-modal-actions {
+	margin-top: 22px;
+	padding-top: 14px;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
 .settings-body {
 	display: grid;
 	grid-template-columns: 180px minmax(0, 1fr);
@@ -1222,6 +1272,15 @@ If your plugin does not need CSS, delete this file.
 		width: auto;
 		flex: 0 0 auto;
 		white-space: nowrap;
+	}
+
+	.task-list-kanban-create-card-modal .create-card-setting {
+		grid-template-columns: 1fr;
+		gap: 6px;
+	}
+
+	.task-list-kanban-create-card-modal .create-card-setting .setting-item-info {
+		padding-top: 0;
 	}
 
 	.column-editor-summary {

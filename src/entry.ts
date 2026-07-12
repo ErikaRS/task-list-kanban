@@ -29,6 +29,7 @@ import {
 	getDefaultFolderForCurrentBoard,
 } from "./ui/boards/board_creation";
 import { trashBoardFile } from "./ui/boards/board_deletion";
+import { openCreateCardModal } from "./ui/tasks/create_card_modal";
 
 export default class Base extends Plugin {
 	private readonly globalSettingsStore = createGlobalSettingsStore();
@@ -121,6 +122,19 @@ export default class Base extends Plugin {
 		});
 
 		this.addCommand({
+			id: "add-card",
+			name: "Add card",
+			callback: () => {
+				void openCreateCardModal(
+					this.app,
+					this.boardIndex ? get(this.boardIndex.store) : [],
+					this.globalSettingsStore.get(),
+					this.getFirstVisibleKanbanBoardPath(),
+				);
+			},
+		});
+
+		this.addCommand({
 			id: "show-board-dashboard",
 			name: "Show board dashboard",
 			checkCallback: (checking) => {
@@ -175,21 +189,6 @@ export default class Base extends Plugin {
 				}
 				if (!checking) {
 					view.openCurrentBoardSettings();
-				}
-				return true;
-			},
-		});
-
-		this.addCommand({
-			id: "add-card-to-focused-column",
-			name: "Add card to focused column",
-			checkCallback: (checking) => {
-				const view = this.app.workspace.getActiveViewOfType(KanbanView);
-				if (!view || !view.canAddCardToFocusedColumn()) {
-					return false;
-				}
-				if (!checking) {
-					view.addCardToFocusedColumn();
 				}
 				return true;
 			},
@@ -252,6 +251,16 @@ export default class Base extends Plugin {
 	onunload() {
 		this.boardIndex?.destroy();
 		this.boardStats?.destroy();
+	}
+
+	private getFirstVisibleKanbanBoardPath(): string | undefined {
+		for (const leaf of this.app.workspace.getLeavesOfType(KANBAN_VIEW_NAME)) {
+			const view = leaf.view;
+			if (view instanceof KanbanView && view.file) {
+				return view.file.path;
+			}
+		}
+		return undefined;
 	}
 
 	private addSelectedCardsCommand(

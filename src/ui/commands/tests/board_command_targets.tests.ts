@@ -3,31 +3,9 @@ import type { BoardMatrix, PrimaryBucketId } from "../../board/board_matrix";
 import {
 	clearTaskIdsFromSelection,
 	getVisibleSelectedTaskIds,
-	resolveAddCardColumn,
 } from "../board_command_targets";
 
 describe("board command targets", () => {
-	it("prefers focused and last-interacted non-done columns", () => {
-		const matrix = matrixWithColumns(["uncategorised", "doing", "done"]);
-
-		expect(resolveAddCardColumn(matrix, "doing" as PrimaryBucketId, null)).toBe("doing");
-		expect(resolveAddCardColumn(matrix, "done", "doing" as PrimaryBucketId)).toBe("doing");
-	});
-
-	it("falls back to first visible non-done column, then uncategorised", () => {
-		expect(
-			resolveAddCardColumn(
-				matrixWithColumns(["uncategorised", "later", "doing", "done"]),
-				null,
-				null,
-			),
-		).toBe("later");
-		expect(resolveAddCardColumn(matrixWithColumns(["uncategorised", "done"]), null, null)).toBe(
-			"uncategorised",
-		);
-		expect(resolveAddCardColumn(matrixWithColumns(["done"]), null, null)).toBe("done");
-	});
-
 	it("preserves board display order for visible selected task ids", () => {
 		const matrix = matrixWithTasks({
 			doing: ["a", "b"],
@@ -61,10 +39,6 @@ describe("board command targets", () => {
 		expect([...next.entries()]).toEqual([["b", true]]);
 	});
 });
-
-function matrixWithColumns(columns: string[]): BoardMatrix {
-	return matrixWithTasks(Object.fromEntries(columns.map((column) => [column, []])));
-}
 
 function matrixWithTasks(tasksByColumn: Record<string, string[]>): BoardMatrix {
 	const primaryAxis = Object.keys(tasksByColumn).map((id) => ({

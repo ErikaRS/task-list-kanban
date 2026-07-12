@@ -9,11 +9,9 @@ import {
 import type { Task } from "./task";
 import type { Metadata } from "./tasks";
 import type { ColumnDefinition, ColumnTag, DefaultColumns } from "../columns/columns";
-import { getColumnPriority, getColumnPrioritySchema, getColumnStatus } from "../columns/definitions";
 import { shouldIncludeFilePath } from "./scope";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
-import { createTaskLine } from "./task_creation";
 import {
 	formatLocalDate,
 	getPropertyWriteAdapter,
@@ -39,8 +37,7 @@ import {
 	type PrepareFileContentsForWrite,
 } from "./source_line_editor";
 import { parseSourceTaskLine } from "./source_block";
-
-export type NewTaskColumn = ColumnTag | DefaultColumns;
+import { buildNewTaskLine, type NewTaskColumn } from "./task_line_builder";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
@@ -838,33 +835,15 @@ export function createTaskActions({
 		},
 
 		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
-			const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
-			const columnDefinition = column === "uncategorised"
-				? undefined
-				: getColumnDefinitions().find((definition) => definition.id === column);
-			const priorityAdapter = getPropertyWriteAdapter(getColumnPrioritySchema(columnDefinition) ?? getPropertySchemaOption());
-			let taskLine = createTaskLine(
+			const taskLine = buildNewTaskLine({
 				content,
-				column === "uncategorised" || column === "done"
-					? []
-					: getPlacementTagsForColumn(column),
+				column,
+				columnDefinitions: getColumnDefinitions(),
+				getPlacementTagsForColumn,
+				propertySchemaOption: getPropertySchemaOption(),
 				additionalTags,
-				column === "done" ? "x" : getColumnStatus(columnDefinition) ?? " ",
-			);
-
-			const priority = getColumnPriority(columnDefinition);
-			if (priority && priorityAdapter) {
-				taskLine = priorityAdapter.upsertPriority(taskLine, priority);
-			}
-
-			if (adapter) {
-				for (const key of ["due", "scheduled", "start"] as const) {
-					const date = dateProperties[key];
-					if (date) {
-						taskLine = adapter.upsertDate(taskLine, key, date);
-					}
-				}
-			}
+				dateProperties,
+			});
 
 			await updateRow(
 				vault,

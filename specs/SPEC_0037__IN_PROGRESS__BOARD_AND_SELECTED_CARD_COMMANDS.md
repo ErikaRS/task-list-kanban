@@ -30,8 +30,8 @@ hotkeys.
 
 1. Users can open board settings from the command palette while a kanban board
    is active.
-2. Users can add a card to the current/focused column from the command
-   palette while a kanban board is active.
+2. Users can add a card from the command palette even when no kanban board is
+   active by choosing the target board, column, and file in a modal.
 3. Users can run selected-card commands from the command palette while a
    kanban board has selected visible cards:
    - mark selected cards as done
@@ -50,22 +50,25 @@ hotkeys.
 
 ### Command registration
 
-Register these commands in `entry.ts` with `checkCallback`, gated on an active
-`KanbanView`:
+Register these commands in `entry.ts`:
 
 - `open-current-board-settings` — **Open current board settings**
-- `add-card-to-focused-column` — **Add card to focused column**
+- `add-card` — **Add card**
 - `mark-selected-cards-done` — **Mark selected cards as done**
 - `archive-selected-cards` — **Archive selected cards**
 - `cancel-selected-cards` — **Cancel selected cards**
 - `duplicate-selected-cards` — **Duplicate selected cards**
 - `delete-selected-cards` — **Delete selected cards**
 
+The selected-card and board-settings commands use `checkCallback`, gated on an
+active `KanbanView`. The **Add card** command is global and uses a normal
+callback because it opens its own board/column/file chooser.
+
 None of these command definitions should include default hotkeys.
 
-The active `KanbanView` should expose small imperative methods for commands to
-call. `entry.ts` should stay thin: find the active view, ask whether the
-command is available, then invoke the view method.
+For active-board commands, the active `KanbanView` should expose small
+imperative methods for commands to call. `entry.ts` should stay thin: find the
+active view, ask whether the command is available, then invoke the view method.
 
 ### Open board settings
 
@@ -85,29 +88,26 @@ This replaces the "Add a new list/column" command idea from issue #148
 because column/list creation is board-configuration work and already belongs
 inside board settings.
 
-### Add card to focused column
-
-The command should start the existing inline add-card flow for the current or
-focused column.
-
-Column resolution:
-
-1. Prefer the column that currently contains keyboard focus.
-2. Otherwise use the last column that received pointer focus, keyboard focus,
-   or a task interaction in the active board.
-3. Otherwise use the first visible non-done column.
-4. If no normal column is visible, use Uncategorized.
-5. Do not target Done by default unless Done is the only visible column.
+### Add card
 
 Behavior:
 
-- Available only when a kanban view is active and at least one targetable
-  column exists.
-- Opens the same new-task input used by the column's **Add new** control.
-- Uses the same default-task-file / last-used-file behavior as existing
-  inline task creation.
-- If a file picker is required, show the existing picker rather than inventing
-  a separate command-specific modal.
+- Available globally when the plugin is loaded.
+- Opens a modal with:
+  - a text editor for the card content
+  - a board dropdown
+  - a column dropdown for the selected board
+  - a file dropdown containing files in the selected board's scope
+- The board dropdown is populated from discovered kanban board files.
+- The column dropdown includes Uncategorized, configured columns, and Done for
+  the selected board.
+- The file dropdown defaults to the board's configured default task file when
+  it is valid and in scope, otherwise the board's last-used task file when
+  valid, otherwise the first scoped markdown file.
+- On submit, write a task line using the same task-line construction rules as
+  existing inline task creation: placement tags, status-marker columns,
+  priority columns, and property schema handling should match.
+- Persist the chosen file as the selected board's last-used task file.
 - Does not create a task until the user submits content.
 
 ### Selected-card command target set
@@ -186,22 +186,28 @@ duplicate write, skip it with a notice rather than aborting the whole command.
 **Goal:** Issue #148's non-destructive board-level commands exist in the
 command palette without default hotkeys.
 
-1. ✅ Add `KanbanView` methods for opening board settings and adding a card
-   to the focused column
-2. ✅ Track the focused/last-interacted column in the board UI and expose a
-   pure target-column resolver with fallback rules
-3. ✅ Register **Open current board settings** and **Add card to focused
-   column** commands with active-kanban `checkCallback` gating and no default
-   hotkeys
-4. ✅ Route add-card through the existing inline task creation controls,
-   including existing file-picker behavior when needed
-5. [ ] Tests: target-column resolver fallbacks; command availability with and
-   without active kanban view; add-card command uses the expected column
-   - ✅ Added target-column resolver fallback coverage
-6. ✅ Automated verification: `npm run build`, `npm test`
-7. [ ] Manual: command palette opens board settings; command palette opens
-   add-card input in focused column, last-interacted column, and fallback
-   column; confirm no default hotkeys appear
+1. ✅ Add a `KanbanView` method for opening board settings
+2. ✅ Register **Open current board settings** with active-kanban
+   `checkCallback` gating and no default hotkey
+3. ✅ Register global **Add card** command with no active-board dependency and
+   no default hotkey
+4. ✅ Add a command modal with card text, board, column, and file inputs
+5. ✅ Resolve board settings from global defaults plus board frontmatter so the
+   modal can create cards even without an open `KanbanView`
+6. ✅ Route add-card through shared task-line construction so placement tags,
+   status columns, and priority columns match existing inline creation
+7. ✅ Default the file dropdown to the selected board's valid default task file,
+   then valid last-used file, then first scoped markdown file
+8. ✅ Persist the chosen file as the selected board's last-used task file
+9. [ ] Tests: command availability with and without active kanban view; modal
+   board/column/file defaults; add-card command writes the expected task line
+   - ✅ Added task-line builder coverage for Uncategorized and Done defaults
+   - ✅ Existing task action tests cover configured status and priority columns
+10. ✅ Automated verification: `npm run build`, `npm test`
+11. [ ] Manual: command palette opens board settings; global Add card opens the
+   modal without an active kanban view; board, column, and file dropdowns
+   populate correctly; submitted card appears in source markdown; confirm no
+   default hotkeys appear
 
 **Deliverable:** Command-palette access for board settings and keyboard-first
 card creation.
