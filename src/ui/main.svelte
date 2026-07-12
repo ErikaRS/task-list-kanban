@@ -111,8 +111,6 @@
 	// --- Board rail (SPEC 0034) ---
 	// The rail exists exactly when the vault has something to switch to; the
 	// count includes hidden boards, so dashboard curation can't remove it.
-	// The chrome dashboard button renders in the complementary case, keeping
-	// exactly one visible dashboard trigger.
 	$: railVisible = boardRailVisible($boardIndexStore.length);
 	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
 	// Dock side is a plugin setting (default left); top turns the content
@@ -123,16 +121,15 @@
 	let railDashboardButtonEl: HTMLButtonElement | undefined;
 
 	// --- Board dashboard panel (SPEC 0033) ---
-	let dashboardButtonEl: HTMLButtonElement | undefined;
 	let dashboardWasOpen = false;
 
 	// Every open/close path (Esc, scrim, X, card select, button, command)
 	// flips the store, so acting on its edges covers them all: focus returns
-	// to whichever dashboard trigger is visible (rail or chrome) on close,
-	// and open collapses the toolbar popovers before the toolbar goes inert.
+	// to the rail dashboard trigger on close, and open collapses the toolbar
+	// popovers before the toolbar goes inert.
 	$: {
 		if (dashboardWasOpen && !$dashboardOpenStore) {
-			(railVisible ? railDashboardButtonEl : dashboardButtonEl)?.focus();
+			railDashboardButtonEl?.focus();
 		} else if (!dashboardWasOpen && $dashboardOpenStore) {
 			viewEditorExpanded = false;
 			filterEditorExpanded = false;
@@ -913,25 +910,6 @@
 		{/if}
 		<div class="board-body" bind:this={boardContentEl}>
 		<div class="board-toolbar" class:dashboard-open={$dashboardOpenStore}>
-			{#if !railVisible}
-				<!-- Single-board vaults have no rail, so the dashboard trigger
-				     lives in the chrome row as it did pre-rail (SPEC 0033). -->
-				<div class="dashboard-control">
-					<button
-						type="button"
-						class="dashboard-toggle"
-						class:active={$dashboardOpenStore}
-						aria-expanded={$dashboardOpenStore}
-						aria-label={$dashboardOpenStore
-							? "Hide board dashboard"
-							: "Show board dashboard"}
-						bind:this={dashboardButtonEl}
-						on:click={toggleDashboard}
-					>
-						<Icon name="layout-dashboard" size={16} />
-					</button>
-				</div>
-			{/if}
 			<div class="view-control" bind:this={viewControlContainer} inert={$dashboardOpenStore}>
 				<button
 					type="button"
@@ -1162,42 +1140,6 @@
 		display: flex;
 		flex-direction: column;
 		font-size: var(--font-text-size);
-
-		.dashboard-control {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			flex: 0 0 auto;
-			height: var(--view-toolbar-control-height);
-		}
-
-		.dashboard-toggle {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			width: var(--view-toolbar-control-height);
-			height: var(--view-toolbar-control-height);
-			min-height: 0;
-			box-sizing: border-box;
-			margin: 0;
-			padding: 0;
-			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
-			border-radius: 999px;
-			background: var(--background-primary);
-			box-shadow: var(--shadow-s);
-			color: var(--text-normal);
-			cursor: pointer;
-
-			&:hover {
-				background: var(--background-modifier-hover);
-			}
-
-			&.active {
-				background: var(--background-primary);
-				border-color: color-mix(in srgb, var(--interactive-accent) 24%, transparent);
-				box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
-			}
-		}
 
 		// While the dashboard is open the rest of the toolbar is inert (the
 		// markup sets `inert`, which blocks pointer and keyboard input); the
