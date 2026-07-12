@@ -1,6 +1,8 @@
 # SPEC 0035: Board Creation Surfaces
 
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-07
 
 ## Feature Request Summary
 
@@ -222,7 +224,7 @@ working.
 rename, and create boards from one place.
 **Size:** S-M
 
-**Implemented by:** TBD
+**Implemented by:** [5ecd311](https://github.com/ErikaRS/task-list-kanban/commit/5ecd311)
 
 ### Phase 2: Ribbon icon and hotkey-bindable command
 **Goal:** The same board-creation flow is available from the ribbon and from
@@ -245,7 +247,7 @@ an Obsidian command.
 path are covered without duplicating creation logic.
 **Size:** S
 
-**Implemented by:** TBD
+**Implemented by:** [5ecd311](https://github.com/ErikaRS/task-list-kanban/commit/5ecd311)
 
 ### Phase 3: Dashboard right-click delete with confirmation
 **Goal:** Users can remove an unwanted board from the dashboard without going
@@ -265,7 +267,7 @@ to the file explorer, while confirmation prevents accidental vault changes.
    expected vault API; deleted-board path is removed from dashboard/rail inputs
    after index refresh
 7. [x] Automated verification: `npm run build`, `npm test`
-8. [ ] Manual: delete a shown board, delete a hidden board, cancel deletion,
+8. [x] Manual: delete a shown board, delete a hidden board, cancel deletion,
    delete the currently open board, and verify the board disappears from the
    dashboard/rail without reload
 
@@ -273,4 +275,4 @@ to the file explorer, while confirmation prevents accidental vault changes.
 rename, hide/show, and confirmed delete from the card context menu.
 **Size:** S
 
-**Implemented by:** TBD
+**Implemented by:** [5ecd311](https://github.com/ErikaRS/task-list-kanban/commit/5ecd311)
