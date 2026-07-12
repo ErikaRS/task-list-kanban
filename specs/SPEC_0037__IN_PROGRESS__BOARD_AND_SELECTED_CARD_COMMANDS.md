@@ -204,7 +204,7 @@ command palette without default hotkeys.
    - ✅ Added task-line builder coverage for Uncategorized and Done defaults
    - ✅ Existing task action tests cover configured status and priority columns
 10. ✅ Automated verification: `npm run build`, `npm test`
-11. [ ] Manual: command palette opens board settings; global Add card opens the
+11. ✅ Manual: command palette opens board settings; global Add card opens the
    modal without an active kanban view; board, column, and file dropdowns
    populate correctly; submitted card appears in source markdown; confirm no
    default hotkeys appear
@@ -213,7 +213,7 @@ command palette without default hotkeys.
 card creation.
 **Size:** M
 
-**Implemented by:** Working tree (pending commit)
+**Implemented by:** [9c5ab60](https://github.com/ErikaRS/task-list-kanban/commit/9c5ab60)
 
 ### Phase 2: Non-destructive selected-card commands 🚧 IN PROGRESS
 **Goal:** Selected visible cards can be marked done, archived, cancelled, and
@@ -233,14 +233,14 @@ duplicated from the command palette.
    - ✅ Added visible-selection selector coverage for hidden/stale ids,
      dashboard-open state, display order, and selection clearing helper
 6. ✅ Automated verification: `npm run build`, `npm test`
-7. [ ] Manual: select cards across columns, run each command from the palette,
+7. ✅ Manual: select cards across columns, run each command from the palette,
    verify underlying markdown writes and selection clearing
 
 **Deliverable:** Common selected-card workflows are command-palette accessible
 without reaching for the column bulk menu.
 **Size:** M
 
-**Implemented by:** Working tree (pending commit)
+**Implemented by:** [e56abd4](https://github.com/ErikaRS/task-list-kanban/commit/e56abd4), [9c5ab60](https://github.com/ErikaRS/task-list-kanban/commit/9c5ab60)
 
 ### Phase 3: Delete selected cards 🚧 IN PROGRESS
 **Goal:** Destructive selected-card deletion is command-palette accessible
@@ -257,7 +257,7 @@ with an explicit safety check.
    path follows the decided behavior; stale ids are skipped; successful ids
    clear from selection
 6. ✅ Automated verification: `npm run build`, `npm test`
-7. [ ] Manual: delete one selected card, delete multiple selected cards,
+7. ✅ Manual: delete one selected card, delete multiple selected cards,
    cancel confirmation, verify source blocks and nested owned rows are removed
    correctly
 
@@ -265,4 +265,4 @@ with an explicit safety check.
 from the command palette with appropriate friction.
 **Size:** S-M
 
-**Implemented by:** Working tree (pending commit)
+**Implemented by:** [e56abd4](https://github.com/ErikaRS/task-list-kanban/commit/e56abd4)
