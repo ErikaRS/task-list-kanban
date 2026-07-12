@@ -7,6 +7,7 @@ import {
 	type GlobalSettings,
 } from "../../settings/global_settings";
 import { ScopeOption, type SettingValues } from "../../settings/settings_store";
+import { PropertySchemaOption } from "../../../parsing/properties/property_schema";
 
 interface HarnessFileSpec {
 	path: string;
@@ -45,6 +46,7 @@ function createHarness(
 		{ file: TFile; content: string; payload: string | undefined }
 	>();
 	let currentGlobalSettings = globalSettings;
+	let now = new Date(2026, 1, 1, 9);
 
 	function addFile(spec: HarnessFileSpec) {
 		filesByPath.set(spec.path, {
@@ -67,12 +69,15 @@ function createHarness(
 		async (file: TFile) => filesByPath.get(file.path)?.content ?? "",
 	);
 
-	const service = createBoardStatsService({
-		getMarkdownFiles: () => [...filesByPath.values()].map((entry) => entry.file),
-		cachedRead,
-		getBoardSettingsPayload: (file) => filesByPath.get(file.path)?.payload ?? "",
-		getGlobalSettings: () => currentGlobalSettings,
-	});
+	const service = createBoardStatsService(
+		{
+			getMarkdownFiles: () => [...filesByPath.values()].map((entry) => entry.file),
+			cachedRead,
+			getBoardSettingsPayload: (file) => filesByPath.get(file.path)?.payload ?? "",
+			getGlobalSettings: () => currentGlobalSettings,
+		},
+		{ now: () => now },
+	);
 
 	return {
 		service,
@@ -96,6 +101,9 @@ function createHarness(
 		},
 		setGlobalSettings(next: GlobalSettings) {
 			currentGlobalSettings = next;
+		},
+		setNow(next: Date) {
+			now = next;
 		},
 	};
 }
@@ -353,6 +361,151 @@ describe("createBoardStatsService", () => {
 			{ label: "Todo", count: 1 },
 			{ label: "Done", count: 0 },
 		]);
+	});
+
+	it("counts overdue and due-today open tasks from the selected Tasks Plugin schema", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: { propertySchema: PropertySchemaOption.TasksPlugin },
+				content: [
+					"- [ ] overdue 📅 2026-01-31",
+					"- [ ] today 📅 2026-02-01",
+					"- [ ] future 📅 2026-02-02",
+					"- [ ] undated",
+				].join("\n"),
+			},
+		]);
+
+		await harness.request("Board.md");
+
+		expect(harness.counts("Board.md")?.attention).toEqual({
+			overdue: 1,
+			dueToday: 1,
+		});
+	});
+
+	it("counts Dataview datetimes on today's local calendar day as due today", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: { propertySchema: PropertySchemaOption.Dataview },
+				content: [
+					"- [ ] today [due:: 2026-02-01T18:30:00]",
+					"- [ ] yesterday [due:: 2026-01-31T18:30:00]",
+				].join("\n"),
+			},
+		]);
+
+		await harness.request("Board.md");
+
+		expect(harness.counts("Board.md")?.attention).toEqual({
+			overdue: 1,
+			dueToday: 1,
+		});
+	});
+
+	it("excludes done, archived, ignored, and invalid-date tasks from attention counts", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: {
+					propertySchema: PropertySchemaOption.Dataview,
+					ignoredStatusMarkers: "~",
+				},
+				content: [
+					"- [ ] tracked [due:: 2026-01-31]",
+					"- [x] done [due:: 2026-01-31]",
+					"- [ ] archived [due:: 2026-01-31] #archived",
+					"- [~] ignored [due:: 2026-01-31]",
+					"- [ ] invalid [due:: someday]",
+				].join("\n"),
+			},
+		]);
+
+		await harness.request("Board.md");
+
+		expect(harness.counts("Board.md")?.attention).toEqual({
+			overdue: 1,
+			dueToday: 0,
+		});
+	});
+
+	it("omits attention for boards without a due-capable selected schema", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: {},
+				content: "- [ ] text that looks due-ish 📅 2026-01-31 [due:: 2026-01-31]",
+			},
+		]);
+
+		await harness.request("Board.md");
+
+		expect(harness.counts("Board.md")?.attention).toBeUndefined();
+	});
+
+	it("counts shared files independently for boards with different selected schemas", async () => {
+		const harness = createHarness([
+			{
+				path: "Tasks.md",
+				boardSettings: {
+					scope: ScopeOption.Everywhere,
+					propertySchema: PropertySchemaOption.TasksPlugin,
+				},
+			},
+			{
+				path: "Dataview.md",
+				boardSettings: {
+					scope: ScopeOption.Everywhere,
+					propertySchema: PropertySchemaOption.Dataview,
+				},
+			},
+			{
+				path: "notes.md",
+				content: [
+					"- [ ] tasks only 📅 2026-01-31",
+					"- [ ] dataview only [due:: 2026-02-01]",
+				].join("\n"),
+			},
+		]);
+
+		await harness.request("Tasks.md", "Dataview.md");
+
+		expect(harness.counts("Tasks.md")?.attention).toEqual({
+			overdue: 1,
+			dueToday: 0,
+		});
+		expect(harness.counts("Dataview.md")?.attention).toEqual({
+			overdue: 0,
+			dueToday: 1,
+		});
+	});
+
+	it("invalidates the attention cache when the local day changes without an mtime change", async () => {
+		const harness = createHarness([
+			{
+				path: "Board.md",
+				boardSettings: { propertySchema: PropertySchemaOption.TasksPlugin },
+				content: "- [ ] today becomes overdue 📅 2026-02-01",
+			},
+		]);
+
+		await harness.request("Board.md");
+		expect(harness.cachedRead).toHaveBeenCalledTimes(1);
+		expect(harness.counts("Board.md")?.attention).toEqual({
+			overdue: 0,
+			dueToday: 1,
+		});
+
+		harness.setNow(new Date(2026, 1, 2, 9));
+		await harness.request("Board.md");
+
+		expect(harness.cachedRead).toHaveBeenCalledTimes(2);
+		expect(harness.counts("Board.md")?.attention).toEqual({
+			overdue: 1,
+			dueToday: 0,
+		});
 	});
 
 	it("refreshes breakdown labels when a global default column name changes", async () => {

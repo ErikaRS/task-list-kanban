@@ -49,6 +49,7 @@
 	let panelEl: HTMLElement | undefined;
 	let modifyEventRef: EventRef | undefined;
 	let refreshTimer: number | undefined;
+	let midnightRefreshTimer: number | undefined;
 	// Bumped (debounced) on vault modify events so last-modified times stay
 	// fresh while the panel is open. Create/delete/rename flow through the
 	// board index store instead; the listener lives and dies with the panel,
@@ -91,6 +92,7 @@
 	onMount(() => {
 		panelEl?.focus();
 		modifyEventRef = app.vault.on("modify", scheduleRefresh);
+		scheduleMidnightRefresh();
 	});
 
 	onDestroy(() => {
@@ -99,6 +101,9 @@
 		}
 		if (refreshTimer !== undefined) {
 			window.clearTimeout(refreshTimer);
+		}
+		if (midnightRefreshTimer !== undefined) {
+			window.clearTimeout(midnightRefreshTimer);
 		}
 	});
 
@@ -110,6 +115,26 @@
 			refreshTimer = undefined;
 			refreshTick += 1;
 		}, 500);
+	}
+
+	function scheduleMidnightRefresh() {
+		if (midnightRefreshTimer !== undefined) {
+			window.clearTimeout(midnightRefreshTimer);
+		}
+		const now = new Date();
+		const nextMidnight = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate() + 1,
+			0,
+			0,
+			1,
+		);
+		midnightRefreshTimer = window.setTimeout(() => {
+			midnightRefreshTimer = undefined;
+			refreshTick += 1;
+			scheduleMidnightRefresh();
+		}, Math.max(1000, nextMidnight.getTime() - now.getTime()));
 	}
 
 	function handleKeydown(event: KeyboardEvent) {

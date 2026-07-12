@@ -27,6 +27,9 @@
 
 	// Per-card and transient, like the panel's own zippy.
 	let columnsExpanded = false;
+	$: attention = counts?.attention;
+	$: hasAttention = attention !== undefined &&
+		(attention.overdue > 0 || attention.dueToday > 0);
 
 	// The grid wraps, but order is one-dimensional: the pointer's side of
 	// the card's horizontal midpoint decides before/after.
@@ -98,6 +101,20 @@
 			</span>
 		{:else}
 			<span class="board-card-counts pending">Counting…</span>
+		{/if}
+		{#if hasAttention && attention}
+			<span class="board-card-attention">
+				{#if attention.overdue > 0}
+					<span class="board-card-attention-badge overdue">
+						{attention.overdue} overdue
+					</span>
+				{/if}
+				{#if attention.dueToday > 0}
+					<span class="board-card-attention-badge due-today">
+						{attention.dueToday} due today
+					</span>
+				{/if}
+			</span>
 		{/if}
 		{#if card.lastModified !== undefined}
 			<span class="board-card-meta">
@@ -218,6 +235,33 @@
 		// cards don't reflow when the number lands.
 		&.pending {
 			color: var(--text-faint);
+		}
+	}
+
+	.board-card-attention {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2-2);
+	}
+
+	.board-card-attention-badge {
+		display: inline-flex;
+		align-items: center;
+		min-height: 18px;
+		padding: 1px var(--size-2-2);
+		border-radius: var(--radius-s);
+		font-size: var(--font-ui-smaller);
+		font-weight: 600;
+		line-height: 1.3;
+
+		&.overdue {
+			color: var(--text-on-accent);
+			background: var(--text-error);
+		}
+
+		&.due-today {
+			color: var(--text-accent);
+			background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
 		}
 	}
 
