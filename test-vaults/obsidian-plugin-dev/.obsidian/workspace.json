@@ -68,10 +68,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "periodic/Kanban-None.md"
+                    "file": "periodic/Kanban-Tasks.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-None"
+                  "title": "Kanban-Tasks"
                 }
               }
             ],
@@ -240,8 +240,8 @@
   },
   "active": "edb014cec5cbad69",
   "lastOpenFiles": [
-    "periodic/2025-05-01.md",
     "periodic/Kanban-None.md",
+    "periodic/2025-05-01.md",
     "tasks/Even more tasks.md",
     "periodic/Kanban-Tasks.md",
     "Kanban-Dataview.md",
