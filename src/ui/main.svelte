@@ -11,6 +11,7 @@
 	import type { Task } from "./tasks/task";
 	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
+	import BoardMobileList from "./board/board_mobile_list.svelte";
 	import { deriveBoardMatrix } from "./board/board_matrix";
 	import ViewEditor from "./view_editor.svelte";
 	import {
@@ -74,7 +75,7 @@
 	import BoardRail from "./dashboard/board_rail.svelte";
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
 	import { railVisible as boardRailVisible, RAIL_MIN_WIDTH } from "./dashboard/board_rail_state";
-	import { Notice, TFile } from "obsidian";
+	import { Notice, Platform, TFile } from "obsidian";
 	import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
 	import {
@@ -124,11 +125,14 @@
 	// count includes hidden boards, so dashboard curation can't remove it.
 	$: railVisible = boardRailVisible($boardIndexStore.length);
 	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
+	let isMobileViewport = Platform.isMobile ||
+		(typeof window !== "undefined" && window.innerWidth <= 760);
 	// Dock side is a plugin setting (default left); top turns the content
 	// row into a column with the rail strip on top, and the dashboard
 	// slides down out of it instead of out from the left.
 	$: railDock = $boardRailSettingsStore?.dock ?? "left";
-	$: railOnTop = railVisible && railDock === "top";
+	$: effectiveRailDock = isMobileViewport ? "top" : railDock;
+	$: railOnTop = railVisible && effectiveRailDock === "top";
 	let railDashboardButtonEl: HTMLButtonElement | undefined;
 
 	// --- Board dashboard panel (SPEC 0033) ---
@@ -751,6 +755,7 @@
 	}
 
 	function handleWindowViewportChange() {
+		isMobileViewport = Platform.isMobile || window.innerWidth <= 760;
 		updateViewEditorPopoverPosition();
 	}
 
@@ -1013,7 +1018,7 @@
 				onToggleDashboard={toggleDashboard}
 				onSelect={handleDashboardSelect}
 				{onReorderBoards}
-				dock={railDock}
+				dock={effectiveRailDock}
 				width={railWidth}
 				onSetWidth={onSetRailWidth}
 				bind:dashboardButtonEl={railDashboardButtonEl}
@@ -1168,7 +1173,31 @@
 					class:vertical-flow={isVerticalFlow}
 					style="--column-width: {columnWidth}px;"
 				>
-					{#if !isVerticalFlow}
+					{#if isMobileViewport}
+						<BoardMobileList
+							{app}
+							matrix={activeMatrix}
+							{taskActions}
+							{columnTagTableStore}
+							{columnColourTableStore}
+							{columnMatchTagTableStore}
+							{columnSubtitleTableStore}
+							{showFilepath}
+							{consolidateTags}
+							excludedTags={$settingsStore.excludedTags ?? []}
+							{targetTaskFile}
+							{targetFileIsDefault}
+							onToggleCollapse={toggleColumnCollapse}
+							{uncategorizedColumnName}
+							{doneColumnName}
+							{propertyDisplay}
+							{propertySchemaOption}
+							{isManualOrder}
+							{manualOrder}
+							{reorderEnabled}
+							{treatNestedTasksAsSubtasks}
+						/>
+					{:else if !isVerticalFlow}
 						<BoardMatrixHorizontal
 							{app}
 							matrix={activeMatrix}
