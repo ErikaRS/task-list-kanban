@@ -39,7 +39,7 @@
 	"dependencies": {
 		"crypto-js": "^4.2.0",
 		"esbuild-sass-plugin": "^3.3.0",
-		"js-yaml": "^4.2.0",
+		"js-yaml": "^4.3.2",
 		"sass": "^1.77.2",
 		"svelte-select": "^5.8.3",
 		"zod": "^3.23.8"
