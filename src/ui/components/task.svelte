@@ -10,7 +10,7 @@
 	import TaskMenu from "./task_menu.svelte";
 	import TaskDateFields from "./TaskDateFields.svelte";
 	import Icon from "./icon.svelte";
-	import { Component, Keymap, MarkdownRenderer, type App } from "obsidian";
+	import { Component, Keymap, MarkdownRenderer, Platform, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
 	import { onDestroy } from "svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
@@ -18,6 +18,7 @@
 	import { EDITABLE_DATE_PROPERTY_KEYS, getPropertyWriteAdapter } from "../../parsing/properties/write";
 	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
 	import { renderTaskMarkdownSource } from "./task_markdown";
+	import { lockMobileBoardLayout } from "../mobile_editor_layout";
 
 	export let app: App;
 	export let task: Task;
@@ -45,6 +46,7 @@
 	export let treatNestedTasksAsSubtasks: boolean = false;
 
 	function handleContentBlur() {
+		stopWatchingEditViewport();
 		isEditing = false;
 
 		const content = textAreaEl?.value;
@@ -129,6 +131,73 @@
 	let previewContainerEl: HTMLDivElement | undefined;
 	let markdownComponent: Component | undefined;
 	let isEditingDates = false;
+	let stopWatchingEditViewport: () => void = () => {};
+	let unlockBoardLayout: () => void = () => {};
+	let mobileEditStyle = "";
+
+	function mobileEditPortal(node: HTMLTextAreaElement) {
+		if (!Platform.isMobile && !window.matchMedia("(max-width: 760px)").matches) {
+			return {};
+		}
+
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				node.remove();
+			},
+		};
+	}
+
+	function positionMobileTaskEditor() {
+		requestAnimationFrame(() => {
+			if (!textAreaEl || (!Platform.isMobile && !window.matchMedia("(max-width: 760px)").matches)) {
+				mobileEditStyle = "";
+				return;
+			}
+
+			const viewport = window.visualViewport;
+			const viewportWidth = viewport?.width ?? window.innerWidth;
+			const viewportHeight = viewport?.height ?? window.innerHeight;
+			const viewportLeft = viewport?.offsetLeft ?? 0;
+			const viewportTop = viewport?.offsetTop ?? 0;
+			const margin = 16;
+			const editorWidth = Math.min(520, Math.max(200, viewportWidth - margin * 2));
+			const editorMaxHeight = Math.max(96, viewportHeight - margin * 2);
+			const editorHeight = Math.min(
+				Math.max(112, textAreaEl.scrollHeight),
+				editorMaxHeight,
+			);
+			const top = viewportTop + Math.max(margin, (viewportHeight - editorHeight) / 2);
+			mobileEditStyle = [
+				`left: ${Math.round(viewportLeft + (viewportWidth - editorWidth) / 2)}px`,
+				`top: ${Math.round(top)}px`,
+				`width: ${Math.round(editorWidth)}px`,
+				`height: ${Math.round(editorHeight)}px`,
+				`max-height: ${Math.round(editorMaxHeight)}px`,
+			].join("; ");
+		});
+	}
+
+	function watchEditViewport() {
+		stopWatchingEditViewport();
+		unlockBoardLayout();
+		unlockBoardLayout = lockMobileBoardLayout();
+		const viewport = window.visualViewport;
+		if (viewport) {
+			viewport.addEventListener("resize", positionMobileTaskEditor);
+			viewport.addEventListener("scroll", positionMobileTaskEditor);
+		}
+		stopWatchingEditViewport = () => {
+			if (viewport) {
+				viewport.removeEventListener("resize", positionMobileTaskEditor);
+				viewport.removeEventListener("scroll", positionMobileTaskEditor);
+			}
+			stopWatchingEditViewport = () => {};
+			unlockBoardLayout();
+			unlockBoardLayout = () => {};
+		};
+		positionMobileTaskEditor();
+	}
 	const editableDatePropertyKeys = new Set<string>(EDITABLE_DATE_PROPERTY_KEYS);
 
 	const interactiveTagNames = new Set([
@@ -372,6 +441,8 @@
 
 	// Cleanup on destroy
 	onDestroy(() => {
+		stopWatchingEditViewport();
+		unlockBoardLayout();
 		if (markdownComponent) {
 			markdownComponent.unload();
 		}
@@ -387,6 +458,7 @@
 	function onInput(e: Event & { currentTarget: HTMLTextAreaElement }) {
 		e.currentTarget.style.height = `0px`;
 		e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+		positionMobileTaskEditor();
 	}
 
 	$: excludedTagNames = excludedTags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase());
@@ -475,9 +547,13 @@
 			{#if isEditing}
 				<textarea
 					class:editing={isEditing}
+					class:mobile-task-editor={Platform.isMobile}
 					bind:this={textAreaEl}
+					use:mobileEditPortal
+					style={mobileEditStyle}
 					on:keypress={handleKeypress}
 					on:blur={handleContentBlur}
+					on:focus={watchEditViewport}
 					on:input={onInput}
 					value={task.content.replaceAll("<br />", "\n")}
 				></textarea>
@@ -656,6 +732,39 @@
 </div>
 
 <style lang="scss">
+	@mixin mobile-editor-surface {
+		position: fixed;
+		z-index: 1000;
+		box-sizing: border-box;
+		margin: 0;
+		padding: var(--size-4-3);
+		overflow: auto;
+		resize: none;
+		background: color-mix(in srgb, var(--background-primary) 94%, transparent);
+		color: var(--text-normal);
+		border: 1px solid color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
+		border-radius: var(--radius-l, 12px);
+		box-shadow:
+			0 18px 48px rgba(0, 0, 0, 0.24),
+			0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+		backdrop-filter: blur(14px) saturate(1.15);
+		-webkit-backdrop-filter: blur(14px) saturate(1.15);
+		font-size: 16px;
+		line-height: 1.45;
+		outline: none;
+	}
+
+	@media (max-width: 760px) {
+		textarea.mobile-task-editor,
+		textarea.editing {
+			@include mobile-editor-surface;
+		}
+	}
+
+	textarea.mobile-task-editor {
+		@include mobile-editor-surface;
+	}
+
 	.task {
 		--task-accent: var(--task-accent-color, var(--background-modifier-border-hover));
 		--task-content-line-height: 1.5rem;
