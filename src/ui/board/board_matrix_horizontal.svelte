@@ -51,7 +51,7 @@
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
 	$: gridTemplateColumns = [
-		showSwimlaneLabels ? "max-content" : "var(--matrix-corner-width)",
+		showSwimlaneLabels ? "max-content" : "56px",
 		...matrix.primaryAxis.map((b) => (b.collapsed ? "48px" : columnWidth)),
 	].join(" ");
 
@@ -67,7 +67,7 @@
 	let headerHeight = 64;
 </script>
 
-<div class="matrix-horizontal" class:show-swimlane-labels={showSwimlaneLabels} style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="56px">
+<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="56px">
 	<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
 		{#if taskCountLabel}
 			<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
@@ -151,7 +151,6 @@
 
 <style lang="scss">
 	.matrix-horizontal {
-		--matrix-corner-width: 56px;
 		display: grid;
 		position: relative;
 		column-gap: 0;
@@ -270,27 +269,6 @@
 
 		&.collapsed {
 			display: none;
-		}
-	}
-
-	@media (max-width: 760px) {
-		.matrix-horizontal:not(.show-swimlane-labels) {
-			--matrix-corner-width: 0px;
-
-			.matrix-corner {
-				padding: 0;
-				border-right: 0;
-			}
-		}
-
-		.header-wrapper {
-			scroll-snap-align: start;
-			scroll-snap-stop: normal;
-		}
-
-		.cell-wrapper {
-			padding-right: var(--size-4-2);
-			padding-left: var(--size-4-2);
 		}
 	}
 </style>
