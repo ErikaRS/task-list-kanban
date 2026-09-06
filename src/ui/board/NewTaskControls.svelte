@@ -34,11 +34,13 @@
 	let stopWatchingViewport: (() => void) | undefined;
 	let unlockBoardLayout: (() => void) | undefined;
 	let mobileEditorStyle = "";
+	let boardMainEl: HTMLElement | null = null;
 
 	function mobilePortal(node: HTMLElement) {
-		if (!Platform.isMobile && !window.matchMedia("(max-width: 760px)").matches) {
+		if (!Platform.isMobile) {
 			return {};
 		}
+		boardMainEl = node.closest<HTMLElement>(".board-main");
 		document.body.appendChild(node);
 		return {
 			destroy() {
@@ -88,7 +90,7 @@
 
 	function positionNewTaskEditor() {
 		requestAnimationFrame(() => {
-			if (!newTaskInputEl || (!Platform.isMobile && !window.matchMedia("(max-width: 760px)").matches)) {
+			if (!newTaskInputEl || !Platform.isMobile) {
 				mobileEditorStyle = "";
 				return;
 			}
@@ -122,8 +124,9 @@
 	}
 
 	function watchViewportWhileEditing() {
+		if (!Platform.isMobile) return;
 		stopViewportWatcher();
-		unlockBoardLayout = lockMobileBoardLayout();
+		unlockBoardLayout = lockMobileBoardLayout(boardMainEl);
 		const viewport = window.visualViewport;
 		if (viewport) {
 			viewport.addEventListener("resize", positionNewTaskEditor);
@@ -347,16 +350,6 @@
 			cursor: text;
 			background-color: var(--color-base-25);
 			width: 100%;
-		}
-	}
-
-	@media (max-width: 760px) {
-		.new-task-input {
-			@include mobile-editor-surface;
-		}
-
-		.new-task-input.vertical-flow {
-			box-sizing: border-box;
 		}
 	}
 
