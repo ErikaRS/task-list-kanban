@@ -10,7 +10,7 @@
 	import TaskMenu from "./task_menu.svelte";
 	import TaskDateFields from "./TaskDateFields.svelte";
 	import Icon from "./icon.svelte";
-	import { Component, Keymap, MarkdownRenderer, type App } from "obsidian";
+	import { Component, Keymap, MarkdownRenderer, Platform, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
 	import { onDestroy } from "svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
@@ -18,6 +18,7 @@
 	import { EDITABLE_DATE_PROPERTY_KEYS, getPropertyWriteAdapter } from "../../parsing/properties/write";
 	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
 	import { renderTaskMarkdownSource } from "./task_markdown";
+	import MobileTaskEditor from "./MobileTaskEditor.svelte";
 
 	export let app: App;
 	export let task: Task;
@@ -68,6 +69,7 @@
 	}
 
 	let isEditing = false;
+	let isMobileEditing = false;
 	let isDragging = false;
 	let isSubtasksCollapsed = false;
 	function toggleSubtasksCollapse() {
@@ -184,6 +186,11 @@
 
 	function handleFocus(e?: Event) {
 		if (eventHasInteractiveTarget(e)) {
+			return;
+		}
+
+		if (Platform.isMobile) {
+			isMobileEditing = true;
 			return;
 		}
 
@@ -418,7 +425,7 @@
 		class:is-selected={isSelectionMode && isSelected}
 		class:is-selection-mode={isSelectionMode}
 		role="group"
-		draggable={!isEditing}
+		draggable={!isEditing && !isMobileEditing}
 		style:--task-accent-color={accentColor}
 		on:dragstart={handleDragStart}
 		on:dragend={handleDragEnd}
@@ -654,6 +661,15 @@
 		</div>
 	{/if}
 </div>
+
+{#if isMobileEditing}
+	<MobileTaskEditor
+		{task}
+		{taskActions}
+		{propertySchemaOption}
+		onClose={() => (isMobileEditing = false)}
+	/>
+{/if}
 
 <style lang="scss">
 	.task {
