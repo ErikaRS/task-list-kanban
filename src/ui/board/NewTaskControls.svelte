@@ -7,7 +7,6 @@
 	import type { TaskActions } from "../tasks/actions";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
 	import IconButton from "../components/icon_button.svelte";
-	import { lockMobileBoardLayout } from "../mobile_editor_layout";
 	import {
 		getPropertyWriteAdapter,
 		PropertySchemaOption,
@@ -28,19 +27,15 @@
 	export let isVerticalFlow: boolean = false;
 
 	let pendingNewTask: TFile | null = null;
-	let pendingCancelled = false;
 	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
 	let newTaskInputEl: HTMLDivElement | undefined;
 	let stopWatchingViewport: (() => void) | undefined;
-	let unlockBoardLayout: (() => void) | undefined;
 	let mobileEditorStyle = "";
-	let boardMainEl: HTMLElement | null = null;
 
 	function mobilePortal(node: HTMLElement) {
 		if (!Platform.isMobile) {
 			return {};
 		}
-		boardMainEl = node.closest<HTMLElement>(".board-main");
 		document.body.appendChild(node);
 		return {
 			destroy() {
@@ -56,14 +51,6 @@
 	async function handleNewTaskSave(event?: FocusEvent) {
 		const nextTarget = event?.relatedTarget;
 		if (nextTarget instanceof Node && newTaskInputEl?.contains(nextTarget)) {
-			return;
-		}
-
-		if (pendingCancelled) {
-			stopViewportWatcher();
-			pendingCancelled = false;
-			pendingNewTask = null;
-			newTaskDateValues = { ...emptyDateValues };
 			return;
 		}
 
@@ -119,14 +106,17 @@
 	function stopViewportWatcher() {
 		stopWatchingViewport?.();
 		stopWatchingViewport = undefined;
-		unlockBoardLayout?.();
-		unlockBoardLayout = undefined;
+	}
+
+	function cancelNewTask() {
+		stopViewportWatcher();
+		pendingNewTask = null;
+		newTaskDateValues = { ...emptyDateValues };
 	}
 
 	function watchViewportWhileEditing() {
 		if (!Platform.isMobile) return;
 		stopViewportWatcher();
-		unlockBoardLayout = lockMobileBoardLayout(boardMainEl);
 		const viewport = window.visualViewport;
 		if (viewport) {
 			viewport.addEventListener("resize", positionNewTaskEditor);
@@ -139,21 +129,42 @@
 		positionNewTaskEditor();
 	}
 
+	function trapMobileEditorFocus(event: KeyboardEvent) {
+		if (event.key !== "Tab" || !Platform.isMobile || !newTaskInputEl) return;
+
+		const focusable = Array.from(
+			newTaskInputEl.querySelectorAll<HTMLElement>(
+				"button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])",
+			),
+		);
+		const first = focusable[0];
+		const last = focusable.at(-1);
+		const activeElement = newTaskInputEl.ownerDocument.activeElement;
+		if (!first || !last) return;
+
+		if (event.shiftKey && activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
 	function handleNewTaskKeydown(e: KeyboardEvent) {
 		if (e.key === "Escape") {
 			e.preventDefault();
-			pendingCancelled = true;
-			newTaskTextAreaEl?.blur();
+			cancelNewTask();
 		} else if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
-			newTaskTextAreaEl?.blur();
+			void handleNewTaskSave();
 		}
 	}
 
 	$: if (pendingNewTask && newTaskTextAreaEl) {
 		void tick().then(() => {
 			newTaskTextAreaEl?.focus();
-			watchViewportWhileEditing();
+			if (Platform.isMobile) watchViewportWhileEditing();
 		});
 	}
 
@@ -247,36 +258,59 @@
 	{/if}
 {/if}
 {#if pendingNewTask}
-	<div
-		class="new-task-input"
-		class:vertical-flow={isVerticalFlow}
-		class:mobile-app={Platform.isMobile}
-		bind:this={newTaskInputEl}
-		use:mobilePortal
-		style={mobileEditorStyle}
-		on:focusout={handleNewTaskSave}
-	>
-		<textarea
-			bind:this={newTaskTextAreaEl}
-			on:keydown={handleNewTaskKeydown}
-			on:focus={watchViewportWhileEditing}
-			placeholder="Task name..."
-		></textarea>
-		{#if canEditNewTaskDates}
-			<div class="new-task-date-fields">
-				<DateInputFields
-					values={newTaskDateValues}
-					onDateChange={handleNewTaskDateChange}
-				/>
-			</div>
+	<div class="mobile-editor-modal" class:mobile-app={Platform.isMobile} use:mobilePortal>
+		{#if Platform.isMobile}
+			<div class="mobile-editor-backdrop" aria-hidden="true"></div>
 		{/if}
+		<div
+			class="new-task-input"
+			class:vertical-flow={isVerticalFlow}
+			class:mobile-app={Platform.isMobile}
+			bind:this={newTaskInputEl}
+			style={mobileEditorStyle}
+			role={Platform.isMobile ? "dialog" : undefined}
+			aria-modal={Platform.isMobile ? "true" : undefined}
+			aria-label={Platform.isMobile ? `New task in ${columnTitle}` : undefined}
+			on:keydown={trapMobileEditorFocus}
+			on:focusout={!Platform.isMobile ? handleNewTaskSave : undefined}
+		>
+			{#if Platform.isMobile}
+				<div class="mobile-editor-heading">
+					<div>
+						<h2>New task</h2>
+						<p>{columnTitle} · {pendingNewTask.name}</p>
+					</div>
+					<button type="button" class="mobile-editor-close" aria-label="Cancel new task" on:click={cancelNewTask}>×</button>
+				</div>
+			{/if}
+			<textarea
+				bind:this={newTaskTextAreaEl}
+				on:keydown={handleNewTaskKeydown}
+				on:focus={watchViewportWhileEditing}
+				placeholder="Task name..."
+			></textarea>
+			{#if canEditNewTaskDates}
+				<div class="new-task-date-fields">
+					<DateInputFields
+						values={newTaskDateValues}
+						onDateChange={handleNewTaskDateChange}
+					/>
+				</div>
+			{/if}
+			{#if Platform.isMobile}
+				<div class="mobile-editor-actions">
+					<button type="button" on:click={cancelNewTask}>Cancel</button>
+					<button type="button" class="mod-cta" on:click={() => void handleNewTaskSave()}>Create task</button>
+				</div>
+			{/if}
+		</div>
 	</div>
 {/if}
 
 <style lang="scss">
 	@mixin mobile-editor-surface {
-		position: fixed;
-		z-index: 1000;
+		position: absolute;
+		z-index: 1;
 		box-sizing: border-box;
 		margin: 0;
 		padding: var(--size-4-3);
@@ -319,6 +353,23 @@
 		}
 	}
 
+	.mobile-editor-modal {
+		display: contents;
+
+		&.mobile-app {
+			position: fixed;
+			z-index: var(--layer-modal, 1000);
+			inset: 0;
+			display: block;
+		}
+	}
+
+	.mobile-editor-backdrop {
+		position: absolute;
+		inset: 0;
+		background: var(--background-modifier-cover);
+	}
+
 	/*
 	 * These elements are direct flex children of BoardCell's .tasks-wrapper
 	 * (Svelte components do not add a wrapper element). In vertical flow the
@@ -355,6 +406,43 @@
 
 	.new-task-input.mobile-app {
 		@include mobile-editor-surface;
+	}
+
+	.mobile-editor-heading {
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+		gap: var(--size-4-3);
+		margin-bottom: var(--size-4-3);
+
+		h2, p {
+			margin: 0;
+		}
+
+		h2 {
+			font-size: var(--font-ui-medium);
+		}
+
+		p {
+			margin-top: var(--size-2-1);
+			color: var(--text-muted);
+			font-size: var(--font-ui-small);
+		}
+	}
+
+	.mobile-editor-close {
+		min-width: 32px;
+		min-height: 32px;
+		padding: 0;
+		font-size: 24px;
+		line-height: 1;
+	}
+
+	.mobile-editor-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--size-4-2);
+		margin-top: var(--size-4-3);
 	}
 
 	.new-task-date-fields {
