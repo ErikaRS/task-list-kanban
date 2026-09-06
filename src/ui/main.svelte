@@ -74,7 +74,7 @@
 	import BoardRail from "./dashboard/board_rail.svelte";
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
 	import { railVisible as boardRailVisible, RAIL_MIN_WIDTH } from "./dashboard/board_rail_state";
-	import { Notice, TFile } from "obsidian";
+	import { Notice, Platform, TFile } from "obsidian";
 	import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
 	import {
@@ -124,6 +124,9 @@
 	// count includes hidden boards, so dashboard curation can't remove it.
 	$: railVisible = boardRailVisible($boardIndexStore.length);
 	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
+	let isMobileViewport = Platform.isMobile ||
+		(typeof window !== "undefined" && window.innerWidth <= 760);
+	let columnsClientWidth = 0;
 	// Dock side is a plugin setting (default left); top turns the content
 	// row into a column with the rail strip on top, and the dashboard
 	// slides down out of it instead of out from the left.
@@ -751,6 +754,7 @@
 	}
 
 	function handleWindowViewportChange() {
+		isMobileViewport = Platform.isMobile || window.innerWidth <= 760;
 		updateViewEditorPopoverPosition();
 	}
 
@@ -780,6 +784,9 @@
 		propertyDisplay = PropertyDisplayMode.None,
 		treatNestedTasksAsSubtasks = false,
 	} = $settingsStore);
+	$: responsiveColumnWidth = isMobileViewport && columnsClientWidth > 0
+		? `${Math.max(200, Math.min(columnWidth, columnsClientWidth - 2))}px`
+		: `${columnWidth}px`;
 
 	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
 	$: void $settingsStore, targetTaskFile = taskActions.getTargetFile();
@@ -1167,6 +1174,7 @@
 					class="columns"
 					class:vertical-flow={isVerticalFlow}
 					style="--column-width: {columnWidth}px;"
+					bind:clientWidth={columnsClientWidth}
 				>
 					{#if !isVerticalFlow}
 						<BoardMatrixHorizontal
@@ -1185,7 +1193,7 @@
 							onToggleCollapse={toggleColumnCollapse}
 							{uncategorizedColumnName}
 							{doneColumnName}
-							columnWidth="{columnWidth}px"
+							columnWidth={responsiveColumnWidth}
 							{propertyDisplay}
 							{propertySchemaOption}
 							{isManualOrder}
@@ -1461,6 +1469,11 @@
 		}
 
 		@media (max-width: 760px) {
+			.board-body {
+				padding-right: var(--size-4-2);
+				padding-left: var(--size-4-2);
+			}
+
 			.board-toolbar {
 				flex-wrap: wrap;
 				justify-content: flex-start;
@@ -1478,6 +1491,12 @@
 
 			.view-editor-popover {
 				width: calc(100vw - var(--size-4-8));
+			}
+
+			.columns {
+				scroll-snap-type: x proximity;
+				scroll-padding-inline: var(--size-4-2);
+				overscroll-behavior-inline: contain;
 			}
 		}
 
