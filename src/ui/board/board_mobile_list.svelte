@@ -225,6 +225,11 @@
 	}
 
 	.mobile-outer-header {
+		// ColumnHeader's accent strip intentionally bleeds into its wrapper.
+		// Keep that bleed equal to the mobile wrapper padding so the visible
+		// strip reaches the scroll edge exactly when sticky positioning starts.
+		--column-header-x-padding-override: var(--size-4-3);
+		--column-header-y-padding-override: var(--size-4-2);
 		position: sticky;
 		top: 0;
 		z-index: 4;
@@ -291,6 +296,8 @@
 	}
 
 	.mobile-cell-column-header {
+		--column-header-x-padding-override: var(--size-4-3);
+		--column-header-y-padding-override: var(--size-4-2);
 		margin: calc(-1 * var(--size-4-3));
 		padding: var(--size-4-2) var(--size-4-3);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);

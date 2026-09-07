@@ -113,11 +113,13 @@ The **Excluded tags** setting hides configured tags from cards, tag grouping, an
 
 ### Layout
 
-Flow direction controls how columns are arranged:
-- **Left to right**: horizontal board, scrolling right.
-- **Right to left**: horizontal board in reverse order.
-- **Top to bottom**: transposed board, with board columns as rows and cards flowing horizontally.
-- **Bottom to top**: transposed board in reverse row order.
+Board flow controls the desktop arrangement and the leading hierarchy on mobile:
+- **Column dominant ascending (LTR)**: columns lead the board in normal workflow order. Desktop uses the horizontal matrix; mobile lists columns first.
+- **Column dominant descending (RTL)**: columns lead the board in reverse workflow order. Desktop uses the reversed horizontal matrix; mobile lists columns first in reverse order.
+- **Group dominant ascending (TTB)**: desktop uses the transposed matrix. On a grouped mobile board, groups lead and columns appear within each group in normal workflow order.
+- **Group dominant descending (BTT)**: desktop uses the transposed matrix with reversed workflow columns. On a grouped mobile board, groups still lead while columns within each group use reverse workflow order.
+
+For an ungrouped mobile board, the group-dominant options naturally render as a simple column list. Group order remains controlled by the grouping direction setting.
 
 Card width can be adjusted from the view controls between 200px and 600px.
 
@@ -292,7 +294,7 @@ The current README still uses older screenshots. Useful new or replacement scree
 - the saved views controls, showing combined filter/sort/group/flow/width saved views
 - plugin settings, showing board defaults, default view, global saved views, and board rail dock
 - the task date editor, showing due, scheduled, and start date inputs on a card
-- a grouped **Top to bottom** or **Bottom to top** board, showing the transposed grid with board columns as rows and groups across the top
+- a grouped **Group dominant ascending (TTB)** or **Group dominant descending (BTT)** board, showing the transposed grid with board columns as rows and groups across the top
 - the **Task properties** settings section, showing **Property schema** and **Show properties**
 - the **Status markers** settings section, showing status marker order alongside done, ignored, and cancelled markers
 
