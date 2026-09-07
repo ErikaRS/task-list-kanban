@@ -101,6 +101,20 @@ cutting a release, make sure to "land the plane". This means:
 
 ## PR and Release Note Structure
 
+## External Communication Attribution
+
+Whenever an agent creates or edits an external post on the user's behalf —
+including pull-request descriptions, issue comments, release notes, and GitHub
+discussions — end the post with this separate line:
+
+```text
+🤖 posted by <agent>
+```
+
+Replace `<agent>` with the agent that made the post (for example,
+`🤖 posted by Codex`). This is separate from the required `Assisted-by:`
+commit trailer.
+
 ### Pull Request Messages
 - PR descriptions should end with a note indicating they were created with a coding agent
 - Format: `Assisted-by: [agent name(s)] <agent@email.com>`
