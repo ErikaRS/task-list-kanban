@@ -46,6 +46,9 @@
 	export let showTaskCount: boolean = false;
 	export let headingId: string | undefined = undefined;
 	export let headingLevel: 2 | 3 = 2;
+	// Mobile sections stack vertically, so a rotated collapsed title wastes
+	// scarce width without conveying the desktop grid's compact-column state.
+	export let keepCollapsedHorizontal: boolean = false;
 	let columnSubtitle: ColumnHeaderSubtitle | undefined;
 
 	function getColumnTitle(
@@ -179,6 +182,7 @@
 	class:row-header={isVerticalFlow}
 	class:collapsed={isHorizontalCollapsed}
 	class:vertical-collapsed={isVerticalCollapsed}
+	class:keep-collapsed-horizontal={keepCollapsedHorizontal}
 	style:--column-color={columnColor}
 >
 	<div class="header">
@@ -364,7 +368,7 @@
 			}
 		}
 
-		&.collapsed {
+		&.collapsed:not(.keep-collapsed-horizontal) {
 			position: sticky;
 			top: 0;
 			align-self: flex-start;

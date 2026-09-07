@@ -86,6 +86,24 @@ width and to avoid spending a narrow viewport on a permanent left gutter.
 
 The existing flow direction determines the outer hierarchy.
 
+#### Naming Going Forward
+
+Use the following descriptive names in new user-facing copy, design discussion,
+and implementation comments. Keep the legacy flow-direction abbreviation in
+parentheses so existing settings, documentation, and user mental models remain
+easy to connect.
+
+| Descriptive name | Existing flow direction |
+| --- | --- |
+| Column dominant ascending (LTR) | Left-to-right |
+| Column dominant descending (RTL) | Right-to-left |
+| Group dominant ascending (TTB) | Top-to-bottom |
+| Group dominant descending (BTT) | Bottom-to-top |
+
+"Dominant" describes the outer mobile hierarchy; "ascending" and
+"descending" describe the workflow-column order. In particular, BTT does not
+reverse group order.
+
 | Flow direction | Mobile outer axis | Mobile inner axis | Reversal rule |
 | --- | --- | --- | --- |
 | LTR | Board columns | Groups/cells within each column | Columns use normal primary-axis order. |

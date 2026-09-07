@@ -82,7 +82,7 @@
 	{#if !groupDominant}
 		{#each matrix.primaryAxis as pBucket (pBucket.id)}
 			<section class="mobile-outer-section mobile-column" style:--column-color={pBucket.meta?.color}>
-			<header class="mobile-outer-header mobile-column-header" use:setStickyOffset>
+				<header class="mobile-outer-header mobile-column-header" use:setStickyOffset>
 				<ColumnHeader
 					column={pBucket.id}
 					tasks={tasksByPrimary[pBucket.id] ?? []}
@@ -98,12 +98,13 @@
 					{doneColumnName}
 					showTaskCount={true}
 					headingId={`mobile-column-${pBucket.id}`}
+					keepCollapsedHorizontal={true}
 				/>
 			</header>
 
 			{#if !pBucket.collapsed}
 				{#each matrix.secondaryAxis as sBucket (sBucket.id)}
-					<div class="mobile-cell">
+					<div class="mobile-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty}>
 						{#if showGroupLabels}
 							<h3 class="mobile-inner-header mobile-group-label">
 								{sBucket.label} <span class="mobile-cell-count">{formatTaskCount(getBoardCell(matrix, pBucket.id, sBucket.id).tasks.length)}</span>
@@ -131,11 +132,12 @@
 							{isManualOrder}
 							manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 							{reorderEnabled}
+							isCompactEmpty={true}
 						/>
 					</div>
 				{/each}
 			{/if}
-		</section>
+			</section>
 		{/each}
 	{:else}
 		{#each matrix.secondaryAxis as sBucket (sBucket.id)}
@@ -144,7 +146,7 @@
 					<h2>{sBucket.label} <span class="mobile-cell-count">{formatTaskCount(tasksBySecondary[sBucket.id]?.length ?? 0)}</span></h2>
 				</header>
 				{#each matrix.primaryAxis as pBucket (pBucket.id)}
-					<div class="mobile-cell mobile-group-cell" style:--column-color={pBucket.meta?.color}>
+					<div class="mobile-cell mobile-group-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty} style:--column-color={pBucket.meta?.color}>
 						<header class="mobile-inner-header mobile-cell-column-header">
 							<ColumnHeader
 								column={pBucket.id}
@@ -163,6 +165,7 @@
 								showTaskCount={true}
 								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
 								headingLevel={3}
+								keepCollapsedHorizontal={true}
 							/>
 						</header>
 						{#if !pBucket.collapsed}
@@ -188,6 +191,7 @@
 								{isManualOrder}
 								manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 								{reorderEnabled}
+								isCompactEmpty={true}
 							/>
 						{/if}
 					</div>
@@ -231,7 +235,9 @@
 
 	.mobile-group-header h2 {
 		margin: 0;
-		font-size: var(--font-ui-medium);
+		font-size: calc(var(--font-ui-medium) + 2px);
+		font-weight: var(--font-bold);
+		letter-spacing: 0.01em;
 	}
 
 	.mobile-cell {
@@ -252,7 +258,11 @@
 	}
 
 	.mobile-group-label {
-		padding: var(--size-4-2) 0;
+		padding: var(--size-2-3) var(--size-4-2);
+		border-left: 3px solid var(--column-color, var(--interactive-accent));
+		border-radius: var(--radius-s);
+		background: color-mix(in srgb, var(--column-color, var(--interactive-accent)) 10%, var(--background-primary));
+		font-weight: var(--font-medium);
 	}
 
 	.mobile-cell-count {
@@ -265,11 +275,44 @@
 		margin: calc(-1 * var(--size-4-3));
 		padding: var(--size-4-2) var(--size-4-3);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
+
+		:global(.column-header) {
+			gap: var(--size-2-2);
+		}
+
+		:global(.column-header::before) {
+			height: 6px;
+		}
+
+		:global(.column-title-group h3) {
+			font-size: var(--font-ui-small);
+			font-weight: var(--font-medium);
+		}
+
+		:global(.task-count) {
+			font-size: var(--font-ui-smaller);
+		}
 	}
 
 	.mobile-cell > .mobile-group-label {
 		margin: 0 0 var(--size-4-2);
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
+
+		&.mobile-inner-header {
+			z-index: 3;
+		}
+	}
+
+	.mobile-cell.compact-empty {
+		padding-bottom: var(--size-4-2);
+
+		:global(.tasks-wrapper.compact-empty) {
+			gap: 0;
+		}
+
+		:global(.file-indicator) {
+			display: none;
+		}
 	}
 </style>

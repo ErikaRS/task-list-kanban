@@ -54,6 +54,9 @@
 	// The parent row or column handles collapse state for layout,
 	// but cell might hide its contents if collapsed.
 	export let isCollapsed: boolean = false;
+	// A vertically serialized board keeps empty cells as compact create/drop
+	// affordances instead of reserving the desktop cell's empty-list space.
+	export let isCompactEmpty: boolean = false;
 
 	$: column = cell.primaryId;
 	$: tasks = cell.tasks;
@@ -255,6 +258,7 @@
 	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
 	class:vertical-collapsed={isCollapsed && isVerticalFlow}
+	class:compact-empty={isCompactEmpty && cell.isEmpty}
 	class:drop-active={!!draggingData && !isManualReorderDrag}
 	class:drop-hover={isDraggedOver}
 	on:dragover={handleDragOver}
@@ -354,6 +358,14 @@
 
 			.task-slot {
 				flex: 0 0 var(--column-width, 300px);
+			}
+		}
+
+		&.compact-empty {
+			min-height: 0;
+
+			.tasks {
+				display: none;
 			}
 		}
 
