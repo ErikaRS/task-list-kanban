@@ -19,6 +19,7 @@
 	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
 	import { renderTaskMarkdownSource } from "./task_markdown";
 	import MobileTaskEditor from "./MobileTaskEditor.svelte";
+	import { canStartTaskDrag } from "./task_drag";
 
 	export let app: App;
 	export let task: Task;
@@ -78,6 +79,10 @@
 	$: displayStatusIsCustom = task.displayStatus !== " ";
 
 	function handleDragStart(e: DragEvent) {
+		// Selected text in an editor can emit a native drag event which bubbles
+		// to this card. Do not interpret it as a task move.
+		if (!canStartTaskDrag({ isEditing, isMobileEditing })) return;
+
 		handleContentBlur();
 		isDragging = true;
 
@@ -425,7 +430,7 @@
 		class:is-selected={isSelectionMode && isSelected}
 		class:is-selection-mode={isSelectionMode}
 		role="group"
-		draggable={!isEditing && !isMobileEditing}
+		draggable={canStartTaskDrag({ isEditing, isMobileEditing })}
 		style:--task-accent-color={accentColor}
 		on:dragstart={handleDragStart}
 		on:dragend={handleDragEnd}
