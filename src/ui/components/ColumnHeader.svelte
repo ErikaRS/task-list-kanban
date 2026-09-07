@@ -40,6 +40,12 @@
 	export let onToggleCollapse: () => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	// A nested renderer can retain this header's column actions while showing a
+	// count scoped to one matrix cell instead of the whole column.
+	export let taskCountOverride: number | undefined = undefined;
+	export let showTaskCount: boolean = false;
+	export let headingId: string | undefined = undefined;
+	export let headingLevel: 2 | 3 = 2;
 	let columnSubtitle: ColumnHeaderSubtitle | undefined;
 
 	function getColumnTitle(
@@ -75,11 +81,12 @@
 	$: columnStatusLabel = columnSubtitle?.kind === "status" ? columnSubtitle.label : "";
 	$: columnPriorityLabel = columnSubtitle?.kind === "priority" ? columnSubtitle.label : "";
 	$: columnPriorityIcon = columnSubtitle?.kind === "priority" ? columnSubtitle.icon : undefined;
-	$: taskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
+	$: displayedTaskCount = taskCountOverride ?? tasks.length;
+	$: taskCountLabel = displayedTaskCount === 1 ? "1 task" : `${displayedTaskCount} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
 	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
 	$: isVerticalCollapsed = isCollapsed && isVerticalFlow;
-	$: displayTaskCount = isCollapsed ? `${tasks.length}` : taskCountLabel;
+	$: displayTaskCount = isCollapsed ? `${displayedTaskCount}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 	$: showColumnStatus = columnStatusMarker !== undefined && !isCollapsed;
 	$: showColumnPriority = columnSubtitle?.kind === "priority" && !isCollapsed;
@@ -190,9 +197,9 @@
 			aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
 		>{collapseIcon}</span>
 		<div class="column-title-group">
-			<h2 id="column-title-{column}" title={columnTitle}>{columnTitle}</h2>
+			<svelte:element this={`h${headingLevel}`} id={headingId ?? `column-title-${column}`} title={columnTitle}>{columnTitle}</svelte:element>
 		</div>
-		{#if isCollapsed}
+		{#if isCollapsed || showTaskCount}
 			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 		{/if}
 		<div class="header-menu">
@@ -372,7 +379,8 @@
 				.column-title-group {
 					order: 2;
 
-					h2 {
+					h2,
+					h3 {
 						writing-mode: vertical-rl;
 						text-orientation: mixed;
 						white-space: nowrap;
@@ -439,7 +447,8 @@
 			flex: 1 1 auto;
 		}
 
-		h2 {
+		h2,
+		h3 {
 			font-size: var(--font-ui-medium);
 			font-weight: var(--font-bold);
 			margin: 0;

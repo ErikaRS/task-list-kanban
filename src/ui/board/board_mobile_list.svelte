@@ -36,6 +36,8 @@
 	export let manualOrder: ManualOrderStore = {};
 	export let reorderEnabled = false;
 	export let treatNestedTasksAsSubtasks = false;
+	export let taskCountLabel = "";
+	export let isVerticalFlow = false;
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [
@@ -47,12 +49,40 @@
 	$: showGroupLabels =
 		matrix.secondaryAxis.length > 1 ||
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
+	$: groupDominant = isVerticalFlow && showGroupLabels;
+	$: tasksBySecondary = Object.fromEntries(
+		matrix.secondaryAxis.map((bucket) => [
+			bucket.id,
+			matrix.primaryAxis.flatMap(
+				(primary) => getBoardCell(matrix, primary.id, bucket.id).tasks,
+			),
+		]),
+	);
+
+	function formatTaskCount(count: number) {
+		return count === 1 ? "1 task" : `${count} tasks`;
+	}
+
+	function setStickyOffset(node: HTMLElement) {
+		const section = node.closest<HTMLElement>(".mobile-outer-section");
+		const update = () =>
+			section?.style.setProperty("--mobile-outer-header-height", `${node.offsetHeight}px`);
+		update();
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(update);
+		observer.observe(node);
+		return { destroy: () => observer.disconnect() };
+	}
 </script>
 
 <div class="mobile-board-list">
-	{#each matrix.primaryAxis as pBucket (pBucket.id)}
-		<section class="mobile-column" style:--column-color={pBucket.meta?.color}>
-			<header class="mobile-column-header">
+	{#if taskCountLabel}
+		<span class="mobile-task-count" aria-live="polite">{taskCountLabel}</span>
+	{/if}
+	{#if !groupDominant}
+		{#each matrix.primaryAxis as pBucket (pBucket.id)}
+			<section class="mobile-outer-section mobile-column" style:--column-color={pBucket.meta?.color}>
+			<header class="mobile-outer-header mobile-column-header" use:setStickyOffset>
 				<ColumnHeader
 					column={pBucket.id}
 					tasks={tasksByPrimary[pBucket.id] ?? []}
@@ -61,11 +91,13 @@
 					{columnColourTableStore}
 					{columnMatchTagTableStore}
 					{columnSubtitleTableStore}
-					isVerticalFlow={true}
+					isVerticalFlow={false}
 					isCollapsed={pBucket.collapsed}
 					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 					{uncategorizedColumnName}
 					{doneColumnName}
+					showTaskCount={true}
+					headingId={`mobile-column-${pBucket.id}`}
 				/>
 			</header>
 
@@ -73,7 +105,9 @@
 				{#each matrix.secondaryAxis as sBucket (sBucket.id)}
 					<div class="mobile-cell">
 						{#if showGroupLabels}
-							<h3 class="mobile-group-label">{sBucket.label}</h3>
+							<h3 class="mobile-inner-header mobile-group-label">
+								{sBucket.label} <span class="mobile-cell-count">{formatTaskCount(getBoardCell(matrix, pBucket.id, sBucket.id).tasks.length)}</span>
+							</h3>
 						{/if}
 						<BoardCell
 							{app}
@@ -102,7 +136,65 @@
 				{/each}
 			{/if}
 		</section>
-	{/each}
+		{/each}
+	{:else}
+		{#each matrix.secondaryAxis as sBucket (sBucket.id)}
+			<section class="mobile-outer-section mobile-group">
+				<header class="mobile-outer-header mobile-group-header" use:setStickyOffset>
+					<h2>{sBucket.label} <span class="mobile-cell-count">{formatTaskCount(tasksBySecondary[sBucket.id]?.length ?? 0)}</span></h2>
+				</header>
+				{#each matrix.primaryAxis as pBucket (pBucket.id)}
+					<div class="mobile-cell mobile-group-cell" style:--column-color={pBucket.meta?.color}>
+						<header class="mobile-inner-header mobile-cell-column-header">
+							<ColumnHeader
+								column={pBucket.id}
+								tasks={tasksByPrimary[pBucket.id] ?? []}
+								{taskActions}
+								{columnTagTableStore}
+								{columnColourTableStore}
+								{columnMatchTagTableStore}
+								{columnSubtitleTableStore}
+								isVerticalFlow={false}
+								isCollapsed={pBucket.collapsed}
+								onToggleCollapse={() => onToggleCollapse(pBucket.id)}
+								{uncategorizedColumnName}
+								{doneColumnName}
+								taskCountOverride={getBoardCell(matrix, pBucket.id, sBucket.id).tasks.length}
+								showTaskCount={true}
+								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
+								headingLevel={3}
+							/>
+						</header>
+						{#if !pBucket.collapsed}
+							<BoardCell
+								{app}
+								cell={getBoardCell(matrix, pBucket.id, sBucket.id)}
+								primaryTasks={tasksByPrimary[pBucket.id] ?? []}
+								secondaryAxisBucket={sBucket}
+								primaryAxisLabel={pBucket.label}
+								{taskActions}
+								{columnTagTableStore}
+								{showFilepath}
+								{propertyDisplay}
+								{propertySchemaOption}
+								{consolidateTags}
+								{excludedTags}
+								{treatNestedTasksAsSubtasks}
+								isVerticalFlow={false}
+								{targetTaskFile}
+								{targetFileIsDefault}
+								{doneColumnName}
+								accentColor={pBucket.meta?.color}
+								{isManualOrder}
+								manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
+								{reorderEnabled}
+							/>
+						{/if}
+					</div>
+				{/each}
+			</section>
+		{/each}
+	{/if}
 </div>
 
 <style lang="scss">
@@ -114,22 +206,32 @@
 		padding-bottom: var(--size-4-4);
 	}
 
-	.mobile-column {
+	.mobile-outer-section {
 		min-width: 0;
-		overflow: hidden;
 		border: var(--border-width) solid var(--background-modifier-border);
 		border-radius: var(--radius-m);
 		background: var(--background-primary);
 		box-shadow: var(--shadow-s);
 	}
 
-	.mobile-column-header {
+	.mobile-task-count {
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		padding: 0 var(--size-4-2);
+	}
+
+	.mobile-outer-header {
 		position: sticky;
 		top: 0;
 		z-index: 4;
 		padding: var(--size-4-2) var(--size-4-3);
 		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
+	}
+
+	.mobile-group-header h2 {
+		margin: 0;
+		font-size: var(--font-ui-medium);
 	}
 
 	.mobile-cell {
@@ -142,10 +244,32 @@
 		}
 	}
 
+	.mobile-inner-header {
+		position: sticky;
+		top: var(--mobile-outer-header-height, 0px);
+		z-index: 3;
+		background: var(--background-primary);
+	}
+
 	.mobile-group-label {
+		padding: var(--size-4-2) 0;
+	}
+
+	.mobile-cell-count {
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		font-weight: normal;
+	}
+
+	.mobile-cell-column-header {
+		margin: calc(-1 * var(--size-4-3));
+		padding: var(--size-4-2) var(--size-4-3);
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
+	}
+
+	.mobile-cell > .mobile-group-label {
 		margin: 0 0 var(--size-4-2);
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 	}
 </style>
-

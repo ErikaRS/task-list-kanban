@@ -127,12 +127,13 @@
 	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
 	let isMobileViewport = Platform.isMobile ||
 		(typeof window !== "undefined" && window.innerWidth <= 760);
+	const isMobileBoardLayout = Platform.isMobile;
 	let columnsClientWidth = 0;
 	// Dock side is a plugin setting (default left); top turns the content
 	// row into a column with the rail strip on top, and the dashboard
 	// slides down out of it instead of out from the left.
 	$: railDock = $boardRailSettingsStore?.dock ?? "left";
-	$: effectiveRailDock = isMobileViewport ? "top" : railDock;
+	$: effectiveRailDock = isMobileBoardLayout ? "top" : railDock;
 	$: railOnTop = railVisible && effectiveRailDock === "top";
 	let railDashboardButtonEl: HTMLButtonElement | undefined;
 
@@ -1178,7 +1179,7 @@
 					style="--column-width: {columnWidth}px;"
 					bind:clientWidth={columnsClientWidth}
 				>
-					{#if isMobileViewport}
+					{#if isMobileBoardLayout}
 						<BoardMobileList
 							{app}
 							matrix={activeMatrix}
@@ -1201,6 +1202,8 @@
 							{manualOrder}
 							{reorderEnabled}
 							{treatNestedTasksAsSubtasks}
+							taskCountLabel={boardTaskCountLabel}
+							{isVerticalFlow}
 						/>
 					{:else if !isVerticalFlow}
 						<BoardMatrixHorizontal
