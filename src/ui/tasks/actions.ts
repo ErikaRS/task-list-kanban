@@ -38,6 +38,7 @@ import {
 } from "./source_line_editor";
 import { parseSourceTaskLine } from "./source_block";
 import { buildNewTaskLine, type NewTaskColumn } from "./task_line_builder";
+import { changeColumnTransform } from "./column_change";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
@@ -287,6 +288,38 @@ export function createTaskActions({
 		}
 	}
 
+	async function editTaskColumns(ids: string[], column: ColumnTag | DefaultColumns) {
+		const entriesByFile = collectTaskEntriesByFile(ids);
+		notifyMissingTasks(
+			ids.length,
+			Array.from(entriesByFile.values()).reduce((sum, entries) => sum + entries.length, 0),
+		);
+
+		for (const [fileHandle, entries] of entriesByFile) {
+			await transformSourceRows(
+				vault,
+				fileHandle,
+				entries.map(({ task, metadata }) => ({
+					rowIndex: metadata.rowIndex,
+					transform: (row: string) => changeColumnTransform(row, {
+						fromColumn: task.column && task.column !== "archived" && task.column !== "done" && task.column !== "uncategorised"
+							? task.column
+							: undefined,
+						toColumn: column,
+						columnDefinitions: getColumnDefinitions(),
+						propertySchemaOption: getPropertySchemaOption(),
+						doneStatusMarker: task.doneStatusMarker,
+						wasDone: task.done,
+						addCompletionDate: column === "done" && !task.done
+							? formatLocalDate(getCurrentDate?.() ?? new Date())
+							: undefined,
+					}),
+				})),
+				prepareFileContentsForWrite,
+			);
+		}
+	}
+
 	function getTaskWithMetadata(id: string): { task: Task; metadata: Metadata } | null {
 		const metadata = metadataByTaskId.get(id);
 		const task = tasksByTaskId.get(id);
@@ -360,23 +393,11 @@ export function createTaskActions({
 
 	return {
 		async changeColumn(id, column) {
-			await rewriteTaskRows([id], (task) => (task.column = column));
+			await editTaskColumns([id], column);
 		},
 
 		async moveTasksToColumn(ids, column) {
-			if (column === "done") {
-				let shouldAddCompletionDate = false;
-				await rewriteTaskRows(
-					ids,
-					(task) => {
-						shouldAddCompletionDate = !task.done;
-						task.done = true;
-					},
-					(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
-				);
-			} else {
-				await rewriteTaskRows(ids, (task) => (task.column = column));
-			}
+			await editTaskColumns(ids, column);
 		},
 
 		async reorderTask(groupId, columnTag, displayOrderIds, draggedId, targetIndex) {

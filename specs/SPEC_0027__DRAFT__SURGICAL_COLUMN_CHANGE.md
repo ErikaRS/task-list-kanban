@@ -1,6 +1,6 @@
 # SPEC 0027: Surgical Column Change (migrate changeColumn off the rewrite path)
 
-Status: DRAFT
+Status: IN_PROGRESS
 
 ## Feature Request Summary
 
@@ -20,6 +20,20 @@ Context: the write-path split and its naming were introduced during the
 maintainability cleanups of 2026-07 (see `README.architecture.md`, "Write
 Paths"). This migration was deliberately deferred because column placement
 has four matching modes with different serialisation side effects.
+
+Implementation note (reviewed 2026-09): the intervening board, mobile, and
+global-settings work has not changed this action path. `moveTasksToColumn`
+serves board drops and bulk moves; the single-card menu uses `changeColumn`
+only for custom columns and `markDone` for Done. This spec therefore keeps
+Done as an explicit action path instead of treating it as a `changeColumn`
+case.
+
+Implementation progress (2026-09): `changeColumnTransform` now routes
+single-card and bulk column moves through `editTaskColumns` /
+`transformSourceRows`. It handles tag/name, status, priority, Done, and
+uncategorized targets without rebuilding the line. Automated coverage is in
+`src/ui/tasks/tests/column_change.tests.ts`; manual vault verification remains
+pending.
 
 ## User Requirements
 
@@ -67,14 +81,17 @@ in the codebase:
 
 Which sub-edits run is decided by the old and new columns' `matchMode`
 (`ColumnDefinition` in `src/ui/columns/columns.ts`), mirroring the decisions
-`serialise()` makes via `usesStatusMatching` / `usesPriorityMatching`.
+`serialise()` makes via `usesStatusMatching` / `usesPriorityMatching`. The
+transform must operate on the raw source row: it preserves indentation and
+the original list marker (`-`, `*`, or `+`) rather than rebuilding either.
 
 ### Why this is not a small change
 
 `Task.set column` has side effects the transform must reproduce exactly:
 
-- `done` → delegates to `markDone` semantics (stays on the rewrite of the
-  status marker + completion date edit).
+- `done` → is handled by `moveTasksToColumn` / `markDone`, which retain their
+  completion-date behavior. It is not dispatched through `changeColumn` by
+  the current UI.
 - `uncategorised` → removes all column tags; if the task was done, reopens
   the status marker.
 - regular column → clears done state, may reset the display status, and
@@ -91,27 +108,23 @@ matrix right and the rest is bookkeeping.
   appended before the block link if the line had no column tag.
 - Any-mode → status-mode column: marker char set to the column's
   `matchStatus`; no tag added. Old column tag (if any) removed.
-- Status-mode → tags/name-mode: marker reset to `[ ]` (or kept if the
-  marker also encodes done/cancelled? — see Open Questions), new tag added.
+- Status-mode → tags/name-mode: marker reset to `[ ]`, then the new tag is
+  added. Settings validation prevents status columns from using done or
+  ignored markers, so this reset is unambiguous.
 - Priority-mode transitions: priority property upserted/removed via the
-  active schema's write adapter; when schema is None, falls back to the
-  rewrite path (or blocks the move — see Open Questions).
+  configured schema's write adapter. The settings UI prevents priority
+  columns without a compatible property schema; malformed legacy settings
+  must fail safely without falling back to whole-line rewriting.
 - `uncategorised`: all recognised column tags removed; done marker reopened.
 - Idempotence: applying the transform when the line already encodes the
   target column returns the row unchanged (so the batched write is skipped).
 
 ## Open Questions
 
-1. Status-mode interplay with custom status marker orders and done markers:
-   when leaving a status column whose marker also appears in
-   `doneStatusMarkers`, what should the reopened marker be?
-2. Priority-mode columns with schema None have no property writer. Options:
-   fall back to rewrite for that case only, or disallow (current rewrite
-   path silently does nothing useful either — verify).
-3. Should `changeColumn`'s "reopen when previously done" reset the display
+1. Should `changeColumn`'s "reopen when previously done" reset the display
    status to `" "` exactly as `Task.set column` does, or preserve an
    in-progress marker? Match current behavior first; revisit separately.
-4. Tag insertion position for name/tags mode when the line has no existing
+2. Tag insertion position for name/tags mode when the line has no existing
    column tag: end-of-line before block link (matches serialise output) or
    after content? Proposal: before block link, matching serialise.
 
@@ -121,13 +134,18 @@ matrix right and the rest is bookkeeping.
 **Goal:** Pin current rewrite-path behavior before changing anything.
 
 1. Table-driven tests: (from-mode × to-mode) matrix of source lines through
-   the existing `changeColumn` / `moveTasksToColumn`, asserting exact output
-   lines.
+   the existing `changeColumn` / `moveTasksToColumn`, characterising the
+   semantic outcomes (column marker, status, priority, completion metadata).
+   Record the current exact rewritten output as a reference, but do not make
+   it the target for the surgical path: preserving untouched text is an
+   intentional, reviewed difference.
 2. Include lines with: inline tags mid-content, date/priority properties,
-   block links, indentation/nesting, consolidateTags on and off.
+   block links, indentation/nesting, all supported list markers (`-`, `*`,
+   `+`), consolidateTags on and off, and malformed legacy priority settings.
 
-**Deliverable:** A failing-safe net; any later diff from these outputs is a
-deliberate decision recorded in the spec.
+**Deliverable:** A semantic compatibility net and documented current rewrite
+outputs; later textual diffs are deliberate only where they preserve
+untouched source text.
 
 ### Phase 2: Pure transform for tags/name modes
 **Goal:** Cards in tag- and name-matched columns move surgically.

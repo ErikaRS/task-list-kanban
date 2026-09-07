@@ -392,6 +392,9 @@ export class Task {
 	get done(): boolean {
 		return this._done;
 	}
+	get doneStatusMarker(): string {
+		return Array.from(this.doneStatusMarkers)[0] ?? "x";
+	}
 	set done(done: true) {
 		this._done = done;
 		this._column = undefined;
