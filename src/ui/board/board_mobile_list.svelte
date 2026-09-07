@@ -233,11 +233,30 @@
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 	}
 
-	.mobile-group-header h2 {
-		margin: 0;
-		font-size: calc(var(--font-ui-medium) + 2px);
-		font-weight: var(--font-bold);
-		letter-spacing: 0.01em;
+	.mobile-group-header {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2-3);
+
+		// Match the outer column header's visual rhythm. Columns get their
+		// own colored strip from ColumnHeader; groups deliberately stay neutral.
+		&::before {
+			content: "";
+			display: block;
+			width: calc(100% + calc(2 * var(--size-4-3)));
+			height: 12px;
+			margin: calc(-1 * var(--size-4-2)) calc(-1 * var(--size-4-3)) 0;
+			border-radius: 2px;
+			background: var(--background-modifier-border-hover);
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 10%, transparent);
+		}
+
+		h2 {
+			margin: 0;
+			font-size: var(--font-ui-medium);
+			font-weight: var(--font-bold);
+			line-height: 1.2;
+		}
 	}
 
 	.mobile-cell {
@@ -259,9 +278,9 @@
 
 	.mobile-group-label {
 		padding: var(--size-2-3) var(--size-4-2);
-		border-left: 3px solid var(--column-color, var(--interactive-accent));
+		border-left: 3px solid var(--background-modifier-border-hover);
 		border-radius: var(--radius-s);
-		background: color-mix(in srgb, var(--column-color, var(--interactive-accent)) 10%, var(--background-primary));
+		background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
 		font-weight: var(--font-medium);
 	}
 
@@ -295,7 +314,9 @@
 	}
 
 	.mobile-cell > .mobile-group-label {
-		margin: 0 0 var(--size-4-2);
+		margin: calc(-1 * var(--size-4-3));
+		margin-bottom: var(--size-4-2);
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 

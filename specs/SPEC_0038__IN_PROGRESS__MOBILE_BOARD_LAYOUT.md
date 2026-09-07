@@ -233,6 +233,10 @@ do not need the full visual body used for a cell with cards.
 ### Headers, Collapse, and Semantics
 
 - Outer sections use semantically ordered headings.
+- Outer-section styling is consistent whether the outer axis is columns or
+  groups; inner-section styling is likewise consistent in both hierarchy
+  modes. A column header may add its column-color detail, but color alone must
+  not redefine the hierarchy's visual weight.
 - Existing actionable column-header controls retain keyboard activation,
   labels, and collapse behavior.
 - Inner headers identify both the bucket and the exact cell count.

@@ -154,10 +154,10 @@ export class GlobalSettingsTab extends PluginSettingTab {
 			.setName("Default flow")
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption(FlowDirection.LeftToRight, "Left to right")
-					.addOption(FlowDirection.RightToLeft, "Right to left")
-					.addOption(FlowDirection.TopToBottom, "Top to bottom")
-					.addOption(FlowDirection.BottomToTop, "Bottom to top")
+					.addOption(FlowDirection.LeftToRight, "Column dominant ascending (LTR)")
+					.addOption(FlowDirection.RightToLeft, "Column dominant descending (RTL)")
+					.addOption(FlowDirection.TopToBottom, "Group dominant ascending (TTB)")
+					.addOption(FlowDirection.BottomToTop, "Group dominant descending (BTT)")
 					.setValue(defaultView.flowDirection ?? FlowDirection.LeftToRight)
 					.onChange((value) => {
 						void this.updateDefaultView((view) => {
@@ -309,10 +309,10 @@ export class GlobalSettingsTab extends PluginSettingTab {
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOption("", "Leave unchanged")
-					.addOption(FlowDirection.LeftToRight, "Left to right")
-					.addOption(FlowDirection.RightToLeft, "Right to left")
-					.addOption(FlowDirection.TopToBottom, "Top to bottom")
-					.addOption(FlowDirection.BottomToTop, "Bottom to top")
+					.addOption(FlowDirection.LeftToRight, "Column dominant ascending (LTR)")
+					.addOption(FlowDirection.RightToLeft, "Column dominant descending (RTL)")
+					.addOption(FlowDirection.TopToBottom, "Group dominant ascending (TTB)")
+					.addOption(FlowDirection.BottomToTop, "Group dominant descending (BTT)")
 					.onChange((value) => {
 						draftFlowDirection = value;
 					});
@@ -495,4 +495,3 @@ function mergeChangedBoardDefaults(
 
 	return nextDefaults;
 }
-

@@ -63,10 +63,10 @@
 	export let onToggleSavedViewList: (expanded: boolean) => void;
 
 	const flowDirectionOptions: Array<{ value: FlowDirection; label: string }> = [
-		{ value: FlowDirection.LeftToRight, label: "LTR" },
-		{ value: FlowDirection.RightToLeft, label: "RTL" },
-		{ value: FlowDirection.TopToBottom, label: "TTB" },
-		{ value: FlowDirection.BottomToTop, label: "BTT" },
+		{ value: FlowDirection.LeftToRight, label: "Column dominant ascending (LTR)" },
+		{ value: FlowDirection.RightToLeft, label: "Column dominant descending (RTL)" },
+		{ value: FlowDirection.TopToBottom, label: "Group dominant ascending (TTB)" },
+		{ value: FlowDirection.BottomToTop, label: "Group dominant descending (BTT)" },
 	];
 
 	function handleFlowDirectionChange(value: string) {
