@@ -1,6 +1,8 @@
 # SPEC 0027: Surgical Column Change (migrate changeColumn off the rewrite path)
 
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-09
 
 ## Feature Request Summary
 
@@ -32,8 +34,10 @@ Implementation progress (2026-09): `changeColumnTransform` now routes
 single-card and bulk column moves through `editTaskColumns` /
 `transformSourceRows`. It handles tag/name, status, priority, Done, and
 uncategorized targets without rebuilding the line. Automated coverage is in
-`src/ui/tasks/tests/column_change.tests.ts`; manual vault verification remains
-pending.
+`src/ui/tasks/tests/column_change.tests.ts`, including every custom-column
+mode transition plus Tasks-plugin and Dataview priority writers, malformed
+legacy priority settings, and idempotence. Manual vault verification confirmed
+surgical source diffs and minimal undo history.
 
 ## User Requirements
 
@@ -119,27 +123,25 @@ matrix right and the rest is bookkeeping.
 - Idempotence: applying the transform when the line already encodes the
   target column returns the row unchanged (so the batched write is skipped).
 
-## Open Questions
+## Resolved Decisions
 
-1. Should `changeColumn`'s "reopen when previously done" reset the display
-   status to `" "` exactly as `Task.set column` does, or preserve an
-   in-progress marker? Match current behavior first; revisit separately.
-2. Tag insertion position for name/tags mode when the line has no existing
-   column tag: end-of-line before block link (matches serialise output) or
-   after content? Proposal: before block link, matching serialise.
+1. Reopening a task resets its status marker to `" "`, matching the prior
+   `Task.set column` behavior.
+2. When no placement tag exists, tag/name-mode insertion is at the end of the
+   line before a block link, matching prior serialisation behavior.
 
 ## Implementation Plan
 
-### Phase 1: Golden-master characterisation tests
+### Phase 1: Golden-master characterisation tests ✅ COMPLETE
 **Goal:** Pin current rewrite-path behavior before changing anything.
 
-1. Table-driven tests: (from-mode × to-mode) matrix of source lines through
+1. ✅ Table-driven tests: (from-mode × to-mode) matrix of source lines through
    the existing `changeColumn` / `moveTasksToColumn`, characterising the
    semantic outcomes (column marker, status, priority, completion metadata).
    Record the current exact rewritten output as a reference, but do not make
    it the target for the surgical path: preserving untouched text is an
    intentional, reviewed difference.
-2. Include lines with: inline tags mid-content, date/priority properties,
+2. ✅ Include lines with: inline tags mid-content, date/priority properties,
    block links, indentation/nesting, all supported list markers (`-`, `*`,
    `+`), consolidateTags on and off, and malformed legacy priority settings.
 
@@ -147,37 +149,45 @@ matrix right and the rest is bookkeeping.
 outputs; later textual diffs are deliberate only where they preserve
 untouched source text.
 
-### Phase 2: Pure transform for tags/name modes
+**Implemented by:** [fd76992](https://github.com/ErikaRS/task-list-kanban/commit/fd76992)
+
+### Phase 2: Pure transform for tags/name modes ✅ COMPLETE
 **Goal:** Cards in tag- and name-matched columns move surgically.
 
-1. Implement `changeColumnTransform` for tag swap + uncategorised + done
+1. ✅ Implement `changeColumnTransform` for tag swap + uncategorised + done
    reopen.
-2. Route `changeColumn` / `moveTasksToColumn` through `editTaskSourceRows`
+2. ✅ Route `changeColumn` / `moveTasksToColumn` through `editTaskSourceRows`
    when both columns are tags/name mode; other modes keep the rewrite path.
-3. Tests: byte-for-byte preservation of untouched text (the property the
+3. ✅ Tests: byte-for-byte preservation of untouched text (the property the
    rewrite path cannot satisfy) + the Phase 1 matrix rows for these modes.
 
 **Deliverable:** Most common moves (tag/name columns) no longer reformat
 lines; other modes unchanged.
 
-### Phase 3: Status and priority modes
+**Implemented by:** [fd76992](https://github.com/ErikaRS/task-list-kanban/commit/fd76992)
+
+### Phase 3: Status and priority modes ✅ COMPLETE
 **Goal:** Full matrix on the edit path.
 
-1. Status marker swap sub-edit; resolve Open Question 1.
-2. Priority sub-edit via the write adapters; resolve Open Question 2.
-3. Remove the rewrite fallback for column changes (keep `rewriteTaskRows`
+1. ✅ Status marker swap sub-edit; resolve the status-reset decision.
+2. ✅ Priority sub-edit via the write adapters; resolve the tag-insertion decision.
+3. ✅ Remove the rewrite fallback for column changes (keep `rewriteTaskRows`
    for content/status-cycling actions that genuinely need the model).
 
 **Deliverable:** All column moves are surgical; golden-master diffs reviewed
 and either matched or explicitly accepted in this spec.
 
-### Phase 4: Manual verification
+**Implemented by:** [fd76992](https://github.com/ErikaRS/task-list-kanban/commit/fd76992)
+
+### Phase 4: Manual verification ✅ COMPLETE
 **Goal:** Confirm in a real vault.
 
-1. Sandbox vault: drag cards across all four column mode combinations,
+1. ✅ Sandbox vault: drag cards across all four column mode combinations,
    with consolidateTags on/off, and verify file diffs show only the column
    marker changing.
-2. Verify undo (Obsidian file history) shows minimal diffs.
+2. ✅ Verify undo (Obsidian file history) shows minimal diffs.
 
 **Deliverable:** Checked-off manual test cases (per README.planning.md,
 only after actually performing them).
+
+**Implemented by:** [fd76992](https://github.com/ErikaRS/task-list-kanban/commit/fd76992)

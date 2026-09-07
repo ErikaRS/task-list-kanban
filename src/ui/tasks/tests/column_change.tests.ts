@@ -76,4 +76,93 @@ describe("changeColumnTransform", () => {
 		expect(transform("- [ ] Ship #backlog #status/active #project #note", "backlog" as ColumnTag, "uncategorised"))
 			.toBe("- [ ] Ship #note");
 	});
+
+	it("covers every custom-column mode transition without rebuilding preserved text", () => {
+		const sourceRows: Record<string, string> = {
+			backlog: "  + [ ] Preserve  #backlog #note ^block",
+			active: "  + [ ] Preserve  #status/active #project #note ^block",
+			doing: "  + [/] Preserve  #note ^block",
+			high: "  + [ ] Preserve  #note ⏫ ^block",
+		};
+
+		for (const [fromColumn, rawLine] of Object.entries(sourceRows)) {
+			for (const toColumn of ["backlog", "active", "doing", "high"] as const) {
+				const next = transform(rawLine, fromColumn as ColumnTag, toColumn as ColumnTag, {
+					propertySchemaOption: PropertySchemaOption.TasksPlugin,
+				});
+
+				// The task body, its deliberately repeated space, unrelated tag, list
+				// marker, indentation, and block link are all outside column encoding.
+				expect(next).toContain("  + [");
+				expect(next).toContain("Preserve  ");
+				expect(next).toContain("#note");
+				expect(next).toContain("^block");
+
+				if (toColumn === "backlog") {
+					expect(next).toContain("[ ]");
+					expect(next).toContain("#backlog");
+					expect(next).not.toContain("#status/active");
+					expect(next).not.toContain("⏫");
+				} else if (toColumn === "active") {
+					expect(next).toContain("[ ]");
+					expect(next).toContain("#status/active #project");
+					expect(next).not.toContain("#backlog");
+					expect(next).not.toContain("⏫");
+				} else if (toColumn === "doing") {
+					expect(next).toContain("[/]");
+					expect(next).not.toContain("#backlog");
+					expect(next).not.toContain("#status/active");
+					expect(next).not.toContain("⏫");
+				} else {
+					expect(next).toContain("[ ]");
+					expect(next).toContain("⏫");
+					expect(next).not.toContain("#backlog");
+					expect(next).not.toContain("#status/active");
+				}
+			}
+		}
+	});
+
+	it("uses the Dataview writer for priority moves and preserves completion metadata", () => {
+		const dataviewPriority: ColumnDefinition = {
+			id: "urgent" as ColumnTag,
+			label: "Urgent",
+			matchMode: "priority",
+			matchTags: [],
+			matchPriority: "urgent",
+			matchPropertySchema: PropertySchemaOption.Dataview,
+		};
+		expect(changeColumnTransform("- [x] Keep  #note [completion:: 2026-06-01] ^block", {
+			fromColumn: undefined,
+			toColumn: dataviewPriority.id,
+			columnDefinitions: [...columns, dataviewPriority],
+			propertySchemaOption: PropertySchemaOption.Dataview,
+			doneStatusMarker: "x",
+			wasDone: true,
+		})).toBe("- [ ] Keep  #note [completion:: 2026-06-01] [priority:: urgent] ^block");
+	});
+
+	it("fails safely for legacy priority columns without a writable schema", () => {
+		const legacyPriority: ColumnDefinition = {
+			id: "legacy" as ColumnTag,
+			label: "Legacy",
+			matchMode: "priority",
+			matchTags: [],
+			matchPriority: "high",
+			// Persisted settings can predate the priority-schema validation.
+			matchPropertySchema: "legacy" as never,
+		};
+		expect(changeColumnTransform("- [ ] Keep  #note ⏫ ^block", {
+			fromColumn: legacyPriority.id,
+			toColumn: "backlog" as ColumnTag,
+			columnDefinitions: [...columns, legacyPriority],
+			propertySchemaOption: PropertySchemaOption.None,
+			doneStatusMarker: "x",
+		})).toBe("- [ ] Keep  #note ⏫ #backlog ^block");
+	});
+
+	it("is idempotent when a row already encodes the destination column", () => {
+		const rawLine = "- [ ] Keep  #status/active #project #note ^block";
+		expect(transform(rawLine, "active" as ColumnTag, "active" as ColumnTag)).toBe(rawLine);
+	});
 });
