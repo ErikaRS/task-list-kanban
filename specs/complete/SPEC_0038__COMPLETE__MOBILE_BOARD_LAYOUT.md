@@ -1,4 +1,8 @@
-Status: IN PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-09
+
+Manual acceptance verification: 2026-09-07
 
 # SPEC 0038 — Mobile Board Layout
 
@@ -294,7 +298,7 @@ This spec does not replace the focused mobile editor or new-task composer.
 
 ## Implementation Plan
 
-### Phase 1: Mobile Column-Dominant Renderer 🚧 IN PROGRESS
+### Phase 1: Mobile Column-Dominant Renderer ✅ COMPLETE
 
 **Goal:** LTR/RTL mobile boards display readable, full-width collapsible
 column sections while desktop remains unchanged.
@@ -304,58 +308,58 @@ column sections while desktop remains unchanged.
    dock.
 3. ✅ Render primary-axis sections in the matrix's LTR/RTL order.
 4. ✅ Preserve the board-level task-count label.
-5. ⬜ Render accurate per-column and per-cell counts.
-6. ⬜ Render compact empty cells with an inline `Add task` affordance and
+5. ✅ Render accurate per-column and per-cell counts.
+6. ✅ Render compact empty cells with an inline `Add task` affordance and
    preserve their drop target.
-7. ⬜ Implement nested outer/inner sticky headers without overflow clipping.
-8. ⬜ Verify ungrouped and grouped LTR/RTL boards on Android portrait.
-9. ⬜ Add focused automated coverage for renderer selection and count inputs.
+7. ✅ Implement nested outer/inner sticky headers without overflow clipping.
+8. ✅ Verify ungrouped and grouped LTR/RTL boards on Android portrait.
+9. ✅ Add focused automated coverage for renderer selection and count inputs.
 
 **Deliverable:** A column-dominant mobile list that remains semantically and
 functionally equivalent to the desktop matrix.
 
-### Phase 2: Group-Dominant Renderer for TTB/BTT
+### Phase 2: Group-Dominant Renderer for TTB/BTT ✅ COMPLETE
 
 **Goal:** TTB/BTT mobile boards serialize by groups first and preserve the
 correct primary-axis direction inside each group.
 
-1. ⬜ Add a group-first mobile renderer path for non-default secondary axes.
-2. ⬜ Render group totals and exact per-cell column counts.
-3. ⬜ Consume matrix primary-axis order for TTB/BTT instead of reversing in
+1. ✅ Add a group-first mobile renderer path for non-default secondary axes.
+2. ✅ Render group totals and exact per-cell column counts.
+3. ✅ Consume matrix primary-axis order for TTB/BTT instead of reversing in
    the renderer.
-4. ⬜ Preserve globally collapsed columns across every group section.
-5. ⬜ Keep empty cells compact, but usable for their existing create/drop
+4. ✅ Preserve globally collapsed columns across every group section.
+5. ✅ Keep empty cells compact, but usable for their existing create/drop
    behavior.
-6. ⬜ Keep every real grouping bucket visible, including an explicit
+6. ✅ Keep every real grouping bucket visible, including an explicit
    `Uncategorized`/`Unassigned` bucket, while hiding only the default
    ungrouped bucket.
-7. ⬜ Verify grouped file, tag-prefix, and property boards in TTB and BTT.
+7. ✅ Verify grouped file, tag-prefix, and property boards in TTB and BTT.
 
 **Deliverable:** A group-dominant mobile hierarchy that expresses TTB/BTT
 without introducing a second board model.
 
-### Phase 3: Accessibility, Interaction, and Regression Verification
+### Phase 3: Accessibility, Interaction, and Regression Verification ✅ COMPLETE
 
 **Goal:** Confirm that mobile serialization keeps board interactions and
 desktop behavior intact.
 
-1. ⬜ Verify screen-reader labels/announcements for board, outer, and cell
+1. ✅ Verify screen-reader labels/announcements for board, outer, and cell
    counts.
-2. ⬜ Verify keyboard access to headers, collapse controls, task controls, and
+2. ✅ Verify keyboard access to headers, collapse controls, task controls, and
    board rail controls.
-3. ⬜ Verify mobile new-task and existing-task editor visibility with the
+3. ✅ Verify mobile new-task and existing-task editor visibility with the
    Android soft keyboard.
-4. ⬜ Verify drag/drop, manual order, pinning, selection, and bulk actions in
+4. ✅ Verify drag/drop, manual order, pinning, selection, and bulk actions in
    both hierarchy modes.
-5. ⬜ Verify desktop full-width and narrow split-pane boards retain their
+5. ✅ Verify desktop full-width and narrow split-pane boards retain their
    matrix renderer, chosen flow, and rail dock.
-6. ⬜ Verify Android phone portrait/landscape and tablet portrait/landscape.
-7. ⬜ Verify the acceptance matrix: each of LTR, RTL, TTB, and BTT with
+6. ✅ Verify Android phone portrait/landscape and tablet portrait/landscape.
+7. ✅ Verify the acceptance matrix: each of LTR, RTL, TTB, and BTT with
    ungrouped and grouped boards, both unfiltered and filtered.
-8. ⬜ Add/update automated tests for renderer selection, hierarchy order,
+8. ✅ Add/update automated tests for renderer selection, hierarchy order,
    visibility of real/default group buckets, and count scoping.
-9. ⬜ Run `npm run build`.
-10. ⬜ Run `npm test`.
+9. ✅ Run `npm run build`.
+10. ✅ Run `npm test`.
 
 **Deliverable:** A mobile board presentation that is accessible, preserves
 matrix semantics, and leaves desktop behavior unchanged.

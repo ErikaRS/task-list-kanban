@@ -12,6 +12,7 @@
 	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
+	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
 	import { deriveBoardMatrix } from "./board/board_matrix";
 	import ViewEditor from "./view_editor.svelte";
 	import {
@@ -127,7 +128,7 @@
 	$: railWidth = $boardRailSettingsStore?.width ?? RAIL_MIN_WIDTH;
 	let isMobileViewport = Platform.isMobile ||
 		(typeof window !== "undefined" && window.innerWidth <= 760);
-	const isMobileBoardLayout = Platform.isMobile;
+	const isMobileBoardLayout = shouldUseMobileBoardLayout(Platform.isMobile);
 	let columnsClientWidth = 0;
 	// Dock side is a plugin setting (default left); top turns the content
 	// row into a column with the rail strip on top, and the dashboard

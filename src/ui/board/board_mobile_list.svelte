@@ -14,6 +14,14 @@
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
+	import MobileSectionHeader from "./MobileSectionHeader.svelte";
+	import {
+		deriveMobileHierarchyMode,
+		getMobileCellTaskCount,
+		getPrimaryBucketTasks,
+		getSecondaryBucketTasks,
+		hasVisibleMobileGroupHeaders,
+	} from "./mobile_layout";
 
 	export let app: App;
 	export let matrix: BoardMatrix;
@@ -40,28 +48,14 @@
 	export let isVerticalFlow = false;
 
 	$: tasksByPrimary = Object.fromEntries(
-		matrix.primaryAxis.map((bucket) => [
-			bucket.id,
-			Object.values(matrix.cells[bucket.id] || {}).flatMap((cell) => cell.tasks),
-		]),
+		matrix.primaryAxis.map((bucket) => [bucket.id, getPrimaryBucketTasks(matrix, bucket.id)]),
 	);
 
-	$: showGroupLabels =
-		matrix.secondaryAxis.length > 1 ||
-		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
-	$: groupDominant = isVerticalFlow && showGroupLabels;
+	$: showGroupLabels = hasVisibleMobileGroupHeaders(matrix);
+	$: groupDominant = deriveMobileHierarchyMode(matrix, isVerticalFlow) === "group-dominant";
 	$: tasksBySecondary = Object.fromEntries(
-		matrix.secondaryAxis.map((bucket) => [
-			bucket.id,
-			matrix.primaryAxis.flatMap(
-				(primary) => getBoardCell(matrix, primary.id, bucket.id).tasks,
-			),
-		]),
+		matrix.secondaryAxis.map((bucket) => [bucket.id, getSecondaryBucketTasks(matrix, bucket.id)]),
 	);
-
-	function formatTaskCount(count: number) {
-		return count === 1 ? "1 task" : `${count} tasks`;
-	}
 
 	function setStickyOffset(node: HTMLElement) {
 		const section = node.closest<HTMLElement>(".mobile-outer-section");
@@ -106,9 +100,12 @@
 				{#each matrix.secondaryAxis as sBucket (sBucket.id)}
 					<div class="mobile-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty}>
 						{#if showGroupLabels}
-							<h3 class="mobile-inner-header mobile-group-label">
-								{sBucket.label} <span class="mobile-cell-count">{formatTaskCount(getBoardCell(matrix, pBucket.id, sBucket.id).tasks.length)}</span>
-							</h3>
+							<MobileSectionHeader
+								label={sBucket.label}
+								count={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
+								headingLevel={3}
+								className="mobile-inner-header mobile-group-label"
+							/>
 						{/if}
 						<BoardCell
 							{app}
@@ -143,7 +140,12 @@
 		{#each matrix.secondaryAxis as sBucket (sBucket.id)}
 			<section class="mobile-outer-section mobile-group">
 				<header class="mobile-outer-header mobile-group-header" use:setStickyOffset>
-					<h2>{sBucket.label} <span class="mobile-cell-count">{formatTaskCount(tasksBySecondary[sBucket.id]?.length ?? 0)}</span></h2>
+					<MobileSectionHeader
+						label={sBucket.label}
+						count={tasksBySecondary[sBucket.id]?.length ?? 0}
+						headingLevel={2}
+						className="mobile-outer-heading"
+					/>
 				</header>
 				{#each matrix.primaryAxis as pBucket (pBucket.id)}
 					<div class="mobile-cell mobile-group-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty} style:--column-color={pBucket.meta?.color}>
@@ -161,7 +163,7 @@
 								onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 								{uncategorizedColumnName}
 								{doneColumnName}
-								taskCountOverride={getBoardCell(matrix, pBucket.id, sBucket.id).tasks.length}
+								taskCountOverride={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
 								showTaskCount={true}
 								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
 								headingLevel={3}
@@ -256,7 +258,7 @@
 			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-normal) 10%, transparent);
 		}
 
-		h2 {
+		:global(.mobile-outer-heading) {
 			margin: 0;
 			font-size: var(--font-ui-medium);
 			font-weight: var(--font-bold);
@@ -281,7 +283,7 @@
 		background: var(--background-primary);
 	}
 
-	.mobile-group-label {
+	:global(.mobile-group-label) {
 		padding: var(--size-2-3) var(--size-4-2);
 		border-left: 3px solid var(--background-modifier-border-hover);
 		border-radius: var(--radius-s);
@@ -289,7 +291,7 @@
 		font-weight: var(--font-medium);
 	}
 
-	.mobile-cell-count {
+	:global(.mobile-section-count) {
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 		font-weight: normal;
@@ -320,16 +322,13 @@
 		}
 	}
 
-	.mobile-cell > .mobile-group-label {
+	.mobile-cell > :global(.mobile-group-label) {
 		margin: calc(-1 * var(--size-4-3));
 		margin-bottom: var(--size-4-2);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
-
-		&.mobile-inner-header {
-			z-index: 3;
-		}
+		z-index: 3;
 	}
 
 	.mobile-cell.compact-empty {
