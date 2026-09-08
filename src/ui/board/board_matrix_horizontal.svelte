@@ -51,37 +51,61 @@
 		matrix.secondaryAxis.length > 1 ||
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
-	$: gridTemplateColumns = [
-		showSwimlaneLabels ? "max-content" : "var(--matrix-corner-width)",
-		...matrix.primaryAxis.map((b) => (b.collapsed ? "48px" : columnWidth)),
-	].join(" ");
-
-	$: primaryGridColumnOffset = 2;
+	$: gridTemplateColumns = matrix.primaryAxis
+		.map((b) => (b.collapsed ? "48px" : columnWidth))
+		.join(" ");
+	$: summaryRowCount = taskCountLabel ? 1 : 0;
 
 	$: gridTemplateRows = (() => {
-		const rows = ["max-content"];
+		// The summary and column headers each own a row. Grouped boards add a
+		// full-width group header before each swimlane instead of spending a
+		// permanent sidebar column on its label.
+		const rows = [
+			...(taskCountLabel ? ["max-content"] : []),
+			"max-content",
+		];
 		for (let i = 0; i < matrix.secondaryAxis.length; i++) {
+			if (showSwimlaneLabels) rows.push("max-content");
 			rows.push(i === matrix.secondaryAxis.length - 1 ? "minmax(188px, 1fr)" : "minmax(188px, max-content)");
 		}
 		return rows.join(" ");
 	})();
+
+	function groupHeaderGridRow(index: number): number {
+		return summaryRowCount + 2 + index * 2;
+	}
+
+	function cellGridRow(index: number): number {
+		return showSwimlaneLabels
+			? groupHeaderGridRow(index) + 1
+			: summaryRowCount + index + 2;
+	}
+
 	let headerHeight = 64;
 </script>
 
-<div class="matrix-horizontal" class:show-swimlane-labels={showSwimlaneLabels} style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--header-height="{headerHeight}px" style:--sticky-left-offset="56px">
-	<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
-		{#if taskCountLabel}
+<div class="matrix-horizontal" style:grid-template-columns={gridTemplateColumns} style:grid-template-rows={gridTemplateRows} style:--column-header-height="{headerHeight}px">
+	{#if taskCountLabel}
+		<div class="matrix-summary" style:grid-column="1 / -1" style:grid-row="1">
 			<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
-		{/if}
-	</div>
+		</div>
+	{/if}
 
-	<!-- 1. Render Column Headers across the top row -->
+	<!-- 1. Render Column Headers beneath the optional board summary. -->
+	<div
+		class="header-height-probe"
+		style:grid-column="1 / -1"
+		style:grid-row={summaryRowCount + 1}
+		bind:clientHeight={headerHeight}
+	></div>
 	{#each matrix.primaryAxis as pBucket, index (pBucket.id)}
 		<div
 			class="header-wrapper"
 			class:collapsed={pBucket.collapsed}
-			style:grid-column={index + primaryGridColumnOffset}
-			style:grid-row={pBucket.collapsed ? "1 / -1" : "1"}
+			style:grid-column={index + 1}
+			style:grid-row={pBucket.collapsed
+				? `${summaryRowCount + 1} / -1`
+				: summaryRowCount + 1}
 			style:--column-color={pBucket.meta?.color}
 		>
 			<ColumnHeader
@@ -101,24 +125,25 @@
 		</div>
 	{/each}
 
-	<!-- 2. Render Board Cells across subsequent rows -->
+	<!-- 2. Render each group header above its row of board cells. -->
 	{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
-		<div
-			class="swimlane-header-cell"
-			aria-hidden={!showSwimlaneLabels}
-			style:grid-column="1"
-			style:grid-row={sIndex + 2}
-		>
-			{#if showSwimlaneLabels}
-				<GroupLabel bucket={sBucket} className="swimlane-label" />
-			{/if}
-		</div>
+		{#if showSwimlaneLabels}
+			<div
+				class="swimlane-header"
+				style:grid-column="1 / -1"
+				style:grid-row={groupHeaderGridRow(sIndex)}
+			>
+				<h2 class="swimlane-heading">
+					<GroupLabel bucket={sBucket} />
+				</h2>
+			</div>
+		{/if}
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
 			<div
 				class="cell-wrapper"
 				class:collapsed={pBucket.collapsed}
-				style:grid-column={pIndex + primaryGridColumnOffset}
-				style:grid-row={sIndex + 2}
+				style:grid-column={pIndex + 1}
+				style:grid-row={cellGridRow(sIndex)}
 				style:--column-color={pBucket.meta?.color}
 			>
 					<BoardCell
@@ -152,7 +177,6 @@
 
 <style lang="scss">
 	.matrix-horizontal {
-		--matrix-corner-width: 56px;
 		display: grid;
 		position: relative;
 		column-gap: 0;
@@ -167,45 +191,40 @@
 		overflow: visible;
 	}
 
-	.matrix-corner,
+	.matrix-summary,
 	.header-wrapper {
 		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 		border-right: var(--border-width) solid var(--background-modifier-border);
-		min-height: 64px;
 	}
 
-	.matrix-corner {
-		position: sticky;
-		left: 0;
-		top: 0;
-		z-index: 7;
+	.matrix-summary {
+		z-index: 2;
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		min-width: 0;
-		padding: var(--size-2-1);
-		overflow: hidden;
+		min-height: 32px;
+		padding: var(--size-2-1) var(--size-4-3);
 	}
 
 	.matrix-task-count {
 		display: block;
-		max-width: 100%;
-		overflow: hidden;
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
 		font-weight: 500;
 		line-height: 1.15;
-		text-align: center;
-		text-overflow: ellipsis;
-		white-space: normal;
-		overflow-wrap: break-word;
+	}
+
+	.header-height-probe {
+		visibility: hidden;
+		min-height: 64px;
+		pointer-events: none;
 	}
 
 	.header-wrapper {
 		position: sticky;
 		top: 0;
 		z-index: 5;
+		min-height: 64px;
 		padding: var(--size-4-2) var(--size-4-3);
 		--column-header-x-padding-override: var(--size-4-3);
 		--column-header-y-padding-override: var(--size-4-2);
@@ -228,34 +247,31 @@
 		}
 	}
 
-	.swimlane-header-cell {
+	.swimlane-header {
 		position: sticky;
-		left: 0;
-		z-index: 3;
+		top: var(--column-header-height);
+		z-index: 4;
 		display: flex;
-		align-items: start;
-		justify-content: flex-start;
-		min-height: 188px;
+		align-items: center;
 		min-width: 0;
-		padding: var(--size-4-3) var(--size-4-4);
+		padding: var(--size-2-2) var(--size-4-3);
 		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
-		border-right: var(--border-width) solid var(--background-modifier-border);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
+		border-top: var(--border-width) solid var(--background-modifier-border);
+	}
 
-		:global(.swimlane-label) {
-			position: sticky;
-			top: calc(var(--header-height) + var(--size-4-3));
-			left: var(--size-4-4);
-			display: block;
-			max-width: min(28ch, 24vw);
-			color: var(--text-normal);
-			font-size: var(--font-ui-medium);
-			font-weight: var(--font-medium);
-			line-height: 1.2;
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
-		}
+	.swimlane-heading {
+		position: sticky;
+		left: var(--size-4-3);
+		min-width: 0;
+		margin: 0;
+		color: var(--text-normal);
+		font-size: var(--font-ui-medium);
+		font-weight: var(--font-medium);
+		line-height: 1.2;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.cell-wrapper {
@@ -275,15 +291,6 @@
 	}
 
 	@media (max-width: 760px) {
-		.matrix-horizontal:not(.show-swimlane-labels) {
-			--matrix-corner-width: 0px;
-
-			.matrix-corner {
-				padding: 0;
-				border-right: 0;
-			}
-		}
-
 		.header-wrapper {
 			scroll-snap-align: start;
 			scroll-snap-stop: normal;

@@ -344,11 +344,8 @@
 
 			.tasks {
 				order: 1;
-				flex-direction: row;
-				flex-wrap: nowrap;
-				align-items: flex-start;
-				justify-content: flex-start;
-				min-width: max-content;
+				flex-direction: column;
+				min-width: 0;
 
 				:global(.task) {
 					width: var(--column-width, 300px);
@@ -357,7 +354,8 @@
 			}
 
 			.task-slot {
-				flex: 0 0 var(--column-width, 300px);
+				flex: 0 0 auto;
+				width: var(--column-width, 300px);
 			}
 		}
 

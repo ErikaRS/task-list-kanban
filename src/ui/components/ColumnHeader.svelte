@@ -49,6 +49,9 @@
 	// Mobile sections stack vertically, so a rotated collapsed title wastes
 	// scarce width without conveying the desktop grid's compact-column state.
 	export let keepCollapsedHorizontal: boolean = false;
+	// Full-width row headers need their controls beside the title rather than
+	// spread across a second metadata row.
+	export let compact: boolean = false;
 	let columnSubtitle: ColumnHeaderSubtitle | undefined;
 
 	function getColumnTitle(
@@ -183,6 +186,7 @@
 	class:collapsed={isHorizontalCollapsed}
 	class:vertical-collapsed={isVerticalCollapsed}
 	class:keep-collapsed-horizontal={keepCollapsedHorizontal}
+	class:compact
 	style:--column-color={columnColor}
 >
 	<div class="header">
@@ -203,6 +207,28 @@
 		<div class="column-title-group">
 			<svelte:element this={`h${headingLevel}`} id={headingId ?? `column-title-${column}`} title={columnTitle}>{columnTitle}</svelte:element>
 		</div>
+		{#if compact && !isCollapsed}
+			<div class="mode-toggle compact-actions" role="toolbar" aria-label="Column interaction mode">
+				<button
+					class="mode-btn"
+					class:active={!isSelectMode}
+					aria-pressed={!isSelectMode}
+					aria-label="Done mode: click tasks to mark complete"
+					on:click={() => {
+						if (isSelectMode) toggleSelectionMode(column);
+					}}
+				>Done</button>
+				<button
+					class="mode-btn"
+					class:active={isSelectMode}
+					aria-pressed={isSelectMode}
+					aria-label="Select mode: click tasks to select for bulk actions"
+					on:click={() => {
+						if (!isSelectMode) toggleSelectionMode(column);
+					}}
+				>Select</button>
+			</div>
+		{/if}
 		{#if isCollapsed || showTaskCount}
 			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 		{/if}
@@ -216,7 +242,7 @@
 			{/if}
 		</div>
 	</div>
-	{#if !isCollapsed}
+	{#if !isCollapsed && !compact}
 		<div class="column-meta">
 			<div class="column-meta-line">
 				{#if showColumnMatchTags}
@@ -430,6 +456,39 @@
 				}
 
 
+			}
+		}
+
+		&.compact {
+			gap: 0;
+
+			&::before {
+				height: 4px;
+			}
+
+			.header {
+				position: sticky;
+				left: var(--sticky-left-offset, var(--column-header-x-padding));
+				z-index: 3;
+				width: fit-content;
+				max-width: calc(100vw - calc(2 * var(--size-4-3)));
+				gap: var(--size-2-2);
+				background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
+			}
+
+			.column-title-group {
+				flex: 0 1 auto;
+				max-width: min(36ch, 50%);
+			}
+
+			.compact-actions {
+				flex-shrink: 0;
+			}
+
+			.header > .task-count {
+				flex-shrink: 0;
+				align-self: center;
+				line-height: 1.2;
 			}
 		}
 	}

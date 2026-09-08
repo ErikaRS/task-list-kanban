@@ -51,35 +51,59 @@
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 
 	$: ungroupedSecondaryBucket = matrix.secondaryAxis[0];
+	$: summaryRowCount = taskCountLabel ? 1 : 0;
 	$: ungroupedGridTemplateRows = [
+		...(taskCountLabel ? ["max-content"] : []),
 		"max-content",
 		...matrix.primaryAxis.map(() => "max-content"),
 	].join(" ");
-	$: groupedGridTemplateColumns = [
-		"var(--vertical-row-header-width)",
-		...matrix.secondaryAxis.map(() => "max-content"),
-	].join(" ");
+	$: groupedGridTemplateColumns = matrix.secondaryAxis
+		.map(() => "max-content")
+		.join(" ");
 	$: groupedGridTemplateRows = [
+		...(taskCountLabel ? ["max-content"] : []),
 		"max-content",
-		...matrix.primaryAxis.map(() => "max-content"),
+		...matrix.primaryAxis.flatMap(() => ["max-content", "max-content"]),
 	].join(" ");
 
-	let headerHeight = 64;
+	function headerGridRow(): number {
+		return summaryRowCount + 1;
+	}
+
+	function contentGridRow(index: number): number {
+		return summaryRowCount + index + 2;
+	}
+
+	function groupedAxisHeaderGridRow(): number {
+		return summaryRowCount + 1;
+	}
+
+	function groupedPrimaryHeaderGridRow(index: number): number {
+		return summaryRowCount + 2 + index * 2;
+	}
+
+	function groupedPrimaryCellGridRow(index: number): number {
+		return groupedPrimaryHeaderGridRow(index) + 1;
+	}
+
+	let groupedAxisHeaderHeight = 64;
 </script>
 
 {#if !showSwimlaneHeaders && ungroupedSecondaryBucket}
-	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows} style:--header-height="{headerHeight}px">
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
-			{#if taskCountLabel}
+	<div class="matrix-vertical ungrouped-grid" style:grid-template-rows={ungroupedGridTemplateRows}>
+		{#if taskCountLabel}
+			<div class="matrix-summary" style:grid-column="1 / -1" style:grid-row="1">
 				<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
-			{/if}
-		</div>
+			</div>
+		{/if}
+
+		<div class="matrix-corner" style:grid-column="1" style:grid-row={headerGridRow()}></div>
 
 		<div
 			class="group-header-cell"
 			aria-hidden="true"
 			style:grid-column="2"
-			style:grid-row="1"
+			style:grid-row={headerGridRow()}
 		></div>
 
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
@@ -87,7 +111,7 @@
 				class="row-header-wrapper"
 				class:collapsed={pBucket.collapsed}
 				style:grid-column="1"
-				style:grid-row={pIndex + 2}
+				style:grid-row={contentGridRow(pIndex)}
 				style:--column-color={pBucket.meta?.color}
 			>
 				<ColumnHeader
@@ -110,7 +134,7 @@
 				class="cell-wrapper row-cell"
 				class:collapsed={pBucket.collapsed}
 				style:grid-column="2"
-				style:grid-row={pIndex + 2}
+				style:grid-row={contentGridRow(pIndex)}
 				style:--column-color={pBucket.meta?.color}
 			>
 				<BoardCell
@@ -142,22 +166,28 @@
 	</div>
 {:else}
 	<div
-		class="matrix-vertical transposed-grid"
+		class="matrix-vertical grouped-grid"
 		style:grid-template-columns={groupedGridTemplateColumns}
 		style:grid-template-rows={groupedGridTemplateRows}
-		style:--header-height="{headerHeight}px"
+		style:--grouped-axis-header-height="{groupedAxisHeaderHeight}px"
 	>
-		<div class="matrix-corner" style:grid-column="1" style:grid-row="1" bind:clientHeight={headerHeight}>
-			{#if taskCountLabel}
+		{#if taskCountLabel}
+			<div class="matrix-summary" style:grid-column="1 / -1" style:grid-row="1">
 				<span class="matrix-task-count" aria-live="polite">{taskCountLabel}</span>
-			{/if}
-		</div>
+			</div>
+		{/if}
 
+		<div
+			class="grouped-header-height-probe"
+			style:grid-column="1 / -1"
+			style:grid-row={groupedAxisHeaderGridRow()}
+			bind:clientHeight={groupedAxisHeaderHeight}
+		></div>
 		{#each matrix.secondaryAxis as sBucket, sIndex (sBucket.id)}
 			<div
 				class="group-header-cell"
-				style:grid-column={sIndex + 2}
-				style:grid-row="1"
+				style:grid-column={sIndex + 1}
+				style:grid-row={groupedAxisHeaderGridRow()}
 			>
 				<GroupLabel bucket={sBucket} className="group-label" />
 			</div>
@@ -165,10 +195,10 @@
 
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
 			<div
-				class="row-header-wrapper"
+				class="grouped-row-header"
 				class:collapsed={pBucket.collapsed}
-				style:grid-column="1"
-				style:grid-row={pIndex + 2}
+				style:grid-column="1 / -1"
+				style:grid-row={groupedPrimaryHeaderGridRow(pIndex)}
 				style:--column-color={pBucket.meta?.color}
 			>
 				<ColumnHeader
@@ -179,11 +209,14 @@
 					{columnColourTableStore}
 					{columnMatchTagTableStore}
 					{columnSubtitleTableStore}
-					isVerticalFlow={true}
+					isVerticalFlow={false}
 					isCollapsed={pBucket.collapsed}
 					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 					{uncategorizedColumnName}
 					{doneColumnName}
+					showTaskCount={true}
+					keepCollapsedHorizontal={true}
+					compact={true}
 				/>
 			</div>
 
@@ -191,8 +224,8 @@
 				<div
 					class="cell-wrapper grouped-cell"
 					class:collapsed={pBucket.collapsed}
-					style:grid-column={sIndex + 2}
-					style:grid-row={pIndex + 2}
+					style:grid-column={sIndex + 1}
+					style:grid-row={groupedPrimaryCellGridRow(pIndex)}
 					style:--column-color={pBucket.meta?.color}
 				>
 					<BoardCell
@@ -221,7 +254,7 @@
 					/>
 				</div>
 			{/each}
-		{/each}
+			{/each}
 	</div>
 {/if}
 
@@ -231,8 +264,20 @@
 		position: relative;
 		padding-bottom: var(--size-4-4);
 
-		&.ungrouped-grid,
-		&.transposed-grid {
+		&.ungrouped-grid {
+			display: grid;
+			column-gap: 0;
+			row-gap: 0;
+			align-items: stretch;
+			min-width: max-content;
+			border: var(--border-width) solid var(--background-modifier-border);
+			border-radius: var(--radius-m);
+			background: var(--background-primary);
+			box-shadow: var(--shadow-s);
+			overflow: visible;
+		}
+
+		&.grouped-grid {
 			display: grid;
 			column-gap: 0;
 			row-gap: 0;
@@ -281,16 +326,28 @@
 		overflow: hidden;
 	}
 
+	.matrix-summary {
+		z-index: 2;
+		display: flex;
+		align-items: center;
+		min-height: 32px;
+		padding: var(--size-2-1) var(--size-4-3);
+		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
+	}
+
 	.matrix-task-count {
 		display: block;
-		max-width: 100%;
-		overflow: hidden;
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
 		font-weight: 500;
 		line-height: 1.2;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	}
+
+	.grouped-header-height-probe {
+		visibility: hidden;
+		min-height: 32px;
+		pointer-events: none;
 	}
 
 	.group-header-cell {
@@ -298,18 +355,50 @@
 		align-items: center;
 		min-width: var(--column-width, 300px);
 		padding: var(--size-4-3) var(--size-4-4);
-		overflow: clip;
+		overflow: visible;
 
 		:global(.group-label) {
 			position: sticky;
 			left: calc(var(--vertical-row-header-width) + var(--size-4-4));
 			display: inline-block;
-			max-width: max-content;
+			max-width: min(28ch, 24vw);
+			overflow: hidden;
 			color: var(--text-normal);
 			font-size: var(--font-ui-medium);
 			font-weight: var(--font-medium);
 			line-height: 1.2;
 			white-space: nowrap;
+			text-overflow: ellipsis;
+		}
+	}
+
+	.grouped-grid .group-header-cell :global(.group-label) {
+		position: sticky;
+		left: var(--size-4-3);
+		max-width: calc(100% - calc(2 * var(--size-4-3)));
+	}
+
+	.grouped-grid .group-header-cell {
+		min-height: 32px;
+		padding: var(--size-2-1) var(--size-4-3);
+	}
+
+	.grouped-row-header {
+		position: sticky;
+		top: var(--grouped-axis-header-height);
+		z-index: 4;
+		display: flex;
+		align-items: stretch;
+		min-height: 0;
+		padding: var(--size-2-1) var(--size-4-3);
+		background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
+		border-top: var(--border-width) solid var(--background-modifier-border);
+		border-bottom: var(--border-width) solid var(--background-modifier-border);
+		--column-header-x-padding-override: var(--size-4-3);
+		--column-header-y-padding-override: var(--size-2-1);
+
+		&.collapsed {
+			padding: var(--size-2-1) var(--size-4-3);
 		}
 	}
 
