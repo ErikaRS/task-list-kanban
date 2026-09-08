@@ -68,10 +68,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "periodic/Kanban-None.md"
+                    "file": "periodic/Kanban-Tasks.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-None"
+                  "title": "Kanban-Tasks"
                 }
               }
             ],
@@ -240,13 +240,13 @@
       "bases:Create new base": false
     }
   },
-  "active": "2b389fdb616c3e5b",
+  "active": "edb014cec5cbad69",
   "lastOpenFiles": [
+    "periodic/2025-10-21.md",
+    "periodic/Kanban-Tasks.md",
+    "Kanban-Dataview.md",
     "periodic/Kanban-None.md",
     "Kanban-1788834421310.md",
-    "periodic/Kanban-Tasks.md",
-    "periodic/2025-10-21.md",
-    "Kanban-Dataview.md",
     "periodic/2025-05-01.md",
     "Untitled.md",
     "tasks/Even more tasks.md",
