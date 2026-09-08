@@ -112,6 +112,38 @@ Rejected approaches:
 - A title/control overlay above row headers (it creates overlapping visual
   hierarchies).
 
+### Lessons learned from the initial implementation attempts
+
+The first implementation attempts produced working persistence but did not
+honour the matrix rendering model. Preserve these findings when replacing that
+work:
+
+1. **Do not solve an axis problem with z-index alone.** A full-width row header
+   either covers a collapsed rail or is covered by it. Moving one layer above
+   another merely swaps which label/control becomes inaccessible.
+2. **Leading-only indentation is not segmentation.** Starting a row header
+   after leading collapsed columns happens to work for the first rail, but
+   fails immediately when a middle column is collapsed. Header geometry must
+   account for every collapsed rendered-column track.
+3. **Do not add a special collapsed-group component.** Group-dominant rails
+   must use the same DOM order and layout rules as column-dominant semantic
+   rails. Separate group-only flex, sticky, absolute-position, or centering
+   rules caused the expand control and label to drift or disappear.
+4. **Keep the rail in normal grid flow.** Absolute control overlays made the
+   visual stacking ambiguous. Vertically centered full-height flex children
+   put the toggle and count in the middle of a rail. A rail must instead use
+   the ordinary leading-toggle, label, trailing-count sequence.
+5. **Status presentation is semantic, not a substitute for geometry.**
+   `GroupLabel` may replace a status bucket's text with a styled marker in an
+   expanded header. That is acceptable only where the marker is the intended
+   label. It cannot be used as a fallback for a collapsed non-status rail, and
+   must not turn a required vertical text label into an unexplained glyph.
+6. **Test every matrix position and axis swap visually.** Automated data-model
+   tests are insufficient for this feature. Before a phase is complete,
+   manually verify first, middle, and last collapsed rendered columns in both
+   column-dominant and group-dominant desktop flows, plus status and non-status
+   group labels.
+
 ### Persisted state
 
 Add `collapsedGroups?: string[]` to `SettingValues`, the settings Zod schema,
