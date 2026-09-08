@@ -14,6 +14,7 @@
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
+	import GroupLabel from "./GroupLabel.svelte";
 
 	export let app: App;
 	export let matrix: BoardMatrix;
@@ -158,7 +159,7 @@
 				style:grid-column={sIndex + 2}
 				style:grid-row="1"
 			>
-				<span class="group-label" title={sBucket.label}>{sBucket.label}</span>
+				<GroupLabel bucket={sBucket} className="group-label" />
 			</div>
 		{/each}
 
@@ -299,7 +300,7 @@
 		padding: var(--size-4-3) var(--size-4-4);
 		overflow: clip;
 
-		.group-label {
+		:global(.group-label) {
 			position: sticky;
 			left: calc(var(--vertical-row-header-width) + var(--size-4-4));
 			display: inline-block;

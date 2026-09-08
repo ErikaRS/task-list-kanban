@@ -101,7 +101,7 @@
 					<div class="mobile-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty}>
 						{#if showGroupLabels}
 							<MobileSectionHeader
-								label={sBucket.label}
+								bucket={sBucket}
 								count={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
 								headingLevel={3}
 								className="mobile-inner-header mobile-group-label"
@@ -141,7 +141,7 @@
 			<section class="mobile-outer-section mobile-group">
 				<header class="mobile-outer-header mobile-group-header" use:setStickyOffset>
 					<MobileSectionHeader
-						label={sBucket.label}
+						bucket={sBucket}
 						count={tasksBySecondary[sBucket.id]?.length ?? 0}
 						headingLevel={2}
 						className="mobile-outer-heading"

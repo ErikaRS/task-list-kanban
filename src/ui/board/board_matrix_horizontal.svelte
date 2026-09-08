@@ -14,6 +14,7 @@
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
+	import GroupLabel from "./GroupLabel.svelte";
 
 	export let app: App;
 	export let matrix: BoardMatrix;
@@ -109,7 +110,7 @@
 			style:grid-row={sIndex + 2}
 		>
 			{#if showSwimlaneLabels}
-				<span class="swimlane-label" title={sBucket.label}>{sBucket.label}</span>
+				<GroupLabel bucket={sBucket} className="swimlane-label" />
 			{/if}
 		</div>
 		{#each matrix.primaryAxis as pBucket, pIndex (pBucket.id)}
@@ -241,7 +242,7 @@
 		border-right: var(--border-width) solid var(--background-modifier-border);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 
-		.swimlane-label {
+		:global(.swimlane-label) {
 			position: sticky;
 			top: calc(var(--header-height) + var(--size-4-3));
 			left: var(--size-4-4);
