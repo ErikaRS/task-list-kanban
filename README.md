@@ -335,7 +335,7 @@ Deploy to the vendored test vault:
 ./tools/deploy_for_manual_test.sh
 ```
 
-This copies the built plugin into `test-vaults/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can pass a target directory to deploy somewhere else.
+This runs `npm run build` and `npm test`, then copies the built plugin into `test-vaults/obsidian-plugin-dev/.obsidian/plugins/task-list-kanban/`. You can pass a target directory to deploy somewhere else.
 
 ### Release
 
