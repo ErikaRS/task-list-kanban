@@ -68,10 +68,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "periodic/Kanban-Tasks.md"
+                    "file": "periodic/Kanban-None.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-Tasks"
+                  "title": "Kanban-None"
                 }
               }
             ],
@@ -240,12 +240,13 @@
       "bases:Create new base": false
     }
   },
-  "active": "edb014cec5cbad69",
+  "active": "2b389fdb616c3e5b",
   "lastOpenFiles": [
-    "periodic/2025-10-21.md",
-    "periodic/Kanban-Tasks.md",
-    "Kanban-Dataview.md",
     "periodic/Kanban-None.md",
+    "Kanban-1788834421310.md",
+    "periodic/Kanban-Tasks.md",
+    "periodic/2025-10-21.md",
+    "Kanban-Dataview.md",
     "periodic/2025-05-01.md",
     "Untitled.md",
     "tasks/Even more tasks.md",
@@ -268,7 +269,6 @@
     "root todo.md",
     "Kanban-1780186219895.md",
     "periodic/A test file with a very very very long name.md",
-    "periodic/Kanban-repro.md",
     "periodic/@",
     "tasks"
   ]
