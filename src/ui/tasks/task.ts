@@ -173,6 +173,10 @@ export function validateIgnoredStatusMarkers(markers: string): string[] {
 	return validateTypedStatusMarkers(markers, "Ignored", true);
 }
 
+export function validateArchiveStatusMarkers(markers: string): string[] {
+	return validateTypedStatusMarkers(markers, "Archive", false);
+}
+
 export function createIgnoredStatusMarkers(markers: string): IgnoredStatusMarkers {
 	const errors = validateIgnoredStatusMarkers(markers);
 	if (errors.length > 0) {
@@ -246,6 +250,8 @@ export interface TaskParseContext {
 	doneStatusMarkers: string;
 	cancelledStatusMarkers: string;
 	ignoredStatusMarkers: string;
+	replaceArchiveTagWithStatus?: boolean;
+	archiveStatusMarkers?: string;
 	propertySchema: PropertySchema;
 }
 
@@ -367,6 +373,8 @@ export class Task {
 		this.doneStatusMarkers = context.doneStatusMarkers;
 		this.cancelledStatusMarkers = context.cancelledStatusMarkers;
 		this.ignoredStatusMarkers = context.ignoredStatusMarkers;
+		this.replaceArchiveTagWithStatus = context.replaceArchiveTagWithStatus ?? false;
+		this.archiveStatusMarkers = context.archiveStatusMarkers ?? "";
 
 		if (this._done) {
 			this._column = undefined;
@@ -386,6 +394,8 @@ export class Task {
 	private doneStatusMarkers: string;
 	private cancelledStatusMarkers: string;
 	private ignoredStatusMarkers: string;
+	private replaceArchiveTagWithStatus: boolean;
+	private archiveStatusMarkers: string;
 	private propertySchemaOption: PropertySchemaOption;
 
 	private _done: boolean;
@@ -735,8 +745,14 @@ export class Task {
 		if (sourceColumn && sourcePrioritySchema) {
 			this.removePriorityPlacement(sourcePrioritySchema);
 		}
+		if (this.replaceArchiveTagWithStatus) {
+			this._displayStatus = Array.from(this.archiveStatusMarkers)[0] ?? this.doneStatusMarker;
+			this._done = false;
+			this._column = undefined;
+			return;
+		}
 		if (!this._done) {
-			this._displayStatus = "x";
+			this._displayStatus = this.doneStatusMarker;
 		}
 		this._done = true;
 		this._column = "archived";
@@ -757,8 +773,13 @@ export class Task {
 
 type TaskString = Brand<string, "TaskString">;
 
-export function isTrackedTaskString(input: string, ignoredStatusMarkers: string = DEFAULT_IGNORED_STATUS_MARKERS): input is TaskString {
-	if (input.includes("#archived")) {
+export function isTrackedTaskString(
+	input: string,
+	ignoredStatusMarkers: string = DEFAULT_IGNORED_STATUS_MARKERS,
+	replaceArchiveTagWithStatus: boolean = false,
+	archiveStatusMarkers: string = "",
+): input is TaskString {
+	if (!replaceArchiveTagWithStatus && input.includes("#archived")) {
 		return false;
 	}
 
@@ -768,6 +789,9 @@ export function isTrackedTaskString(input: string, ignoredStatusMarkers: string 
 	}
 
 	if (isStatusMatch(parsed.status, ignoredStatusMarkers)) {
+		return false;
+	}
+	if (replaceArchiveTagWithStatus && isStatusMatch(parsed.status, archiveStatusMarkers)) {
 		return false;
 	}
 

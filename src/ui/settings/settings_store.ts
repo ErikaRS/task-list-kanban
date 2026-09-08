@@ -241,6 +241,8 @@ const settingsObject = z.object({
 	doneStatusMarkers: z.string().default(DEFAULT_DONE_STATUS_MARKERS).optional(),
 	cancelledStatusMarkers: z.string().default(DEFAULT_CANCELLED_STATUS_MARKERS).optional(),
 	ignoredStatusMarkers: z.string().default(DEFAULT_IGNORED_STATUS_MARKERS).optional(),
+	replaceArchiveTagWithStatus: z.boolean().default(false).optional(),
+	archiveStatusMarkers: z.string().default("").optional(),
 	statusMarkerOrder: z.string().default("").optional(),
 	savedFilters: z.array(savedFilterSchema).default([]).optional(),
 	savedGroupings: z.array(savedGroupingSchema).default([]).optional(),
@@ -294,6 +296,8 @@ export interface SettingValues {
 	doneStatusMarkers?: string;
 	cancelledStatusMarkers?: string;
 	ignoredStatusMarkers?: string;
+	replaceArchiveTagWithStatus?: boolean;
+	archiveStatusMarkers?: string;
 	statusMarkerOrder?: string;
 	savedFilters?: SavedFilter[];
 	savedGroupings?: SavedGrouping[];
@@ -335,6 +339,8 @@ export const defaultSettings: SettingValues = {
 	doneStatusMarkers: DEFAULT_DONE_STATUS_MARKERS,
 	cancelledStatusMarkers: DEFAULT_CANCELLED_STATUS_MARKERS,
 	ignoredStatusMarkers: DEFAULT_IGNORED_STATUS_MARKERS,
+	replaceArchiveTagWithStatus: false,
+	archiveStatusMarkers: "",
 	statusMarkerOrder: "",
 	savedFilters: [],
 	savedViews: [],

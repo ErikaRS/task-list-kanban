@@ -58,6 +58,15 @@ describe("updateMapsFromFile", () => {
 		expect(tasks.every((task) => task.sourceBlockLineCount === 1)).toBe(true);
 	});
 
+	it("uses archive statuses instead of legacy archive tags when configured", async () => {
+		const { tasks } = await parseFileTasks(
+			"- [ ] Legacy #archived\n- [d] Status archive\n- [ ] Active #todo",
+			{ replaceArchiveTagWithStatus: true, archiveStatusMarkers: "dD" },
+		);
+
+		expect(tasks.map((task) => task.content)).toEqual(["Legacy #archived", "Active"]);
+	});
+
 	it("creates only root-most visible task cards with source children when nested subtask parsing is on", async () => {
 		const { tasks } = await parseFileTasks(
 			[
@@ -180,6 +189,8 @@ async function parseFileTasks(
 	options: {
 		treatNestedTasksAsSubtasks?: boolean;
 		ignoredStatusMarkers?: string;
+		replaceArchiveTagWithStatus?: boolean;
+		archiveStatusMarkers?: string;
 		excludedTaskTags?: Set<string>;
 	} = {},
 ) {
@@ -202,6 +213,8 @@ async function parseFileTasks(
 		doneStatusMarkers: DEFAULT_DONE_STATUS_MARKERS,
 		cancelledStatusMarkers: DEFAULT_CANCELLED_STATUS_MARKERS,
 		ignoredStatusMarkers: options.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		replaceArchiveTagWithStatus: options.replaceArchiveTagWithStatus ?? false,
+		archiveStatusMarkers: options.archiveStatusMarkers ?? "",
 		excludedTaskTags: options.excludedTaskTags ?? new Set(),
 		propertySchema: new NoneSchema(),
 		treatNestedTasksAsSubtasks: options.treatNestedTasksAsSubtasks ?? false,

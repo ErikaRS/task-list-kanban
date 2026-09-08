@@ -13,12 +13,17 @@ import {
 	usesStatusMatching,
 	usesTagMatching,
 } from "../columns/definitions";
+import { validateArchiveStatusMarkers } from "../tasks/task";
 
 export function getColumnValidationError(
 	columns: ColumnDefinition[],
 	options: {
 		doneStatusMarkers?: string;
 		ignoredStatusMarkers?: string;
+		cancelledStatusMarkers?: string;
+		replaceArchiveTagWithStatus?: boolean;
+		archiveStatusMarkers?: string;
+		statusMarkerOrder?: string;
 		propertySchema?: PropertySchemaOption;
 		originalColumns?: ColumnDefinition[];
 	} = {},
@@ -27,6 +32,9 @@ export function getColumnValidationError(
 	const seenSignatures = new Map<string, string>();
 	const doneStatusMarkers = Array.from(options.doneStatusMarkers ?? "");
 	const ignoredStatusMarkers = Array.from(options.ignoredStatusMarkers ?? "");
+	const cancelledStatusMarkers = Array.from(options.cancelledStatusMarkers ?? "");
+	const archiveStatusMarkers = options.archiveStatusMarkers ?? "";
+	const statusMarkerOrder = Array.from(options.statusMarkerOrder ?? "");
 	const originalColumnsById = new Map((options.originalColumns ?? []).map((column) => [column.id, column]));
 
 	for (const column of columns) {
@@ -136,6 +144,37 @@ export function getColumnValidationError(
 			const tagsCollision = seenSignatures.get(tagsEquivalent);
 			if (tagsCollision) {
 				errors.push(`Columns "${tagsCollision}" and "${label}" match the same tag.`);
+			}
+		}
+	}
+
+	if (options.replaceArchiveTagWithStatus) {
+		const archiveErrors = validateArchiveStatusMarkers(archiveStatusMarkers);
+		if (archiveErrors.length > 0) {
+			errors.push(archiveErrors[0]!);
+		} else {
+			for (const marker of Array.from(archiveStatusMarkers)) {
+				if (doneStatusMarkers.includes(marker)) {
+					errors.push(`Archive status marker "${marker}" is also a done status marker.`);
+					break;
+				}
+				if (cancelledStatusMarkers.includes(marker)) {
+					errors.push(`Archive status marker "${marker}" is also a cancelled status marker.`);
+					break;
+				}
+				if (ignoredStatusMarkers.includes(marker)) {
+					errors.push(`Archive status marker "${marker}" is also an ignored status marker.`);
+					break;
+				}
+				if (statusMarkerOrder.includes(marker)) {
+					errors.push(`Archive status marker "${marker}" is also in the status marker order.`);
+					break;
+				}
+				const column = columns.find((candidate) => usesStatusMatching(candidate) && candidate.matchStatus === marker);
+				if (column) {
+					errors.push(`Archive status marker "${marker}" is also used by column "${column.label.trim()}".`);
+					break;
+				}
 			}
 		}
 	}

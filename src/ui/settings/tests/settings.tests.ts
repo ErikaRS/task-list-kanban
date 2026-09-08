@@ -119,6 +119,31 @@ describe("getColumnValidationError", () => {
 		expect(getColumnValidationError(columns)).toBeNull();
 	});
 
+	it("rejects archive status markers when replacing #archived without a marker", () => {
+		expect(getColumnValidationError([], { replaceArchiveTagWithStatus: true })).toBe(
+			"Archive status markers cannot be empty",
+		);
+	});
+
+	it("rejects archive status markers that overlap another status role", () => {
+		expect(getColumnValidationError([], {
+			replaceArchiveTagWithStatus: true,
+			archiveStatusMarkers: "d",
+			doneStatusMarkers: "dx",
+		})).toBe('Archive status marker "d" is also a done status marker.');
+	});
+
+	it("rejects archive status markers that overlap status columns", () => {
+		const columns = migrateColumnDefinitions([
+			{ id: "archive-status" as ColumnTag, label: "Archived", matchMode: "status", matchTags: [], matchStatus: "d" },
+		]);
+
+		expect(getColumnValidationError(columns, {
+			replaceArchiveTagWithStatus: true,
+			archiveStatusMarkers: "d",
+		})).toBe('Archive status marker "d" is also used by column "Archived".');
+	});
+
 	it("rejects priority-mode columns when task properties are disabled", () => {
 		const columns = migrateColumnDefinitions([
 			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },

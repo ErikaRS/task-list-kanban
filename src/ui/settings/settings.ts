@@ -9,7 +9,7 @@ import {
 	defaultSettings,
 } from "../settings/settings_store";
 import { z } from "zod";
-import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers, validateStatusMarkerOrder } from "../tasks/task";
+import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateArchiveStatusMarkers, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers, validateStatusMarkerOrder } from "../tasks/task";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { TASKS_PRIORITY_OPTIONS } from "../../parsing/properties/tasks_schema";
 import { resolveScopeFilter, shouldIncludeFilePath } from "../tasks/scope";
@@ -311,6 +311,10 @@ export class SettingsModal extends Modal {
 		this.validationError = getColumnValidationError(this.settings.columns ?? [], {
 			doneStatusMarkers: this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 			ignoredStatusMarkers: this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			cancelledStatusMarkers: this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
+			replaceArchiveTagWithStatus: this.settings.replaceArchiveTagWithStatus ?? false,
+			archiveStatusMarkers: this.settings.archiveStatusMarkers ?? "",
+			statusMarkerOrder: this.settings.statusMarkerOrder ?? "",
 			propertySchema: this.settings.propertySchema ?? PropertySchemaOption.None,
 			originalColumns: this.originalSettings.columns,
 		});
@@ -442,11 +446,13 @@ export class SettingsModal extends Modal {
 		);
 		const tags = new Set<string>();
 		const ignoredStatusMarkers = this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS;
+		const replaceArchiveTagWithStatus = this.settings.replaceArchiveTagWithStatus ?? false;
+		const archiveStatusMarkers = this.settings.archiveStatusMarkers ?? "";
 
 		for (const file of files) {
 			const contents = await this.app.vault.cachedRead(file);
 			for (const row of contents.split("\n")) {
-				if (!row || !isTrackedTaskString(row, ignoredStatusMarkers)) continue;
+				if (!row || !isTrackedTaskString(row, ignoredStatusMarkers, replaceArchiveTagWithStatus, archiveStatusMarkers)) continue;
 				for (const tag of getTagsFromContent(row)) {
 					if (tag === "archived") continue;
 					tags.add(tag);
@@ -1337,6 +1343,8 @@ export class SettingsModal extends Modal {
 				"doneStatusMarkers",
 				"cancelledStatusMarkers",
 				"ignoredStatusMarkers",
+				"replaceArchiveTagWithStatus",
+				"archiveStatusMarkers",
 			],
 		);
 
@@ -1721,6 +1729,44 @@ export class SettingsModal extends Modal {
 			},
 		});
 
+		const archiveSetting = new Setting(statusMarkersSection)
+			.setName("Replace #archived with status")
+			.setDesc("Use archive status markers instead of the #archived tag. The first marker is written when archiving.");
+		let archiveMarkersInput: HTMLInputElement | null = null;
+		archiveSetting
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.replaceArchiveTagWithStatus ?? false);
+				toggle.onChange((value) => {
+					this.settings.replaceArchiveTagWithStatus = value;
+					if (archiveMarkersInput) {
+						archiveMarkersInput.style.display = value ? "" : "none";
+						archiveMarkersInput.toggleAttribute("aria-hidden", !value);
+					}
+					this.touchSettings();
+				});
+			});
+		archiveSetting.addText((text) => {
+			text.setPlaceholder("Archive markers");
+			text.setValue(this.settings.archiveStatusMarkers ?? "");
+			archiveMarkersInput = text.inputEl;
+			const enabled = this.settings.replaceArchiveTagWithStatus ?? false;
+			text.inputEl.style.display = enabled ? "" : "none";
+			text.inputEl.toggleAttribute("aria-hidden", !enabled);
+			text.onChange((value) => {
+				const errors = validateArchiveStatusMarkers(value);
+				if (errors.length > 0) {
+					text.inputEl.style.borderColor = "var(--text-error)";
+					text.inputEl.title = `Invalid: ${errors.join(", ")}`;
+					return;
+				}
+				text.inputEl.style.borderColor = "";
+				text.inputEl.title = "Valid archive status markers";
+				this.settings.archiveStatusMarkers = value;
+				this.touchSettings();
+			});
+		});
+		this.createOverrideChip(archiveSetting.nameEl, ["replaceArchiveTagWithStatus", "archiveStatusMarkers"]);
+
 		this.addValidatedTextSetting(statusMarkersSection, {
 			name: "Done status markers",
 			overrideKey: "doneStatusMarkers",
@@ -1802,4 +1848,3 @@ export class SettingsModal extends Modal {
 		return resolveScopeFilter(this.settings.scope, this.settings.scopeFolders, this.boardFolderPath);
 	}
 }
-

@@ -36,6 +36,8 @@ export function getMarkerSettings(settings: SettingValues) {
 		doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 		cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 		ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+		replaceArchiveTagWithStatus: settings.replaceArchiveTagWithStatus ?? false,
+		archiveStatusMarkers: settings.archiveStatusMarkers ?? "",
 		excludedTaskTags: new Set(
 			(settings.excludedTaskTags ?? []).map((t) => t.trim().toLowerCase())
 		),
@@ -59,6 +61,8 @@ export async function updateMapsFromFile({
 	doneStatusMarkers,
 	cancelledStatusMarkers,
 	ignoredStatusMarkers,
+	replaceArchiveTagWithStatus = false,
+	archiveStatusMarkers = "",
 	excludedTaskTags,
 	propertySchema,
 	treatNestedTasksAsSubtasks,
@@ -76,6 +80,8 @@ export async function updateMapsFromFile({
 	doneStatusMarkers: string;
 	cancelledStatusMarkers: string;
 	ignoredStatusMarkers: string;
+	replaceArchiveTagWithStatus?: boolean;
+	archiveStatusMarkers?: string;
 	excludedTaskTags: Set<string>;
 	propertySchema: PropertySchema;
 	treatNestedTasksAsSubtasks?: boolean;
@@ -96,6 +102,8 @@ export async function updateMapsFromFile({
 			doneStatusMarkers,
 			cancelledStatusMarkers,
 			ignoredStatusMarkers,
+			replaceArchiveTagWithStatus,
+			archiveStatusMarkers,
 			propertySchema,
 		};
 
@@ -150,7 +158,7 @@ export async function updateMapsFromFile({
 				continue;
 			}
 
-			if (isTrackedTaskString(row, ignoredStatusMarkers)) {
+			if (isTrackedTaskString(row, ignoredStatusMarkers, replaceArchiveTagWithStatus, archiveStatusMarkers)) {
 				const task = new Task(
 					row,
 					fileHandle,
@@ -277,7 +285,12 @@ function createSourceNode({
 		return createRawNode(rawLine, rowIndex);
 	}
 
-	if (!isTrackedTaskString(rawLine, parseContext.ignoredStatusMarkers)) {
+	if (!isTrackedTaskString(
+		rawLine,
+		parseContext.ignoredStatusMarkers,
+		parseContext.replaceArchiveTagWithStatus,
+		parseContext.archiveStatusMarkers,
+	)) {
 		return {
 			kind: "task",
 			taskVisibility: "ignored",

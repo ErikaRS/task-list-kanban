@@ -63,6 +63,8 @@ export interface TaskParseOptions {
 	doneStatusMarkers?: string;
 	cancelledStatusMarkers?: string;
 	ignoredStatusMarkers?: string;
+	replaceArchiveTagWithStatus?: boolean;
+	archiveStatusMarkers?: string;
 	propertySchema?: PropertySchema;
 	rowIndex?: number;
 }
@@ -74,7 +76,12 @@ export function parseTask(taskString: string, options: TaskParseOptions = {}): T
 	const columns = options.columns ?? defaultColumns;
 	const placementTags = options.placementTags ?? createColumnData(columns).columnPlacementTagTable;
 
-	expect(isTrackedTaskString(taskString, options.ignoredStatusMarkers)).toBe(true);
+	expect(isTrackedTaskString(
+		taskString,
+		options.ignoredStatusMarkers,
+		options.replaceArchiveTagWithStatus,
+		options.archiveStatusMarkers,
+	)).toBe(true);
 
 	return new Task(
 		taskString as ConstructorParameters<typeof Task>[0],
@@ -87,6 +94,8 @@ export function parseTask(taskString: string, options: TaskParseOptions = {}): T
 			doneStatusMarkers: options.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 			cancelledStatusMarkers: options.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 			ignoredStatusMarkers: options.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			replaceArchiveTagWithStatus: options.replaceArchiveTagWithStatus ?? false,
+			archiveStatusMarkers: options.archiveStatusMarkers ?? "",
 			propertySchema: options.propertySchema ?? new NoneSchema(),
 		}
 	);

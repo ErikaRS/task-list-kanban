@@ -106,7 +106,12 @@ async function updateFileForChangedColumns(
 
 	for (let i = 0; i < rows.length; i += 1) {
 		const row = rows[i];
-		if (!row || !isTrackedTaskString(row, settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS)) {
+		if (!row || !isTrackedTaskString(
+			row,
+			settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+			settings.replaceArchiveTagWithStatus ?? false,
+			settings.archiveStatusMarkers ?? "",
+		)) {
 			continue;
 		}
 
@@ -138,6 +143,8 @@ async function updateFileForChangedColumns(
 				doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 				cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
 				ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
+				replaceArchiveTagWithStatus: settings.replaceArchiveTagWithStatus ?? false,
+				archiveStatusMarkers: settings.archiveStatusMarkers ?? "",
 				propertySchema: getSchemaImpl(getMigrationSchema(changedColumn, oldPropertySchemaOption)),
 			}
 		);

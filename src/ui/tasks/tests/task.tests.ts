@@ -825,6 +825,36 @@ describe("Task archiving", () => {
 		expect(task.column).toBe("archived");
 		expect(task.serialise()).toBe(expected);
 	});
+
+	it("writes the first archive status marker without adding #archived", () => {
+		const task = parseTask("- [/] Active task #column", {
+			replaceArchiveTagWithStatus: true,
+			archiveStatusMarkers: "dD",
+		});
+
+		task.archive();
+
+		expect(task.done).toBe(false);
+		expect(task.column).toBeUndefined();
+		expect(task.serialise()).toBe("- [d] Active task");
+	});
+
+	it("preserves an existing #archived tag in archive-status mode", () => {
+		const task = parseTask("- [ ] Legacy archive #archived", {
+			replaceArchiveTagWithStatus: true,
+			archiveStatusMarkers: "d",
+		});
+
+		task.archive();
+
+		expect(task.serialise()).toBe("- [d] Legacy archive #archived");
+	});
+
+	it("ignores legacy archive tags when archive statuses replace them", () => {
+		expect(isTrackedTaskString("- [ ] Legacy #archived", "", true, "d")).toBe(true);
+		expect(isTrackedTaskString("- [d] Archive status #archived", "", true, "d")).toBe(false);
+		expect(isTrackedTaskString("- [D] Second archive status", "", true, "dD")).toBe(false);
+	});
 });
 
 describe("Task marking as done", () => {

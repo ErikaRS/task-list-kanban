@@ -52,6 +52,17 @@ describe("Settings dirty check", () => {
 });
 
 describe("Sparse overrides parsing (SPEC 0030)", () => {
+	it("parses archive-status settings without promoting absent defaults", () => {
+		expect(parseSettingsOverrides(JSON.stringify({
+			replaceArchiveTagWithStatus: true,
+			archiveStatusMarkers: "dD",
+		}))).toEqual({
+			replaceArchiveTagWithStatus: true,
+			archiveStatusMarkers: "dD",
+		});
+		expect(parseSettings({}).replaceArchiveTagWithStatus).toBe(false);
+		expect(parseSettings({}).archiveStatusMarkers).toBe("");
+	});
 	it("keeps only explicitly-set fields as overrides", () => {
 		expect(parseSettingsOverrides(JSON.stringify({ columnWidth: 400 }))).toEqual({
 			columnWidth: 400,
