@@ -13,7 +13,7 @@
 	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
 	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
-	import { deriveBoardMatrix } from "./board/board_matrix";
+	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
 	import ViewEditor from "./view_editor.svelte";
 	import {
 		createGroupAssigner,
@@ -831,6 +831,7 @@
 		},
 		$todayStore,
 	);
+	$: renderedMatrix = hideSwimlanesWithOnlyCollapsedContent(activeMatrix);
 
 	// --- Sort control (board header) ---
 	// Available sort keys are the active schema's known keys, plus — for Dataview
@@ -1183,7 +1184,7 @@
 					{#if isMobileBoardLayout}
 						<BoardMobileList
 							{app}
-							matrix={activeMatrix}
+							matrix={renderedMatrix}
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}
@@ -1209,7 +1210,7 @@
 					{:else if !isVerticalFlow}
 						<BoardMatrixHorizontal
 							{app}
-							matrix={activeMatrix}
+							matrix={renderedMatrix}
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}
@@ -1235,7 +1236,7 @@
 					{:else}
 						<BoardMatrixVertical
 							{app}
-							matrix={activeMatrix}
+							matrix={renderedMatrix}
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}

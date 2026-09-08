@@ -238,6 +238,31 @@ export function getBoardCell(
 	);
 }
 
+/**
+ * Removes rendered swimlanes whose cards are all inside collapsed columns.
+ *
+ * The underlying matrix stays complete so grouping, selection, and task
+ * actions retain their normal semantics. Empty configured lanes are kept: a
+ * lane is hidden only when it has content and every such card is concealed by
+ * a collapsed column.
+ */
+export function hideSwimlanesWithOnlyCollapsedContent(matrix: BoardMatrix): BoardMatrix {
+	const secondaryAxis = matrix.secondaryAxis.filter((secondary) => {
+		let hasTasks = false;
+		for (const primary of matrix.primaryAxis) {
+			const cell = getBoardCell(matrix, primary.id, secondary.id);
+			if (cell.isEmpty) continue;
+			hasTasks = true;
+			if (!primary.collapsed) return true;
+		}
+		return !hasTasks;
+	});
+
+	return secondaryAxis.length === matrix.secondaryAxis.length
+		? matrix
+		: { ...matrix, secondaryAxis };
+}
+
 function sortTasksByFile(tasks: Task[]) {
 	tasks.sort(compareByFile);
 }

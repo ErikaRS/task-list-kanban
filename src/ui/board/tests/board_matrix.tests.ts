@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveBoardMatrix } from "../board_matrix";
+import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "../board_matrix";
 import type { Task } from "../../tasks/task";
 import type { ColumnDefinition } from "../../columns/columns";
 import { FlowDirection, VisibilityOption, type SettingValues, defaultSettings } from "../../settings/settings_store";
@@ -466,4 +466,28 @@ describe("deriveBoardMatrix", () => {
 		]);
 		expect(matrix.secondaryAxis[0]?.meta?.isDefault).toBe(true);
 	});
+
+	it("hides a swimlane with tasks only in collapsed columns", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			groupSource: { kind: "file" },
+			collapsedColumns: ["done"],
+			doneVisibility: VisibilityOption.Auto,
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] },
+		];
+		const tasks = [
+			{ id: "complete", column: "done", path: "complete.md", rowIndex: 1, done: true, properties: new Map() } as unknown as Task,
+			{ id: "active", column: "col-1", path: "active.md", rowIndex: 1, done: false, properties: new Map() } as unknown as Task,
+		];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const renderedMatrix = hideSwimlanesWithOnlyCollapsedContent(matrix);
+
+		expect(matrix.secondaryAxis.map((bucket) => bucket.id)).toEqual(["file:active.md", "file:complete.md"]);
+		expect(renderedMatrix.secondaryAxis.map((bucket) => bucket.id)).toEqual(["file:active.md"]);
+		expect(renderedMatrix.cells.done!["file:complete.md"]!.tasks.map((task) => task.id)).toEqual(["complete"]);
+	});
+
 });

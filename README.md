@@ -178,6 +178,8 @@ Status marker settings control how checkbox characters behave:
 - **Status cycle sequence**: characters used to advance the task status when clicking the checkbox on the board.
 - **Replace `#archived` with status**: use one or more archive status markers instead of the archive tag. The first configured marker is written by Archive; all configured markers are hidden as archived. Archive markers cannot overlap other status roles. Existing `#archived` tags are left intact but ignored by boards using archive statuses, so another board can still use tag-based archiving.
 
+For example, with archive markers set to `dD`, archiving `- [/] Review notes` writes `- [d] Review notes`. Both `[d]` and `[D]` are then treated as archived and hidden. Changing an archived marker to a non-archive status makes the task visible again.
+
 Examples:
 - `xX` recognizes `[x]` and `[X]` as done.
 - `xX✓` also recognizes `[✓]`.
@@ -189,7 +191,7 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 
 ### Column Controls
 
-- **Collapse**: collapse columns from the board header; collapse state is saved.
+- **Collapse**: collapse columns from the board header; collapse state is saved. In a grouped board, a swimlane that has cards only in collapsed columns is hidden until a column containing one of its cards is expanded. Empty configured swimlanes remain visible.
 
 ### Task Actions
 
