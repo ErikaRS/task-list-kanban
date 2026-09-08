@@ -32,12 +32,12 @@
                 "state": {
                   "type": "markdown",
                   "state": {
-                    "file": "periodic/2025-05-01.md",
+                    "file": "periodic/2025-10-21.md",
                     "mode": "source",
                     "source": false
                   },
                   "icon": "lucide-file",
-                  "title": "2025-05-01"
+                  "title": "2025-10-21"
                 }
               }
             ],
@@ -98,7 +98,9 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
               "title": "Files"
@@ -240,11 +242,13 @@
   },
   "active": "edb014cec5cbad69",
   "lastOpenFiles": [
-    "periodic/Kanban-None.md",
-    "periodic/2025-05-01.md",
-    "tasks/Even more tasks.md",
+    "periodic/2025-10-21.md",
     "periodic/Kanban-Tasks.md",
     "Kanban-Dataview.md",
+    "periodic/Kanban-None.md",
+    "periodic/2025-05-01.md",
+    "Untitled.md",
+    "tasks/Even more tasks.md",
     "Kanban-1783820449763.md",
     "Kanban-1783820428336.md",
     "periodic/Kanban-1783820379565.md",
@@ -259,14 +263,12 @@
     "Welcome.md",
     "Untitled.base",
     "periodic/2025-05-02.md",
-    "periodic/2025-10-21.md",
     "periodic/2025-10-27.md",
     "periodic/subfolder/2025-05-02.md",
     "root todo.md",
     "Kanban-1780186219895.md",
     "periodic/A test file with a very very very long name.md",
     "periodic/Kanban-repro.md",
-    "periodic/Kanban-1774741608452.md",
     "periodic/@",
     "tasks"
   ]
