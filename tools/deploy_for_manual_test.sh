@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Get script directory and project root
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -18,6 +19,13 @@ if [ -z "$TARGET_DIR" ]; then
     echo "Usage: ./deploy_for_manual_test.sh [target-directory]"
     exit 1
 fi
+
+# Run build and test first
+echo "Building plugin..."
+(cd "$PROJECT_ROOT" && npm run build)
+
+echo "Running tests..."
+(cd "$PROJECT_ROOT" && npm test)
 
 # Create target directory if it doesn't exist
 mkdir -p "$TARGET_DIR"
