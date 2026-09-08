@@ -19,3 +19,6 @@ agents that actually contributed to the change using the `Assisted-by:` git trai
 
 ## 🛑 Committing Changes
 DO NOT commit any changes until the user has explicitly had a chance to review them and given you permission to commit. Always stop and ask the user to test/review your work before running `git commit`.
+
+## 🔗 Issue References
+When work corresponds to a GitHub issue, include `Refs #<issue-number>` in every related commit and in the PR description. Do not use auto-closing keywords; issues are closed only as part of the release workflow.
