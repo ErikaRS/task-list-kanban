@@ -141,7 +141,7 @@ changing board data.
 
 **Deliverable:** A reloaded board retains group collapse state in every layout.
 
-**Implemented by:** Pending commit.
+**Implemented by:** [60e5f91](https://github.com/ErikaRS/task-list-kanban/commit/60e5f91) (Refs #165).
 
 ### Phase 2: Desktop folded headers and counts ✅ COMPLETE
 
@@ -155,7 +155,7 @@ changing board data.
 
 **Deliverable:** An axis swap changes group placement, never collapse geometry.
 
-**Implemented by:** Pending commit.
+**Implemented by:** [60e5f91](https://github.com/ErikaRS/task-list-kanban/commit/60e5f91) (Refs #165).
 
 ### Phase 3: Mobile and drop-target parity ✅ COMPLETE
 
@@ -170,7 +170,7 @@ changing board data.
 **Deliverable:** A collapsed group is consistently expandable and a valid
 group-only drop target everywhere.
 
-**Implemented by:** Pending commit.
+**Implemented by:** [60e5f91](https://github.com/ErikaRS/task-list-kanban/commit/60e5f91) (Refs #165).
 
 ## Acceptance Test Matrix
 
