@@ -262,6 +262,7 @@ const settingsObject = z.object({
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
+	collapsedGroups: z.array(z.string()).default([]).optional(),
 	defaultTaskFile: z.string().default("").optional(),
 	lastUsedTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
@@ -310,6 +311,7 @@ export interface SettingValues {
 	columnWidth?: number;
 	flowDirection?: FlowDirection;
 	collapsedColumns?: string[];
+	collapsedGroups?: string[];
 	defaultTaskFile?: string;
 	lastUsedTaskFile?: string;
 	scopeFolders?: string[];
@@ -347,6 +349,7 @@ export const defaultSettings: SettingValues = {
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],
+	collapsedGroups: [],
 	defaultTaskFile: "",
 	lastUsedTaskFile: "",
 	scopeFolders: [],

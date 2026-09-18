@@ -33,6 +33,7 @@
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault = false;
 	export let onToggleCollapse: (columnId: PrimaryBucketId) => void;
+	export let onToggleGroupCollapse: (groupId: string) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
 	export let columnWidth = "300px";
@@ -49,6 +50,9 @@
 	$: tasksByPrimary = Object.fromEntries(matrix.primaryAxis.map(bucket => [
 		bucket.id, Object.values(matrix.cells[bucket.id] || {}).flatMap(cell => cell.tasks),
 	]));
+	$: tasksBySecondary = Object.fromEntries(matrix.secondaryAxis.map(bucket => [
+		bucket.id, matrix.primaryAxis.flatMap(primary => matrix.cells[primary.id]?.[bucket.id]?.tasks ?? []),
+	]));
 </script>
 
 <DesktopMatrixGrid visualColumns={projection.visualColumns} visualRows={projection.visualRows}
@@ -60,13 +64,18 @@
 		{/if}
 	</svelte:fragment>
 	<svelte:fragment slot="header" let:bucket let:role>
-		<DesktopAxisHeader {bucket} {role} tasks={tasksByPrimary[bucket.id] ?? []}
+		<DesktopAxisHeader {bucket} {role} tasks={bucket.kind === "column"
+			? tasksByPrimary[bucket.id] ?? [] : tasksBySecondary[bucket.id] ?? []}
+			{app}
 			{taskActions}
 			{columnTagTableStore}
 			{columnColourTableStore}
 			{columnMatchTagTableStore}
 			{columnSubtitleTableStore}
 			{onToggleCollapse}
+			{onToggleGroupCollapse}
+			{excludedTags}
+			{propertySchemaOption}
 			{uncategorizedColumnName}
 			{doneColumnName} />
 	</svelte:fragment>

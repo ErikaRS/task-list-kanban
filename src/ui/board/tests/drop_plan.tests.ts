@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { deriveDropPlan } from "../drop_plan";
+import { describe, expect, it, vi } from "vitest";
+import { deriveCollapsedGroupDropPlan, deriveDropPlan, executeDropPlan } from "../drop_plan";
 import type { DraggingData } from "../../dnd/store";
 import type { AxisBucket, PrimaryBucketId, SecondaryBucketId } from "../board_matrix";
 import type { GroupSource } from "../../tasks/task_grouping";
@@ -176,5 +176,51 @@ describe("deriveDropPlan", () => {
 				}),
 			).toEqual({ kind: "column-only", changeColumn: true });
 		});
+	});
+});
+
+describe("deriveCollapsedGroupDropPlan", () => {
+	it("preserves the source column while changing a collapsed tag lane", () => {
+		const source: GroupSource = { kind: "tag-prefix", prefix: "project/" };
+		expect(deriveCollapsedGroupDropPlan({
+			dragging: dragging(),
+			secondaryId: "tag-prefix:project/:alpha",
+			bucketMeta: { source, value: "project/alpha" },
+			fileGroupTargetFilePath: null,
+			canWriteProperties: true,
+		})).toMatchObject({ kind: "set-tag", tag: "project/alpha", changeColumn: false });
+	});
+
+	it("rejects the synthetic overdue aggregate", () => {
+		const source = { kind: "property", key: "due", collapsePastDates: true } as const;
+		expect(deriveCollapsedGroupDropPlan({
+			dragging: dragging(),
+			secondaryId: "property:due:__overdue__",
+			bucketMeta: { source, value: null },
+			fileGroupTargetFilePath: null,
+			canWriteProperties: true,
+		})).toBeNull();
+	});
+
+	it("executes a group-only plan without moving the task's column", async () => {
+		const taskActions = {
+			updateSwimlaneTag: vi.fn(),
+			moveTasksToColumn: vi.fn(),
+		} as any;
+		await executeDropPlan({
+			plan: {
+				kind: "set-tag", tag: "project/alpha", prefix: "project/", changeColumn: false,
+			},
+			taskActions,
+			taskIds: ["task-1"],
+			taskSecondaryIds: { "task-1": "tag-prefix:project/:beta" },
+			targetFile: null,
+			column: COLUMN,
+			excludedTags: [],
+		});
+		expect(taskActions.updateSwimlaneTag).toHaveBeenCalledWith(
+			["task-1"], "project/alpha", "project/", [], undefined,
+		);
+		expect(taskActions.moveTasksToColumn).not.toHaveBeenCalled();
 	});
 });

@@ -830,3 +830,12 @@ describe("Collapsed columns configuration", () => {
 		expect(roundtripSettings({ collapsedColumns }).collapsedColumns).toEqual(collapsedColumns);
 	});
 });
+
+describe("Collapsed groups configuration", () => {
+	it("defaults, parses, and serializes stable group IDs", () => {
+		expect(parseSettingsString("{}").collapsedGroups).toEqual([]);
+		const ids = ["file:projects/roadmap.md", "property:due:__overdue__"];
+		expect(parseSettingsString(JSON.stringify({ collapsedGroups: ids })).collapsedGroups).toEqual(ids);
+		expect(serializeSettings({ collapsedGroups: ids }).collapsedGroups).toEqual(ids);
+	});
+});

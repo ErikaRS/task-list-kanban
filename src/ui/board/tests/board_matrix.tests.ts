@@ -46,6 +46,26 @@ describe("deriveBoardMatrix", () => {
 			expect(matrix.cells["col-1"]![DEFAULT_GROUP_BUCKET_ID]!.tasks).toEqual([]);
 	});
 
+	it("marks matching secondary buckets as collapsed without removing their cells", () => {
+		const settings: SettingValues = {
+			...defaultSettings,
+			groupSource: { kind: "tag-prefix", prefix: "project/" },
+			collapsedGroups: ["tag-prefix:project/:alpha"],
+		};
+		const columns: ColumnDefinition[] = [
+			{ id: "col-1" as any, label: "Col 1", matchMode: "name", matchTags: [] },
+		];
+		const tasks = [{
+			column: "col-1", path: "project.md", rowIndex: 0, done: false,
+			tags: new Set(["project/alpha"]), properties: new Map(),
+		} as unknown as Task];
+
+		const matrix = deriveBoardMatrix(tasks, columns, settings);
+		const group = matrix.secondaryAxis.find(bucket => bucket.id === "tag-prefix:project/:alpha");
+		expect(group?.collapsed).toBe(true);
+		expect(matrix.cells["col-1"]?.[group!.id]?.tasks).toHaveLength(1);
+	});
+
 	it("partitions tasks and sorts them", () => {
 		const settings: SettingValues = { ...defaultSettings };
 		const columns: ColumnDefinition[] = [
@@ -488,6 +508,23 @@ describe("deriveBoardMatrix", () => {
 		expect(matrix.secondaryAxis.map((bucket) => bucket.id)).toEqual(["file:active.md", "file:complete.md"]);
 		expect(renderedMatrix.secondaryAxis.map((bucket) => bucket.id)).toEqual(["file:active.md"]);
 		expect(renderedMatrix.cells.done!["file:complete.md"]!.tasks.map((task) => task.id)).toEqual(["complete"]);
+	});
+
+	it("keeps a manually collapsed swimlane visible when all of its columns are folded", () => {
+		const matrix: ReturnType<typeof deriveBoardMatrix> = {
+			primaryAxis: [{ id: "done", label: "Done", kind: "column", collapsed: true }],
+			secondaryAxis: [{ id: "file:complete.md", label: "complete.md", kind: "group", collapsed: true }],
+			cells: {
+				done: {
+					"file:complete.md": {
+						primaryId: "done", secondaryId: "file:complete.md", tasks: [
+							{ id: "complete" } as Task,
+						], isEmpty: false,
+					},
+				},
+			},
+		};
+		expect(hideSwimlanesWithOnlyCollapsedContent(matrix).secondaryAxis).toHaveLength(1);
 	});
 
 });

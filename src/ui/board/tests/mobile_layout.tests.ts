@@ -69,6 +69,17 @@ describe("mobile board hierarchy", () => {
 		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
 	});
 
+	it("keeps a single default bucket visible when it belongs to an active grouping", () => {
+		const grouped = matrix({ defaultGroup: true });
+		grouped.secondaryAxis.splice(1);
+		delete grouped.cells.done!["project-b"];
+		delete grouped.cells.todo!["project-b"];
+		grouped.secondaryAxis[0]!.meta!.source = { kind: "property", key: "due" };
+
+		expect(hasVisibleMobileGroupHeaders(grouped)).toBe(true);
+		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
+	});
+
 	it("preserves the matrix-provided primary order for BTT nested columns", () => {
 		const grouped = matrix();
 		expect(grouped.primaryAxis.map((bucket) => bucket.id)).toEqual(["done", "todo"]);

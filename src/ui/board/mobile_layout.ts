@@ -9,6 +9,9 @@ export function shouldUseMobileBoardLayout(isMobile: boolean): boolean {
 
 /** A default bucket represents an ungrouped board, not a visible group. */
 export function hasVisibleMobileGroupHeaders(matrix: BoardMatrix): boolean {
+	if (matrix.secondaryAxis.some(bucket => bucket.meta?.source?.kind !== undefined && bucket.meta.source.kind !== "none")) {
+		return true;
+	}
 	return matrix.secondaryAxis.length > 1 ||
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 }

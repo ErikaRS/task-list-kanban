@@ -101,6 +101,7 @@ export function deriveBoardMatrix(
 	}
 
 	const collapsedColumns = new Set(settings.collapsedColumns ?? []);
+	const collapsedGroups = new Set(settings.collapsedGroups ?? []);
 
 	const uncategorizedVisibility = settings.uncategorizedVisibility ?? VisibilityOption.Auto;
 	const showUncategorizedColumn =
@@ -168,7 +169,7 @@ export function deriveBoardMatrix(
 		id: bucket.id,
 		label: bucket.label,
 		kind: "group",
-		collapsed: false,
+		collapsed: collapsedGroups.has(bucket.id),
 		meta: {
 			value: bucket.value,
 			source: bucket.source,
@@ -248,6 +249,9 @@ export function getBoardCell(
  */
 export function hideSwimlanesWithOnlyCollapsedContent(matrix: BoardMatrix): BoardMatrix {
 	const secondaryAxis = matrix.secondaryAxis.filter((secondary) => {
+		// A user-collapsed group still needs its compact header so it can be
+		// expanded, even when every underlying card is in a folded column.
+		if (secondary.collapsed) return true;
 		let hasTasks = false;
 		for (const primary of matrix.primaryAxis) {
 			const cell = getBoardCell(matrix, primary.id, secondary.id);

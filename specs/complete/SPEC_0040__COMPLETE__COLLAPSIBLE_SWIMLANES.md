@@ -1,6 +1,7 @@
 # SPEC 0040 — Collapsible Swimlanes
 
-Status: IN PROGRESS
+Status: COMPLETE
+Implemented: 2026-09
 
 ## Feature Request Summary
 
@@ -127,43 +128,49 @@ cells are omitted. Only the explicit control toggles.
 
 ## Implementation Plan
 
-### Phase 1: Persisted group state and basic collapse
+### Phase 1: Persisted group state and basic collapse ✅ COMPLETE
 
 **Goal:** A group can be collapsed, saved, reopened, and expanded without
 changing board data.
 
-1. ☐ Add settings schema/default/parse/serialization support.
-2. ☐ Mark matrix secondary buckets collapsed.
-3. ☐ Add main toggle/save wiring.
-4. ☐ Render collapsed group rows/columns through the shared axis header.
-5. ☐ Test persistence and complete-matrix semantics.
+1. ✅ Add settings schema/default/parse/serialization support.
+2. ✅ Mark matrix secondary buckets collapsed.
+3. ✅ Add main toggle/save wiring.
+4. ✅ Render collapsed group rows/columns through the shared axis header.
+5. ✅ Test persistence and complete-matrix semantics.
 
 **Deliverable:** A reloaded board retains group collapse state in every layout.
 
-### Phase 2: Desktop folded headers and counts
+**Implemented by:** Pending commit.
+
+### Phase 2: Desktop folded headers and counts ✅ COMPLETE
 
 **Goal:** Collapsed group columns and rows use the shared axis contract.
 
-1. ☐ Add total group count and accessible controls.
-2. ☐ Reuse continuous row bands and the shared 28px folded track; add
+1. ✅ Add total group count and accessible controls.
+2. ✅ Reuse continuous row bands and the shared 28px folded track; add
    full-name tooltips and accessible controls in the group adapter.
-3. ☐ Manually verify first, middle, last, and all-collapsed tracks in both
+3. ✅ Manually verify first, middle, last, and all-collapsed tracks in both
    flow families, including status and non-status labels.
 
 **Deliverable:** An axis swap changes group placement, never collapse geometry.
 
-### Phase 3: Mobile and drop-target parity
+**Implemented by:** Pending commit.
+
+### Phase 3: Mobile and drop-target parity ✅ COMPLETE
 
 **Goal:** Every collapsed-group header is usable and safe.
 
-1. ☐ Implement mobile headers/bodies using the shared state.
-2. ☐ Extract and test group-only drop planning/execution.
-3. ☐ Test file, tag-prefix, writable-property, non-writable-property, and
+1. ✅ Implement mobile headers/bodies using the shared state.
+2. ✅ Extract and test group-only drop planning/execution.
+3. ✅ Test file, tag-prefix, writable-property, non-writable-property, and
    multi-column drops.
-4. ☐ Run `npm run build` and `npm test`.
+4. ✅ Run `npm run build` and `npm test`.
 
 **Deliverable:** A collapsed group is consistently expandable and a valid
 group-only drop target everywhere.
+
+**Implemented by:** Pending commit.
 
 ## Acceptance Test Matrix
 
@@ -178,12 +185,3 @@ group-only drop target everywhere.
 | Non-writable property group | No drop destination is offered. |
 | Collapse any semantic column | Existing group hiding rule remains general and unchanged. |
 | Ungrouped board | No swimlane control appears. |
-
-## Next implementation session
-
-Implement Phase 1 against the completed SPEC 0041 renderer: add persisted
-`collapsedGroups`, set secondary bucket flags, and wire group toggles through
-`DesktopAxisHeader`. Preserve the existing grid, continuous sticky bands,
-category accents, and semantic-only filtering. Then add group counts/header
-accessibility, mobile parity, and group-only drop targets with regression tests.
-Issue #165 remains open until the completed feature's release workflow.

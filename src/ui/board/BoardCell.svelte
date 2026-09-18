@@ -4,7 +4,7 @@
 	import type { ColumnTagTable } from "../columns/columns";
 	import { deriveCellCreationMetadata } from "./cell_creation";
 	import type { TaskActions } from "../tasks/actions";
-	import { deriveDropPlan } from "./drop_plan";
+	import { deriveDropPlan, executeDropPlan } from "./drop_plan";
 	import type { Task } from "../tasks/task";
 	import TaskComponent from "../components/task.svelte";
 	import NewTaskControls from "./NewTaskControls.svelte";
@@ -189,66 +189,19 @@
 
 		if (droppedIds.length === 0) return;
 
-		switch (plan.kind) {
-			case "move-to-file": {
-				if (!fileGroupTargetFile) return;
-				const droppedIdsBySourceSwimlane = groupIdsBySecondaryId(
-					droppedIds,
-					draggingData.taskSecondaryIds,
-				);
-
-				for (const [sourceFilePath, ids] of droppedIdsBySourceSwimlane) {
-					if (sourceFilePath === plan.targetFilePath) {
-						if (plan.changeColumn) await applyColumnChange(ids);
-					} else {
-						await taskActions.moveTasksToFile(
-							ids,
-							fileGroupTargetFile,
-							column,
-						);
-					}
-				}
-				break;
-			}
-			case "set-tag":
-				await taskActions.updateSwimlaneTag(
-					droppedIds,
-					plan.tag,
-					plan.prefix,
-					excludedTags,
-					plan.includeTags,
-				);
-				if (plan.changeColumn) await applyColumnChange(droppedIds);
-				break;
-			case "set-property":
-				await taskActions.updateSwimlaneProperty(droppedIds, plan.key, plan.value);
-				if (plan.changeColumn) await applyColumnChange(droppedIds);
-				break;
-			case "column-only":
-				await applyColumnChange(droppedIds);
-				break;
-		}
+		await executeDropPlan({
+			plan,
+			taskActions,
+			taskIds: droppedIds,
+			taskSecondaryIds: draggingData.taskSecondaryIds,
+			targetFile: fileGroupTargetFile,
+			column,
+			excludedTags,
+		});
 
 		clearColumnSelections(droppedIds);
 	}
 
-	function groupIdsBySecondaryId(
-		taskIds: string[],
-		taskSecondaryIds: Record<string, string>,
-	): Map<string, string[]> {
-		const grouped = new Map<string, string[]>();
-		for (const id of taskIds) {
-			const secondaryId = taskSecondaryIds[id] ?? "";
-			const ids = grouped.get(secondaryId) ?? [];
-			ids.push(id);
-			grouped.set(secondaryId, ids);
-		}
-		return grouped;
-	}
-
-	async function applyColumnChange(taskIds: string[]) {
-		await taskActions.moveTasksToColumn(taskIds, column);
-	}
 </script>
 
 <!-- The cell is hidden if the column/row is collapsed (unless vertical flow, though horizontal flow is default) -->

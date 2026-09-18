@@ -38,6 +38,7 @@
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault = false;
 	export let onToggleCollapse: (columnId: PrimaryBucketId) => void;
+	export let onToggleGroupCollapse: (groupId: string) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
 	export let isManualOrder = false;
@@ -56,6 +57,9 @@
 	$: tasksBySecondary = Object.fromEntries(
 		matrix.secondaryAxis.map((bucket) => [bucket.id, getSecondaryBucketTasks(matrix, bucket.id)]),
 	);
+	function isCollapsibleGroup(bucket: import("./board_matrix").AxisBucket) {
+		return bucket.meta?.source?.kind !== "none" && bucket.meta?.source !== undefined;
+	}
 
 	function setStickyOffset(node: HTMLElement) {
 		const section = node.closest<HTMLElement>(".mobile-outer-section");
@@ -103,9 +107,17 @@
 								count={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
 								headingLevel={3}
 								className="mobile-inner-header mobile-group-label"
+								collapsible={isCollapsibleGroup(sBucket)}
+								isCollapsed={sBucket.collapsed}
+								onToggleCollapse={() => onToggleGroupCollapse(sBucket.id)}
+								{app}
+								{taskActions}
+								{excludedTags}
+								{propertySchemaOption}
 							/>
 						{/if}
-						<BoardCell
+						{#if !sBucket.collapsed}
+							<BoardCell
 							{app}
 							cell={getBoardCell(matrix, pBucket.id, sBucket.id)}
 							primaryTasks={tasksByPrimary[pBucket.id] ?? []}
@@ -128,7 +140,8 @@
 							manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 							{reorderEnabled}
 							isCompactEmpty={true}
-						/>
+							/>
+						{/if}
 					</div>
 				{/each}
 			{/if}
@@ -143,9 +156,17 @@
 						count={tasksBySecondary[sBucket.id]?.length ?? 0}
 						headingLevel={2}
 						className="mobile-outer-heading"
+						collapsible={isCollapsibleGroup(sBucket)}
+						isCollapsed={sBucket.collapsed}
+						onToggleCollapse={() => onToggleGroupCollapse(sBucket.id)}
+						{app}
+						{taskActions}
+						{excludedTags}
+						{propertySchemaOption}
 					/>
 				</header>
-				{#each matrix.primaryAxis as pBucket (pBucket.id)}
+				{#if !sBucket.collapsed}
+					{#each matrix.primaryAxis as pBucket (pBucket.id)}
 					<div class="mobile-cell mobile-group-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty} style:--column-color={pBucket.meta?.color}>
 						<header class="mobile-inner-header mobile-cell-column-header">
 							<ColumnHeader
@@ -193,7 +214,8 @@
 							/>
 						{/if}
 					</div>
-				{/each}
+					{/each}
+				{/if}
 			</section>
 		{/each}
 	{/if}

@@ -292,6 +292,19 @@
 		requestSave();
 	}
 
+	function toggleGroupCollapse(groupId: string) {
+		settingsStore.update(s => {
+			const collapsed = s.collapsedGroups ?? [];
+			return {
+				...s,
+				collapsedGroups: collapsed.includes(groupId)
+					? collapsed.filter(id => id !== groupId)
+					: [...collapsed, groupId],
+			};
+		});
+		requestSave();
+	}
+
 	$: tags = $tasksStore.reduce((acc, curr) => {
 		for (const tag of curr.tags) {
 			acc.add(tag);
@@ -1195,6 +1208,7 @@
 							{targetTaskFile}
 							{targetFileIsDefault}
 							onToggleCollapse={toggleColumnCollapse}
+							onToggleGroupCollapse={toggleGroupCollapse}
 							{uncategorizedColumnName}
 							{doneColumnName}
 							{propertyDisplay}
@@ -1221,6 +1235,7 @@
 							{targetTaskFile}
 							{targetFileIsDefault}
 							onToggleCollapse={toggleColumnCollapse}
+							onToggleGroupCollapse={toggleGroupCollapse}
 							{uncategorizedColumnName}
 							{doneColumnName}
 							columnWidth={responsiveColumnWidth}
