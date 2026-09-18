@@ -35,7 +35,6 @@
 	export let columnColourTableStore: Readable<ColumnColourTable>;
 	export let columnMatchTagTableStore: Readable<ColumnMatchTagTable>;
 	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
-	export let isVerticalFlow: boolean = false;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
@@ -46,12 +45,8 @@
 	export let showTaskCount: boolean = false;
 	export let headingId: string | undefined = undefined;
 	export let headingLevel: 2 | 3 = 2;
-	// Mobile sections stack vertically, so a rotated collapsed title wastes
-	// scarce width without conveying the desktop grid's compact-column state.
-	export let keepCollapsedHorizontal: boolean = false;
-	// Full-width row headers need their controls beside the title rather than
-	// spread across a second metadata row.
-	export let compact: boolean = false;
+	// Desktop frames own all sticky positioning; this opt-in styles content only.
+	export let desktopAxis: "column" | "row" | undefined = undefined;
 	let columnSubtitle: ColumnHeaderSubtitle | undefined;
 
 	function getColumnTitle(
@@ -90,8 +85,7 @@
 	$: displayedTaskCount = taskCountOverride ?? tasks.length;
 	$: taskCountLabel = displayedTaskCount === 1 ? "1 task" : `${displayedTaskCount} tasks`;
 	$: collapseIcon = isCollapsed ? "▶" : "▼";
-	$: isHorizontalCollapsed = isCollapsed && !isVerticalFlow;
-	$: isVerticalCollapsed = isCollapsed && isVerticalFlow;
+	$: folded = desktopAxis === "column" && isCollapsed;
 	$: displayTaskCount = isCollapsed ? `${displayedTaskCount}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 	$: showColumnStatus = columnStatusMarker !== undefined && !isCollapsed;
@@ -182,11 +176,10 @@
 
 <div
 	class="column-header"
-	class:row-header={isVerticalFlow}
-	class:collapsed={isHorizontalCollapsed}
-	class:vertical-collapsed={isVerticalCollapsed}
-	class:keep-collapsed-horizontal={keepCollapsedHorizontal}
-	class:compact
+	class:collapsed={isCollapsed}
+	class:folded
+	class:desktop-axis={desktopAxis !== undefined}
+	class:desktop-row={desktopAxis === "row"}
 	style:--column-color={columnColor}
 >
 	<div class="header">
@@ -207,28 +200,6 @@
 		<div class="column-title-group">
 			<svelte:element this={`h${headingLevel}`} id={headingId ?? `column-title-${column}`} title={columnTitle}>{columnTitle}</svelte:element>
 		</div>
-		{#if compact && !isCollapsed}
-			<div class="mode-toggle compact-actions" role="toolbar" aria-label="Column interaction mode">
-				<button
-					class="mode-btn"
-					class:active={!isSelectMode}
-					aria-pressed={!isSelectMode}
-					aria-label="Done mode: click tasks to mark complete"
-					on:click={() => {
-						if (isSelectMode) toggleSelectionMode(column);
-					}}
-				>Done</button>
-				<button
-					class="mode-btn"
-					class:active={isSelectMode}
-					aria-pressed={isSelectMode}
-					aria-label="Select mode: click tasks to select for bulk actions"
-					on:click={() => {
-						if (!isSelectMode) toggleSelectionMode(column);
-					}}
-				>Select</button>
-			</div>
-		{/if}
 		{#if isCollapsed || showTaskCount}
 			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
 		{/if}
@@ -242,7 +213,7 @@
 			{/if}
 		</div>
 	</div>
-	{#if !isCollapsed && !compact}
+	{#if !isCollapsed}
 		<div class="column-meta">
 			<div class="column-meta-line">
 				{#if showColumnMatchTags}
@@ -330,165 +301,67 @@
 			flex: 0 0 auto;
 		}
 
-		&.row-header {
-			position: relative;
-			display: flex;
-			align-items: stretch;
-			margin-bottom: 0;
+	}
 
-			&::before {
-				position: absolute;
-				top: calc(-1 * var(--column-header-y-padding));
-				bottom: calc(-1 * var(--column-header-y-padding));
-				left: calc(-1 * var(--column-header-x-padding));
-				width: 12px;
-				height: auto;
-				margin: 0;
-				z-index: 3;
-			}
+	.column-header.desktop-axis {
+		position: relative;
+		align-self: auto;
+		box-sizing: border-box;
+		padding: 14px 8px 8px 0;
+		gap: 4px;
+		--column-header-x-padding: 0px;
+		--column-header-y-padding: 0px;
 
-			.header {
-				margin: calc(-1 * var(--size-4-2)) calc(-1 * var(--size-4-3)) calc(-1 * var(--size-2-2));
-				padding: var(--size-4-2) var(--size-4-3) var(--size-2-2);
-				width: calc(100% + 2 * var(--size-4-3));
-				box-sizing: border-box;
-
-				position: sticky;
-				top: var(--header-height, 0px);
-				z-index: 2;
-				background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
-			}
-
-			.column-meta,
-			.selection-info {
-				padding-left: var(--size-4-3);
-				box-sizing: border-box;
-			}
-
-			.column-meta {
-				margin-top: var(--size-2-2);
-
-				.column-meta-line {
-					justify-content: flex-start;
-					flex-wrap: wrap;
-					gap: var(--size-2-2) var(--size-4-2);
-
-					.column-match-tags,
-					.column-match-status,
-					.column-match-priority {
-						order: 1;
-						flex: 0 0 100%;
-					}
-
-					.task-count {
-						order: 2;
-						flex: 0 0 100%;
-						margin-left: 0;
-					}
-
-					.mode-toggle {
-						order: 3;
-						flex: 0 0 auto;
-					}
-				}
-			}
+		&::before {
+			position: absolute;
+			inset: 0 0 auto;
+			width: 100%;
+			height: 6px;
+			margin: 0;
+			border-radius: 0;
 		}
-
-		&.collapsed:not(.keep-collapsed-horizontal) {
-			position: sticky;
-			top: 0;
-			align-self: flex-start;
-			z-index: 1;
-
-			.header {
-				flex-direction: column;
-				align-items: center;
-				min-height: unset;
-				gap: var(--size-4-2);
-
-				.column-title-group {
-					order: 2;
-
-					h2,
-					h3 {
-						writing-mode: vertical-rl;
-						text-orientation: mixed;
-						white-space: nowrap;
-						overflow: visible;
-						text-overflow: unset;
-						flex: 0 0 auto;
-						line-height: normal;
-					}
-				}
-
-				.task-count {
-					order: 3;
-					writing-mode: horizontal-tb;
-					align-self: center;
-					line-height: normal;
-				}
-
-				.header-menu {
-					display: flex;
-					margin-left: 0;
-					order: 4;
-				}
-
-
-
-				:global(.header-menu button) {
-					width: 20px;
-					height: 20px;
-				}
-
-				.collapse-btn {
-					order: 1;
-				}
-			}
+		// Visual-column accents are painted across the full grid frame.
+		&:not(.desktop-row)::before { display: none; }
+		&.desktop-row::before { inset: 0 auto 0 0; width: 4px; height: 100%; }
+		.header, .header h2, .header h3 { position: static; }
+		.header h2, .header h3 {
+			font-size: var(--axis-label-size);
+			font-weight: var(--axis-label-weight);
+			letter-spacing: var(--axis-label-spacing);
+			text-transform: var(--axis-label-transform);
+			line-height: 1.3;
 		}
+		.header { gap: 4px; }
+		.collapse-btn { width: var(--axis-folded-width); flex: 0 0 var(--axis-folded-width); }
+		.column-meta, .selection-info { box-sizing: border-box; padding-left: 32px; }
+		// A category in a row is a single compact toolbar. Flatten only its
+		// content wrappers; sticky containment and row height belong to the grid.
+		&.desktop-row {
+			padding: 4px 8px 4px 0;
+			flex-direction: row;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 4px 8px;
 
-		&.vertical-collapsed {
-			&.row-header {
-				margin-bottom: 0;
-
-				.header-menu {
-					display: flex;
-				}
-
-
-			}
+			.header, .column-meta, .column-meta-line { display: contents; }
+			.column-title-group { flex: 0 1 auto; max-width: min(36ch, 45%); }
+			.header-menu { margin-left: 0; order: 2; }
+			.task-count { margin: 0; align-self: center; line-height: 1.3; }
+			.column-match-tags { flex: 0 1 auto; max-width: 30ch; }
+			.selection-info { margin: 0; padding: 0; order: 3; }
 		}
+		&.folded {
+			width: var(--axis-folded-width);
+			padding-right: 0;
+			.column-title-group, .header-menu, .column-meta, .selection-info { display: none; }
 
-		&.compact {
-			gap: 0;
-
-			&::before {
-				height: 4px;
-			}
-
-			.header {
-				position: sticky;
-				left: var(--sticky-left-offset, var(--column-header-x-padding));
-				z-index: 3;
-				width: fit-content;
-				max-width: calc(100vw - calc(2 * var(--size-4-3)));
-				gap: var(--size-2-2);
-				background: color-mix(in srgb, var(--background-secondary) 72%, var(--background-primary));
-			}
-
-			.column-title-group {
-				flex: 0 1 auto;
-				max-width: min(36ch, 50%);
-			}
-
-			.compact-actions {
-				flex-shrink: 0;
-			}
-
-			.header > .task-count {
-				flex-shrink: 0;
+			.header { flex-direction: column; gap: 0; }
+			.collapse-btn { flex: 0 0 24px; }
+			.task-count {
+				display: block;
 				align-self: center;
-				line-height: 1.2;
+				font-size: var(--font-ui-smaller);
+				line-height: 18px;
 			}
 		}
 	}

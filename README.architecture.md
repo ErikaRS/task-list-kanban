@@ -25,6 +25,13 @@ This plugin follows a modular architecture with clear separation between parsing
 - `main.svelte`: Primary Svelte component for the kanban interface
 - Component-based UI with reactive stores for state management
 
+**Desktop Board Rendering** (`src/ui/board/`)
+- `board_matrix.ts` retains the canonical category × group matrix and semantic visibility rules.
+- `desktop_matrix_projection.ts` selects visual axes and resolves each intersection back to canonical buckets and cells.
+- `DesktopMatrixGrid.svelte` owns tracks, continuous row bands, sticky layers, collapse geometry, and visual-role typography without branching on semantic kind or flow.
+- `DesktopAxisHeader.svelte` supplies category controls or group labels; category accents use the full-width decoration slot for visual columns and the left edge for visual rows.
+- `board_matrix_desktop.svelte` connects the projection, header adapters, and unchanged `BoardCell` task interactions. Mobile retains its separate list renderer.
+
 **Task Management** (`src/ui/tasks/`)
 - `task.ts`: Core Task model with parsing and serialization
 - `store.ts`: Reactive task store with file system integration

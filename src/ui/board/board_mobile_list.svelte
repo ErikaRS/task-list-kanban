@@ -85,14 +85,12 @@
 					{columnColourTableStore}
 					{columnMatchTagTableStore}
 					{columnSubtitleTableStore}
-					isVerticalFlow={false}
 					isCollapsed={pBucket.collapsed}
 					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 					{uncategorizedColumnName}
 					{doneColumnName}
 					showTaskCount={true}
 					headingId={`mobile-column-${pBucket.id}`}
-					keepCollapsedHorizontal={true}
 				/>
 			</header>
 
@@ -158,7 +156,6 @@
 								{columnColourTableStore}
 								{columnMatchTagTableStore}
 								{columnSubtitleTableStore}
-								isVerticalFlow={false}
 								isCollapsed={pBucket.collapsed}
 								onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 								{uncategorizedColumnName}
@@ -167,7 +164,6 @@
 								showTaskCount={true}
 								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
 								headingLevel={3}
-								keepCollapsedHorizontal={true}
 							/>
 						</header>
 						{#if !pBucket.collapsed}

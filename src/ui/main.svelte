@@ -9,8 +9,7 @@
 		createCollapsedColumnsStore,
 	} from "./columns/columns";
 	import type { Task } from "./tasks/task";
-	import BoardMatrixVertical from "./board/board_matrix_vertical.svelte";
-	import BoardMatrixHorizontal from "./board/board_matrix_horizontal.svelte";
+	import BoardMatrixDesktop from "./board/board_matrix_desktop.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
 	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
 	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
@@ -1207,8 +1206,8 @@
 							taskCountLabel={boardTaskCountLabel}
 							{isVerticalFlow}
 						/>
-					{:else if !isVerticalFlow}
-						<BoardMatrixHorizontal
+					{:else}
+						<BoardMatrixDesktop
 							{app}
 							matrix={renderedMatrix}
 							{taskActions}
@@ -1225,6 +1224,7 @@
 							{uncategorizedColumnName}
 							{doneColumnName}
 							columnWidth={responsiveColumnWidth}
+							viewportWidth={columnsClientWidth}
 							{propertyDisplay}
 							{propertySchemaOption}
 							{isManualOrder}
@@ -1232,31 +1232,7 @@
 							{reorderEnabled}
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
-						/>
-					{:else}
-						<BoardMatrixVertical
-							{app}
-							matrix={renderedMatrix}
-							{taskActions}
-							{columnTagTableStore}
-							{columnColourTableStore}
-							{columnMatchTagTableStore}
-							{columnSubtitleTableStore}
-							{showFilepath}
-							{consolidateTags}
-							excludedTags={$settingsStore.excludedTags ?? []}
-							{targetTaskFile}
-							{targetFileIsDefault}
-							onToggleCollapse={toggleColumnCollapse}
-							{uncategorizedColumnName}
-							{doneColumnName}
-							{propertyDisplay}
-							{propertySchemaOption}
-							{isManualOrder}
-							{manualOrder}
-							{reorderEnabled}
-							{treatNestedTasksAsSubtasks}
-							taskCountLabel={boardTaskCountLabel}
+							{isVerticalFlow}
 						/>
 					{/if}
 				</div>
