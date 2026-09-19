@@ -39,9 +39,23 @@
                   "icon": "lucide-file",
                   "title": "2025-10-21"
                 }
+              },
+              {
+                "id": "5ce9b57f0cfb6065",
+                "type": "leaf",
+                "state": {
+                  "type": "markdown",
+                  "state": {
+                    "file": "2026-09-19.md",
+                    "mode": "source",
+                    "source": false
+                  },
+                  "icon": "lucide-file",
+                  "title": "2026-09-19"
+                }
               }
             ],
-            "currentTab": 1
+            "currentTab": 2
           },
           {
             "id": "b672f997538ed1c3",
@@ -68,10 +82,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "Kanban-Dataview.md"
+                    "file": "periodic/Kanban-Tasks.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-Dataview"
+                  "title": "Kanban-Tasks"
                 }
               }
             ],
@@ -242,12 +256,13 @@
   },
   "active": "edb014cec5cbad69",
   "lastOpenFiles": [
-    "periodic/Kanban-Legacy-Selected-Folders.md",
+    "2026-09-19.md",
     "periodic/Kanban-Tasks.md",
-    "Kanban-Dataview.md",
-    "periodic/2025-05-01.md",
     "periodic/Kanban-None.md",
+    "Kanban-Dataview.md",
     "periodic/2025-10-21.md",
+    "periodic/Kanban-Legacy-Selected-Folders.md",
+    "periodic/2025-05-01.md",
     "Kanban-1788834421310.md",
     "Untitled.md",
     "tasks/Even more tasks.md",
@@ -268,7 +283,6 @@
     "periodic/2025-10-27.md",
     "periodic/subfolder/2025-05-02.md",
     "root todo.md",
-    "Kanban-1780186219895.md",
     "periodic/@",
     "tasks"
   ]
