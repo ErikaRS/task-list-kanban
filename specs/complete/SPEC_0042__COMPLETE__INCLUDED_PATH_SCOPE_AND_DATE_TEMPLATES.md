@@ -1,6 +1,7 @@
 # SPEC 0042: Included Path Scope and Date Templates
 
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-09
 
 **Related issue:** [#172](https://github.com/ErikaRS/task-list-kanban/issues/172) — Add Included paths (like excluded paths)
 
@@ -335,7 +336,7 @@ reconstructing scope locally:
 
 ## Implementation Plan
 
-### Phase 1: Precise static path scope
+### Phase 1: Precise static path scope ✅ COMPLETE
 
 **Goal:** A board can include an exact mix of static files and folders without
 implicitly including its own directory.
@@ -343,13 +344,13 @@ implicitly including its own directory.
 1. ✅ Add the versioned `PathScopeV2` parser/writer and its top-level
    frontmatter key, with a matching compatibility projection in
    `kanban_plugin`.
-2. ☐ Write and compare the compatibility projection; add parsing/inheritance/downgrade
+2. ✅ Write and compare the compatibility projection; add parsing/inheritance/downgrade
    regression fixtures for every row of the compatibility matrix, including an
    old client saving an unrelated setting and an old client changing scope;
    verify stale sidecars are removed on the next new-version write.
 3. ✅ Extend the shared scope resolver and matcher, preserving legacy
    folder-protection behavior only for the existing modes.
-4. ☐ Add scope unit tests for exact files, folders, empty lists, overlaps,
+4. ✅ Add scope unit tests for exact files, folders, empty lists, overlaps,
    excludes, board-folder behavior, legacy regression cases, and invalid
    static/template-resolved vault paths and non-Markdown file selections.
 5. ✅ Update the settings modal with a Markdown-file-and-folder Selected paths editor
@@ -361,16 +362,16 @@ implicitly including its own directory.
 **Deliverable:** A testable, persisted Selected paths scope for static file
 and folder selection.
 
-**Implemented by:** —
+**Implemented by:** [b60b607](https://github.com/ErikaRS/task-list-kanban/commit/b60b607) (Refs #172).
 
-### Phase 2: One policy across every file consumer
+### Phase 2: One policy across every file consumer ✅ COMPLETE
 
 **Goal:** Every operation agrees on what the board tracks.
 
 1. ✅ Migrate the task store, actions, file picker, command modal,
    default-file validation, and column migration to the shared scope resolver.
 2. ✅ Migrate dashboard stats and its cache-key dependencies.
-3. ☐ Add integration tests covering file-picker/default-file/action rejection
+3. ✅ Add integration tests covering file-picker/default-file/action rejection
    and dashboard/live-board parity for Selected paths.
 4. ✅ Verify manually: only selected targets can receive a new card, and the
    dashboard count matches the opened board.
@@ -378,9 +379,9 @@ and folder selection.
 **Deliverable:** Selected paths works consistently for reading, counting, and
 writing tasks.
 
-**Implemented by:** —
+**Implemented by:** [b60b607](https://github.com/ErikaRS/task-list-kanban/commit/b60b607) (Refs #172).
 
-### Phase 3: Date-template daily-note scope
+### Phase 3: Date-template daily-note scope ✅ COMPLETE
 
 **Goal:** A board can follow a daily note across local midnight without
 external-plugin coupling.
@@ -389,7 +390,7 @@ external-plugin coupling.
    row display, and template-aware default task-file validation.
 2. ✅ Add local-midnight refresh for open boards and dashboard count
    invalidation with complete cleanup.
-3. ☐ Add deterministic tests for formatting, malformed templates, missing
+3. ✅ Add deterministic tests for formatting, malformed templates, missing
    resolved paths, template deduplication, date rollover, picker behavior,
    default-target behavior, and dashboard cache invalidation.
 4. ✅ Verify manually with `daily/{{YYYY-MM-DD}}.md`: open a board on a
@@ -400,7 +401,7 @@ external-plugin coupling.
 **Deliverable:** A daily-note board that tracks the locally resolved note and
 can add cards to it when the note exists.
 
-**Implemented by:** —
+**Implemented by:** [b60b607](https://github.com/ErikaRS/task-list-kanban/commit/b60b607) (Refs #172).
 
 ## Files Expected To Change
 
