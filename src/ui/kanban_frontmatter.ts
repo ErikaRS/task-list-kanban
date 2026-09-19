@@ -3,8 +3,16 @@ import {
 	parseSettingsOverrides,
 	resolveSettings,
 	toSettingsString,
+	ScopeOption,
 	type SettingValues,
 } from "./settings/settings_store";
+
+import {
+	PATH_SCOPE_FRONTMATTER_KEY,
+	parsePathScope,
+	pathScopeMatchesLegacy,
+	type PathScopeV2,
+} from "./tasks/path_scope";
 
 const KANBAN_PLUGIN_KEY = "kanban_plugin";
 const FRONTMATTER_DELIMITER = "---";
@@ -27,12 +35,46 @@ export function parseKanbanSettingsOverridesFromViewData(
 export function writeKanbanSettingsToViewData(
 	data: string,
 	settings: Partial<SettingValues>,
+	pathScope?: PathScopeV2,
 ): string {
 	const parsed = parseFrontmatter(data);
-	return stringifyFrontmatter(parsed.content, {
+	// Always materialize the projection's folder list while a sidecar exists.
+	// Sparse legacy overrides otherwise omit an empty `scopeFolders`, which
+	// would make an inactive sidecar look stale when the board next opens.
+	const legacySettings = pathScope
+		? {
+				...settings,
+				scopeFolders: pathScope.compatibilityProjection.scopeFolders,
+				...(pathScope.active ? { scope: ScopeOption.SelectedFolders } : {}),
+			}
+		: settings;
+	const nextFrontmatter: Record<string, unknown> = {
 		...parsed.data,
-		[KANBAN_PLUGIN_KEY]: toSettingsString(settings),
+		[KANBAN_PLUGIN_KEY]: toSettingsString(legacySettings),
+	};
+	if (pathScope) {
+		nextFrontmatter[PATH_SCOPE_FRONTMATTER_KEY] = pathScope;
+	} else {
+		delete nextFrontmatter[PATH_SCOPE_FRONTMATTER_KEY];
+	}
+	return stringifyFrontmatter(parsed.content, {
+		...nextFrontmatter,
 	});
+}
+
+/**
+ * Returns canonical Selected-paths data only when its compatibility projection
+ * still matches the legacy payload. A mismatch means an older plugin (or an
+ * external edit) changed the legacy scope, which takes precedence.
+ */
+export function parseKanbanPathScopeFromViewData(data: string): PathScopeV2 | undefined {
+	const parsed = parseFrontmatter(data);
+	const pathScope = parsePathScope(parsed.data[PATH_SCOPE_FRONTMATTER_KEY]);
+	if (!pathScope) return undefined;
+	const legacy = parseLegacyScope(toSettingsPayload(parsed.data[KANBAN_PLUGIN_KEY]));
+	return pathScopeMatchesLegacy(pathScope, legacy.scope, legacy.scopeFolders)
+		? pathScope
+		: undefined;
 }
 
 interface ParsedFrontmatter {
@@ -90,6 +132,19 @@ function stringifyFrontmatter(
 
 function ensureTrailingNewline(value: string): string {
 	return value.endsWith("\n") ? value : `${value}\n`;
+}
+
+function parseLegacyScope(payload: string): {
+	scope: unknown;
+	scopeFolders: unknown;
+} {
+	try {
+		const parsed = JSON.parse(payload);
+		if (!isRecord(parsed)) return { scope: undefined, scopeFolders: undefined };
+		return { scope: parsed.scope, scopeFolders: parsed.scopeFolders };
+	} catch {
+		return { scope: undefined, scopeFolders: undefined };
+	}
 }
 
 /**

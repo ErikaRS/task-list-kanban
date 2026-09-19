@@ -2,6 +2,7 @@ import { App, Modal, Notice, Setting, TFile } from "obsidian";
 import type { BoardIndexEntry } from "../boards/board_index";
 import { createColumnData, type ColumnTag } from "../columns/columns";
 import {
+	parseKanbanPathScopeFromViewData,
 	parseKanbanSettingsOverridesFromViewData,
 	writeKanbanSettingsToViewData,
 } from "../kanban_frontmatter";
@@ -11,10 +12,15 @@ import {
 } from "../settings/global_settings";
 import {
 	resolveSettings,
+	ScopeOption,
 	type SettingValues,
 } from "../settings/settings_store";
-import { shouldIncludeFilePath } from "./scope";
-import { resolveScopeFilter } from "./scope";
+import {
+	getProtectedBoardFolderPath,
+	resolveScopeFilter,
+	shouldIncludeFilePath,
+} from "./scope";
+import { resolveDateTemplate, type PathScopeV2 } from "./path_scope";
 import { updateRow } from "./source_line_editor";
 import { buildNewTaskLine, type NewTaskColumn } from "./task_line_builder";
 import { PropertySchemaOption } from "../../parsing/properties";
@@ -26,6 +32,7 @@ interface BoardOption {
 	overrides: Partial<SettingValues>;
 	boardContents: string;
 	fileOptions: TFile[];
+	pathScope?: PathScopeV2;
 }
 
 interface ColumnOption {
@@ -61,15 +68,20 @@ async function loadBoardOptions(
 		}
 		const boardContents = await app.vault.cachedRead(file);
 		const overrides = parseKanbanSettingsOverridesFromViewData(boardContents);
-		const settings = resolveSettings(
+		let settings = resolveSettings(
 			inheritedSettingsFromGlobalSettings(globalSettings),
 			overrides,
 		);
+		const pathScope = parseKanbanPathScopeFromViewData(boardContents);
+		if (pathScope?.active) {
+			settings = { ...settings, scope: ScopeOption.SelectedPaths };
+		}
 		const boardFolderPath = file.parent?.path ?? null;
 		const filenameFilter = resolveScopeFilter(
 			settings.scope,
 			settings.scopeFolders,
 			boardFolderPath,
+			pathScope,
 		);
 		const excludeFilter = (settings.excludePaths ?? []).length > 0
 			? settings.excludePaths ?? []
@@ -81,12 +93,12 @@ async function loadBoardOptions(
 					candidate.path,
 					filenameFilter,
 					excludeFilter,
-					boardFolderPath,
+					getProtectedBoardFolderPath(settings.scope, boardFolderPath),
 				),
 			)
 			.sort((a, b) => a.path.localeCompare(b.path));
 
-		options.push({ entry, file, settings, overrides, boardContents, fileOptions });
+		options.push({ entry, file, settings, overrides, boardContents, fileOptions, pathScope });
 	}
 	return options;
 }
@@ -281,13 +293,13 @@ class CreateCardModal extends Modal {
 				taskLine,
 				(file, nextContents) =>
 					file.path === board.file.path
-						? writeKanbanSettingsToViewData(nextContents, nextOverrides)
+						? writeKanbanSettingsToViewData(nextContents, nextOverrides, board.pathScope)
 						: nextContents,
 			);
 			if (targetFile.path !== board.file.path) {
 				await this.app.vault.modify(
 					board.file,
-					writeKanbanSettingsToViewData(board.boardContents, nextOverrides),
+					writeKanbanSettingsToViewData(board.boardContents, nextOverrides, board.pathScope),
 				);
 			}
 			new Notice("Card added.");
@@ -320,7 +332,8 @@ function defaultFileFor(board: BoardOption): TFile | null {
 		board.settings.lastUsedTaskFile,
 	].filter((path): path is string => !!path);
 	for (const path of preferredPaths) {
-		const file = board.fileOptions.find((candidate) => candidate.path === path);
+		const resolvedPath = resolveDateTemplate(path);
+		const file = board.fileOptions.find((candidate) => candidate.path === resolvedPath);
 		if (file) {
 			return file;
 		}

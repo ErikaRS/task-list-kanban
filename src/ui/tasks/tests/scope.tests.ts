@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveScopeFilter, shouldIncludeFilePath } from "../scope";
+import {
+	getProtectedBoardFolderPath,
+	resolveScopeFilter,
+	shouldIncludeFilePath,
+} from "../scope";
 import { ScopeOption } from "../../settings/settings_store";
+import { createPathScope } from "../path_scope";
 
 describe("shouldIncludeFilePath", () => {
 	it.each([
@@ -67,6 +72,23 @@ describe("shouldIncludeFilePath with board folder override", () => {
 	});
 });
 
+describe("getProtectedBoardFolderPath", () => {
+	it("allows exclusions to remove the board folder in selected paths", () => {
+		const protectedBoardFolder = getProtectedBoardFolderPath(
+			ScopeOption.SelectedPaths,
+			"boards",
+		);
+		expect(protectedBoardFolder).toBeNull();
+		expect(
+			shouldIncludeFilePath("boards/task.md", ["boards"], ["boards"], protectedBoardFolder),
+		).toBe(false);
+	});
+
+	it("preserves board-folder protection for legacy scope modes", () => {
+		expect(getProtectedBoardFolderPath(ScopeOption.Folder, "boards")).toBe("boards");
+	});
+});
+
 describe("resolveScopeFilter", () => {
 	it("searches everywhere for the everywhere scope", () => {
 		expect(resolveScopeFilter(ScopeOption.Everywhere, ["projects"], "boards")).toBeNull();
@@ -88,5 +110,19 @@ describe("resolveScopeFilter", () => {
 			"projects",
 		]);
 		expect(resolveScopeFilter(ScopeOption.SelectedFolders, undefined, null)).toEqual([]);
+	});
+
+	it("uses exact selected paths without implicitly adding the board folder", () => {
+		const pathScope = createPathScope(["daily/today.md", "projects/alpha"])!;
+		expect(
+			resolveScopeFilter(ScopeOption.SelectedPaths, undefined, "boards", pathScope),
+		).toEqual(["daily/today.md", "projects/alpha"]);
+	});
+
+	it("adds the board folder only when selected paths requests it", () => {
+		const pathScope = createPathScope(["daily/today.md"], true)!;
+		expect(
+			resolveScopeFilter(ScopeOption.SelectedPaths, undefined, "boards", pathScope),
+		).toEqual(["boards", "daily/today.md"]);
 	});
 });

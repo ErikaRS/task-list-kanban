@@ -83,9 +83,22 @@ Plugin settings include:
 Choose which files feed the board:
 - **Same as board folder**: files beside the kanban file.
 - **Every folder**: the whole vault.
-- **Selected folders**: specific vault-relative folders. The board's own folder is always included.
+- **Selected paths**: exact Markdown files and vault-relative folders. Folders include their Markdown descendants; the board folder is included only when you choose it.
 
-Use **Excluded paths** to omit directories or files after scope is applied. The board's own folder cannot be excluded directly, but its subdirectories can.
+Selected paths can follow a date-named daily note with a Moment-format
+template such as `daily/{{YYYY-MM-DD}}.md`. The board resolves it using your
+local date and refreshes at midnight. Existing boards configured with
+**Selected folders** retain that legacy behavior until you convert them.
+The first time you choose **Selected paths**, any saved Selected folders entries
+are copied in as a starting point. Converting directly from legacy Selected
+folders also keeps the board folder selected, preserving that mode's prior
+coverage; you can then edit the paths normally. Selected paths must include at
+least one file or folder; the board-folder toggle counts as one source.
+
+Use **Excluded paths** to omit directories or files after scope is applied.
+Boards using their folder or legacy Selected folders keep that folder
+protected; in Selected paths, exclusions apply to every selected path,
+including this board's folder when you choose to include it.
 
 ### Columns
 

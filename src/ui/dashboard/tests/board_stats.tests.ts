@@ -8,6 +8,7 @@ import {
 } from "../../settings/global_settings";
 import { ScopeOption, type SettingValues } from "../../settings/settings_store";
 import { PropertySchemaOption } from "../../../parsing/properties/property_schema";
+import { createPathScope, type PathScopeV2 } from "../../tasks/path_scope";
 
 interface HarnessFileSpec {
 	path: string;
@@ -18,6 +19,7 @@ interface HarnessFileSpec {
 	 * A raw string stands in for hand-mangled frontmatter.
 	 */
 	boardSettings?: Partial<SettingValues> | string;
+	pathScope?: PathScopeV2;
 }
 
 function makeFile(path: string, mtime: number): TFile {
@@ -43,7 +45,7 @@ function createHarness(
 ) {
 	const filesByPath = new Map<
 		string,
-		{ file: TFile; content: string; payload: string | undefined }
+		{ file: TFile; content: string; payload: string | undefined; pathScope?: PathScopeV2 }
 	>();
 	let currentGlobalSettings = globalSettings;
 	let now = new Date(2026, 1, 1, 9);
@@ -58,6 +60,7 @@ function createHarness(
 					: typeof spec.boardSettings === "string"
 						? spec.boardSettings
 						: JSON.stringify(spec.boardSettings),
+			pathScope: spec.pathScope,
 		});
 	}
 
@@ -74,6 +77,7 @@ function createHarness(
 			getMarkdownFiles: () => [...filesByPath.values()].map((entry) => entry.file),
 			cachedRead,
 			getBoardSettingsPayload: (file) => filesByPath.get(file.path)?.payload ?? "",
+			getBoardPathScope: (file) => filesByPath.get(file.path)?.pathScope,
 			getGlobalSettings: () => currentGlobalSettings,
 		},
 		{ now: () => now },
@@ -109,6 +113,25 @@ function createHarness(
 }
 
 describe("createBoardStatsService", () => {
+	it("uses canonical selected paths for dashboard counts", async () => {
+		const pathScope = createPathScope(["daily/today.md"])!;
+		const harness = createHarness([
+			{
+				path: "boards/Board.md",
+				boardSettings: {
+					scope: ScopeOption.SelectedFolders,
+					scopeFolders: ["daily/today.md"],
+				},
+				pathScope,
+			},
+			{ path: "daily/today.md", content: "- [ ] Today" },
+			{ path: "boards/other.md", content: "- [ ] Board neighbour" },
+		]);
+
+		await harness.request("boards/Board.md");
+		expect(harness.counts("boards/Board.md")?.open).toBe(1);
+	});
+
 	it("counts open and done with the board's own bucket rules", async () => {
 		const harness = createHarness([
 			{

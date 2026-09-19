@@ -56,6 +56,33 @@ export class PathSuggest extends AbstractInputSuggest<TAbstractFile> {
 	}
 }
 
+/** Folder paths plus Markdown files, suitable for task-source selection. */
+export class TaskSourcePathSuggest extends AbstractInputSuggest<TAbstractFile> {
+	constructor(app: App, private inputEl: HTMLInputElement, private onSelectCallback?: () => void) {
+		super(app, inputEl);
+	}
+
+	getSuggestions(query: string): TAbstractFile[] {
+		const lowerQuery = query.toLowerCase();
+		return this.app.vault.getAllLoadedFiles().filter((file): file is TAbstractFile =>
+			file.path !== "/" &&
+			file.path.toLowerCase().includes(lowerQuery) &&
+			(file instanceof TFolder || (file instanceof TFile && file.extension === "md")),
+		);
+	}
+
+	renderSuggestion(file: TAbstractFile, el: HTMLElement): void {
+		el.setText(file.path);
+	}
+
+	selectSuggestion(file: TAbstractFile, evt: MouseEvent | KeyboardEvent): void {
+		this.setValue(file.path);
+		this.inputEl.dispatchEvent(new Event("input"));
+		this.onSelectCallback?.();
+		this.close();
+	}
+}
+
 export class FileSuggest extends AbstractInputSuggest<TFile> {
 	constructor(app: App, private inputEl: HTMLInputElement, private onSelectCallback?: () => void) {
 		super(app, inputEl);

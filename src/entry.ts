@@ -20,6 +20,7 @@ import {
 	createBoardStatsService,
 	type BoardStatsService,
 } from "./ui/dashboard/board_stats";
+import { PATH_SCOPE_FRONTMATTER_KEY, parsePathScope } from "./ui/tasks/path_scope";
 import { toSettingsPayload } from "./ui/kanban_frontmatter";
 import {
 	BoardFolderPickerModal,
@@ -66,6 +67,12 @@ export default class Base extends Plugin {
 				toSettingsPayload(
 					this.app.metadataCache.getFileCache(file)?.frontmatter?.[
 						"kanban_plugin"
+					],
+				),
+			getBoardPathScope: (file) =>
+				parsePathScope(
+					this.app.metadataCache.getFileCache(file)?.frontmatter?.[
+						PATH_SCOPE_FRONTMATTER_KEY
 					],
 				),
 			getGlobalSettings: () => this.globalSettingsStore.get(),

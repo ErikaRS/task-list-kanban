@@ -50,6 +50,8 @@ export enum ScopeOption {
 	Folder = "folder",
 	Everywhere = "everywhere",
 	SelectedFolders = "selectedFolders",
+	/** Runtime-only; persisted Selected-paths data lives in PathScopeV2. */
+	SelectedPaths = "selectedPaths",
 }
 
 export enum FlowDirection {

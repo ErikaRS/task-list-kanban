@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { load } from "js-yaml";
 import {
 	parseKanbanSettingsFromViewData,
+	parseKanbanPathScopeFromViewData,
 	parseKanbanSettingsOverridesFromViewData,
 	writeKanbanSettingsToViewData,
 } from "../kanban_frontmatter";
+import { createPathScope, setPathScopeActive } from "../tasks/path_scope";
 import {
 	defaultSettings,
 	ScopeOption,
@@ -76,6 +78,64 @@ describe("kanban frontmatter helpers", () => {
 		expect(JSON.parse(readFrontmatter(output).kanban_plugin as string)).toEqual({
 			columnWidth: 400,
 		});
+	});
+
+	it("round-trips canonical path scope with its legacy compatibility projection", () => {
+		const input = ["---", "kanban_plugin: '{}'", "---", ""].join("\n");
+		const pathScope = createPathScope(["daily/{{YYYY-MM-DD}}.md", "projects/alpha"])!;
+
+		const output = writeKanbanSettingsToViewData(
+			input,
+			{ scope: ScopeOption.SelectedPaths },
+			pathScope,
+		);
+		const frontmatter = readFrontmatter(output);
+		expect(JSON.parse(frontmatter.kanban_plugin as string)).toEqual({
+			scope: ScopeOption.SelectedFolders,
+			scopeFolders: ["daily/{{YYYY-MM-DD}}.md", "projects/alpha"],
+		});
+		expect(parseKanbanPathScopeFromViewData(output)).toEqual(pathScope);
+	});
+
+	it("ignores a path scope when an older writer changed its compatibility projection", () => {
+		const pathScope = createPathScope(["daily/today.md"]);
+		const input = [
+			"---",
+			`kanban_plugin: '${JSON.stringify({ scope: ScopeOption.Everywhere })}'`,
+			"kanban_plugin_path_scope_v2:",
+			`  version: ${pathScope?.version}`,
+			`  mode: ${pathScope?.mode}`,
+			"  paths:",
+			"    - daily/today.md",
+			"  includeBoardFolder: false",
+			"  compatibilityProjection:",
+			"    scope: selectedFolders",
+			"    scopeFolders:",
+			"      - daily/today.md",
+			"---",
+			"",
+		].join("\n");
+		expect(parseKanbanPathScopeFromViewData(input)).toBeUndefined();
+	});
+
+	it("preserves an inactive path scope with its legacy projection", () => {
+		const pathScope = setPathScopeActive(
+			createPathScope(["daily/today.md"])!,
+			false,
+			"folder",
+			[],
+	)!;
+		const output = writeKanbanSettingsToViewData(
+			["---", "kanban_plugin: '{}'", "---", ""].join("\n"),
+			{ scope: ScopeOption.Folder },
+			pathScope,
+		);
+
+		expect(JSON.parse(readFrontmatter(output).kanban_plugin as string)).toEqual({
+			scope: ScopeOption.Folder,
+			scopeFolders: [],
+		});
+		expect(parseKanbanPathScopeFromViewData(output)).toEqual(pathScope);
 	});
 });
 

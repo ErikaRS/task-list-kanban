@@ -1,4 +1,5 @@
 import { ScopeOption } from "../settings/settings_store";
+import { type PathScopeV2, resolvePathScopePaths } from "./path_scope";
 
 function normalizePath(path: string): string {
 	return path.replace(/^\//, "").replace(/\/$/, "");
@@ -17,7 +18,8 @@ export function shouldIncludeFilePath(
 	filePath: string,
 	filenameFilter: string[] | null,
 	excludeFilter?: string[] | null,
-	boardFolderPath?: string | null
+	boardFolderPath?: string | null,
+	protectBoardFolderFromExcludes = true,
 ): boolean {
 	if (filenameFilter !== null) {
 		const included = filenameFilter.some((folder) =>
@@ -38,7 +40,7 @@ export function shouldIncludeFilePath(
 
 			// Board folder override: if the exclude path is at or above the
 			// board folder level, files in the board folder are protected.
-			if (normalizedBoard !== null) {
+			if (protectBoardFolderFromExcludes && normalizedBoard !== null) {
 				const normalizedExclude = normalizePath(excludePath);
 				const excludeCoversBoard =
 					normalizedExclude === "" || // root exclude covers everything
@@ -67,6 +69,14 @@ export function shouldIncludeFilePath(
 	return true;
 }
 
+/** Selected paths never receives legacy board-folder exclusion protection. */
+export function getProtectedBoardFolderPath(
+	scope: ScopeOption,
+	boardFolderPath: string | null,
+): string | null {
+	return scope === ScopeOption.SelectedPaths ? null : boardFolderPath;
+}
+
 /**
  * The folder filter a board's scope settings resolve to: null means "search
  * everywhere". The board's own folder is always included, and duplicate
@@ -76,6 +86,8 @@ export function resolveScopeFilter(
 	scope: ScopeOption,
 	scopeFolders: string[] | undefined,
 	boardFolderPath: string | null,
+	pathScope?: PathScopeV2,
+	now?: Date,
 ): string[] | null {
 	switch (scope) {
 		case ScopeOption.Folder:
@@ -85,6 +97,13 @@ export function resolveScopeFilter(
 			return boardFolderPath !== null
 				? [boardFolderPath, ...selected.filter((folder) => folder !== boardFolderPath)]
 				: selected;
+		}
+		case ScopeOption.SelectedPaths: {
+			if (!pathScope) return [];
+			const paths = resolvePathScopePaths(pathScope, now);
+			return pathScope.includeBoardFolder && boardFolderPath !== null
+				? [boardFolderPath, ...paths.filter((path) => path !== boardFolderPath)]
+				: paths;
 		}
 		default:
 			return null;

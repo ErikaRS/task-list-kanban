@@ -2,7 +2,12 @@ import type { TFile, Vault } from "obsidian";
 import { createColumnData, type ColumnDefinition, type ColumnTag } from "../columns/columns";
 import type { SettingValues } from "./settings_store";
 import { getTagsFromContent } from "src/parsing/tags/tags";
-import { shouldIncludeFilePath } from "../tasks/scope";
+import {
+	getProtectedBoardFolderPath,
+	resolveScopeFilter,
+	shouldIncludeFilePath,
+} from "../tasks/scope";
+import type { PathScopeV2 } from "../tasks/path_scope";
 import {
 	columnRuleSignature,
 	getColumnPrioritySchema,
@@ -46,12 +51,14 @@ export async function applyChangedColumnTagUpdates({
 	oldSettings,
 	newSettings,
 	boardFolderPath,
+	pathScope,
 	updateChoices,
 }: {
 	vault: Vault;
 	oldSettings: SettingValues;
 	newSettings: SettingValues;
 	boardFolderPath: string | null;
+	pathScope?: PathScopeV2;
 	updateChoices: Record<string, boolean>;
 }): Promise<void> {
 	const changedColumns = getChangedColumnMatchRules(oldSettings, newSettings).filter(
@@ -63,7 +70,7 @@ export async function applyChangedColumnTagUpdates({
 	}
 
 	const newColumnData = createColumnData(newSettings.columns);
-	const oldSettingsScope = resolveScopeSettings(oldSettings, boardFolderPath);
+	const oldSettingsScope = resolveScopeSettings(oldSettings, boardFolderPath, pathScope);
 	const changedColumnsById = new Map(changedColumns.map((column) => [column.id, column]));
 	const files = vault
 		.getMarkdownFiles()
@@ -72,7 +79,7 @@ export async function applyChangedColumnTagUpdates({
 				file.path,
 				oldSettingsScope.filenameFilter,
 				oldSettingsScope.excludeFilter,
-				boardFolderPath,
+				getProtectedBoardFolderPath(oldSettings.scope, boardFolderPath),
 			),
 		);
 
@@ -215,27 +222,17 @@ function getPriorityMatchValues(rawLine: string): Partial<Record<PropertySchemaO
 function resolveScopeSettings(
 	settings: SettingValues,
 	boardFolderPath: string | null,
+	pathScope?: PathScopeV2,
 ): {
 	filenameFilter: string[] | null;
 	excludeFilter: string[] | null;
 } {
-	let filenameFilter: string[] | null = null;
-
-	switch (settings.scope) {
-		case "everywhere":
-			filenameFilter = null;
-			break;
-		case "folder":
-			filenameFilter = boardFolderPath ? [boardFolderPath] : null;
-			break;
-		case "selectedFolders": {
-			const selected = settings.scopeFolders ?? [];
-			filenameFilter = boardFolderPath
-				? [boardFolderPath, ...selected.filter((folder) => folder !== boardFolderPath)]
-				: selected;
-			break;
-		}
-	}
+	const filenameFilter = resolveScopeFilter(
+		settings.scope,
+		settings.scopeFolders,
+		boardFolderPath,
+		pathScope,
+	);
 
 	const excludePaths = settings.excludePaths ?? [];
 	return {

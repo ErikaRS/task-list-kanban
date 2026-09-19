@@ -3,13 +3,23 @@ import { readable, writable, type Readable } from "svelte/store";
 import {
 	parseSettingsOverrides,
 	resolveSettings,
+	ScopeOption,
 	type SettingValues,
 } from "../settings/settings_store";
 import {
 	inheritedSettingsFromGlobalSettings,
 	type GlobalSettings,
 } from "../settings/global_settings";
-import { resolveScopeFilter, shouldIncludeFilePath } from "../tasks/scope";
+import {
+	getProtectedBoardFolderPath,
+	resolveScopeFilter,
+	shouldIncludeFilePath,
+} from "../tasks/scope";
+import {
+	pathScopeHasDateTemplate,
+	pathScopeMatchesLegacy,
+	type PathScopeV2,
+} from "../tasks/path_scope";
 import { createColumnData, RESERVED_COLUMN_KEYS } from "../columns/columns";
 import { getMarkerSettings, updateMapsFromFile, type Metadata } from "../tasks/tasks";
 import { getBoardTaskCount } from "../board_counts";
@@ -49,6 +59,8 @@ export interface BoardStatsHost {
 	cachedRead(file: TFile): Promise<string>;
 	/** The board's `kanban_plugin` frontmatter payload (may be empty/invalid). */
 	getBoardSettingsPayload(file: TFile): string;
+	/** Canonical Selected-paths sidecar, if this board has one. */
+	getBoardPathScope?(file: TFile): PathScopeV2 | undefined;
 	getGlobalSettings(): GlobalSettings;
 }
 
@@ -110,6 +122,8 @@ export function createBoardStatsService(
 	const queued = new Set<string>();
 	let pumping = false;
 	let destroyed = false;
+	let midnightTimer: number | undefined;
+	const dynamicScopePaths = new Set<string>();
 	const now = options.now ?? (() => new Date());
 
 	function publish(path: string, counts: BoardTaskCounts | undefined) {
@@ -143,20 +157,38 @@ export function createBoardStatsService(
 		// The same three settings layers a live KanbanView resolves —
 		// builtin defaults ⊕ global defaults ⊕ the board's sparse overrides
 		// — with the overrides read from cached frontmatter, not the file.
-		const settings = resolveSettings(
+		let settings = resolveSettings(
 			parseSettingsOverrides(host.getBoardSettingsPayload(boardFile)),
 			inheritedSettingsFromGlobalSettings(host.getGlobalSettings()),
 		);
+		const candidatePathScope = host.getBoardPathScope?.(boardFile);
+		const pathScope = candidatePathScope?.active && pathScopeMatchesLegacy(
+			candidatePathScope,
+			settings.scope,
+			settings.scopeFolders ?? [],
+		)
+			? candidatePathScope
+			: undefined;
+		if (pathScope) {
+			settings = { ...settings, scope: ScopeOption.SelectedPaths };
+		}
 		const boardFolder = boardFile.parent?.path ?? null;
 		const scopeFilter = resolveScopeFilter(
 			settings.scope,
 			settings.scopeFolders,
 			boardFolder,
+			pathScope,
+			now(),
 		);
 		const excludePaths = settings.excludePaths ?? [];
 		const excludeFilter = excludePaths.length > 0 ? excludePaths : null;
 		const inScope = files.filter((file) =>
-			shouldIncludeFilePath(file.path, scopeFilter, excludeFilter, boardFolder),
+			shouldIncludeFilePath(
+				file.path,
+				scopeFilter,
+				excludeFilter,
+				getProtectedBoardFolderPath(settings.scope, boardFolder),
+			),
 		);
 
 		const producesAttention = hasDateDueProperty(settings);
@@ -276,6 +308,37 @@ export function createBoardStatsService(
 		}
 	}
 
+	function scheduleMidnightRefresh() {
+		if (midnightTimer !== undefined) {
+			window.clearTimeout(midnightTimer);
+			midnightTimer = undefined;
+		}
+		if (destroyed || dynamicScopePaths.size === 0) return;
+		const current = now();
+		const next = new Date(current);
+		next.setHours(24, 0, 1, 0);
+		midnightTimer = window.setTimeout(() => {
+			midnightTimer = undefined;
+			for (const path of dynamicScopePaths) {
+				cacheByPath.delete(path);
+			}
+			requestDynamicBoards();
+		}, Math.max(1_000, next.getTime() - current.getTime()));
+	}
+
+	function requestDynamicBoards() {
+		for (const path of dynamicScopePaths) {
+			if (!queued.has(path)) {
+				queued.add(path);
+				queue.push(path);
+			}
+		}
+		if (!pumping && queue.length > 0) {
+			void pump();
+		}
+		scheduleMidnightRefresh();
+	}
+
 	return {
 		countsStore: { subscribe: countsStore.subscribe },
 		requestCounts(paths) {
@@ -283,6 +346,10 @@ export function createBoardStatsService(
 				return;
 			}
 			for (const path of paths) {
+				const boardFile = host.getMarkdownFiles().find((file) => file.path === path);
+				if (boardFile && pathScopeHasDateTemplate(host.getBoardPathScope?.(boardFile))) {
+					dynamicScopePaths.add(path);
+				}
 				if (queued.has(path)) {
 					continue;
 				}
@@ -292,9 +359,13 @@ export function createBoardStatsService(
 			if (!pumping && queue.length > 0) {
 				void pump();
 			}
+			scheduleMidnightRefresh();
 		},
 		destroy() {
 			destroyed = true;
+			if (midnightTimer !== undefined) {
+				window.clearTimeout(midnightTimer);
+			}
 			queue.length = 0;
 			queued.clear();
 		},

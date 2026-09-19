@@ -10,6 +10,7 @@ import type { Task } from "./task";
 import type { Metadata } from "./tasks";
 import type { ColumnDefinition, ColumnTag, DefaultColumns } from "../columns/columns";
 import { shouldIncludeFilePath } from "./scope";
+import { resolveDateTemplate } from "./path_scope";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
 import {
@@ -180,9 +181,11 @@ export function createTaskActions({
 }): TaskActions {
 	function resolveFileIfValid(filePath: string | null): TFile | null {
 		if (!filePath) return null;
-		const abstractFile = vault.getAbstractFileByPath(filePath);
+		const resolvedPath = resolveDateTemplate(filePath);
+		if (!resolvedPath) return null;
+		const abstractFile = vault.getAbstractFileByPath(resolvedPath);
 		if (!(abstractFile instanceof TFile)) return null;
-		if (!shouldIncludeFilePath(filePath, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath())) return null;
+		if (!shouldIncludeFilePath(resolvedPath, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath())) return null;
 		return abstractFile;
 	}
 

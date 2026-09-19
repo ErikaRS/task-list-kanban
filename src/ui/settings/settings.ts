@@ -12,7 +12,11 @@ import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, isTrackedTaskString, validateArchiveStatusMarkers, validateDoneStatusMarkers, validateCancelledStatusMarkers, validateIgnoredStatusMarkers, validateStatusMarkerOrder } from "../tasks/task";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import { TASKS_PRIORITY_OPTIONS } from "../../parsing/properties/tasks_schema";
-import { resolveScopeFilter, shouldIncludeFilePath } from "../tasks/scope";
+import {
+	getProtectedBoardFolderPath,
+	resolveScopeFilter,
+	shouldIncludeFilePath,
+} from "../tasks/scope";
 import { getTagsFromContent } from "src/parsing/tags/tags";
 import {
 	type ColumnDefinition,
@@ -30,7 +34,14 @@ import {
 } from "../columns/definitions";
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 import { getColumnValidationError } from "./column_validation";
-import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest } from "./suggest";
+import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest, TaskSourcePathSuggest } from "./suggest";
+import {
+	createPathScope,
+	hasDateTemplate,
+	resolveDateTemplate,
+	setPathScopeActive,
+	type PathScopeV2,
+} from "../tasks/path_scope";
 
 const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
 const ScopeOptionSchema = z.nativeEnum(ScopeOption);
@@ -78,9 +89,11 @@ export interface SettingsSubmitOptions {
 
 export class SettingsModal extends Modal {
 	private originalSettingsSnapshot: string;
+	private readonly originalPathScopeSnapshot: string;
 	private readonly originalSettings: SettingValues;
 	private scrollWrapper!: HTMLDivElement;
 	private validationError: string | null = null;
+	private pathScopeErrorEl: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
 	private columnsEditorEl: HTMLDivElement | null = null;
 	private headerDirtyPill: HTMLElement | null = null;
@@ -107,21 +120,89 @@ export class SettingsModal extends Modal {
 	constructor(
 		app: App,
 		private settings: SettingValues,
-		private readonly onSubmit: (
+	private readonly onSubmit: (
 			newSettings: SettingValues,
 			options: SettingsSubmitOptions,
+			pathScope?: PathScopeV2,
 		) => void | Promise<void>,
 		private readonly boardFolderPath: string | null,
 		private readonly options: SettingsModalOptions = {},
+		private pathScope?: PathScopeV2,
 	) {
 		super(app);
+		const originalPathScopeSnapshot = JSON.stringify(this.pathScope);
+		this.seedEmptyPathScopeFromSelectedFolders();
 		this.originalSettings = structuredClone(settings);
 		this.originalSettingsSnapshot = JSON.stringify(settings);
+		this.originalPathScopeSnapshot = originalPathScopeSnapshot;
 		this.initialOverriddenKeys = new Set(options.overrideContext?.overriddenKeys ?? []);
 	}
 
 	private isGlobalDefaultsMode(): boolean {
 		return this.options.mode === "globalDefaults";
+	}
+
+	/**
+	 * Early Selected-paths builds could persist an empty sidecar alongside a
+	 * retained legacy folder list. Treat that combination as uninitialised so
+	 * switching to (or reopening) Selected paths keeps the user's sources.
+	 */
+	private seedEmptyPathScopeFromSelectedFolders(): void {
+		const folders = this.settings.scopeFolders ?? [];
+		if (this.isGlobalDefaultsMode() || this.settings.scope !== ScopeOption.SelectedPaths) {
+			return;
+		}
+		if (this.pathScope?.paths.length) {
+			this.pathScope = this.moveBoardFolderToToggle(this.pathScope);
+			return;
+		}
+		if (folders.length === 0) return;
+		const seeded = this.createPathScopeFromFolderEntries(
+			folders,
+			this.pathScope?.includeBoardFolder ?? false,
+		);
+		if (!seeded) return;
+		this.pathScope = seeded;
+	}
+
+	private convertSelectedFoldersToPathScope(
+		folders: readonly string[],
+	): PathScopeV2 | undefined {
+		return this.createPathScopeFromFolderEntries(folders, true) ?? undefined;
+	}
+
+	private createPathScopeFromFolderEntries(
+		folders: readonly string[],
+		includeBoardFolder: boolean,
+	): PathScopeV2 | null {
+		const paths = this.withoutBoardFolder(folders);
+		return createPathScope(
+			paths,
+			includeBoardFolder || paths.length !== folders.length,
+		);
+	}
+
+	private withoutBoardFolder(paths: readonly string[]): string[] {
+		if (!this.boardFolderPath) return [...paths];
+		const normalizedBoardFolder = normalizePathInput(this.boardFolderPath);
+		return paths.filter((path) => normalizePathInput(path) !== normalizedBoardFolder);
+	}
+
+	/** The current board folder is represented exclusively by its toggle. */
+	private moveBoardFolderToToggle(pathScope: PathScopeV2): PathScopeV2 {
+		const pathsWithoutBoardFolder = this.withoutBoardFolder(pathScope.paths);
+		if (pathsWithoutBoardFolder.length === pathScope.paths.length) {
+			return pathScope;
+		}
+		return {
+			...pathScope,
+			paths: pathsWithoutBoardFolder,
+			includeBoardFolder: true,
+			compatibilityProjection: {
+				...pathScope.compatibilityProjection,
+				scopeFolders: this.withoutBoardFolder(pathScope.compatibilityProjection.scopeFolders),
+			},
+		};
 	}
 
 	private isEmbedded(): boolean {
@@ -137,6 +218,7 @@ export class SettingsModal extends Modal {
 	private isDirty(): boolean {
 		return (
 			JSON.stringify(this.settings) !== this.originalSettingsSnapshot ||
+			JSON.stringify(this.pathScope) !== this.originalPathScopeSnapshot ||
 			this.pinnedKeys.size > 0 ||
 			this.clearedKeys.size > 0
 		);
@@ -307,8 +389,8 @@ export class SettingsModal extends Modal {
 		this.scrollWrapper.scrollTop = scrollTop;
 	}
 
-	private validateColumns() {
-		this.validationError = getColumnValidationError(this.settings.columns ?? [], {
+	private validateSettings() {
+		const columnError = getColumnValidationError(this.settings.columns ?? [], {
 			doneStatusMarkers: this.settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
 			ignoredStatusMarkers: this.settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
 			cancelledStatusMarkers: this.settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
@@ -318,11 +400,22 @@ export class SettingsModal extends Modal {
 			propertySchema: this.settings.propertySchema ?? PropertySchemaOption.None,
 			originalColumns: this.originalSettings.columns,
 		});
+		const pathScopeError =
+			!this.isGlobalDefaultsMode() &&
+			this.settings.scope === ScopeOption.SelectedPaths &&
+			!(this.pathScope?.includeBoardFolder || (this.pathScope?.paths.length ?? 0) > 0)
+				? "Selected paths must include at least one file or folder."
+				: null;
+		this.validationError = columnError ?? pathScopeError;
+		if (this.pathScopeErrorEl) {
+			this.pathScopeErrorEl.setText(pathScopeError ?? "");
+			this.pathScopeErrorEl.style.visibility = pathScopeError ? "visible" : "hidden";
+		}
 		this.updateValidationBanner();
 	}
 
 	private touchSettings() {
-		this.validateColumns();
+		this.validateSettings();
 		this.updateDirtyBanner();
 	}
 
@@ -338,7 +431,7 @@ export class SettingsModal extends Modal {
 			void this.onSubmit(this.settings, {
 				updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
 				...this.overrideLifecycleOptions(),
-			});
+			}, this.pathScope);
 		}, 150);
 	}
 
@@ -677,6 +770,8 @@ export class SettingsModal extends Modal {
 			normalize: (raw: string) => string;
 			/** Values silently refused on add (e.g. the board's own folder). */
 			reject?: (value: string) => boolean;
+			/** Explanation shown when a value cannot be added. */
+			rejectionMessage?: string;
 			getItems: () => string[];
 			setItems: (items: string[]) => void;
 			/** Items to display; defaults to getItems. */
@@ -688,7 +783,7 @@ export class SettingsModal extends Modal {
 			monospaceLabels?: boolean;
 			warnWhenMissingFromVault?: boolean;
 			/** Non-removable first row (the board's own folder). */
-			pinnedRow?: { label: string; badge: string };
+			pinnedRow?: { label: string; badge: string } | (() => { label: string; badge: string } | undefined);
 		},
 	): { addRowEl: HTMLDivElement; refresh: () => void } {
 		const addRowEl = container.createDiv({ cls: "settings-list-add-row" });
@@ -701,10 +796,13 @@ export class SettingsModal extends Modal {
 
 		const refresh = () => {
 			listEl.empty();
-			if (options.pinnedRow) {
+			const pinnedRow = typeof options.pinnedRow === "function"
+				? options.pinnedRow()
+				: options.pinnedRow;
+			if (pinnedRow) {
 				const row = listEl.createDiv({ cls: "settings-list-row" });
-				row.createSpan({ cls: "settings-list-label", text: options.pinnedRow.label });
-				row.createSpan({ cls: "settings-list-note", text: options.pinnedRow.badge });
+				row.createSpan({ cls: "settings-list-label", text: pinnedRow.label });
+				row.createSpan({ cls: "settings-list-note", text: pinnedRow.badge });
 			}
 			for (const item of (options.renderItems ?? options.getItems)()) {
 				const row = listEl.createDiv({ cls: "settings-list-row" });
@@ -712,7 +810,15 @@ export class SettingsModal extends Modal {
 					cls: options.monospaceLabels ? "settings-list-label-mono" : "settings-list-label",
 					text: item,
 				});
-				if (options.warnWhenMissingFromVault && !this.app.vault.getAbstractFileByPath(item)) {
+				const resolvedItem = hasDateTemplate(item) ? resolveDateTemplate(item) : item;
+				if (resolvedItem && resolvedItem !== item) {
+					row.createSpan({
+						cls: "settings-list-note",
+						text: ` (today: ${resolvedItem})`,
+					});
+				}
+				if (options.warnWhenMissingFromVault &&
+					(!resolvedItem || !this.app.vault.getAbstractFileByPath(resolvedItem))) {
 					row.createSpan({ cls: "settings-list-note is-warning", text: " (not found)" });
 				}
 				const removeButton = row.createEl("button", {
@@ -732,10 +838,17 @@ export class SettingsModal extends Modal {
 
 		const add = () => {
 			const value = options.normalize(inputEl.value);
-			if (!value || options.reject?.(value)) return;
+			if (!value) return;
+			if (options.reject?.(value)) {
+				inputEl.style.borderColor = "var(--text-error)";
+				inputEl.title = options.rejectionMessage ?? "This value cannot be added";
+				return;
+			}
 			const items = options.getItems();
 			if (items.includes(value)) return;
 			options.setItems([...items, value]);
+			inputEl.style.borderColor = "";
+			inputEl.title = "";
 			inputEl.value = "";
 			refresh();
 			options.onChanged?.();
@@ -1234,6 +1347,7 @@ export class SettingsModal extends Modal {
 	}
 
 	onOpen() {
+		this.pathScopeErrorEl = null;
 		if (this.isEmbedded()) {
 			this.contentEl.addClass("task-list-kanban-settings-inline");
 		} else {
@@ -1350,13 +1464,14 @@ export class SettingsModal extends Modal {
 
 		this.columnsEditorEl = columnsSection;
 		this.renderColumnsEditor();
-		this.validateColumns();
+		this.validateSettings();
 		void this.refreshAvailableColumnTags();
 
 		this.renderTaskPropertiesSection(taskPropertiesSection);
 		this.renderScopeSection(scopeSection);
 		this.renderDisplaySection(displaySection);
 		this.renderStatusMarkersSection(statusMarkersSection);
+		this.validateSettings();
 
 		if (!this.isEmbedded()) {
 			this.renderButtonBar();
@@ -1396,9 +1511,14 @@ export class SettingsModal extends Modal {
 			this.setDefaultTaskFileError("");
 			return;
 		}
-		const value = this.settings.defaultTaskFile ?? "";
-		if (!value) {
+		const rawValue = this.settings.defaultTaskFile ?? "";
+		if (!rawValue) {
 			this.setDefaultTaskFileError("");
+			return;
+		}
+		const value = resolveDateTemplate(rawValue);
+		if (!value) {
+			this.setDefaultTaskFileError("Invalid vault-relative path template");
 			return;
 		}
 		const abstractFile =
@@ -1408,11 +1528,15 @@ export class SettingsModal extends Modal {
 			return;
 		}
 		const scopeFilter = this.getScopeFilter();
-		if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], this.boardFolderPath)) {
+		const scopeBoardFolder = getProtectedBoardFolderPath(
+			this.settings.scope,
+			this.boardFolderPath,
+		);
+		if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], scopeBoardFolder)) {
 			const excludePaths = this.settings.excludePaths ?? [];
 			const isExcludedByPath = excludePaths.length > 0 &&
 				shouldIncludeFilePath(value, scopeFilter) &&
-				!shouldIncludeFilePath(value, scopeFilter, excludePaths, this.boardFolderPath);
+				!shouldIncludeFilePath(value, scopeFilter, excludePaths, scopeBoardFolder);
 			this.setDefaultTaskFileError(
 				isExcludedByPath
 					? "File is excluded from the board's scope"
@@ -1508,10 +1632,13 @@ export class SettingsModal extends Modal {
 	}
 
 	private renderScopeSection(scopeSection: HTMLDivElement) {
-		// --- Folder scope dropdown + selected folders UI ---
+		// --- Folder scope dropdown + selected folders / paths UI ---
 		const scopeContainer = scopeSection.createDiv();
 
 		let folderListContainer: HTMLDivElement | null = null;
+		let pathListContainer: HTMLDivElement | null = null;
+		let pathListEditor: { refresh: () => void } | undefined;
+		let includeBoardToggle: { setValue(value: boolean): unknown } | undefined;
 
 		const updateFolderListVisibility = () => {
 			if (!folderListContainer) return;
@@ -1519,28 +1646,58 @@ export class SettingsModal extends Modal {
 				this.settings.scope === ScopeOption.SelectedFolders
 					? "block"
 					: "none";
+			if (pathListContainer) {
+				pathListContainer.style.display =
+					this.settings.scope === ScopeOption.SelectedPaths ? "block" : "none";
+			}
 		};
 
 		new Setting(scopeContainer)
-			.setName("Included folders")
-			.setDesc("Folders the board searches for tasks. The board's own folder is always included.")
+			.setName("Task source")
+			.setDesc("Choose where this board searches for tasks.")
 			.addDropdown((dropdown) => {
-				dropdown.addOption(ScopeOption.Folder, "Same as board folder");
+				dropdown.addOption(ScopeOption.Folder, "Just board folder");
 				dropdown.addOption(ScopeOption.Everywhere, "Every folder");
-				dropdown.addOption(
-					ScopeOption.SelectedFolders,
-					this.isGlobalDefaultsMode()
-						? "Selected folders (configured per board)"
-						: "Selected folders"
-				);
+				if (!this.isGlobalDefaultsMode()) {
+					dropdown.addOption(ScopeOption.SelectedPaths, "Selected paths");
+				}
+				if (this.settings.scope === ScopeOption.SelectedFolders) {
+					dropdown.addOption(ScopeOption.SelectedFolders, "Selected folders (legacy)");
+				}
 				dropdown.setValue(this.settings.scope);
 				dropdown.onChange((value) => {
 					const validatedValue = ScopeOptionSchema.safeParse(value);
+					const previousScope = this.settings.scope;
+					const savedSelectedFolders = this.settings.scopeFolders ?? [];
 					this.settings.scope = validatedValue.success
 						? validatedValue.data
 						: defaultSettings.scope;
+					if (this.settings.scope === ScopeOption.SelectedPaths) {
+						// Choosing Selected paths from the legacy mode is an explicit
+						// conversion. Its folder list wins over any retained path scope.
+						const selectedPathScope = previousScope === ScopeOption.SelectedFolders
+							? this.convertSelectedFoldersToPathScope(savedSelectedFolders)
+							: this.pathScope;
+						if (!selectedPathScope) {
+							this.seedEmptyPathScopeFromSelectedFolders();
+						}
+						this.pathScope = selectedPathScope
+							?? this.pathScope
+							?? this.createPathScopeFromFolderEntries(savedSelectedFolders, false)
+							?? undefined;
+					} else if (this.pathScope) {
+						this.pathScope = setPathScopeActive(
+							this.pathScope,
+							false,
+							this.settings.scope,
+							this.settings.scopeFolders ?? [],
+						) ?? this.pathScope;
+					}
 					updateFolderListVisibility();
+					includeBoardToggle?.setValue(this.pathScope?.includeBoardFolder ?? false);
+					pathListEditor?.refresh();
 					this.validateDefaultTaskFile();
+					this.validateSettings();
 					this.updateDirtyBanner();
 				});
 			})
@@ -1574,6 +1731,7 @@ export class SettingsModal extends Modal {
 				},
 				onChanged: () => {
 					this.validateDefaultTaskFile();
+					this.validateSettings();
 					this.updateDirtyBanner();
 				},
 				removeStyle: "icon",
@@ -1582,6 +1740,84 @@ export class SettingsModal extends Modal {
 					? { label: this.boardFolderPath, badge: " (this board)" }
 					: undefined,
 			});
+			updateFolderListVisibility();
+
+			pathListContainer = scopeContainer.createDiv({
+				cls: "settings-list-indent settings-list-block",
+			});
+			const includeBoardSetting = new Setting(pathListContainer)
+				.setName("Include this board's folder")
+				.setDesc("Tasks beside this board are included unless an excluded path removes them.");
+			includeBoardSetting.addToggle((toggle) => {
+				includeBoardToggle = toggle;
+				toggle.setValue(this.pathScope?.includeBoardFolder ?? false).onChange((value) => {
+					const current = this.pathScope ?? createPathScope([], false);
+					this.pathScope = current
+						? {
+							...current,
+							paths: this.withoutBoardFolder(current.paths),
+							includeBoardFolder: value,
+							compatibilityProjection: {
+								...current.compatibilityProjection,
+								scopeFolders: this.withoutBoardFolder(
+									current.compatibilityProjection.scopeFolders,
+								),
+							},
+						}
+						: undefined;
+					pathListEditor?.refresh();
+					this.validateDefaultTaskFile();
+					this.validateSettings();
+					this.updateDirtyBanner();
+				});
+			});
+			pathListEditor = this.createStringListEditor(pathListContainer, {
+				placeholder: "e.g., daily/{{YYYY-MM-DD}}.md or projects/active",
+				normalize: normalizePathInput,
+				reject: (value) => {
+					if (value === this.boardFolderPath) return true;
+					const target = this.app.vault.getAbstractFileByPath(value);
+					if (target instanceof TFile && target.extension !== "md") return true;
+					return createPathScope(
+						[...(this.pathScope?.paths ?? []), value],
+						this.pathScope?.includeBoardFolder ?? false,
+					) === null;
+				},
+				rejectionMessage:
+					"Enter a vault-relative Markdown path or folder. Use the board-folder toggle for this board's folder.",
+				getItems: () => this.pathScope?.paths ?? [],
+				setItems: (items) => {
+					const existing = this.pathScope;
+					this.pathScope = createPathScope(
+						this.withoutBoardFolder(items),
+						existing?.includeBoardFolder ?? false,
+					) ?? existing;
+				},
+				createSuggest: (inputEl, commit) => {
+					new TaskSourcePathSuggest(this.app, inputEl, commit);
+				},
+				onChanged: () => {
+					this.validateDefaultTaskFile();
+					this.validateSettings();
+					this.updateDirtyBanner();
+				},
+				removeStyle: "icon",
+				warnWhenMissingFromVault: true,
+				pinnedRow: () =>
+					this.pathScope?.includeBoardFolder && this.boardFolderPath
+						? { label: this.boardFolderPath, badge: " (this board)" }
+						: undefined,
+			});
+			this.pathScopeErrorEl = pathListContainer.createDiv({
+				cls: "setting-error-message",
+			});
+			this.pathScopeErrorEl.style.color = "var(--text-error)";
+			this.pathScopeErrorEl.style.fontSize = "var(--font-smallest)";
+			this.pathScopeErrorEl.style.fontStyle = "italic";
+			this.pathScopeErrorEl.style.marginTop = "4px";
+			this.pathScopeErrorEl.style.minHeight = "1.2em";
+			this.pathScopeErrorEl.style.visibility = "hidden";
+			this.validateSettings();
 			updateFolderListVisibility();
 		}
 
@@ -1822,7 +2058,7 @@ export class SettingsModal extends Modal {
 				await this.onSubmit(this.settings, {
 					updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
 					...this.overrideLifecycleOptions(),
-				});
+				}, this.pathScope);
 				this.close();
 			} finally {
 				if (this.saveBtn) {
@@ -1845,6 +2081,6 @@ export class SettingsModal extends Modal {
 	}
 
 	private getScopeFilter(): string[] | null {
-		return resolveScopeFilter(this.settings.scope, this.settings.scopeFolders, this.boardFolderPath);
+		return resolveScopeFilter(this.settings.scope, this.settings.scopeFolders, this.boardFolderPath, this.pathScope);
 	}
 }

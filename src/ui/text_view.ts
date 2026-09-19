@@ -4,11 +4,12 @@ import Main from "./main.svelte";
 import { SettingsModal, type SettingsSubmitOptions } from "./settings/settings";
 import {
 	createSettingsStore,
+	ScopeOption,
 	type BoardSettingsStore,
 	type SavedView,
 	type SettingValues,
 } from "./settings/settings_store";
-import { resolveScopeFilter } from "./tasks/scope";
+import { getProtectedBoardFolderPath, resolveScopeFilter } from "./tasks/scope";
 import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { BoardIndexEntry } from "./boards/board_index";
 import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
@@ -17,9 +18,15 @@ import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
 import {
+	parseKanbanPathScopeFromViewData,
 	parseKanbanSettingsOverridesFromViewData,
 	writeKanbanSettingsToViewData,
 } from "./kanban_frontmatter";
+import {
+	pathScopeHasDateTemplate,
+	setPathScopeActive,
+	type PathScopeV2,
+} from "./tasks/path_scope";
 import {
 	createColumnStores,
 	type ColumnDefinition,
@@ -57,6 +64,9 @@ export class KanbanView extends TextFileView {
 	private filenameFilter: string[] | null = null;
 	private excludeFilter: string[] | null = null;
 	private boardFolderPath: string | null = null;
+	private scopeBoardFolderPath: string | null = null;
+	private pathScope: PathScopeV2 | undefined;
+	private scopeRefreshTimer: number | undefined;
 	private readonly currentPathStore = writable<string | null>(null);
 	// Transient by design (SPEC 0033): the dashboard never reopens itself
 	// after a reload or board switch.
@@ -91,15 +101,7 @@ export class KanbanView extends TextFileView {
 
 		this.settingsStore = createSettingsStore(inheritedSettingsStore);
 		this.destroySettingsStore = this.settingsStore.subscribe((settings) => {
-			this.boardFolderPath = this.file?.parent?.path ?? null;
-			this.filenameFilter = resolveScopeFilter(
-				settings.scope,
-				settings.scopeFolders,
-				this.boardFolderPath,
-			);
-
-			const excludePaths = settings.excludePaths ?? [];
-			this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
+			this.updateScopeFilters(settings);
 		});
 
 		const {
@@ -127,7 +129,7 @@ export class KanbanView extends TextFileView {
 			this.columnPlacementTagTableStore,
 			() => this.filenameFilter,
 			() => this.excludeFilter,
-			() => this.boardFolderPath,
+			() => this.scopeBoardFolderPath,
 			this.settingsStore,
 			() => this.requestSave(),
 			(fileHandle, nextContent) => this.prepareTaskWriteContent(fileHandle, nextContent)
@@ -138,9 +140,27 @@ export class KanbanView extends TextFileView {
 		this.initialiseTasksStore = initialise;
 	}
 
+	private updateScopeFilters(settings: SettingValues) {
+		this.boardFolderPath = this.file?.parent?.path ?? null;
+		this.filenameFilter = resolveScopeFilter(
+			settings.scope,
+			settings.scopeFolders,
+			this.boardFolderPath,
+			this.pathScope,
+		);
+		this.scopeBoardFolderPath = getProtectedBoardFolderPath(
+			settings.scope,
+			this.boardFolderPath,
+		);
+
+		const excludePaths = settings.excludePaths ?? [];
+		this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
+	}
+
 	private async onLocalSettingsChange(
 		newSettings: SettingValues,
 		options: SettingsSubmitOptions,
+		pathScope?: PathScopeV2,
 	) {
 		const previousSettings = structuredClone(get(this.settingsStore));
 		try {
@@ -149,6 +169,7 @@ export class KanbanView extends TextFileView {
 				oldSettings: previousSettings,
 				newSettings,
 				boardFolderPath: this.file?.parent?.path ?? null,
+				pathScope,
 				updateChoices: options.updateExistingTaskTagsByColumnId,
 			});
 		} catch (error) {
@@ -157,6 +178,20 @@ export class KanbanView extends TextFileView {
 			return;
 		}
 
+		if (newSettings.scope === ScopeOption.SelectedPaths) {
+			this.pathScope = pathScope
+				? setPathScopeActive(pathScope, true, "selectedFolders", pathScope.paths) ?? pathScope
+				: undefined;
+		} else if (pathScope) {
+			this.pathScope = setPathScopeActive(
+				pathScope,
+				false,
+				newSettings.scope as "folder" | "everywhere" | "selectedFolders",
+				newSettings.scopeFolders ?? [],
+			) ?? undefined;
+		} else {
+			this.pathScope = undefined;
+		}
 		this.settingsStore.set(newSettings);
 		// Pin/reset decisions from the modal come after the value write:
 		// set() only records overrides for value-*changing* writes, so
@@ -169,6 +204,7 @@ export class KanbanView extends TextFileView {
 			this.settingsStore.clearOverrides(options.clearedSettingKeys);
 		}
 		this.initialiseTasksStore();
+		this.scheduleScopeRefresh();
 		this.requestSave();
 	}
 
@@ -176,7 +212,7 @@ export class KanbanView extends TextFileView {
 		const settingsModal = new SettingsModal(
 			this.app,
 			structuredClone(get(this.settingsStore)),
-			(newSettings, options) => this.onLocalSettingsChange(newSettings, options),
+			(newSettings, options, pathScope) => this.onLocalSettingsChange(newSettings, options, pathScope),
 			this.file?.parent?.path ?? null,
 			{
 				overrideContext: {
@@ -186,6 +222,7 @@ export class KanbanView extends TextFileView {
 					baseSettings: this.settingsStore.getBaseSettings(),
 				},
 			},
+			this.pathScope,
 		);
 
 		settingsModal.open();
@@ -250,7 +287,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	getViewData(): string {
-		return writeKanbanSettingsToViewData(this.data, this.settingsStore.getOverrides());
+		return writeKanbanSettingsToViewData(this.data, this.settingsStore.getOverrides(), this.pathScope);
 	}
 
 	getResolvedSettingsSnapshot(): SettingValues {
@@ -302,8 +339,14 @@ export class KanbanView extends TextFileView {
 			return;
 		}
 
-		this.settingsStore.load(parseKanbanSettingsOverridesFromViewData(data));
+		this.pathScope = parseKanbanPathScopeFromViewData(data);
+		const overrides = parseKanbanSettingsOverridesFromViewData(data);
+		if (this.pathScope?.active) {
+			overrides.scope = ScopeOption.SelectedPaths;
+		}
+		this.settingsStore.load(overrides);
 		this.initialiseTasksStore();
+		this.scheduleScopeRefresh();
 	}
 
 	private prepareTaskWriteContent(fileHandle: { path: string }, nextContent: string): string {
@@ -311,9 +354,26 @@ export class KanbanView extends TextFileView {
 			return nextContent;
 		}
 
-		const preparedContent = writeKanbanSettingsToViewData(nextContent, this.settingsStore.getOverrides());
+		const preparedContent = writeKanbanSettingsToViewData(nextContent, this.settingsStore.getOverrides(), this.pathScope);
 		this.pendingSelfTaskFileWrites.push(preparedContent);
 		return preparedContent;
+	}
+
+	private scheduleScopeRefresh() {
+		if (this.scopeRefreshTimer !== undefined) {
+			window.clearTimeout(this.scopeRefreshTimer);
+			this.scopeRefreshTimer = undefined;
+		}
+		if (!pathScopeHasDateTemplate(this.pathScope)) return;
+		const now = new Date();
+		const nextMidnight = new Date(now);
+		nextMidnight.setHours(24, 0, 1, 0);
+		this.scopeRefreshTimer = window.setTimeout(() => {
+			this.scopeRefreshTimer = undefined;
+			this.updateScopeFilters(get(this.settingsStore));
+			this.initialiseTasksStore();
+			this.scheduleScopeRefresh();
+		}, Math.max(1_000, nextMidnight.getTime() - now.getTime()));
 	}
 
 	clear(): void {
@@ -356,6 +416,9 @@ export class KanbanView extends TextFileView {
 	}
 
 	async onClose() {
+		if (this.scopeRefreshTimer !== undefined) {
+			window.clearTimeout(this.scopeRefreshTimer);
+		}
 		this.contentEl.removeClass("task-list-kanban-view");
 		this.component?.$destroy();
 		this.destroySettingsStore();
