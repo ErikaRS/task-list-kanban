@@ -283,6 +283,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					.addOption("", "Leave unchanged")
 					.addOption("none", "None")
 					.addOption("file", "File")
+					.addOption("folder", "Folder")
 					.addOption("tag-prefix", "Tag prefix")
 					.onChange((value) => {
 						draftGroupKind = value;
@@ -467,6 +468,9 @@ function groupSourceFromDraft(kind: string, tagPrefix: string): GroupSource | un
 	}
 	if (kind === "file") {
 		return { kind: "file" };
+	}
+	if (kind === "folder") {
+		return { kind: "folder" };
 	}
 	if (kind === "tag-prefix") {
 		return { kind: "tag-prefix", prefix: tagPrefix.trim() };

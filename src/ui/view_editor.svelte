@@ -156,6 +156,7 @@
 				>
 					<option value="none">None</option>
 					<option value="file">File</option>
+					<option value="folder">Folder</option>
 					<option value="tag-prefix">Tag</option>
 					{#if availableGroupKeys.length > 0}
 						<optgroup label="Properties">

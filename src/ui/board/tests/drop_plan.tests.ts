@@ -96,6 +96,26 @@ describe("deriveDropPlan", () => {
 		});
 	});
 
+	describe("folder lanes", () => {
+		const meta = { source: { kind: "folder" } as const, value: "Projects/Alpha" };
+
+		it("plans a column-only change for a cross-lane drop, never moving files", () => {
+			expect(
+				derive({ column: OTHER_COLUMN, bucketMeta: meta }),
+			).toEqual({ kind: "column-only", changeColumn: true });
+		});
+
+		it("rejects a cross-lane, same-column drop since there is nothing to change", () => {
+			expect(derive({ bucketMeta: meta })).toBeNull();
+		});
+
+		it("still plans a column change for a same-lane drop", () => {
+			expect(
+				derive({ column: OTHER_COLUMN, secondaryId: "lane-a", bucketMeta: meta }),
+			).toEqual({ kind: "column-only", changeColumn: true });
+		});
+	});
+
 	describe("tag lanes", () => {
 		const source: GroupSource = {
 			kind: "tag-prefix",

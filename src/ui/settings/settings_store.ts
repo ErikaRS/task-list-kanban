@@ -152,6 +152,7 @@ const groupSourceSchema = z
 	.union([
 		z.object({ kind: z.literal("none") }),
 		z.object({ kind: z.literal("file") }),
+		z.object({ kind: z.literal("folder") }),
 		z.object({
 			kind: z.literal("tag-prefix"),
 			prefix: z.string().optional(),

@@ -75,6 +75,12 @@ export function deriveDropPlan({
 				}
 				break;
 			}
+			case "folder": {
+				// A folder bucket spans many files, so there's no single file to
+				// move a cross-lane drop into. Only ever change the column; the
+				// task keeps living in its current file and folder.
+				return changeColumn ? { kind: "column-only", changeColumn: true } : null;
+			}
 			case "tag-prefix": {
 				if (!crossLane) break;
 				const value = bucketMeta?.value;

@@ -9,6 +9,64 @@ import type { Task } from "../task";
 import { parseTask } from "./task_test_helpers";
 import { UNIVERSAL_STATUS_PROPERTY_KEY } from "../../../parsing/properties/property_schema";
 
+describe("folder grouping", () => {
+	it("derives one bucket per immediate parent folder, sorted, with root tasks last", () => {
+		const tasks = [
+			parseTask("- [ ] Work item", { path: "Projects/Alpha/work.md" }),
+			parseTask("- [ ] Other work", { path: "Projects/Beta/work.md" }),
+			parseTask("- [ ] Duplicate folder", { path: "Projects/Alpha/other.md" }),
+			parseTask("- [ ] Root task", { path: "root.md" }),
+		];
+
+		const buckets = deriveGroupBuckets(tasks, { kind: "folder" });
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual([
+			"Projects/Alpha",
+			"Projects/Beta",
+			"Root",
+		]);
+		expect(buckets.map((bucket) => bucket.value)).toEqual(["Projects/Alpha", "Projects/Beta", null]);
+		expect(buckets.at(-1)?.isDefault).toBe(true);
+	});
+
+	it("treats nested subfolders as distinct buckets rather than collapsing to a top ancestor", () => {
+		const tasks = [
+			parseTask("- [ ] Shallow", { path: "Area/one.md" }),
+			parseTask("- [ ] Deep", { path: "Area/Sub/two.md" }),
+		];
+
+		const buckets = deriveGroupBuckets(tasks, { kind: "folder" });
+
+		expect(buckets.map((bucket) => bucket.label)).toEqual(["Area", "Area/Sub"]);
+	});
+
+	it("produces a single Root bucket when every task lives at the vault root", () => {
+		const task = parseTask("- [ ] Root only", { path: "root.md" });
+
+		const buckets = deriveGroupBuckets([task], { kind: "folder" });
+
+		expect(buckets).toHaveLength(1);
+		expect(buckets[0]).toMatchObject({ label: "Root", value: null, isDefault: true });
+	});
+
+	it("assigns tasks to their folder bucket via taskBelongsToGroup and createGroupAssigner", () => {
+		const inFolderTask = parseTask("- [ ] In folder", { path: "Projects/Alpha/work.md" });
+		const atRootTask = parseTask("- [ ] At root", { path: "root.md" });
+		const source = { kind: "folder" as const };
+		const buckets = deriveGroupBuckets([inFolderTask, atRootTask], source);
+		const folderBucket = buckets.find((bucket) => bucket.label === "Projects/Alpha")!;
+		const rootBucket = buckets.find((bucket) => bucket.isDefault)!;
+
+		expect(taskBelongsToGroup(inFolderTask, folderBucket)).toBe(true);
+		expect(taskBelongsToGroup(inFolderTask, rootBucket)).toBe(false);
+		expect(taskBelongsToGroup(atRootTask, rootBucket)).toBe(true);
+
+		const assign = createGroupAssigner(buckets, source);
+		expect(assign(inFolderTask)).toBe(folderBucket.id);
+		expect(assign(atRootTask)).toBe(rootBucket.id);
+	});
+});
+
 describe("tag-prefix grouping", () => {
 	it("derives prefix buckets case-insensitively and keeps unassigned last", () => {
 		const tasks = [

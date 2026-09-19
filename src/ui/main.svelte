@@ -900,6 +900,8 @@
 		const groupProperty = propertyKeyFromOptionValue(value);
 		if (value === "file") {
 			$settingsStore.groupSource = { kind: "file" };
+		} else if (value === "folder") {
+			$settingsStore.groupSource = { kind: "folder" };
 		} else if (value === "tag-prefix") {
 			const nextGroupSource: GroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
 				? {

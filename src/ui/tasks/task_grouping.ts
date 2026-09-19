@@ -13,6 +13,7 @@ export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 export type GroupSource =
 	| { kind: "none" }
 	| { kind: "file" }
+	| { kind: "folder" }
 	| { kind: "tag-prefix"; prefix?: string; includeTags?: string[] }
 	| { kind: "property"; key: string; collapsePastDates?: boolean };
 
@@ -57,6 +58,42 @@ export function deriveGroupBuckets(
 			source,
 			isDefault: false,
 		}));
+
+		return applyGroupDirection(buckets, groupDirection);
+	}
+
+	if (source.kind === "folder") {
+		const folders = new Set<string>();
+		let hasRootTask = false;
+
+		for (const task of tasks) {
+			const folder = getTaskFolderPath(task.path);
+			if (folder === null) {
+				hasRootTask = true;
+			} else {
+				folders.add(folder);
+			}
+		}
+
+		const buckets: GroupBucket[] = [...folders]
+			.sort((a, b) => a.localeCompare(b))
+			.map((folder) => ({
+				id: createFolderGroupBucketId(folder),
+				label: folder,
+				value: folder,
+				source,
+				isDefault: false,
+			}));
+
+		if (hasRootTask || buckets.length === 0) {
+			buckets.push({
+				id: FOLDER_ROOT_GROUP_BUCKET_ID,
+				label: "Root",
+				value: null,
+				source,
+				isDefault: true,
+			});
+		}
 
 		return applyGroupDirection(buckets, groupDirection);
 	}
@@ -233,6 +270,10 @@ export function taskBelongsToGroup(
 	switch (bucket.source.kind) {
 		case "file":
 			return bucket.value !== null && task.path === bucket.value;
+		case "folder": {
+			const folder = getTaskFolderPath(task.path);
+			return bucket.isDefault ? folder === null : folder === bucket.value;
+		}
 		case "tag-prefix": {
 			const groupTag = getTaskTagGroupValue(task, bucket.source, excludedTags);
 			const bucketValue = typeof bucket.value === "string" ? bucket.value : null;
@@ -335,6 +376,20 @@ export function createGroupAssigner(
 		return (task) => idByPath.get(task.path) ?? defaultBucketId;
 	}
 
+	if (source.kind === "folder") {
+		const idByFolder = new Map<string, string>();
+		for (const bucket of buckets) {
+			if (!bucket.isDefault && typeof bucket.value === "string") {
+				idByFolder.set(bucket.value, bucket.id);
+			}
+		}
+		return (task) => {
+			const folder = getTaskFolderPath(task.path);
+			if (folder === null) return defaultBucketId;
+			return idByFolder.get(folder) ?? defaultBucketId;
+		};
+	}
+
 	if (source.kind === "property") {
 		const idByValue = new Map<string, string>();
 		for (const bucket of buckets) {
@@ -364,6 +419,18 @@ export function getFileGroupPath(bucket: GroupBucket): string | null {
 
 function createFileGroupBucketId(path: string): string {
 	return `file:${path}`;
+}
+
+const FOLDER_ROOT_GROUP_BUCKET_ID = "folder:__root__";
+
+function createFolderGroupBucketId(folder: string): string {
+	return `folder:${folder}`;
+}
+
+/** The vault-relative parent directory of a task's file, or null if the file lives at the vault root. */
+function getTaskFolderPath(path: string): string | null {
+	const separatorIndex = path.lastIndexOf("/");
+	return separatorIndex === -1 ? null : path.slice(0, separatorIndex);
 }
 
 function createTagPrefixGroupBucketId(prefix: string, label: string): string {

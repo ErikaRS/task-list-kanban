@@ -67,6 +67,7 @@ export interface TaskParseOptions {
 	archiveStatusMarkers?: string;
 	propertySchema?: PropertySchema;
 	rowIndex?: number;
+	path?: string;
 }
 
 const defaultColumns = createNameModeColumns(["column"]);
@@ -85,7 +86,7 @@ export function parseTask(taskString: string, options: TaskParseOptions = {}): T
 
 	return new Task(
 		taskString as ConstructorParameters<typeof Task>[0],
-		{ path: "/" },
+		{ path: options.path ?? "/" },
 		options.rowIndex ?? 0,
 		{
 			columnDefinitions: columns,
