@@ -181,7 +181,7 @@ export function createTaskActions({
 }): TaskActions {
 	function resolveFileIfValid(filePath: string | null): TFile | null {
 		if (!filePath) return null;
-		const resolvedPath = resolveDateTemplate(filePath);
+		const resolvedPath = resolveDateTemplate(filePath, getCurrentDate?.());
 		if (!resolvedPath) return null;
 		const abstractFile = vault.getAbstractFileByPath(resolvedPath);
 		if (!(abstractFile instanceof TFile)) return null;
@@ -828,25 +828,32 @@ export function createTaskActions({
 			const defaultTaskFilePath = getDefaultTaskFile();
 			let defaultFileEntry: DefaultFileEntry | null = null;
 			if (defaultTaskFilePath) {
-				const abstractFile =
-					vault.getAbstractFileByPath(defaultTaskFilePath);
-				if (!(abstractFile instanceof TFile)) {
+				const resolvedDefaultPath = resolveDateTemplate(defaultTaskFilePath, getCurrentDate?.());
+				if (!resolvedDefaultPath) {
 					defaultFileEntry = {
 						error: `★ ${defaultTaskFilePath} (not found)`,
 					};
-				} else if (
-					!shouldIncludeFilePath(
-						defaultTaskFilePath,
-						getFilenameFilter(),
-						getExcludeFilter(),
-						getBoardFolderPath()
-					)
-				) {
-					defaultFileEntry = {
-						error: `★ ${defaultTaskFilePath} (outside scope)`,
-					};
 				} else {
-					defaultFileEntry = { file: abstractFile };
+					const abstractFile =
+						vault.getAbstractFileByPath(resolvedDefaultPath);
+					if (!(abstractFile instanceof TFile)) {
+						defaultFileEntry = {
+							error: `★ ${resolvedDefaultPath} (not found)`,
+						};
+					} else if (
+						!shouldIncludeFilePath(
+							resolvedDefaultPath,
+							getFilenameFilter(),
+							getExcludeFilter(),
+							getBoardFolderPath()
+						)
+					) {
+						defaultFileEntry = {
+							error: `★ ${resolvedDefaultPath} (outside scope)`,
+						};
+					} else {
+						defaultFileEntry = { file: abstractFile };
+					}
 				}
 			}
 

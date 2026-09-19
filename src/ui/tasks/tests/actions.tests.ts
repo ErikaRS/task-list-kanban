@@ -16,6 +16,9 @@ import {
 import { createTaskLine } from "../task_creation";
 import { parseTask } from "./task_test_helpers";
 
+import { TFile } from "obsidian";
+import { showFilePickerMenu } from "../../components/file_picker_menu";
+
 vi.mock("obsidian", () => ({
 	Keymap: { isModEvent: () => false },
 	MarkdownView: class MarkdownView {},
@@ -32,6 +35,10 @@ vi.mock("obsidian", () => ({
 		}
 	},
 	TFile: class TFile {},
+}));
+
+vi.mock("../../components/file_picker_menu", () => ({
+	showFilePickerMenu: vi.fn(),
 }));
 
 describe("task actions", () => {
@@ -814,6 +821,158 @@ describe("task actions", () => {
 			await actions.createTask(fileHandle as never, "New task", "high" as ColumnTag);
 
 			expect(contents()).toBe("# Tasks\n- [ ] New task ⏫");
+		});
+	});
+
+	describe("pickFileForNewTask with date templates and scope", () => {
+		it("picks the resolved defaultTaskFile date template when it exists and is in scope", () => {
+			const dailyFile = new TFile();
+			(dailyFile as any).path = "daily/2026-06-15.md";
+			const filesByPath = new Map<string, TFile>([["daily/2026-06-15.md", dailyFile]]);
+
+			const actions = createTaskActions({
+				tasksByTaskId: new Map() as never,
+				metadataByTaskId: new Map() as never,
+				vault: {
+					getMarkdownFiles: () => [dailyFile],
+					getAbstractFileByPath: (path: string) => filesByPath.get(path) ?? null,
+				} as never,
+				workspace: {} as never,
+				getFilenameFilter: () => ["daily/2026-06-15.md"],
+				getExcludeFilter: () => null,
+				getBoardFolderPath: () => null,
+				getPlacementTagsForColumn: (c) => [c],
+				getColumnDefinitions: () => [],
+				getDefaultTaskFile: () => "daily/{{YYYY-MM-DD}}.md",
+				getLastUsedTaskFile: () => null,
+				setLastUsedTaskFile: () => undefined,
+				getPropertySchemaOption: () => PropertySchemaOption.None,
+				getStatusMarkerOrder: () => "",
+				getCurrentDate: () => new Date(2026, 5, 15, 12),
+				getManualOrder: () => ({}),
+				setManualOrder: () => undefined,
+			});
+
+			const onFileSelected = vi.fn();
+			actions.pickFileForNewTask("uncategorised", {} as never, onFileSelected);
+
+			expect(onFileSelected).toHaveBeenCalledWith(dailyFile);
+		});
+
+		it("falls back to lastUsedTaskFile when defaultTaskFile date template does not exist", () => {
+			const projectFile = new TFile();
+			(projectFile as any).path = "projects/alpha.md";
+			const filesByPath = new Map<string, TFile>([["projects/alpha.md", projectFile]]);
+
+			const actions = createTaskActions({
+				tasksByTaskId: new Map() as never,
+				metadataByTaskId: new Map() as never,
+				vault: {
+					getMarkdownFiles: () => [projectFile],
+					getAbstractFileByPath: (path: string) => filesByPath.get(path) ?? null,
+				} as never,
+				workspace: {} as never,
+				getFilenameFilter: () => ["projects"],
+				getExcludeFilter: () => null,
+				getBoardFolderPath: () => null,
+				getPlacementTagsForColumn: (c) => [c],
+				getColumnDefinitions: () => [],
+				getDefaultTaskFile: () => "daily/{{YYYY-MM-DD}}.md",
+				getLastUsedTaskFile: () => "projects/alpha.md",
+				setLastUsedTaskFile: () => undefined,
+				getPropertySchemaOption: () => PropertySchemaOption.None,
+				getStatusMarkerOrder: () => "",
+				getCurrentDate: () => new Date(2026, 5, 15, 12),
+				getManualOrder: () => ({}),
+				setManualOrder: () => undefined,
+			});
+
+			const onFileSelected = vi.fn();
+			actions.pickFileForNewTask("uncategorised", {} as never, onFileSelected);
+
+			expect(onFileSelected).toHaveBeenCalledWith(projectFile);
+		});
+
+		it("shows file picker menu with resolved missing path error when default file is not found", () => {
+			const actions = createTaskActions({
+				tasksByTaskId: new Map() as never,
+				metadataByTaskId: new Map() as never,
+				vault: {
+					getMarkdownFiles: () => [],
+					getAbstractFileByPath: () => null,
+				} as never,
+				workspace: {} as never,
+				getFilenameFilter: () => null,
+				getExcludeFilter: () => null,
+				getBoardFolderPath: () => null,
+				getPlacementTagsForColumn: (c) => [c],
+				getColumnDefinitions: () => [],
+				getDefaultTaskFile: () => "daily/{{YYYY-MM-DD}}.md",
+				getLastUsedTaskFile: () => null,
+				setLastUsedTaskFile: () => undefined,
+				getPropertySchemaOption: () => PropertySchemaOption.None,
+				getStatusMarkerOrder: () => "",
+				getCurrentDate: () => new Date(2026, 5, 15, 12),
+				getManualOrder: () => ({}),
+				setManualOrder: () => undefined,
+			});
+
+			const onFileSelected = vi.fn();
+			const mockEvent = {
+				target: {
+					getBoundingClientRect: () => ({ top: 10, height: 20, left: 10, width: 20 }),
+				},
+			};
+			actions.pickFileForNewTask("uncategorised", mockEvent as never, onFileSelected);
+
+			expect(showFilePickerMenu).toHaveBeenCalledWith(
+				expect.objectContaining({
+					defaultFileEntry: { error: "★ daily/2026-06-15.md (not found)" },
+				}),
+			);
+		});
+
+		it("shows file picker menu with outside-scope error when default file is excluded", () => {
+			const dailyFile = new TFile();
+			(dailyFile as any).path = "daily/2026-06-15.md";
+			const filesByPath = new Map<string, TFile>([["daily/2026-06-15.md", dailyFile]]);
+
+			const actions = createTaskActions({
+				tasksByTaskId: new Map() as never,
+				metadataByTaskId: new Map() as never,
+				vault: {
+					getMarkdownFiles: () => [dailyFile],
+					getAbstractFileByPath: (path: string) => filesByPath.get(path) ?? null,
+				} as never,
+				workspace: {} as never,
+				getFilenameFilter: () => ["daily"],
+				getExcludeFilter: () => ["daily/2026-06-15.md"],
+				getBoardFolderPath: () => null,
+				getPlacementTagsForColumn: (c) => [c],
+				getColumnDefinitions: () => [],
+				getDefaultTaskFile: () => "daily/{{YYYY-MM-DD}}.md",
+				getLastUsedTaskFile: () => null,
+				setLastUsedTaskFile: () => undefined,
+				getPropertySchemaOption: () => PropertySchemaOption.None,
+				getStatusMarkerOrder: () => "",
+				getCurrentDate: () => new Date(2026, 5, 15, 12),
+				getManualOrder: () => ({}),
+				setManualOrder: () => undefined,
+			});
+
+			const onFileSelected = vi.fn();
+			const mockEvent = {
+				target: {
+					getBoundingClientRect: () => ({ top: 10, height: 20, left: 10, width: 20 }),
+				},
+			};
+			actions.pickFileForNewTask("uncategorised", mockEvent as never, onFileSelected);
+
+			expect(showFilePickerMenu).toHaveBeenCalledWith(
+				expect.objectContaining({
+					defaultFileEntry: { error: "★ daily/2026-06-15.md (outside scope)" },
+				}),
+			);
 		});
 	});
 });

@@ -132,6 +132,52 @@ describe("createBoardStatsService", () => {
 		expect(harness.counts("boards/Board.md")?.open).toBe(1);
 	});
 
+	it("re-resolves a date-template path when the dashboard day changes", async () => {
+		const pathScope = createPathScope(["daily/{{YYYY-MM-DD}}.md"])!;
+		const harness = createHarness([
+			{
+				path: "boards/Board.md",
+				boardSettings: {
+					scope: ScopeOption.SelectedFolders,
+					scopeFolders: ["daily/{{YYYY-MM-DD}}.md"],
+				},
+				pathScope,
+			},
+			{ path: "daily/2026-02-01.md", content: "- [ ] First day" },
+			{ path: "daily/2026-02-02.md", content: "- [ ] Second day\n- [ ] Another" },
+		]);
+
+		await harness.request("boards/Board.md");
+		expect(harness.counts("boards/Board.md")?.open).toBe(1);
+
+		harness.setNow(new Date(2026, 1, 2, 9));
+		await harness.request("boards/Board.md");
+		expect(harness.counts("boards/Board.md")?.open).toBe(2);
+	});
+
+	it("counts Selected paths with exact files, folders, and exclusions", async () => {
+		const pathScope = createPathScope(["projects", "daily/specific.md"])!;
+		const harness = createHarness([
+			{
+				path: "boards/Board.md",
+				boardSettings: {
+					scope: ScopeOption.SelectedFolders,
+					scopeFolders: pathScope.compatibilityProjection.scopeFolders,
+					excludePaths: ["projects/archive"],
+				},
+				pathScope,
+			},
+			{ path: "daily/specific.md", content: "- [ ] Specific task" },
+			{ path: "daily/other.md", content: "- [ ] Other task" },
+			{ path: "projects/active.md", content: "- [ ] Active project" },
+			{ path: "projects/archive/old.md", content: "- [ ] Old project" },
+			{ path: "boards/local.md", content: "- [ ] Local board task" },
+		]);
+
+		await harness.request("boards/Board.md");
+		expect(harness.counts("boards/Board.md")?.open).toBe(2);
+	});
+
 	it("counts open and done with the board's own bucket rules", async () => {
 		const harness = createHarness([
 			{

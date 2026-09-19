@@ -125,4 +125,35 @@ describe("resolveScopeFilter", () => {
 			resolveScopeFilter(ScopeOption.SelectedPaths, undefined, "boards", pathScope),
 		).toEqual(["boards", "daily/today.md"]);
 	});
+
+	it("returns empty include list when selected paths has no pathScope", () => {
+		expect(
+			resolveScopeFilter(ScopeOption.SelectedPaths, undefined, "boards", undefined),
+		).toEqual([]);
+	});
+
+	it("distinguishes exact file matches from folder prefixes", () => {
+		const filter = ["daily/2026-09-19.md", "projects/alpha"];
+
+		// Exact file matches
+		expect(shouldIncludeFilePath("daily/2026-09-19.md", filter)).toBe(true);
+		// Sibling file with similar prefix does not match
+		expect(shouldIncludeFilePath("daily/2026-09-19-notes.md", filter)).toBe(false);
+		expect(shouldIncludeFilePath("daily/2026-09-19.markdown", filter)).toBe(false);
+
+		// Folder matches descendants
+		expect(shouldIncludeFilePath("projects/alpha/task.md", filter)).toBe(true);
+		expect(shouldIncludeFilePath("projects/alpha/nested/task.md", filter)).toBe(true);
+		// Sibling folder does not match
+		expect(shouldIncludeFilePath("projects/alpha-2/task.md", filter)).toBe(false);
+	});
+
+	it("does not protect board folder from exclusions in selected paths mode", () => {
+		const filter = ["boards", "daily/today.md"];
+		const protectedBoardFolder = getProtectedBoardFolderPath(ScopeOption.SelectedPaths, "boards");
+		expect(protectedBoardFolder).toBeNull();
+
+		// An exclusion covering "boards" removes files inside "boards"
+		expect(shouldIncludeFilePath("boards/task.md", filter, ["boards"], protectedBoardFolder)).toBe(false);
+	});
 });

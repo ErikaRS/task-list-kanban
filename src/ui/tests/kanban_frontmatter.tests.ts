@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { load } from "js-yaml";
+import { dump, load } from "js-yaml";
 import {
 	parseKanbanSettingsFromViewData,
 	parseKanbanPathScopeFromViewData,
@@ -118,6 +118,22 @@ describe("kanban frontmatter helpers", () => {
 		expect(parseKanbanPathScopeFromViewData(input)).toBeUndefined();
 	});
 
+	it("removes a stale sidecar on the next new-version write", () => {
+		const pathScope = createPathScope(["daily/today.md"])!;
+		const input = writeKanbanSettingsToViewData(
+			["---", "kanban_plugin: '{}'", "---", ""].join("\n"),
+			{ scope: ScopeOption.SelectedFolders },
+			pathScope,
+		).replace("selectedFolders", "everywhere");
+
+		expect(parseKanbanPathScopeFromViewData(input)).toBeUndefined();
+		const output = writeKanbanSettingsToViewData(
+			input,
+			parseKanbanSettingsOverridesFromViewData(input),
+		);
+		expect(readFrontmatter(output).kanban_plugin_path_scope_v2).toBeUndefined();
+	});
+
 	it("preserves an inactive path scope with its legacy projection", () => {
 		const pathScope = setPathScopeActive(
 			createPathScope(["daily/today.md"])!,
@@ -136,6 +152,46 @@ describe("kanban frontmatter helpers", () => {
 			scopeFolders: [],
 		});
 		expect(parseKanbanPathScopeFromViewData(output)).toEqual(pathScope);
+	});
+
+	it("preserves path scope when an older client updates an unrelated setting", () => {
+		const pathScope = createPathScope(["daily/{{YYYY-MM-DD}}.md"])!;
+		const outputFromNewClient = writeKanbanSettingsToViewData(
+			["---", "kanban_plugin: '{}'", "---", ""].join("\n"),
+			{ scope: ScopeOption.SelectedPaths },
+			pathScope,
+		);
+
+		// An older client parses kanban_plugin, updates columnWidth, and rewrites the frontmatter
+		// while leaving the unknown kanban_plugin_path_scope_v2 top-level key untouched.
+		const parsedFrontmatter = readFrontmatter(outputFromNewClient);
+		const parsedSettings = JSON.parse(parsedFrontmatter.kanban_plugin as string);
+		parsedSettings.columnWidth = 450;
+		parsedFrontmatter.kanban_plugin = JSON.stringify(parsedSettings);
+
+		const updatedByOldClient = [
+			"---",
+			dump(parsedFrontmatter).trim(),
+			"---",
+			"",
+		].join("\n");
+
+		expect(parseKanbanPathScopeFromViewData(updatedByOldClient)).toEqual(pathScope);
+		const newSettings = parseKanbanSettingsFromViewData(updatedByOldClient);
+		expect(newSettings.columnWidth).toBe(450);
+	});
+
+	it.each([
+		[ScopeOption.Folder, {}],
+		[ScopeOption.Everywhere, {}],
+		[ScopeOption.SelectedFolders, {}],
+		[ScopeOption.SelectedFolders, { scopeFolders: ["projects/alpha"] }],
+	])("preserves legacy scope %s without generating a path scope sidecar", (scope, extra) => {
+		const input = ["---", "kanban_plugin: '{}'", "---", ""].join("\n");
+		const output = writeKanbanSettingsToViewData(input, { scope, ...extra });
+		expect(readFrontmatter(output).kanban_plugin_path_scope_v2).toBeUndefined();
+		expect(parseKanbanPathScopeFromViewData(output)).toBeUndefined();
+		expect(parseKanbanSettingsFromViewData(output).scope).toBe(scope);
 	});
 });
 
