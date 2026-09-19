@@ -16,6 +16,10 @@ Add a view option that controls whether task cards inside each board cell lay ou
 4. **Vertical** stacks cards top-to-bottom inside each cell in any flow direction.
 5. The option is saved with board settings and participates in saved views/global defaults if those systems support flow/width overrides.
 
+## Related Work
+
+[#186](https://github.com/ErikaRS/task-list-kanban/issues/186) proposes a desktop list/table view toggle (reusing the mobile stacked-column renderer). That's a larger structural change than this spec's cell-internal card layout and should stay a separate spec/implementation. The two are related only in that both add view-editor options that can make column width and card layout irrelevant in certain modes (list view hides column width; TTB/BTT plus a given card layout already narrows what's meaningful). When placing the `cardLayout` control in the view editor (Phase 1 step 2), don't assume flow direction is the only axis affecting layout options — leave room for a future list/table toggle to live alongside it without the panel feeling like a pile of unrelated switches.
+
 ## High-Level Design
 
 Add a persisted setting, tentatively:
@@ -24,16 +28,16 @@ Add a persisted setting, tentatively:
 type CardLayout = "auto" | "horizontal" | "vertical";
 ```
 
-Resolve the effective cell layout near board rendering:
+Resolve the effective cell layout in `board_matrix_desktop.svelte`, the single place flow direction is already resolved to a boolean for cell rendering (`projection.cellVerticalFlow`, from `deriveDesktopMatrixProjection` in `desktop_matrix_projection.ts`):
 
 ```ts
 effectiveCardLayout =
 	cardLayout === "auto"
-		? isVerticalFlow ? "horizontal" : "vertical"
+		? projection.cellVerticalFlow ? "horizontal" : "vertical"
 		: cardLayout;
 ```
 
-Pass the resolved layout to `BoardCell` and use CSS classes for the task strip direction. Keep existing flow direction semantics unchanged; this setting only controls task-card arrangement inside a cell.
+Pass `effectiveCardLayout` down to `BoardCell.svelte` alongside (or in place of) `isVerticalFlow`, and use CSS classes there for the task strip direction. `board_matrix.ts` (canonical matrix derivation) and `DesktopMatrixGrid.svelte`/`desktop_matrix_projection.ts` (visual axis selection) don't need to know about card layout at all — they only decide which semantic axis is a visual column vs. row, not how cards stack within a cell. Mobile's `board_mobile_list.svelte` is a separate renderer and is out of scope. Keep existing flow direction semantics unchanged; this setting only controls task-card arrangement inside a cell.
 
 ## Detailed Behavior
 
@@ -51,7 +55,7 @@ Pass the resolved layout to `BoardCell` and use CSS classes for the task strip d
 
 1. ☐ Add `CardLayout` type/default/parse/serialize support in settings.
 2. ☐ Add the control to the view editor.
-3. ☐ Thread `cardLayout` through board matrix components into `BoardCell`.
+3. ☐ Thread `cardLayout` through `board_matrix_desktop.svelte` into `BoardCell`, resolving `effectiveCardLayout` from `projection.cellVerticalFlow`.
 4. ☐ Replace `isVerticalFlow`-only card direction CSS with explicit card-layout classes.
 5. ☐ Verify Auto, Horizontal, and Vertical in LTR and TTB/BTT.
 
