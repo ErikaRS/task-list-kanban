@@ -1,6 +1,6 @@
 # Open Filtered Source Files
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 **Related issue:** [#180 — Open All Source Files At Once](https://github.com/ErikaRS/task-list-kanban/issues/180)
 
@@ -250,7 +250,7 @@ Consequences:
 
 ## Implementation Plan
 
-### Phase 1: Deterministic file-target and tab-opening primitive
+### Phase 1: Deterministic file-target and tab-opening primitive — ✅ COMPLETE
 
 **Goal:** A tested UI-independent helper derives unique live source files,
 detects already-open Markdown files, and opens only the targets eligible under
@@ -275,9 +275,9 @@ the chosen mode.
 results into fresh tabs for every unique target or only targets not already
 open, as selected.
 
-**Implemented by:** —
+**Implemented by:** [c27d410](https://github.com/ErikaRS/task-list-kanban/commit/c27d410)
 
-### Phase 2: Toolbar all-files action
+### Phase 2: Toolbar selected-files action — ✅ COMPLETE
 
 **Goal:** A user can open every matching source file in one immediate action,
 using the persisted all-files or unopened-files mode.
@@ -299,9 +299,9 @@ using the persisted all-files or unopened-files mode.
 selector subset, either in fresh tabs or only when not already open, according
 to the saved skip setting.
 
-**Implemented by:** —
+**Implemented by:** [c27d410](https://github.com/ErikaRS/task-list-kanban/commit/c27d410)
 
-### Phase 3: Persistent multi-selector
+### Phase 3: Persistent multi-selector — ✅ COMPLETE
 
 **Goal:** A user can curate and open a subset without losing choices whenever
 the selector closes, filter results update, or the board is reopened.
@@ -332,7 +332,7 @@ the selector closes, filter results update, or the board is reopened.
 **Deliverable:** The all-files split button has a reliable multi-select route
 for opening a deliberate subset.
 
-**Implemented by:** —
+**Implemented by:** [c27d410](https://github.com/ErikaRS/task-list-kanban/commit/c27d410)
 
 ## Files Expected to Change
 
