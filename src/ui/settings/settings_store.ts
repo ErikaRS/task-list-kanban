@@ -559,7 +559,7 @@ function migrateLegacySavedViews(
  */
 export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 	try {
-		const parsed = JSON.parse(str);
+		const parsed: unknown = JSON.parse(str);
 		const partial = settingsObject.partial().parse(parsed);
 		const {
 			columns: rawColumns,
@@ -587,8 +587,9 @@ export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 		// `propertyDisplay` tri-state. `true` mapped to the JSON debug dump. The
 		// migrated value is recorded as an override so the retired key's intent
 		// survives once sparse writes drop it.
-		if (partial.propertyDisplay === undefined && typeof parsed?.showProperties === "boolean") {
-			overrides.propertyDisplay = parsed.showProperties
+		const rawShowProperties = isRecord(parsed) ? parsed.showProperties : undefined;
+		if (partial.propertyDisplay === undefined && typeof rawShowProperties === "boolean") {
+			overrides.propertyDisplay = rawShowProperties
 				? PropertyDisplayMode.Debug
 				: PropertyDisplayMode.None;
 		}
@@ -602,6 +603,10 @@ export function parseSettingsOverrides(str: string): Partial<SettingValues> {
 	} catch {
 		return {};
 	}
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function resolveSettings(

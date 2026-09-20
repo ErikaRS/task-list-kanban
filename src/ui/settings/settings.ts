@@ -54,6 +54,10 @@ function normalizeTagInput(raw: string): string {
 	return raw.trim().replace(/^#/, "");
 }
 
+function isStringArray(value: unknown): value is string[] {
+	return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 /** The trimmed color when it is a valid #RRGGBB value, else null. */
@@ -1188,8 +1192,12 @@ export class SettingsModal extends Modal {
 					ariaLabel: `${column.label} match tags`,
 				},
 			});
-			const onChange = tagSelect.$on("change", (event) => {
-				column.matchTags = event.detail;
+			const onChange = tagSelect.$on("change", (event: unknown) => {
+				const detail: unknown = event instanceof CustomEvent ? event.detail : undefined;
+				if (!isStringArray(detail)) {
+					return;
+				}
+				column.matchTags = detail;
 				updateRenameOption();
 				this.touchSettings();
 			});

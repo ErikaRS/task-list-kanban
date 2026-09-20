@@ -1,4 +1,4 @@
-import { dump, load } from "js-yaml";
+import { parse, stringify } from "yaml";
 import {
 	parseSettingsOverrides,
 	resolveSettings,
@@ -99,7 +99,7 @@ function parseFrontmatter(data: string): ParsedFrontmatter {
 	const endDelimiterStart = data.indexOf(`\n${FRONTMATTER_DELIMITER}`, startOfFrontmatter);
 	const frontmatterEnd = endDelimiterStart === -1 ? data.length : endDelimiterStart;
 	const rawFrontmatter = data.slice(startOfFrontmatter, frontmatterEnd);
-	const parsed = rawFrontmatter.trim() === "" ? {} : load(rawFrontmatter);
+	const parsed: unknown = rawFrontmatter.trim() === "" ? {} : parse(rawFrontmatter);
 	const frontmatter = isRecord(parsed) ? parsed : {};
 
 	if (endDelimiterStart === -1) {
@@ -121,7 +121,7 @@ function stringifyFrontmatter(
 	content: string,
 	frontmatter: Record<string, unknown>,
 ): string {
-	const rawFrontmatter = dump(frontmatter).trim();
+	const rawFrontmatter = stringify(frontmatter).trim();
 	const prefix =
 		rawFrontmatter === "{}"
 			? ""
@@ -139,7 +139,7 @@ function parseLegacyScope(payload: string): {
 	scopeFolders: unknown;
 } {
 	try {
-		const parsed = JSON.parse(payload);
+		const parsed: unknown = JSON.parse(payload);
 		if (!isRecord(parsed)) return { scope: undefined, scopeFolders: undefined };
 		return { scope: parsed.scope, scopeFolders: parsed.scopeFolders };
 	} catch {

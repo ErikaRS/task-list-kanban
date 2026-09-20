@@ -346,11 +346,12 @@ Build output is written to the repository root for Obsidian plugin loading.
 ### Quality Checks
 
 ```bash
+npm run lint
 npm run build
 npm test
 ```
 
-`npm run build` runs TypeScript checking and a production ESBuild bundle. `npm test` runs the Vitest suite.
+`npm run lint` runs ESLint (use `npm run lint -- --fix` for safe automatic fixes). `npm run build` runs TypeScript checking and a production ESBuild bundle. `npm test` runs the Vitest suite.
 
 ### Manual Testing
 

@@ -5,7 +5,7 @@ export type TrashBoardResult =
 	| { ok: false; reason: "missing" | "failed"; error?: unknown };
 
 export async function trashBoardFile(
-	app: Pick<App, "vault">,
+	app: Pick<App, "vault" | "fileManager">,
 	path: string,
 ): Promise<TrashBoardResult> {
 	const file = app.vault.getAbstractFileByPath(path);
@@ -13,7 +13,7 @@ export async function trashBoardFile(
 		return { ok: false, reason: "missing" };
 	}
 	try {
-		await app.vault.trash(file, true);
+		await app.fileManager.trashFile(file);
 		return { ok: true };
 	} catch (error) {
 		return { ok: false, reason: "failed", error };

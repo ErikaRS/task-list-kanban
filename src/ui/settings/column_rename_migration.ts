@@ -1,5 +1,5 @@
 import type { TFile, Vault } from "obsidian";
-import { createColumnData, type ColumnDefinition, type ColumnTag } from "../columns/columns";
+import { createColumnData, type ColumnDefinition } from "../columns/columns";
 import type { SettingValues } from "./settings_store";
 import { getTagsFromContent } from "src/parsing/tags/tags";
 import {
@@ -157,7 +157,7 @@ async function updateFileForChangedColumns(
 		);
 
 		if (!task.done) {
-			task.column = targetColumnId as ColumnTag;
+			task.column = targetColumnId;
 		}
 		const nextRow = task.serialise();
 		if (nextRow !== row) {

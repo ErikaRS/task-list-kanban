@@ -72,17 +72,19 @@ export class BoardFolderPickerModal extends FuzzySuggestModal<TFolder> {
 	constructor(
 		app: App,
 		private readonly defaultFolderPath: string,
-		onChooseFolder: (folder: TFolder) => void,
+		onChooseFolder: (folder: TFolder) => void | Promise<void>,
 	) {
 		super(app);
-		this.onChooseFolder = onChooseFolder;
+		this.onChooseFolder = (folder) => {
+			void onChooseFolder(folder);
+		};
 		this.setPlaceholder("Choose destination folder for the new board");
 		this.emptyStateText = "No matching folders";
 		this.limit = 50;
 	}
 
 	onOpen(): void {
-		super.onOpen();
+		void super.onOpen();
 		this.inputEl.value = this.defaultFolderPath;
 		this.inputEl.select();
 		this.inputEl.dispatchEvent(new Event("input"));

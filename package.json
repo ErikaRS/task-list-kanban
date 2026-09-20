@@ -17,12 +17,9 @@
 	"devDependencies": {
 		"@smui-extra/autocomplete": "^8.0.3",
 		"@tsconfig/svelte": "^5.0.4",
-		"@types/crypto-js": "^4.2.2",
-		"@types/js-yaml": "^4.0.9",
 		"@types/node": "^20.12.12",
 		"@typescript-eslint/eslint-plugin": "7.10.0",
 		"@typescript-eslint/parser": "7.10.0",
-		"builtin-modules": "4.0.0",
 		"esbuild": "^0.28.1",
 		"esbuild-svelte": "^0.8.1",
 		"eslint": "^10.11.0",
@@ -40,11 +37,10 @@
 		"flatted": ">=3.4.2"
 	},
 	"dependencies": {
-		"crypto-js": "^4.2.0",
 		"esbuild-sass-plugin": "^3.3.0",
-		"js-yaml": "^4.3.2",
 		"sass": "^1.77.2",
 		"svelte-select": "^5.8.3",
+		"yaml": "^2.9.1",
 		"zod": "^3.23.8"
 	}
 }

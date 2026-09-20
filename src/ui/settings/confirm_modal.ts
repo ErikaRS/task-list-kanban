@@ -40,14 +40,16 @@ export class ConfirmModal extends Modal {
 			text: this.options.confirmText,
 			cls: "mod-warning",
 		});
-		confirmButton.addEventListener("click", async () => {
-			confirmButton.disabled = true;
-			try {
-				await this.options.onConfirm();
-				this.close();
-			} finally {
-				confirmButton.disabled = false;
-			}
+		confirmButton.addEventListener("click", () => {
+			void (async () => {
+				confirmButton.disabled = true;
+				try {
+					await this.options.onConfirm();
+					this.close();
+				} finally {
+					confirmButton.disabled = false;
+				}
+			})();
 		});
 		window.requestAnimationFrame(() => cancelButton.focus());
 	}

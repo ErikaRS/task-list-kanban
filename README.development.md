@@ -28,6 +28,12 @@ npm test
 ```
 Runs the Vitest test suite. Tests are located in `src/` alongside source files.
 
+**Lint**
+```bash
+npm run lint
+```
+Runs ESLint across the project. Add `-- --fix` to apply safe automatic fixes.
+
 **Version Bump**
 ```bash
 npm run version

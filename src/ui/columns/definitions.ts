@@ -290,7 +290,7 @@ export function migrateColumnDefinitions(
 		const idCandidate = typeof column.id === "string" ? column.id : "";
 		const id =
 			idCandidate && !usedIds.has(idCandidate) && !RESERVED_COLUMN_KEYS.has(idCandidate)
-				? (usedIds.add(idCandidate), idCandidate as ColumnTag)
+				? (usedIds.add(idCandidate), idCandidate)
 				: createColumnId(label, usedIds);
 
 		const matchMode: ColumnMatchMode =

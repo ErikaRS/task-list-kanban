@@ -8,7 +8,6 @@ import {
 	getColumnHeaderTags,
 	getColumnWriteTags,
 	RESERVED_COLUMN_KEYS,
-	parseColumnSpec,
 } from "./definitions";
 
 export type DefaultColumns = "uncategorised" | "done";

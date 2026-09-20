@@ -186,7 +186,7 @@ export class KanbanView extends TextFileView {
 			this.pathScope = setPathScopeActive(
 				pathScope,
 				false,
-				newSettings.scope as "folder" | "everywhere" | "selectedFolders",
+				newSettings.scope,
 				newSettings.scopeFolders ?? [],
 			) ?? undefined;
 		} else {

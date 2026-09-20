@@ -9,6 +9,7 @@ const ROLLOVER_SLACK_MS = 1_000;
 // a popout window. Prefer that view's window whenever one is available.
 type TimerHost = Pick<Window, "setTimeout" | "clearTimeout">;
 const timerHost: TimerHost = typeof window === "undefined"
+	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Node test timers do not share Window's timer signatures.
 	? globalThis as unknown as TimerHost
 	: window;
 

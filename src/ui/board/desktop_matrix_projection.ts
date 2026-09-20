@@ -55,10 +55,10 @@ export function getCanonicalCellAxisIds(
 	return isVerticalFlow
 		? {
 			primaryId: visualRow.id as PrimaryBucketId,
-			secondaryId: visualColumn.id as SecondaryBucketId,
+			secondaryId: visualColumn.id,
 		}
 		: {
 			primaryId: visualColumn.id as PrimaryBucketId,
-			secondaryId: visualRow.id as SecondaryBucketId,
+			secondaryId: visualRow.id,
 		};
 }

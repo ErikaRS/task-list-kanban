@@ -1,4 +1,3 @@
-import sha256 from "crypto-js/sha256";
 import type { Brand } from "src/brand";
 import type {
 	ColumnPlacementTagTable,
@@ -18,7 +17,6 @@ import {
 	usesStatusMatching,
 } from "../columns/definitions";
 import { PropertySchemaOption, type PropertySchema, type TaskPropertyMap } from "../../parsing/properties/property_schema";
-import { NoneSchema } from "../../parsing/properties/none_schema";
 import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
 import { getSchemaImpl } from "../../parsing/properties";
@@ -310,7 +308,7 @@ export class Task {
 		this.sourceChildren = sourceChildren;
 		const tags = getTagsFromContent(content);
 
-		this._id = sha256(content + fileHandle.path + rowIndex).toString();
+		this._id = createTaskId(content + fileHandle.path + rowIndex);
 		this.content = content;
 		this._displayStatus = status || " ";
 		this._done = isStatusMatch(this._displayStatus, context.doneStatusMarkers);
@@ -334,7 +332,7 @@ export class Task {
 		for (const tag of tags) {
 			if (tag === "done") {
 				if (!this._column) {
-					this._column = "done" as DefaultColumns;
+					this._column = "done";
 				}
 				tags.delete(tag);
 				if (!context.consolidateTags) {
@@ -493,7 +491,7 @@ export class Task {
 			return [];
 		}
 
-		return this.getPlacementTagsForColumn(this.column as ColumnTag);
+		return this.getPlacementTagsForColumn(this.column);
 	}
 
 	private getColumnDefinition(
@@ -769,6 +767,26 @@ export class Task {
 	delete() {
 		this._deleted = true;
 	}
+}
+
+function createTaskId(value: string): string {
+	return createMobileTaskId(value);
+}
+
+/** A deterministic, browser-safe fallback for ephemeral task-store keys. */
+function createMobileTaskId(value: string): string {
+	let first = 0xdeadbeef;
+	let second = 0x41c6ce57;
+	for (let index = 0; index < value.length; index += 1) {
+		const codePoint = value.codePointAt(index) ?? 0;
+		first = Math.imul(first ^ codePoint, 2_654_435_761);
+		second = Math.imul(second ^ codePoint, 1_597_334_677);
+	}
+	first = Math.imul(first ^ (first >>> 16), 2_246_822_507) ^ Math.imul(second ^ (second >>> 13), 3_266_489_909);
+	second = Math.imul(second ^ (second >>> 16), 2_246_822_507) ^ Math.imul(first ^ (first >>> 13), 3_266_489_909);
+	return [first, second]
+		.map((part) => (part >>> 0).toString(16).padStart(8, "0"))
+		.join("");
 }
 
 type TaskString = Brand<string, "TaskString">;

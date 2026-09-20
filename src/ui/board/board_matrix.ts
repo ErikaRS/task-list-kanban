@@ -204,7 +204,7 @@ export function deriveBoardMatrix(
 				: cellTasks;
 
 			cells[pId]![sId] = {
-				primaryId: pId as PrimaryBucketId,
+				primaryId: pId,
 				secondaryId: sId,
 				tasks: orderedCellTasks,
 				isEmpty: orderedCellTasks.length === 0,

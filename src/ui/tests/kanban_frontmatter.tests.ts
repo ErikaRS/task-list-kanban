@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dump, load } from "js-yaml";
+import { parse as load, stringify as dump } from "yaml";
 import {
 	parseKanbanSettingsFromViewData,
 	parseKanbanPathScopeFromViewData,

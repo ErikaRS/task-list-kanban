@@ -17,12 +17,12 @@ function fakeFile(path: string): TFile {
 	return file;
 }
 
-function fakeApp(file: TFile | null, trash = vi.fn(async () => undefined)) {
+function fakeApp(file: TFile | null, trashFile = vi.fn(async () => undefined)) {
 	return {
 		vault: {
 			getAbstractFileByPath: vi.fn(() => file),
-			trash,
 		},
+		fileManager: { trashFile },
 	};
 }
 
@@ -39,7 +39,7 @@ describe("trashBoardFile", () => {
 			ok: true,
 		});
 		expect(app.vault.getAbstractFileByPath).toHaveBeenCalledWith(file.path);
-		expect(app.vault.trash).toHaveBeenCalledWith(file, true);
+		expect(app.fileManager.trashFile).toHaveBeenCalledWith(file);
 	});
 
 	it("reports a missing board file without calling trash", async () => {
@@ -49,7 +49,7 @@ describe("trashBoardFile", () => {
 			ok: false,
 			reason: "missing",
 		});
-		expect(app.vault.trash).not.toHaveBeenCalled();
+		expect(app.fileManager.trashFile).not.toHaveBeenCalled();
 	});
 
 	it("reports trash failures", async () => {

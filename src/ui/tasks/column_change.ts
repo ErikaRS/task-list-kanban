@@ -123,8 +123,8 @@ function findTagMatches(rawLine: string, tags: string[]): Array<{ start: number;
 	const alternatives = tags.map(escapeRegExp).join("|");
 	const expression = new RegExp(`(?<![\\p{L}\\p{N}_/-])#(?:${alternatives})(?![-_/\\p{L}\\p{N}])`, "gu");
 	return Array.from(rawLine.matchAll(expression), (match) => ({
-		start: match.index!,
-		end: match.index! + match[0].length,
+		start: match.index,
+		end: match.index + match[0].length,
 	}));
 }
 

@@ -37,7 +37,6 @@ import {
 	writeFileRows,
 	type PrepareFileContentsForWrite,
 } from "./source_line_editor";
-import { parseSourceTaskLine } from "./source_block";
 import { buildNewTaskLine, type NewTaskColumn } from "./task_line_builder";
 import { changeColumnTransform } from "./column_change";
 

@@ -304,7 +304,7 @@ function createSourceNode({
 	}
 
 	const task = new Task(
-		rawLine as ConstructorParameters<typeof Task>[0],
+		rawLine,
 		fileHandle,
 		rowIndex,
 		parseContext,
