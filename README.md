@@ -9,7 +9,7 @@ Use it to:
 - edit, complete, cancel, archive, duplicate, and bulk-update tasks
 - filter by content, tag, file, or date with a single search query
 - save reusable views that combine filters, sorting, grouping, layout, and width
-- group tasks into swimlanes by file or tag, then flip group order to put the lanes you need first
+- group tasks into swimlanes by folder, file, tag, or property, then flip group order to put the lanes you need first
 - sort tasks by file order, parsed task properties, or manual pinned order
 - display, sort, group, and edit Tasks Plugin or Dataview date metadata
 - keep nested Markdown blocks attached to their parent cards when you want subtasks
@@ -283,13 +283,20 @@ Use **Group by** in the board header to split tasks into swimlanes.
 - In horizontal layouts, groups appear as board-wide swimlane rows.
 - In vertical layouts, groups appear as columns across the top of the transposed grid.
 - Use the group direction control to switch grouped boards between ascending and descending group order.
-- Dragging tasks between swimlanes updates the relevant file, tag, or property.
+- Dragging tasks between file, tag, or property swimlanes updates the relevant
+  file, tag, or property. Moving a card onto a folder swimlane changes only its
+  column, because a folder lane can contain tasks from multiple source files.
 
 Group and column headers stay visible while scrolling grouped boards, making large swimlane views easier to scan.
 
 #### Group By File
 
 Tasks are grouped by source Markdown file.
+
+#### Group By Folder
+
+Tasks are grouped by their source file's immediate parent folder. Tasks in the
+vault root appear in a **Root** swimlane.
 
 #### Group By Tag
 
@@ -304,8 +311,8 @@ grouped by parsed properties. Date groups support **Combine past dates** so
 overdue dates can collapse into one past bucket.
 
 Saved views replace the older saved grouping workflow and can reuse common
-grouping setups, including tag prefixes, include lists, property groups, group
-direction, and the surrounding layout.
+grouping setups, including folder, file, tag-prefix, include-list, and property
+groups, group direction, and the surrounding layout.
 
 ## Screenshot Refresh Candidates
 
