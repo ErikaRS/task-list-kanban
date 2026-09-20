@@ -1,4 +1,12 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting } from "obsidian";
+import {
+	App,
+	Notice,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	SettingPage,
+	type SettingDefinitionItem,
+} from "obsidian";
 import { ConfirmModal } from "./confirm_modal";
 import { ColumnOrderMode, type SortDirection } from "../../parsing/properties/comparators";
 import {
@@ -26,6 +34,7 @@ import type { GroupSource } from "../tasks/task_grouping";
 
 export class GlobalSettingsTab extends PluginSettingTab {
 	private destroyBoardDefaultsEditor: (() => void) | null = null;
+	private refreshPage: (() => void) | null = null;
 
 	constructor(
 		app: App,
@@ -36,13 +45,23 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
-	display(): void {
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				type: "page",
+				name: "Task List Kanban",
+				desc: "Configure board defaults, global views, and board rail behavior.",
+				page: () => new GlobalSettingsPage(this),
+			},
+		];
+	}
+
+	renderPage(containerEl: HTMLElement, refresh: () => void): void {
 		this.destroyBoardDefaultsEditor?.();
 		this.destroyBoardDefaultsEditor = null;
-		const { containerEl } = this;
+		this.refreshPage = refresh;
 		containerEl.empty();
 		containerEl.addClass("task-list-kanban-global-settings");
-		containerEl.createEl("h2", { text: "Task List Kanban" });
 
 		// Plugin-wide behavior settings live in this top-level block, above
 		// the defaults sections.
@@ -90,7 +109,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 									...settings,
 									boardDefaults: {},
 								}));
-								this.display();
+								this.refreshPage?.();
 							},
 						}).open();
 					});
@@ -101,10 +120,10 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		this.renderGlobalSavedViews(containerEl);
 	}
 
-	hide(): void {
+	hidePage(): void {
 		this.destroyBoardDefaultsEditor?.();
 		this.destroyBoardDefaultsEditor = null;
-		this.containerEl.empty();
+		this.refreshPage = null;
 	}
 
 	private renderBoardDefaultsEditor(containerEl: HTMLElement) {
@@ -377,7 +396,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 								},
 							],
 						}));
-						this.display();
+						this.refreshPage?.();
 					});
 			});
 
@@ -410,7 +429,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 											(candidate) => candidate.id !== view.id,
 										),
 									}));
-									this.display();
+									this.refreshPage?.();
 								},
 							}).open();
 						});
@@ -421,6 +440,28 @@ export class GlobalSettingsTab extends PluginSettingTab {
 	private async mutate(updater: (settings: GlobalSettings) => GlobalSettings) {
 		this.globalSettingsStore.update(updater);
 		await this.onChange();
+	}
+}
+
+/**
+ * The global-settings editor contains a mounted Svelte form and a mutable
+ * saved-view collection, so it remains imperative inside the declarative
+ * settings-tab page API.
+ */
+class GlobalSettingsPage extends SettingPage {
+	title = "Task List Kanban";
+
+	constructor(private readonly tab: GlobalSettingsTab) {
+		super();
+	}
+
+	display(): void {
+		this.tab.renderPage(this.containerEl, () => this.display());
+	}
+
+	hide(): void {
+		this.tab.hidePage();
+		super.hide();
 	}
 }
 

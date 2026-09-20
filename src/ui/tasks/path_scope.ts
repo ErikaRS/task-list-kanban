@@ -38,6 +38,8 @@ export function resolveDateTemplate(path: string, now = new Date()): string | nu
 			invalid = true;
 			return "";
 		}
+		// The Obsidian declaration exposes Moment as a namespace, even though
+		// its runtime export is the callable Moment factory.
 		return (obsidianMoment as unknown as (input: Date) => { format: (pattern: string) => string })(now)
 			.format(format);
 	});

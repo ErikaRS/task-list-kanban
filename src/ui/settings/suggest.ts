@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, TFolder, TAbstractFile, TFile } from "obsidian";
+import { AbstractInputSuggest, App, getAllTags, TFolder, TAbstractFile, TFile } from "obsidian";
 
 export class FolderSuggest extends AbstractInputSuggest<TFolder> {
 	constructor(app: App, private inputEl: HTMLInputElement, private onSelectCallback?: () => void) {
@@ -116,7 +116,14 @@ export class TagSuggest extends AbstractInputSuggest<string> {
 	}
 
 	getSuggestions(query: string): string[] {
-		const tags = Object.keys((this.app.metadataCache as any).getTags());
+		const tags = [
+			...new Set(
+				this.app.vault.getMarkdownFiles().flatMap((file) => {
+					const cache = this.app.metadataCache.getFileCache(file);
+					return cache ? getAllTags(cache) ?? [] : [];
+				}),
+			),
+		];
 		const lowerQuery = query.toLowerCase();
 		return tags
 			.map(t => t.replace(/^#/, ""))
