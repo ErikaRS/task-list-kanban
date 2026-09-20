@@ -7,10 +7,12 @@ const ROLLOVER_SLACK_MS = 1_000;
 
 // Node-based unit tests have no Window, while an Obsidian view may belong to
 // a popout window. Prefer that view's window whenever one is available.
-type TimerHost = Pick<Window, "setTimeout" | "clearTimeout">;
+interface TimerHost {
+	setTimeout(callback: () => void, delay?: number): number;
+	clearTimeout(id: number | undefined): void;
+}
 const timerHost: TimerHost = typeof window === "undefined"
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Node test timers do not share Window's timer signatures.
-	? globalThis as unknown as TimerHost
+	? activeWindow
 	: window;
 
 export function millisUntilNextLocalMidnight(now: Date): number {

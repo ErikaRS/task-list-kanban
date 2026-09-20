@@ -173,10 +173,10 @@ export class GlobalSettingsTab extends PluginSettingTab {
 			.setName("Default flow")
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption(FlowDirection.LeftToRight, "Column dominant ascending (LTR)")
-					.addOption(FlowDirection.RightToLeft, "Column dominant descending (RTL)")
-					.addOption(FlowDirection.TopToBottom, "Group dominant ascending (TTB)")
-					.addOption(FlowDirection.BottomToTop, "Group dominant descending (BTT)")
+					.addOption(FlowDirection.LeftToRight, "Column dominant ascending (ltr)")
+					.addOption(FlowDirection.RightToLeft, "Column dominant descending (rtl)")
+					.addOption(FlowDirection.TopToBottom, "Group dominant ascending (ttb)")
+					.addOption(FlowDirection.BottomToTop, "Group dominant descending (btt)")
 					.setValue(defaultView.flowDirection ?? FlowDirection.LeftToRight)
 					.onChange((value) => {
 						void this.updateDefaultView((view) => {
@@ -202,7 +202,6 @@ export class GlobalSettingsTab extends PluginSettingTab {
 				slider
 					.setLimits(200, 600, 10)
 					.setValue(columnWidth)
-					.setDynamicTooltip()
 					.onChange((value) => {
 						columnWidthLabel?.setText(`${value}px`);
 						void this.updateDefaultView((view) => {
@@ -268,7 +267,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 			.setDesc("Optional search query to apply with this view.")
 			.addText((text) => {
 				text
-					.setPlaceholder("due:<$TODAY")
+					.setPlaceholder("Due:<$today")
 					.onChange((value) => {
 						draftQuery = value;
 					});
@@ -329,10 +328,10 @@ export class GlobalSettingsTab extends PluginSettingTab {
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOption("", "Leave unchanged")
-					.addOption(FlowDirection.LeftToRight, "Column dominant ascending (LTR)")
-					.addOption(FlowDirection.RightToLeft, "Column dominant descending (RTL)")
-					.addOption(FlowDirection.TopToBottom, "Group dominant ascending (TTB)")
-					.addOption(FlowDirection.BottomToTop, "Group dominant descending (BTT)")
+					.addOption(FlowDirection.LeftToRight, "Column dominant ascending (ltr)")
+					.addOption(FlowDirection.RightToLeft, "Column dominant descending (rtl)")
+					.addOption(FlowDirection.TopToBottom, "Group dominant ascending (ttb)")
+					.addOption(FlowDirection.BottomToTop, "Group dominant descending (btt)")
 					.onChange((value) => {
 						draftFlowDirection = value;
 					});
@@ -350,7 +349,6 @@ export class GlobalSettingsTab extends PluginSettingTab {
 				slider
 					.setLimits(200, 600, 10)
 					.setValue(draftColumnWidth)
-					.setDynamicTooltip()
 					.onChange((value) => {
 						draftColumnWidth = value;
 						columnWidthLabel?.setText(`${value}px`);
@@ -416,7 +414,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 				.addButton((button) => {
 					button
 						.setButtonText("Delete")
-						.setWarning()
+						.setDestructive()
 						.onClick(() => {
 							new ConfirmModal(this.app, {
 								title: "Delete global saved view?",

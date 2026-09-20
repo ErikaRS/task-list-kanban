@@ -450,8 +450,10 @@ function buildCacheKey(
 		.sort((a, b) => a[0].localeCompare(b[0]));
 	return JSON.stringify({ settings: relevantSettings, files, dayKey });
 }
-type TimerHost = Pick<Window, "setTimeout" | "clearTimeout">;
+interface TimerHost {
+	setTimeout(callback: () => void, delay?: number): number;
+	clearTimeout(id: number | undefined): void;
+}
 const timerHost: TimerHost = typeof window === "undefined"
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Node test timers do not share Window's timer signatures.
-	? globalThis as unknown as TimerHost
+	? activeWindow
 	: window;

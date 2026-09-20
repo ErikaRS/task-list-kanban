@@ -20,7 +20,10 @@ if [ -z "$TARGET_DIR" ]; then
     exit 1
 fi
 
-# Run build and test first
+# Run quality checks before deploying
+echo "Running lint..."
+(cd "$PROJECT_ROOT" && npm run lint)
+
 echo "Building plugin..."
 (cd "$PROJECT_ROOT" && npm run build)
 

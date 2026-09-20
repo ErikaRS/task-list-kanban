@@ -1,4 +1,5 @@
 import { Notice, TextFileView, WorkspaceLeaf, type TFile } from "obsidian";
+import { mount, unmount } from "svelte";
 
 import Main from "./main.svelte";
 import { SettingsModal, type SettingsSubmitOptions } from "./settings/settings";
@@ -382,7 +383,7 @@ export class KanbanView extends TextFileView {
 
 	async onOpen() {
 		this.contentEl.addClass("task-list-kanban-view");
-		this.component = new Main({
+		this.component = mount(Main, {
 			target: this.contentEl,
 			props: {
 				app: this.app,
@@ -420,7 +421,9 @@ export class KanbanView extends TextFileView {
 			window.clearTimeout(this.scopeRefreshTimer);
 		}
 		this.contentEl.removeClass("task-list-kanban-view");
-		this.component?.$destroy();
+		if (this.component) {
+			void unmount(this.component);
+		}
 		this.destroySettingsStore();
 		this.settingsStore.destroy();
 	}

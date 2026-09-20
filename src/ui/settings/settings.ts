@@ -1,4 +1,5 @@
 import { App, Modal, Setting, TFile, setIcon } from "obsidian";
+import { mount, unmount } from "svelte";
 import { ConfirmModal } from "./confirm_modal";
 import CompactTagSelect from "../components/select/compact_tag_select.svelte";
 import type { SettingValues } from "./settings_store";
@@ -1182,7 +1183,7 @@ export class SettingsModal extends Modal {
 			const tagsField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-tag" });
 			tagsField.createDiv({ cls: "column-editor-inline-label", text: "Tags" });
 			const tagPicker = tagsField.createDiv({ cls: "column-editor-tag-select-host" });
-			const tagSelect = new CompactTagSelect({
+			const tagSelect = mount(CompactTagSelect, {
 				target: tagPicker,
 				props: {
 					items: this.availableColumnTags,
@@ -1191,19 +1192,20 @@ export class SettingsModal extends Modal {
 					placeholder: "",
 					ariaLabel: `${column.label} match tags`,
 				},
-			});
-			const onChange = tagSelect.$on("change", (event: unknown) => {
-				const detail: unknown = event instanceof CustomEvent ? event.detail : undefined;
-				if (!isStringArray(detail)) {
-					return;
-				}
-				column.matchTags = detail;
-				updateRenameOption();
-				this.touchSettings();
+				events: {
+					change: (event: CustomEvent<string[]>) => {
+						const detail = event.detail;
+						if (!isStringArray(detail)) {
+							return;
+						}
+						column.matchTags = detail;
+						updateRenameOption();
+						this.touchSettings();
+					},
+				},
 			});
 			this.mountedColumnControls.push(() => {
-				onChange();
-				tagSelect.$destroy();
+				void unmount(tagSelect);
 			});
 		}
 
@@ -1562,7 +1564,7 @@ export class SettingsModal extends Modal {
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOption(PropertySchemaOption.None, "None")
-					.addOption(PropertySchemaOption.TasksPlugin, "Tasks Plugin")
+					.addOption(PropertySchemaOption.TasksPlugin, "Tasks plugin")
 					.addOption(PropertySchemaOption.Dataview, "Dataview")
 					.setValue(this.settings.propertySchema ?? PropertySchemaOption.None)
 					.onChange((value) => {
@@ -1575,7 +1577,7 @@ export class SettingsModal extends Modal {
 		new Setting(container)
 			.setName("Show properties")
 			.setDesc(
-				"How parsed property values are displayed below task text. \"Pretty\" shows formatted values; \"Debug (JSON)\" shows the raw parsed data."
+				"How parsed property values are displayed below task text. \"pretty\" shows formatted values; \"Debug (JSON)\" shows the raw parsed data."
 			)
 			.addDropdown((dropdown) => {
 				dropdown
@@ -1870,7 +1872,7 @@ export class SettingsModal extends Modal {
 		const excludedTagsContainer = displaySection.createDiv({ cls: "settings-subsection" });
 
 		new Setting(excludedTagsContainer)
-			.setName("Hidden Tags")
+			.setName("Hidden tags")
 			.setDesc(
 				"Tags to hide from display on task cards. The tasks themselves will still appear on the board."
 			)
@@ -1940,7 +1942,7 @@ export class SettingsModal extends Modal {
 
 		new Setting(displaySection)
 			.setName("Show filepath")
-			.setDesc("Show the filepath on each task in Kanban?")
+			.setDesc("Show the filepath on each task in kanban?")
 			.addToggle((toggle) => {
 				toggle.setValue(this.settings.showFilepath ?? true);
 				toggle.onChange((value) => {
@@ -1953,7 +1955,7 @@ export class SettingsModal extends Modal {
 		new Setting(displaySection)
 			.setName("Consolidate tags")
 			.setDesc(
-				"Consolidate the tags on each task in Kanban into the footer?"
+				"Consolidate the tags on each task in kanban into the footer?"
 			)
 			.addToggle((toggle) => {
 				toggle.setValue(this.settings.consolidateTags ?? false);

@@ -124,7 +124,7 @@ export default class Base extends Plugin {
 			},
 		});
 
-		this.addRibbonIcon("square-kanban", "New Kanban board", () => {
+		this.addRibbonIcon("square-kanban", "New kanban board", () => {
 			void this.createBoardFromGlobalSurface();
 		});
 
@@ -395,7 +395,7 @@ export default class Base extends Plugin {
 			boardDefaults: pickBoardDefaultSettings(view.getResolvedSettingsSnapshot()),
 		}));
 		await this.saveGlobalSettings();
-		new Notice("Task List Kanban global board defaults updated.");
+		new Notice("Task list kanban global board defaults updated.");
 	}
 
 	private async createBoardFromDashboard(view: KanbanView): Promise<boolean> {
