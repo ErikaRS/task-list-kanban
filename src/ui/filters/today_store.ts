@@ -5,6 +5,13 @@ import { getToday } from "./date_filter";
 // reads the old day and stalls until the next rollover.
 const ROLLOVER_SLACK_MS = 1_000;
 
+// Node-based unit tests have no Window, while an Obsidian view may belong to
+// a popout window. Prefer that view's window whenever one is available.
+type TimerHost = Pick<Window, "setTimeout" | "clearTimeout">;
+const timerHost: TimerHost = typeof window === "undefined"
+	? globalThis as unknown as TimerHost
+	: window;
+
 export function millisUntilNextLocalMidnight(now: Date): number {
 	const nextMidnight = new Date(
 		now.getFullYear(),
@@ -49,7 +56,7 @@ export function createTodayStore(
 	let current = getToday();
 
 	return readable(current, (set) => {
-		let timer: ReturnType<typeof setTimeout> | undefined;
+		let timer: number | undefined;
 
 		// Re-read in case the day rolled over between store creation and the
 		// first subscription.
@@ -62,7 +69,7 @@ export function createTodayStore(
 		};
 
 		const arm = () => {
-			timer = setTimeout(() => {
+			timer = timerHost.setTimeout(() => {
 				check();
 				arm();
 			}, millisUntilNextLocalMidnight(new Date()));
@@ -74,7 +81,7 @@ export function createTodayStore(
 
 		return () => {
 			if (timer !== undefined) {
-				clearTimeout(timer);
+				timerHost.clearTimeout(timer);
 			}
 			removeWakeListeners();
 		};

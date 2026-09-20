@@ -106,24 +106,23 @@
 
 		// Create a custom drag image for multi-task drag
 		if (taskIds.length > 1 && e.dataTransfer) {
-			const ghost = document.createElement("div");
+			const ghost = document.body.createDiv();
 			ghost.textContent = `Moving ${taskIds.length} tasks`;
-			ghost.style.cssText = [
-				"position:fixed",
-				"top:-9999px",
-				"left:-9999px",
-				"padding:6px 12px",
-				"background:var(--background-secondary-alt)",
-				"border:1px solid var(--background-modifier-border)",
-				"border-radius:var(--radius-m)",
-				"font-size:var(--font-ui-small)",
-				"color:var(--text-normal)",
-				"box-shadow:var(--shadow-s)",
-				"white-space:nowrap",
-			].join(";");
-			document.body.appendChild(ghost);
+			ghost.setCssStyles({
+				position: "fixed",
+				top: "-9999px",
+				left: "-9999px",
+				padding: "6px 12px",
+				background: "var(--background-secondary-alt)",
+				border: "1px solid var(--background-modifier-border)",
+				borderRadius: "var(--radius-m)",
+				fontSize: "var(--font-ui-small)",
+				color: "var(--text-normal)",
+				boxShadow: "var(--shadow-s)",
+				whiteSpace: "nowrap",
+			});
 			e.dataTransfer.setDragImage(ghost, 0, 0);
-			setTimeout(() => document.body.removeChild(ghost), 0);
+			window.setTimeout(() => ghost.remove(), 0);
 		}
 	}
 
@@ -201,7 +200,7 @@
 
 		isEditing = true;
 
-		setTimeout(() => {
+		window.setTimeout(() => {
 			textAreaEl?.focus();
 		}, 100);
 	}

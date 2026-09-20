@@ -26,7 +26,7 @@ export function createBoardIndex(
 ): BoardIndex {
 	const store = writable<BoardIndexEntry[]>([]);
 	let lastSerialized = JSON.stringify([]);
-	let recomputeTimer: ReturnType<typeof setTimeout> | undefined;
+	let recomputeTimer: number | undefined;
 
 	const recompute = () => {
 		const entries = sortBoardEntries(
@@ -48,9 +48,9 @@ export function createBoardIndex(
 
 	const scheduleRecompute = () => {
 		if (recomputeTimer) {
-			clearTimeout(recomputeTimer);
+			window.clearTimeout(recomputeTimer);
 		}
-		recomputeTimer = setTimeout(() => {
+		recomputeTimer = window.setTimeout(() => {
 			recomputeTimer = undefined;
 			recompute();
 		}, 250);
@@ -69,7 +69,7 @@ export function createBoardIndex(
 		store: { subscribe: store.subscribe },
 		destroy: () => {
 			if (recomputeTimer) {
-				clearTimeout(recomputeTimer);
+				window.clearTimeout(recomputeTimer);
 			}
 		},
 	};

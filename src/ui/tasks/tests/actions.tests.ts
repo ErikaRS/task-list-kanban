@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import moment from "moment";
 import { writable } from "svelte/store";
 import { PropertySchemaOption } from "../../../parsing/properties";
 import { DataviewSchema } from "../../../parsing/properties/dataview_schema";
@@ -20,6 +21,7 @@ import { TFile } from "obsidian";
 import { showFilePickerMenu } from "../../components/file_picker_menu";
 
 vi.mock("obsidian", () => ({
+	moment,
 	Keymap: { isModEvent: () => false },
 	MarkdownView: class MarkdownView {},
 	Notice: class Notice {},

@@ -553,7 +553,7 @@ export class Task {
 	private stripTagFromContent(value: string, tag: string): string {
 		const escapedTag = escapeRegExp(tag);
 		return value
-			.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_\/\\p{L}\\p{N}])`, "gu"), "$1")
+			.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_/\\p{L}\\p{N}])`, "gu"), "$1")
 			.replace(/[ \t]{2,}/g, " ")
 			.trim();
 	}
@@ -802,7 +802,7 @@ export function isTrackedTaskString(
 // then follows the pattern "- [ ]", "* [ ]", or "+ [ ]" with checkbox content
 // then contains an additional whitespace before any trailing content
 // excludes backlinks by ensuring brackets don't contain nested brackets
-const taskStringRegex = /^(\s*)[-*+]\s\[([^\[\]]*)\]\s(.+)/;
+const taskStringRegex = /^(\s*)[-*+]\s\[([^[\]]*)\]\s(.+)/;
 const blockLinkRegexp = /\s\^([a-zA-Z0-9-]+)$/;
 
 function escapeRegExp(input: string): string {

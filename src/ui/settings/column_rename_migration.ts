@@ -122,7 +122,7 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
-		const status = row.match(/^\s*[-*+]\s\[([^\[\]]*)\]\s/)?.[1] || " ";
+		const status = row.match(/^\s*[-*+]\s\[([^[\]]*)\]\s/)?.[1] || " ";
 		const oldProperties = oldPropertySchema.parseProperties(row);
 		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, {
 			tags: getTagsFromContent(row),

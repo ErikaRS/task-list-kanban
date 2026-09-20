@@ -1076,13 +1076,13 @@
 	// assigned block links as "absent", and delete the entries we just wrote. We
 	// wait comfortably past the store's settle time so fresh pins always survive;
 	// genuine deletions are still cleaned up, just a moment later.
-	let pruneTimer: ReturnType<typeof setTimeout> | undefined;
+	let pruneTimer: number | undefined;
 
 	function schedulePrune() {
 		if (pruneTimer) {
-			clearTimeout(pruneTimer);
+			window.clearTimeout(pruneTimer);
 		}
-		pruneTimer = setTimeout(() => {
+		pruneTimer = window.setTimeout(() => {
 			pruneTimer = undefined;
 			const groupSource = $settingsStore.groupSource ?? { kind: "none" };
 			const groupBuckets = deriveGroupBuckets(
@@ -1105,7 +1105,7 @@
 
 	onDestroy(() => {
 		if (pruneTimer) {
-			clearTimeout(pruneTimer);
+			window.clearTimeout(pruneTimer);
 		}
 	});
 

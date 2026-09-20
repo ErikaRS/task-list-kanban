@@ -77,9 +77,14 @@ export function createTasksStore(
 			columnDefinitionsStore,
 			columnPlacementTagTableStore,
 			...getMarkerSettings(get(settingsStore)),
-		}).then(() => {
-			debounceSetTasks();
-		});
+		}).then(
+			() => {
+				debounceSetTasks();
+			},
+			(error: unknown) => {
+				console.error("Failed to process task file", error);
+			},
+		);
 	}
 
 	function initialise() {

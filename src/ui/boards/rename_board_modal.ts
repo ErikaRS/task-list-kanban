@@ -63,7 +63,7 @@ export class RenameBoardModal extends Modal {
 			type: "text",
 			value: this.entry.name,
 		});
-		input.style.width = "100%";
+		input.setCssStyles({ width: "100%" });
 
 		const actions = this.contentEl.createDiv({ cls: "confirm-modal-actions" });
 		const cancelButton = actions.createEl("button", { text: "Cancel" });

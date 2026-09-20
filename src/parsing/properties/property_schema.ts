@@ -48,7 +48,7 @@ function findStatusRange(statusMatch: RegExpMatchArray | null): { startIndex: nu
  */
 export function parseUniversalStatus(rawLine: string): TaskProperty {
 	// Look for the standard task checkbox pattern: optional whitespace, list marker, space, bracket, char, bracket
-	const match = rawLine.match(/^\s*[-*+]\s\[([^\[\]]*)\]/);
+	const match = rawLine.match(/^\s*[-*+]\s\[([^[\]]*)\]/);
 	const statusChar = match ? match[1] ?? " " : " ";
 	const { startIndex, endIndex } = findStatusRange(match);
 

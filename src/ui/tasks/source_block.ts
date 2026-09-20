@@ -64,4 +64,4 @@ export function flattenSourceBlockNodes(nodes: SourceBlockNode[]): SourceBlockNo
 	]);
 }
 
-const sourceTaskLineRegex = /^(\s*)([-*+])\s\[([^\[\]]*)\]\s(.+)/;
+const sourceTaskLineRegex = /^(\s*)([-*+])\s\[([^[\]]*)\]\s(.+)/;

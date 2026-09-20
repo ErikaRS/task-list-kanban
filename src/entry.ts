@@ -510,7 +510,7 @@ export default class Base extends Plugin {
 					leaf.view instanceof MarkdownView &&
 					this.isKanbanFile(leaf.view.file)
 				) {
-					this.setKanbanView(leaf);
+						void this.setKanbanView(leaf);
 				}
 			}
 		});

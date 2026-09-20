@@ -93,7 +93,7 @@ function getAllPlacementTags(columns: ColumnDefinition[]): string[] {
 }
 
 function replaceStatusMarker(rawLine: string, marker: string): string {
-	return rawLine.replace(/^(\s*[-*+]\s+\[)[^\[\]]*(\]\s)/u, `$1${marker}$2`);
+	return rawLine.replace(/^(\s*[-*+]\s+\[)[^[\]]*(\]\s)/u, `$1${marker}$2`);
 }
 
 function replacePlacementTags(rawLine: string, oldTags: string[], newTags: string[]): string {

@@ -227,13 +227,13 @@
 			node.style.height = `${node.scrollHeight}px`;
 		}
 
-		const focusTimer = setTimeout(() => node.focus(), 0);
+		const focusTimer = window.setTimeout(() => node.focus(), 0);
 		node.addEventListener("input", resize);
 		resize();
 
 		return {
 			destroy() {
-				clearTimeout(focusTimer);
+				window.clearTimeout(focusTimer);
 				node.removeEventListener("input", resize);
 			},
 		};

@@ -122,7 +122,7 @@ export function createBoardStatsService(
 	const queued = new Set<string>();
 	let pumping = false;
 	let destroyed = false;
-	let midnightTimer: ReturnType<typeof setTimeout> | undefined;
+	let midnightTimer: number | undefined;
 	const dynamicScopePaths = new Set<string>();
 	const now = options.now ?? (() => new Date());
 
@@ -310,14 +310,14 @@ export function createBoardStatsService(
 
 	function scheduleMidnightRefresh() {
 		if (midnightTimer !== undefined) {
-			clearTimeout(midnightTimer);
+			timerHost.clearTimeout(midnightTimer);
 			midnightTimer = undefined;
 		}
 		if (destroyed || dynamicScopePaths.size === 0) return;
 		const current = now();
 		const next = new Date(current);
 		next.setHours(24, 0, 1, 0);
-		midnightTimer = setTimeout(() => {
+		midnightTimer = timerHost.setTimeout(() => {
 			midnightTimer = undefined;
 			for (const path of dynamicScopePaths) {
 				cacheByPath.delete(path);
@@ -364,7 +364,7 @@ export function createBoardStatsService(
 		destroy() {
 			destroyed = true;
 			if (midnightTimer !== undefined) {
-				clearTimeout(midnightTimer);
+				timerHost.clearTimeout(midnightTimer);
 			}
 			queue.length = 0;
 			queued.clear();
@@ -450,3 +450,7 @@ function buildCacheKey(
 		.sort((a, b) => a[0].localeCompare(b[0]));
 	return JSON.stringify({ settings: relevantSettings, files, dayKey });
 }
+type TimerHost = Pick<Window, "setTimeout" | "clearTimeout">;
+const timerHost: TimerHost = typeof window === "undefined"
+	? globalThis as unknown as TimerHost
+	: window;

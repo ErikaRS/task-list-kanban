@@ -10,7 +10,7 @@ import { getPropertyAliases } from "./normalization";
 import { parseIsoDate, parseNumber } from "./value_parsers";
 
 const DATAVIEW_KEY_PATTERN = "[a-zA-Z0-9_-]+";
-const ENCLOSED_DATAVIEW_REGEX = /\[\s*([a-zA-Z0-9_-]+)\s*::\s*([^\]]*?)\s*\]|\(\s*([a-zA-Z0-9_-]+)\s*::\s*([^\)]*?)\s*\)/g;
+const ENCLOSED_DATAVIEW_REGEX = /\[\s*([a-zA-Z0-9_-]+)\s*::\s*([^\]]*?)\s*\]|\(\s*([a-zA-Z0-9_-]+)\s*::\s*([^)]*?)\s*\)/g;
 const BARE_DATAVIEW_MARKER_REGEX = new RegExp(`(^|\\s)(${DATAVIEW_KEY_PATTERN})\\s*::\\s*`, "g");
 
 type ParsedInlineField = {

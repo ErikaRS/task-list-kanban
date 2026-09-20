@@ -1,4 +1,4 @@
-import moment from "moment";
+import { moment as obsidianMoment } from "obsidian";
 
 export const PATH_SCOPE_FRONTMATTER_KEY = "kanban_plugin_path_scope_v2";
 
@@ -38,7 +38,8 @@ export function resolveDateTemplate(path: string, now = new Date()): string | nu
 			invalid = true;
 			return "";
 		}
-		return moment(now).format(format);
+		return (obsidianMoment as unknown as (input: Date) => { format: (pattern: string) => string })(now)
+			.format(format);
 	});
 	if (invalid || /\{\{|\}\}/.test(resolved)) return null;
 	return normalizeVaultRelativePath(resolved);

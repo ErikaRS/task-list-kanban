@@ -105,7 +105,7 @@ export class SettingsModal extends Modal {
 	private draggedColumnId: string | null = null;
 	private dragPreviewTarget: { columnId: string; position: DropPosition } | null = null;
 	private focusTagEditorColumnId: string | null = null;
-	private embeddedSubmitTimer: ReturnType<typeof setTimeout> | null = null;
+	private embeddedSubmitTimer: number | null = null;
 	private defaultTaskFileInputEl: HTMLInputElement | null = null;
 	private defaultTaskFileErrorEl: HTMLElement | null = null;
 	// Override lifecycle state (SPEC 0030 Phase 4): which fields the board
@@ -424,9 +424,9 @@ export class SettingsModal extends Modal {
 			return;
 		}
 		if (this.embeddedSubmitTimer) {
-			clearTimeout(this.embeddedSubmitTimer);
+			window.clearTimeout(this.embeddedSubmitTimer);
 		}
-		this.embeddedSubmitTimer = setTimeout(() => {
+		this.embeddedSubmitTimer = window.setTimeout(() => {
 			this.embeddedSubmitTimer = null;
 			void this.onSubmit(this.settings, {
 				updateExistingTaskTagsByColumnId: Object.fromEntries(this.updateExistingTaskTagsByColumnId),
@@ -741,10 +741,10 @@ export class SettingsModal extends Modal {
 				text.onChange((value) => {
 					const errors = options.validate(value);
 					if (errors.length > 0) {
-						text.inputEl.style.borderColor = "var(--text-error)";
+						text.inputEl.setCssStyles({ borderColor: "var(--text-error)" });
 						text.inputEl.title = `Invalid: ${errors.join(", ")}`;
 					} else {
-						text.inputEl.style.borderColor = "";
+						text.inputEl.setCssStyles({ borderColor: "" });
 						text.inputEl.title = options.validTitle;
 						options.onValid(value);
 						this.touchSettings();
@@ -840,14 +840,14 @@ export class SettingsModal extends Modal {
 			const value = options.normalize(inputEl.value);
 			if (!value) return;
 			if (options.reject?.(value)) {
-				inputEl.style.borderColor = "var(--text-error)";
+				inputEl.setCssStyles({ borderColor: "var(--text-error)" });
 				inputEl.title = options.rejectionMessage ?? "This value cannot be added";
 				return;
 			}
 			const items = options.getItems();
 			if (items.includes(value)) return;
 			options.setItems([...items, value]);
-			inputEl.style.borderColor = "";
+			inputEl.setCssStyles({ borderColor: "" });
 			inputEl.title = "";
 			inputEl.value = "";
 			refresh();
@@ -1486,21 +1486,21 @@ export class SettingsModal extends Modal {
 	private setDefaultTaskFileError(message: string) {
 		if (!this.defaultTaskFileInputEl) return;
 		if (message) {
-			this.defaultTaskFileInputEl.style.outline =
-				"2px solid var(--text-error)";
-			this.defaultTaskFileInputEl.style.outlineOffset = "-1px";
+			this.defaultTaskFileInputEl.setCssStyles({
+				outline: "2px solid var(--text-error)",
+				outlineOffset: "-1px",
+			});
 			this.defaultTaskFileInputEl.title = message;
 			if (this.defaultTaskFileErrorEl) {
 				this.defaultTaskFileErrorEl.setText(message);
-				this.defaultTaskFileErrorEl.style.visibility = "visible";
+				this.defaultTaskFileErrorEl.setCssStyles({ visibility: "visible" });
 			}
 		} else {
-			this.defaultTaskFileInputEl.style.outline = "";
-			this.defaultTaskFileInputEl.style.outlineOffset = "";
+			this.defaultTaskFileInputEl.setCssStyles({ outline: "", outlineOffset: "" });
 			this.defaultTaskFileInputEl.title = "";
 			if (this.defaultTaskFileErrorEl) {
 				this.defaultTaskFileErrorEl.setText("");
-				this.defaultTaskFileErrorEl.style.visibility = "hidden";
+				this.defaultTaskFileErrorEl.setCssStyles({ visibility: "hidden" });
 			}
 		}
 	}
@@ -1614,18 +1614,21 @@ export class SettingsModal extends Modal {
 					});
 					new FileSuggest(this.app, text.inputEl);
 				});
-			defaultTaskFileSetting.controlEl.style.flexDirection = "column";
-			defaultTaskFileSetting.controlEl.style.alignItems = "flex-end";
-			const errorEl = createEl("div", {
+			defaultTaskFileSetting.controlEl.setCssStyles({
+				flexDirection: "column",
+				alignItems: "flex-end",
+			});
+			const errorEl = defaultTaskFileSetting.controlEl.createDiv({
 				cls: "setting-error-message",
 			});
-			errorEl.style.color = "var(--text-error)";
-			errorEl.style.fontSize = "var(--font-smallest)";
-			errorEl.style.fontStyle = "italic";
-			errorEl.style.marginTop = "4px";
-			errorEl.style.minHeight = "1.2em";
-			errorEl.style.visibility = "hidden";
-			defaultTaskFileSetting.controlEl.appendChild(errorEl);
+			errorEl.setCssStyles({
+				color: "var(--text-error)",
+				fontSize: "var(--font-smallest)",
+				fontStyle: "italic",
+				marginTop: "4px",
+				minHeight: "1.2em",
+				visibility: "hidden",
+			});
 			this.defaultTaskFileErrorEl = errorEl;
 			this.validateDefaultTaskFile();
 		}
@@ -1811,12 +1814,14 @@ export class SettingsModal extends Modal {
 			this.pathScopeErrorEl = pathListContainer.createDiv({
 				cls: "setting-error-message",
 			});
-			this.pathScopeErrorEl.style.color = "var(--text-error)";
-			this.pathScopeErrorEl.style.fontSize = "var(--font-smallest)";
-			this.pathScopeErrorEl.style.fontStyle = "italic";
-			this.pathScopeErrorEl.style.marginTop = "4px";
-			this.pathScopeErrorEl.style.minHeight = "1.2em";
-			this.pathScopeErrorEl.style.visibility = "hidden";
+			this.pathScopeErrorEl.setCssStyles({
+				color: "var(--text-error)",
+				fontSize: "var(--font-smallest)",
+				fontStyle: "italic",
+				marginTop: "4px",
+				minHeight: "1.2em",
+				visibility: "hidden",
+			});
 			this.validateSettings();
 			updateFolderListVisibility();
 		}
@@ -1991,11 +1996,11 @@ export class SettingsModal extends Modal {
 			text.onChange((value) => {
 				const errors = validateArchiveStatusMarkers(value);
 				if (errors.length > 0) {
-					text.inputEl.style.borderColor = "var(--text-error)";
+					text.inputEl.setCssStyles({ borderColor: "var(--text-error)" });
 					text.inputEl.title = `Invalid: ${errors.join(", ")}`;
 					return;
 				}
-				text.inputEl.style.borderColor = "";
+				text.inputEl.setCssStyles({ borderColor: "" });
 				text.inputEl.title = "Valid archive status markers";
 				this.settings.archiveStatusMarkers = value;
 				this.touchSettings();
@@ -2050,7 +2055,7 @@ export class SettingsModal extends Modal {
 		});
 
 		this.saveBtn = buttonBar.createEl("button", { text: "Save", cls: "mod-cta" });
-		this.saveBtn.addEventListener("click", async () => {
+		this.saveBtn.addEventListener("click", () => void (async () => {
 			if (this.saveBtn) {
 				this.saveBtn.disabled = true;
 			}
@@ -2065,12 +2070,12 @@ export class SettingsModal extends Modal {
 					this.saveBtn.disabled = false;
 				}
 			}
-		});
+		})());
 	}
 
 	onClose() {
 		if (this.embeddedSubmitTimer) {
-			clearTimeout(this.embeddedSubmitTimer);
+			window.clearTimeout(this.embeddedSubmitTimer);
 			this.embeddedSubmitTimer = null;
 		}
 		for (const destroy of this.mountedColumnControls) {

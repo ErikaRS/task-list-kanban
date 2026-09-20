@@ -28,6 +28,6 @@ function stripTagFromRenderedContent(content: string, tag: string): string {
 
 	const escapedTag = normalizedTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	return content
-		.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_\/\\p{L}\\p{N}])`, "giu"), "$1")
+		.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_/\\p{L}\\p{N}])`, "giu"), "$1")
 		.trim();
 }
