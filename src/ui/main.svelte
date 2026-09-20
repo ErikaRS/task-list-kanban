@@ -76,6 +76,13 @@
 	import { shouldSwitchBoard } from "./dashboard/dashboard_panel_state";
 	import { railVisible as boardRailVisible, RAIL_MIN_WIDTH } from "./dashboard/board_rail_state";
 	import { Notice, Platform, TFile } from "obsidian";
+	import {
+		openSourceFiles,
+		openedMarkdownPaths,
+		migrateSourceFileSelectionPaths as migrateSourceFileSelection,
+		sourcePathsFromTasks,
+		type SourceFileOpenMode,
+	} from "./tasks/source_file_opener";
 	import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
 	import {
@@ -250,6 +257,7 @@
 		} else if (!dashboardWasOpen && $dashboardOpenStore) {
 			viewEditorExpanded = false;
 			filterEditorExpanded = false;
+			sourceFilePopoverExpanded = false;
 		}
 		dashboardWasOpen = $dashboardOpenStore;
 	}
@@ -409,7 +417,17 @@
 			}
 		});
 
-		return unsubscribe;
+		const renameRef = app.vault.on("rename", (file, oldPath) => {
+			migrateSourceFileSelectionPaths(oldPath, file.path);
+		});
+		const workspaceRef = app.workspace.on("layout-change", () => {
+			workspaceRevision += 1;
+		});
+		return () => {
+			unsubscribe();
+			app.vault.offref(renameRef);
+			app.workspace.offref(workspaceRef);
+		};
 	});
 
 	function saveFilterState() {
@@ -444,6 +462,16 @@
 	// --- Expanded structured editor (two synced views of one query) ---
 	let filterEditorExpanded = false;
 	let viewEditorExpanded = false;
+	let sourceFilePopoverExpanded = false;
+	let sourceFilesOpening = false;
+	let sourceFileControlContainer: HTMLDivElement | undefined;
+	let workspaceRevision = 0;
+	let sourceFilePaths: string[] = [];
+	let sourceFileSelection: Record<string, boolean> = {};
+	let sourceFileOpenMode: SourceFileOpenMode = "all";
+	let selectedSourceFilePaths: string[] = [];
+	let currentlyOpenMarkdownPaths = new Set<string>();
+	let eligibleSelectedSourceFileCount = 0;
 	let filterBarContainer: HTMLDivElement | undefined;
 	let viewControlContainer: HTMLDivElement | undefined;
 	let boardContentEl: HTMLDivElement | undefined;
@@ -466,6 +494,90 @@
 
 	function toggleViewEditor() {
 		viewEditorExpanded = !viewEditorExpanded;
+	}
+
+	function pluraliseFile(count: number): string {
+		return `${count} file${count === 1 ? "" : "s"}`;
+	}
+
+	function setSourceFileSelection(next: Record<string, boolean>) {
+		settingsStore.update((settings) => ({
+			...settings,
+			openSourceFileSelection: next,
+		}));
+		requestSave();
+	}
+
+	function setSourceFileChecked(path: string, checked: boolean) {
+		setSourceFileSelection({ ...sourceFileSelection, [path]: checked });
+	}
+
+	function selectAllSourceFiles(checked: boolean) {
+		setSourceFileSelection({
+			...sourceFileSelection,
+			...Object.fromEntries(sourceFilePaths.map((path) => [path, checked])),
+		});
+	}
+
+	function setSourceFileOpenMode(mode: SourceFileOpenMode) {
+		settingsStore.update((settings) => ({ ...settings, openSourceFileOpenMode: mode }));
+		requestSave();
+	}
+
+	function toggleSkipAlreadyOpenSourceFiles() {
+		setSourceFileOpenMode(sourceFileOpenMode === "unopened" ? "all" : "unopened");
+	}
+
+	function handleSkipAlreadyOpenSourceFilesKeydown(event: KeyboardEvent) {
+		if (event.key !== "Enter" && event.key !== " ") return;
+		event.preventDefault();
+		toggleSkipAlreadyOpenSourceFiles();
+	}
+
+	function migrateSourceFileSelectionPaths(oldPath: string, newPath: string) {
+		const next = migrateSourceFileSelection(
+			$settingsStore.openSourceFileSelection,
+			oldPath,
+			newPath,
+		);
+		if (next) setSourceFileSelection(next);
+	}
+
+	function sourceFileNotice(result: Awaited<ReturnType<typeof openSourceFiles>>) {
+		const parts: string[] = [];
+		if (result.openedPaths.length > 0) parts.push(`Opened ${pluraliseFile(result.openedPaths.length)}`);
+		if (result.skippedAlreadyOpenPaths.length > 0) parts.push(`${pluraliseFile(result.skippedAlreadyOpenPaths.length)} already open`);
+		if (result.unavailablePaths.length > 0) parts.push(`${pluraliseFile(result.unavailablePaths.length)} no longer available`);
+		if (result.failedPaths.length > 0) parts.push(`failed to open ${pluraliseFile(result.failedPaths.length)}`);
+		return parts.join("; ") + ".";
+	}
+
+	async function openChosenSourceFiles(paths: string[]) {
+		if (sourceFilesOpening || $dashboardOpenStore) return;
+		sourceFilesOpening = true;
+		try {
+			const result = await openSourceFiles({
+				vault: app.vault,
+				workspace: app.workspace,
+				paths,
+				mode: sourceFileOpenMode,
+			});
+			if (
+				result.skippedAlreadyOpenPaths.length > 0 ||
+				result.unavailablePaths.length > 0 ||
+				result.failedPaths.length > 0 ||
+				result.openedPaths.length === 0
+			) {
+				new Notice(sourceFileNotice(result));
+			}
+		} finally {
+			sourceFilesOpening = false;
+		}
+	}
+
+	function openSelectedSourceFiles() {
+		sourceFilePopoverExpanded = false;
+		void openChosenSourceFiles([...selectedSourceFilePaths]);
 	}
 
 	function updateViewEditorPopoverPosition() {
@@ -742,6 +854,10 @@
 			filterEditorExpanded = false;
 			return;
 		}
+		if (e.key === "Escape" && sourceFilePopoverExpanded) {
+			sourceFilePopoverExpanded = false;
+			return;
+		}
 		if (e.key === "Escape" && viewEditorExpanded) {
 			viewEditorExpanded = false;
 		}
@@ -767,6 +883,14 @@
 		) {
 			viewEditorExpanded = false;
 		}
+		if (
+			sourceFilePopoverExpanded &&
+			sourceFileControlContainer &&
+			e.target instanceof Node &&
+			!sourceFileControlContainer.contains(e.target)
+		) {
+			sourceFilePopoverExpanded = false;
+		}
 	}
 
 	function handleWindowViewportChange() {
@@ -779,6 +903,18 @@
 				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
 			)
 		: $tasksStore;
+	$: sourceFilePaths = sourcePathsFromTasks(filteredTasks).filter((path) =>
+		app.vault.getAbstractFileByPath(path) instanceof TFile,
+	);
+	$: sourceFileSelection = $settingsStore.openSourceFileSelection ?? {};
+	$: sourceFileOpenMode = $settingsStore.openSourceFileOpenMode ?? "all";
+	$: selectedSourceFilePaths = sourceFilePaths.filter((path) => sourceFileSelection[path] !== false);
+	$: workspaceRevision, currentlyOpenMarkdownPaths = sourceFilePopoverExpanded
+		? openedMarkdownPaths(app.workspace)
+		: new Set<string>();
+	$: eligibleSelectedSourceFileCount = sourceFileOpenMode === "unopened"
+		? selectedSourceFilePaths.filter((path) => !currentlyOpenMarkdownPaths.has(path)).length
+		: selectedSourceFilePaths.length;
 
 	$: tasksByColumn = groupByColumnTag(filteredTasks);
 
@@ -1169,6 +1305,91 @@
 					/>
 				{/if}
 			</div>
+			<div
+				class="source-file-control"
+				bind:this={sourceFileControlContainer}
+				inert={$dashboardOpenStore}
+			>
+				<div class="source-file-split-button">
+					<button
+						type="button"
+						class="source-file-open-button"
+						disabled={sourceFilesOpening || selectedSourceFilePaths.length === 0}
+						title={sourceFileOpenMode === "all"
+							? "Open selected source files in new tabs"
+							: "Open selected source files not already open"}
+						aria-label={sourceFileOpenMode === "all"
+							? "Open selected source files in new tabs"
+							: "Open selected source files not already open"}
+						on:click={openSelectedSourceFiles}
+					>
+						<Icon name="folder-open" size={16} />
+						<span>Open files</span>
+					</button>
+					<button
+						type="button"
+						class="source-file-chevron"
+						disabled={sourceFilesOpening || sourceFilePaths.length === 0}
+						aria-label="Choose source files to open"
+						aria-expanded={sourceFilePopoverExpanded}
+						on:click={() => (sourceFilePopoverExpanded = !sourceFilePopoverExpanded)}
+					>
+						<Icon name={sourceFilePopoverExpanded ? "chevron-up" : "chevron-down"} size={15} />
+					</button>
+				</div>
+				{#if sourceFilePopoverExpanded}
+					<div class="source-file-popover" role="dialog" aria-label="Open matching source files">
+						<div class="source-file-popover-heading">Open matching source files</div>
+						<div class="source-file-popover-count">
+							{pluraliseFile(sourceFilePaths.length)} match the current filter
+						</div>
+						<div class="source-file-bulk-actions">
+							<button type="button" on:click={() => selectAllSourceFiles(true)}>Select all</button>
+							<button type="button" on:click={() => selectAllSourceFiles(false)}>Select none</button>
+						</div>
+						<div class="source-file-open-mode">
+							<span>Skip files already open</span>
+							<div
+								class="checkbox-container source-file-skip-toggle"
+								class:is-enabled={sourceFileOpenMode === "unopened"}
+								role="switch"
+								tabindex="0"
+								aria-label="Skip files already open"
+								aria-checked={sourceFileOpenMode === "unopened"}
+								on:click={toggleSkipAlreadyOpenSourceFiles}
+								on:keydown={handleSkipAlreadyOpenSourceFilesKeydown}
+							></div>
+						</div>
+						<div class="source-file-list">
+							{#each sourceFilePaths as path (path)}
+								<label class="source-file-choice">
+									<input
+										type="checkbox"
+										checked={sourceFileSelection[path] !== false}
+										on:change={(event) => setSourceFileChecked(path, event.currentTarget.checked)}
+									/>
+									<span>{path}</span>
+								</label>
+							{/each}
+						</div>
+						<div class="source-file-popover-footer">
+							{#if sourceFileOpenMode === "unopened" && selectedSourceFilePaths.length > 0 && eligibleSelectedSourceFileCount === 0}
+								<span class="source-file-empty-note">All selected files are already open.</span>
+							{/if}
+							<button
+								type="button"
+								class="mod-cta"
+								disabled={sourceFilesOpening || eligibleSelectedSourceFileCount === 0}
+								on:click={openSelectedSourceFiles}
+							>
+								{sourceFileOpenMode === "unopened"
+									? `Open ${pluraliseFile(eligibleSelectedSourceFileCount).replace("file", "unopened file")}`
+									: `Open ${pluraliseFile(selectedSourceFilePaths.length)}`}
+							</button>
+						</div>
+					</div>
+				{/if}
+			</div>
 			<div class="settings-control" inert={$dashboardOpenStore}>
 				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
 			</div>
@@ -1293,6 +1514,7 @@
 		.board-toolbar.dashboard-open {
 			.view-control,
 			.filter-bar-container,
+			.source-file-control,
 			.settings-control {
 				opacity: 0.5;
 			}
@@ -1325,6 +1547,7 @@
 		}
 
 		.view-control,
+		.source-file-control,
 		.settings-control {
 			position: relative;
 			display: flex;
@@ -1344,6 +1567,159 @@
 			box-sizing: border-box;
 			margin: 0;
 			border-radius: 999px;
+		}
+
+		.source-file-control {
+			z-index: 110;
+		}
+
+		.source-file-split-button {
+			display: inline-flex;
+			height: var(--view-toolbar-control-height);
+			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+			border-radius: 999px;
+			background: var(--background-primary);
+			box-shadow: var(--shadow-s);
+			overflow: hidden;
+		}
+
+		.source-file-open-button,
+		.source-file-chevron {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: var(--size-2-2);
+			height: 100%;
+			box-sizing: border-box;
+			margin: 0;
+			border: 0;
+			background: transparent;
+			box-shadow: none;
+			color: var(--text-normal);
+			font-size: var(--font-ui-small);
+			font-weight: 600;
+			cursor: pointer;
+
+			&:hover:not(:disabled) {
+				background: var(--background-modifier-hover);
+			}
+
+			&:disabled {
+				cursor: default;
+				opacity: 0.55;
+			}
+		}
+
+		.source-file-open-button {
+			flex: 1 1 auto;
+			padding: 0 var(--size-4-3);
+			line-height: 1;
+		}
+
+		.source-file-chevron {
+			flex: 0 0 32px;
+			padding: 0;
+			border-left: var(--input-border-width, 1px) solid var(--background-modifier-border);
+		}
+
+		.source-file-popover {
+			position: absolute;
+			top: calc(100% + 8px);
+			right: 0;
+			z-index: 140;
+			width: min(360px, calc(100vw - var(--size-4-8)));
+			max-height: min(560px, calc(100vh - 120px));
+			display: flex;
+			flex-direction: column;
+			gap: var(--size-2-2);
+			box-sizing: border-box;
+			padding: var(--size-4-3);
+			border: var(--input-border-width, 1px) solid var(--background-modifier-border);
+			border-radius: var(--radius-m);
+			background: var(--background-primary);
+			box-shadow: var(--shadow-l);
+			line-height: 1.35;
+		}
+
+		.source-file-popover-heading {
+			font-weight: 700;
+		}
+
+		.source-file-popover-count,
+		.source-file-empty-note {
+			color: var(--text-muted);
+			font-size: var(--font-ui-small);
+		}
+
+		.source-file-bulk-actions {
+			display: flex;
+			column-gap: var(--size-4-2);
+			row-gap: var(--size-2-2);
+			flex-wrap: wrap;
+
+			button {
+				padding: 0;
+				border: 0;
+				background: transparent;
+				box-shadow: none;
+				color: var(--interactive-accent);
+				cursor: pointer;
+			}
+		}
+
+		.source-file-open-mode {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: var(--size-2-3);
+			margin: 0;
+			padding: var(--size-2-3) 0;
+			border-top: 1px solid var(--background-modifier-border);
+			border-bottom: 1px solid var(--background-modifier-border);
+			font-size: var(--font-ui-small);
+			font-weight: 600;
+		}
+
+		.source-file-skip-toggle {
+			flex: 0 0 auto;
+			margin: 0;
+			padding: 0;
+			border: 0;
+			box-shadow: none;
+			cursor: pointer;
+
+			&:focus-visible {
+				outline: 2px solid var(--interactive-accent);
+				outline-offset: 2px;
+			}
+		}
+
+		.source-file-choice {
+			display: flex;
+			align-items: flex-start;
+			gap: var(--size-2-2);
+			cursor: pointer;
+			font-size: var(--font-ui-small);
+		}
+
+		.source-file-list {
+			display: grid;
+			gap: var(--size-2-2);
+			min-height: 0;
+			max-height: 240px;
+			overflow: auto;
+		}
+
+		.source-file-choice span {
+			overflow-wrap: anywhere;
+		}
+
+		.source-file-popover-footer {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: var(--size-2-2);
+			padding-top: var(--size-2-2);
 		}
 
 		.view-editor-toggle {
@@ -1511,6 +1887,11 @@
 
 			.settings-control {
 				margin-left: auto;
+			}
+
+			.source-file-popover {
+				right: auto;
+				left: 0;
 			}
 
 			.view-editor-popover {

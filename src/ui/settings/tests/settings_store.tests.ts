@@ -131,6 +131,17 @@ describe("Sparse overrides parsing (SPEC 0030)", () => {
 			},
 		});
 	});
+
+	it("keeps source-file selector state sparse and board-local", () => {
+		expect(parseSettingsOverrides(JSON.stringify({
+			openSourceFileSelection: { "projects/alpha.md": false },
+			openSourceFileOpenMode: "unopened",
+		}))).toEqual({
+			openSourceFileSelection: { "projects/alpha.md": false },
+			openSourceFileOpenMode: "unopened",
+		});
+		expect(parseSettingsOverrides("{}").openSourceFileOpenMode).toBeUndefined();
+	});
 });
 
 describe("BoardSettingsStore override tracking (SPEC 0030)", () => {

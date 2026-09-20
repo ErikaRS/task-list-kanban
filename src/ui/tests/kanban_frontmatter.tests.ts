@@ -80,6 +80,20 @@ describe("kanban frontmatter helpers", () => {
 		});
 	});
 
+	it("round-trips source-file selector state through board frontmatter", () => {
+		const output = writeKanbanSettingsToViewData(
+			["---", "kanban_plugin: '{}'", "---", ""].join("\n"),
+			{
+				openSourceFileSelection: { "projects/alpha.md": false },
+				openSourceFileOpenMode: "unopened",
+			},
+		);
+		expect(parseKanbanSettingsOverridesFromViewData(output)).toEqual({
+			openSourceFileSelection: { "projects/alpha.md": false },
+			openSourceFileOpenMode: "unopened",
+		});
+	});
+
 	it("round-trips canonical path scope with its legacy compatibility projection", () => {
 		const input = ["---", "kanban_plugin: '{}'", "---", ""].join("\n");
 		const pathScope = createPathScope(["daily/{{YYYY-MM-DD}}.md", "projects/alpha"])!;

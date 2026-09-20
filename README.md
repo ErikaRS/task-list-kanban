@@ -215,6 +215,11 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 - **Archive**: archive tasks from the task menu or bulk menu. By default this marks open tasks done and adds the `#archived` tag. Boards configured to replace the tag with an archive status write their first archive marker instead.
 - **Duplicate**: duplicate a task directly below the original source line.
 - **Open source file**: click the file path or arrow icon on a card.
+- **Open matching source files**: use **Open files** beside the filter bar to
+  open the persistently selected source notes represented by the current
+  applied filter in new tabs. Its chevron lets you change that subset for the
+  board and optionally skip Markdown files already open elsewhere in the
+  workspace.
 - **Add card**: run **Add card** from the command palette to create a card on a visible board without first opening that board.
 
 ### Sorting

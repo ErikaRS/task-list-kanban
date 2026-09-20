@@ -14,6 +14,7 @@ import type { ManualOrderStore } from "../tasks/manual_order";
 // Runtime-safe despite the module pair: filter_state imports only types
 // from this module.
 import { savedFilterToQuery } from "../filters/filter_state";
+import type { SourceFileOpenMode } from "../tasks/source_file_opener";
 
 export interface SavedGrouping {
 	id: string;
@@ -288,6 +289,11 @@ const settingsObject = z.object({
 	// with display configuration. Legacy column-local records are migrated under
 	// the default group bucket id at parse time.
 	manualOrder: manualOrderSchema.default({}).optional(),
+	// Board-local toolbar state. These deliberately have no global default:
+	// an absent selection means new paths begin checked, and an absent mode
+	// means the historical "always create a tab" behaviour.
+	openSourceFileSelection: z.record(z.string(), z.boolean()).optional(),
+	openSourceFileOpenMode: z.enum(["all", "unopened"]).optional(),
 });
 
 export interface SettingValues {
@@ -332,6 +338,8 @@ export interface SettingValues {
 	sortDirection?: SortDirection;
 	groupDirection?: SortDirection;
 	manualOrder?: ManualOrderStore;
+	openSourceFileSelection?: Record<string, boolean>;
+	openSourceFileOpenMode?: SourceFileOpenMode;
 }
 
 export const defaultSettings: SettingValues = {
