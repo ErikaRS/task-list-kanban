@@ -1,4 +1,12 @@
-Status: IN_PROGRESS
+Status: OBSOLETE
+
+## Obsolescence Note
+
+This proposal is retired without implementation. The horizontal card-strip
+layout was removed from the board renderer and is no longer used in either
+column-dominant or group-dominant views. Follow-up validation found no need to
+preserve it, so no replacement card-layout setting is planned. Task cards
+continue to stack vertically in every board flow.
 
 # Card Layout Orientation
 
