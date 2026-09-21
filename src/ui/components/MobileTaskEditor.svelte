@@ -4,6 +4,7 @@
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import DateInputFields, { type DateFieldValues } from "./DateInputFields.svelte";
+	import { lockMobileBoardLayout } from "../mobile_editor_layout";
 
 	export let task: Task;
 	export let taskActions: TaskActions;
@@ -17,6 +18,8 @@
 	let editorStyle = "";
 	let saving = false;
 	let stopWatchingViewport: (() => void) | undefined;
+	let unlockBoardLayout: (() => void) | undefined;
+	let boardMainEl: HTMLElement | null = null;
 	$: canEditDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
 
 	function getDateValue(key: EditableDatePropertyKey): string {
@@ -25,6 +28,10 @@
 	}
 
 	function portalToBody(node: HTMLElement) {
+		// Capture the board before moving the editor out of the card. Keeping
+		// that board at its pre-keyboard height makes the surrounding column and
+		// cards remain visible, matching the new-task editor's presentation.
+		boardMainEl = node.closest<HTMLElement>(".board-main");
 		document.body.appendChild(node);
 		return { destroy: () => node.remove() };
 	}
@@ -51,6 +58,8 @@
 	}
 
 	function watchViewport() {
+		unlockBoardLayout?.();
+		unlockBoardLayout = lockMobileBoardLayout(boardMainEl);
 		const viewport = window.visualViewport;
 		if (viewport) {
 			viewport.addEventListener("resize", positionEditor);
@@ -94,7 +103,10 @@
 	}
 
 	void tick().then(() => { textAreaEl?.focus(); watchViewport(); });
-	onDestroy(() => stopWatchingViewport?.());
+	onDestroy(() => {
+		stopWatchingViewport?.();
+		unlockBoardLayout?.();
+	});
 </script>
 
 <!-- Outside the board flex layout so Android keyboard resize cannot reflow it. -->
@@ -110,8 +122,10 @@
 
 <style lang="scss">
 	.mobile-task-editor-root { position: fixed; inset: 0; z-index: 1000; }
-	.mobile-task-editor-backdrop { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; background: rgba(0, 0, 0, 0.28); cursor: default; }
-	.mobile-task-editor { position: fixed; z-index: 1; box-sizing: border-box; padding: var(--size-4-3); overflow: auto; background: var(--background-primary); border: 1px solid var(--background-modifier-border-focus); border-radius: var(--radius-l, 12px); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28); }
+	// Keep the board readable behind editing, as it is when adding a task.
+	// The button still supplies a generous tap target for cancelling.
+	.mobile-task-editor-backdrop { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; background: transparent; cursor: default; }
+	.mobile-task-editor { position: fixed; z-index: 1; box-sizing: border-box; padding: var(--size-4-3); overflow: auto; background: color-mix(in srgb, var(--background-primary) 94%, transparent); border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border)); border-radius: var(--radius-l, 12px); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24), 0 2px 10px rgba(0, 0, 0, 0.12); backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); }
 	.mobile-task-editor-heading { margin-bottom: var(--size-2-2); color: var(--text-muted); font-size: var(--font-ui-small); font-weight: var(--font-medium); }
 	.mobile-task-editor textarea { width: 100%; min-height: 112px; box-sizing: border-box; padding: var(--size-4-3); background: var(--background-secondary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); font-size: 16px; line-height: 1.45; resize: vertical; }
 	.mobile-task-editor-dates { margin-top: var(--size-4-2); }

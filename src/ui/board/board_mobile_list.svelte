@@ -93,7 +93,7 @@
 					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 					{uncategorizedColumnName}
 					{doneColumnName}
-					showTaskCount={true}
+					showTaskCount={false}
 					headingId={`mobile-column-${pBucket.id}`}
 				/>
 			</header>
@@ -182,7 +182,7 @@
 								{uncategorizedColumnName}
 								{doneColumnName}
 								taskCountOverride={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
-								showTaskCount={true}
+								showTaskCount={false}
 								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
 								headingLevel={3}
 							/>
