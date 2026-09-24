@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { lockMobileBoardLayout } from "../mobile_editor_layout";
+	import { mobileVisibleBottom } from "../mobile_visible_area";
 	import DateInputFields, { type DateFieldValues } from "./DateInputFields.svelte";
 	export let title = "Edit task";
 	export let context = "";
@@ -19,19 +20,23 @@
 	let frame = 0;
 	let disposed = false;
 	let ownerWindow: typeof window;
+	let workspaceAnchor: HTMLElement;
+	let workspaceObserver: ResizeObserver | undefined;
+	let focusTimer = 0;
 
 	// Apply initial geometry synchronously: a hidden textarea cannot receive focus.
 	function positionNow() {
 		const viewport = ownerWindow.visualViewport;
 		const viewportWidth = viewport?.width ?? ownerWindow.innerWidth;
-		const viewportHeight = Math.min(viewport?.height ?? ownerWindow.innerHeight, ownerWindow.innerHeight);
+		const viewportTop = viewport?.offsetTop ?? 0;
+		const viewportHeight = Math.max(0, mobileVisibleBottom(workspaceAnchor, ownerWindow) - viewportTop);
 		const width = Math.min(520, viewportWidth);
 		// Size the portal to the *visible* viewport. Anchoring the sheet to its
 		// bottom avoids a translated fixed element being stranded by Android's
 		// keyboard resize and keeps the actions above the keyboard.
 		Object.assign(root.style, {
 			left: `${viewport?.offsetLeft ?? 0}px`,
-			top: `${viewport?.offsetTop ?? 0}px`,
+			top: `${viewportTop}px`,
 			width: `${viewportWidth}px`,
 			height: `${viewportHeight}px`,
 		});
@@ -100,6 +105,7 @@
 		const ownerDocument = root.ownerDocument;
 		ownerWindow = ownerDocument.defaultView!;
 		const previous = ownerDocument.activeElement as HTMLElement | null;
+		workspaceAnchor = root.closest<HTMLElement>(".workspace-leaf-content, .workspace-tab-container") ?? root;
 		const unlock = lockMobileBoardLayout(root.closest<HTMLElement>(".board-main") ?? root.closest(".board-body")?.querySelector(".board-main") ?? null);
 		const board = root.closest<HTMLElement>(".board-content");
 		const wasInert = board?.inert ?? false;
@@ -109,11 +115,19 @@
 		viewport?.addEventListener("resize", schedulePosition);
 		viewport?.addEventListener("scroll", schedulePosition);
 		ownerWindow.addEventListener("resize", schedulePosition);
+		if (ownerWindow.ResizeObserver && workspaceAnchor !== root) {
+			workspaceObserver = new ownerWindow.ResizeObserver(schedulePosition);
+			workspaceObserver.observe(workspaceAnchor);
+		}
 		positionNow();
 		textarea.focus({ preventScroll: true });
 		schedulePosition();
+		// Some Android WebViews report the keyboard layout a tick after focus.
+		focusTimer = ownerWindow.setTimeout(schedulePosition, 250);
 		return () => {
 			disposed = true;
+			ownerWindow.clearTimeout(focusTimer);
+			workspaceObserver?.disconnect();
 			ownerWindow.cancelAnimationFrame(frame);
 			viewport?.removeEventListener("resize", schedulePosition);
 			viewport?.removeEventListener("scroll", schedulePosition);

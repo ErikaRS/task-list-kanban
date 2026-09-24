@@ -18,6 +18,7 @@
 	import BoardMobileList from "./board/board_mobile_list.svelte";
 	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
 	import { mobileKeyboardBoardLayout } from "./mobile_editor_layout";
+	import { mobileVisibleBottom } from "./mobile_visible_area";
 	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
 	import ViewEditor from "./view_editor.svelte";
 	import {
@@ -445,9 +446,13 @@
 	});
 	onMount(() => {
 		const viewport = window.visualViewport;
+		const workspace = boardContentEl?.closest<HTMLElement>(".workspace-leaf-content, .workspace-tab-container");
+		const observer = workspace && window.ResizeObserver ? new ResizeObserver(handleWindowViewportChange) : undefined;
+		if (workspace) observer?.observe(workspace);
 		viewport?.addEventListener("resize", handleWindowViewportChange);
 		viewport?.addEventListener("scroll", handleWindowViewportChange);
 		return () => {
+			observer?.disconnect();
 			viewport?.removeEventListener("resize", handleWindowViewportChange);
 			viewport?.removeEventListener("scroll", handleWindowViewportChange);
 		};
@@ -646,7 +651,9 @@
 		const rect = boardContentEl.getBoundingClientRect();
 		const viewport = window.visualViewport;
 		const top = Math.max(rect.top, viewport?.offsetTop ?? 0);
-		const bottom = (viewport?.offsetTop ?? 0) + Math.min(viewport?.height ?? window.innerHeight, window.innerHeight);
+		// The bottom mobile navigation overlaps the WebView. Keep the panel's
+		// scrolling area and its final action entirely above that navigation.
+		const bottom = Math.min(mobileVisibleBottom(boardContentEl, window), rect.bottom, window.innerHeight - 72);
 		mobilePanelStyle = [
 			`--mobile-panel-top: ${Math.round(top)}px`,
 			`--mobile-panel-left: ${Math.round(rect.left)}px`,

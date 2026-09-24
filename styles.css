@@ -1813,6 +1813,13 @@ If your plugin does not need CSS, delete this file.
 	min-height: 72px;
 }
 
+.task-list-kanban-view .mobile-list-cell.compact-empty .mobile-create-task {
+	position: static;
+	align-self: flex-end;
+	visibility: visible !important;
+	margin: 12px max(12px, env(safe-area-inset-right)) 12px 0;
+}
+
 .task-list-kanban-view .mobile-list-cell .tasks {
 	gap: 0;
 	padding-top: 0;
@@ -1917,19 +1924,23 @@ body:has(.tlk-mobile-editor-root) .task-list-kanban-view .mobile-create-task {
 	overflow: auto;
 	min-height: 0;
 	border: 0;
-	padding: 0;
+	box-sizing: border-box;
+	width: 100%;
+	padding: 3px;
 	margin: 0;
 	min-width: 0;
 }
 
 .tlk-mobile-editor-root textarea {
+	display: block;
 	width: 100%;
+	max-width: 100%;
 	min-height: 112px;
 	font-size: 16px;
 	line-height: 1.45;
 	padding: 12px;
 	box-sizing: border-box;
-	resize: vertical;
+	resize: none;
 }
 
 .tlk-mobile-editor-root button {

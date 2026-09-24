@@ -53,6 +53,20 @@ describe("shared mobile editing sheet", () => {
 		expect(board.inert).toBe(true);
 		expect(document.querySelector(".tlk-mobile-editor-root")?.parentElement).toBe(document.body);
 	});
+	it("keeps the editor above the host workspace when it shrinks for the keyboard", async () => {
+		const workspace = document.createElement("div");
+		workspace.className = "workspace-leaf-content";
+		board.replaceWith(workspace);
+		workspace.append(board);
+		let bottom = 700;
+		vi.spyOn(workspace, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 390, bottom));
+		await mount();
+		const root = document.querySelector<HTMLElement>(".tlk-mobile-editor-root")!;
+		expect(root.style.height).toBe("700px");
+		bottom = 420;
+		window.dispatchEvent(new Event("resize"));
+		await vi.waitFor(() => expect(root.style.height).toBe("420px"));
+	});
 	it("does not save on blur or plain Enter, but saves on Ctrl+Enter", async () => {
 		const { textarea, onSave } = await mount();
 		textarea.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
