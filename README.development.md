@@ -27,6 +27,11 @@ Runs TypeScript type checking (`tsc -noEmit -skipLibCheck`), then Svelte compone
 npm test
 ```
 Runs the Vitest test suite. Tests are located in `src/` alongside source files.
+Svelte interaction tests use the Vite Svelte plugin and opt into `happy-dom`
+with a per-file environment comment. They mount the real components to check
+focus, draft state, asynchronous saves, and toolbar order. Geometry-dependent
+tests supply explicit element bounds; they do not replace device testing of
+Android keyboards or Obsidian theme rendering.
 
 **Lint**
 ```bash

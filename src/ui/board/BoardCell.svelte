@@ -208,6 +208,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="tasks-wrapper"
+	class:mobile-list-cell={isCompactEmpty}
 	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
 	class:vertical-collapsed={isCollapsed && isVerticalFlow}
@@ -230,6 +231,7 @@
 		{propertySchemaOption}
 		{isVerticalFlow}
 		mobileLayout={isCompactEmpty}
+		groupTitle={secondaryAxisBucket.meta?.source?.kind === "none" ? "" : secondaryAxisBucket.label}
 	/>
 	<div class="tasks">
 		{#each tasks as task (task.id)}

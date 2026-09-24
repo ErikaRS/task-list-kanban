@@ -1602,3 +1602,351 @@ If your plugin does not need CSS, delete this file.
 .settings-subsection {
 	margin-bottom: 12px;
 }
+
+/* Mobile task lists. Toolbar overrides retain !important where the existing
+   host-resistant toolbar rules require it; list styling uses scoped specificity. */
+.task-list-kanban-view .mobile-task-list .board-body {
+	padding: 0;
+}
+
+.task-list-kanban-view .mobile-task-list .board-toolbar {
+	display: grid !important;
+	grid-template-columns: 44px 44px 1fr 44px 44px !important;
+	gap: 0 !important;
+	padding: 4px 8px !important;
+	align-items: center !important;
+	max-width: 100% !important;
+	margin: 0 !important;
+	box-sizing: border-box !important;
+}
+
+.task-list-kanban-view .mobile-task-list .view-control {
+	grid-column: 1 !important;
+	grid-row: 1 !important;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-search-toggle {
+	grid-column: 2 !important;
+	grid-row: 1 !important;
+}
+
+.task-list-kanban-view .mobile-task-list .source-file-control {
+	grid-column: 4 !important;
+	grid-row: 1 !important;
+	margin: 0 !important;
+}
+
+.task-list-kanban-view .mobile-task-list .settings-control {
+	grid-column: 5 !important;
+	grid-row: 1 !important;
+	margin: 0 !important;
+}
+
+.task-list-kanban-view .mobile-task-list .filter-bar-container {
+	grid-column: 1 / -1 !important;
+	grid-row: 2 !important;
+	width: 100% !important;
+	max-width: none !important;
+	margin: 4px 0 !important;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-search-hidden {
+	display: none !important;
+}
+
+.task-list-kanban-view .mobile-task-list .view-editor-toggle,
+.task-list-kanban-view .mobile-task-list .mobile-search-toggle,
+.task-list-kanban-view .mobile-task-list .source-file-open-button,
+.task-list-kanban-view .mobile-task-list .settings-control .clickable-icon {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	width: 44px !important;
+	min-width: 44px !important;
+	height: 44px !important;
+	min-height: 44px !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	border: 0 !important;
+	border-radius: var(--radius-m) !important;
+	background: transparent !important;
+	color: var(--text-normal) !important;
+	box-shadow: none !important;
+}
+
+.task-list-kanban-view .mobile-task-list .view-editor-toggle .view-control-label,
+.task-list-kanban-view .mobile-task-list .view-editor-chevron,
+.task-list-kanban-view .mobile-task-list .source-file-open-button .source-file-control-label {
+	display: none !important;
+}
+
+.task-list-kanban-view .mobile-task-list .source-file-split-button {
+	border: 0 !important;
+	box-shadow: none !important;
+	background: transparent !important;
+	height: 44px !important;
+}
+
+.task-list-kanban-view .mobile-task-list .source-file-popover {
+	position: fixed !important;
+	top: auto !important;
+	bottom: max(12px, env(safe-area-inset-bottom)) !important;
+	left: 12px !important;
+	right: 12px !important;
+	width: auto !important;
+	max-width: none !important;
+	max-height: 70dvh !important;
+	overflow: auto !important;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-board-list {
+	gap: 8px;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-outer-section {
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-outer-header,
+.task-list-kanban-view .mobile-task-list .mobile-cell-column-header {
+	padding: 0 12px;
+	margin: 0;
+	--column-header-x-padding-override: 12px;
+	--column-header-y-padding-override: 0px;
+}
+
+.task-list-kanban-view .mobile-task-list .column-header {
+	gap: 0;
+}
+
+.task-list-kanban-view .mobile-task-list .column-header::before,
+.task-list-kanban-view .mobile-task-list .mobile-group-header::before {
+	height: 2px;
+	margin-top: 0;
+}
+
+.task-list-kanban-view .mobile-task-list .column-header .header {
+	min-height: 44px;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.task-list-kanban-view .mobile-task-list .column-header .mode-btn {
+	min-height: 44px;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-cell {
+	padding: 0;
+	background: var(--background-primary);
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-cell > .mobile-group-label {
+	margin: 0;
+	padding: 0 12px;
+	min-height: 44px;
+	border-radius: 0;
+	border-left: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-group-toggle {
+	min-height: 44px;
+	min-width: 32px;
+}
+
+.task-list-kanban-view .mobile-list-cell {
+	position: relative;
+	min-height: 0;
+	height: auto;
+	border: 0;
+	border-radius: 0;
+}
+
+.task-list-kanban-view .mobile-list-cell:has(.mobile-create-task) {
+	min-height: 72px;
+}
+
+.task-list-kanban-view .mobile-list-cell .tasks {
+	gap: 0;
+	padding-top: 0;
+}
+
+.task-list-kanban-view .mobile-list-cell .task {
+	width: 100%;
+	margin: 0;
+	border: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: 0;
+	box-shadow: none;
+	transform: none;
+}
+
+.task-list-kanban-view .mobile-list-cell .task::before {
+	width: 4px;
+}
+
+.task-list-kanban-view .mobile-list-cell:has(.mobile-create-task) .task-slot:last-child .task {
+	padding-right: 72px;
+	min-height: 72px;
+}
+
+.task-list-kanban-view .mobile-create-task {
+	visibility: hidden;
+	position: absolute;
+	z-index: 2;
+	right: max(12px, env(safe-area-inset-right));
+	width: 48px;
+	height: 48px;
+	min-height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 16px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	box-shadow: var(--shadow-s);
+	margin-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+body:has(.tlk-mobile-editor-root) .task-list-kanban-view .mobile-create-task {
+	display: none;
+}
+
+.tlk-mobile-editor-root {
+	position: fixed;
+	inset: 0;
+	z-index: var(--layer-modal, 1000);
+}
+
+.tlk-mobile-editor-root .tlk-editor-backdrop {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	background: transparent;
+}
+
+.tlk-mobile-editor-root .tlk-mobile-editor-sheet {
+	position: fixed;
+	transform: translateY(-100%);
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+	background: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 16px 16px 0 0;
+	box-shadow: var(--shadow-l);
+}
+
+.tlk-mobile-editor-root .tlk-editor-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-shrink: 0;
+}
+
+.tlk-mobile-editor-root .tlk-editor-context {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	overflow-wrap: anywhere;
+	padding-bottom: 8px;
+}
+
+.tlk-mobile-editor-root .tlk-editor-fields {
+	overflow: auto;
+	min-height: 0;
+	border: 0;
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+}
+
+.tlk-mobile-editor-root textarea {
+	width: 100%;
+	min-height: 112px;
+	font-size: 16px;
+	line-height: 1.45;
+	padding: 12px;
+	box-sizing: border-box;
+	resize: vertical;
+}
+
+.tlk-mobile-editor-root button {
+	min-height: 44px;
+}
+
+.tlk-mobile-editor-root .tlk-editor-file {
+	width: 100%;
+	height: auto;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	margin-bottom: 8px;
+}
+
+.tlk-mobile-editor-root .tlk-editor-actions {
+	display: flex;
+	justify-content: flex-end;
+	padding-top: 8px;
+	flex-shrink: 0;
+}
+
+.tlk-mobile-editor-root [role="alert"] {
+	color: var(--text-error);
+}
+
+.task-list-kanban-view .mobile-task-list .view-editor-popover {
+	position: fixed !important;
+	top: auto !important;
+	bottom: max(12px, env(safe-area-inset-bottom)) !important;
+	left: 12px !important;
+	right: 12px !important;
+	width: auto !important;
+	max-width: none !important;
+	max-height: 70dvh !important;
+	overflow: auto !important;
+}
+
+.task-list-kanban-view .mobile-task-list .view-editor-toggle.active,
+.task-list-kanban-view .mobile-task-list .mobile-search-toggle[aria-expanded="true"] {
+	background: var(--background-modifier-hover) !important;
+	color: var(--text-accent) !important;
+}
+
+.task-list-kanban-view .mobile-task-list .column-header .collapse-btn {
+	width: 32px;
+	height: 44px;
+}
+
+.task-list-kanban-view .mobile-task-list .column-title-group h2,
+.task-list-kanban-view .mobile-task-list .column-title-group h3 {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.tlk-mobile-editor-root .date-input-field input {
+	font-size: 16px;
+	min-height: 44px;
+}
+
+.task-list-kanban-view .mobile-task-list .settings-control .clickable-icon {
+	width: 44px !important;
+	height: 44px !important;
+	min-width: 44px !important;
+	min-height: 44px !important;
+}

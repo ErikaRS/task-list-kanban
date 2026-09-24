@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onDestroy, tick } from "svelte";
+	import MobileEditorSheet from "./MobileEditorSheet.svelte";
 	import { EDITABLE_DATE_PROPERTY_KEYS, formatLocalDate, getPropertyByKey, getPropertyWriteAdapter, PropertySchemaOption, type EditableDatePropertyKey } from "../../parsing/properties";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
-	import DateInputFields, { type DateFieldValues } from "./DateInputFields.svelte";
-	import { lockMobileBoardLayout } from "../mobile_editor_layout";
+	import { type DateFieldValues } from "./DateInputFields.svelte";
 
 	export let task: Task;
 	export let taskActions: TaskActions;
@@ -14,70 +13,14 @@
 	export let initialContent: string | undefined = undefined;
 	export let onClose: () => void = () => {};
 
-	let editorEl: HTMLDivElement | undefined;
-	let textAreaEl: HTMLTextAreaElement | undefined;
 	let draftContent = initialContent ?? task.content.replaceAll("<br />", "\n");
 	let draftDates: DateFieldValues = { due: getDateValue("due"), scheduled: getDateValue("scheduled"), start: getDateValue("start") };
-	let editorStyle = "";
 	let saving = false;
-	let stopWatchingViewport: (() => void) | undefined;
-	let unlockBoardLayout: (() => void) | undefined;
-	let boardMainEl: HTMLElement | null = null;
 	$: canEditDates = sourceRowIndex === undefined && getPropertyWriteAdapter(propertySchemaOption) !== null;
 
 	function getDateValue(key: EditableDatePropertyKey): string {
 		const property = getPropertyByKey(task.properties, key);
 		return property?.value instanceof Date ? formatLocalDate(property.value) : "";
-	}
-
-	function portalToBody(node: HTMLElement) {
-		// Capture the board before moving the editor out of the card. Keeping
-		// that board at its pre-keyboard height makes the surrounding column and
-		// cards remain visible, matching the new-task editor's presentation.
-		boardMainEl = node.closest<HTMLElement>(".board-main");
-		document.body.appendChild(node);
-		return { destroy: () => node.remove() };
-	}
-
-	function positionEditor() {
-		requestAnimationFrame(() => {
-			if (!editorEl) return;
-			const viewport = window.visualViewport;
-			const width = viewport?.width ?? window.innerWidth;
-			const height = viewport?.height ?? window.innerHeight;
-			const left = viewport?.offsetLeft ?? 0;
-			const top = viewport?.offsetTop ?? 0;
-			const margin = 16;
-			const editorWidth = Math.max(200, Math.min(520, width - margin * 2));
-			const maxHeight = Math.max(160, height - margin * 2);
-			const editorHeight = Math.min(editorEl.scrollHeight, maxHeight);
-			editorStyle = [
-				`left: ${Math.round(left + (width - editorWidth) / 2)}px`,
-				`top: ${Math.round(top + Math.max(margin, (height - editorHeight) / 2))}px`,
-				`width: ${Math.round(editorWidth)}px`,
-				`max-height: ${Math.round(maxHeight)}px`,
-			].join("; ");
-		});
-	}
-
-	function watchViewport() {
-		unlockBoardLayout?.();
-		unlockBoardLayout = lockMobileBoardLayout(boardMainEl);
-		const viewport = window.visualViewport;
-		if (viewport) {
-			viewport.addEventListener("resize", positionEditor);
-			viewport.addEventListener("scroll", positionEditor);
-			stopWatchingViewport = () => {
-				viewport.removeEventListener("resize", positionEditor);
-				viewport.removeEventListener("scroll", positionEditor);
-			};
-		}
-		positionEditor();
-	}
-
-	function updateDate(key: EditableDatePropertyKey, value: string) {
-		draftDates = { ...draftDates, [key]: value };
-		positionEditor();
 	}
 
 	async function save() {
@@ -99,116 +42,12 @@
 				const edits = EDITABLE_DATE_PROPERTY_KEYS.map((key) => ({ key, value: draftDates[key] ?? "" })).filter(({ key, value }) => value !== getDateValue(key));
 				if (edits.length > 0) await taskActions.applyDateEdits(task.id, edits);
 			}
-			onClose();
 		} finally {
 			saving = false;
 		}
 	}
 
-	function cancel() { if (!saving) onClose(); }
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === "Escape") { event.preventDefault(); cancel(); }
-		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); }
-	}
-
-	void tick().then(() => { textAreaEl?.focus(); watchViewport(); });
-	onDestroy(() => {
-		stopWatchingViewport?.();
-		unlockBoardLayout?.();
-	});
 </script>
-
-<!-- Outside the board flex layout so Android keyboard resize cannot reflow it. -->
-<div class="mobile-task-editor-root" use:portalToBody>
-	<button class="mobile-task-editor-backdrop" type="button" aria-label="Cancel task edit" on:click={cancel}></button>
-	<div class="mobile-task-editor" bind:this={editorEl} style={editorStyle} role="dialog" aria-modal="true" aria-label={sourceRowIndex === undefined ? "Edit task" : "Edit subtask"} tabindex="-1" on:keydown={handleKeydown}>
-		<div class="mobile-task-editor-heading">{sourceRowIndex === undefined ? "Edit task" : "Edit subtask"}</div>
-		<textarea bind:this={textAreaEl} bind:value={draftContent} aria-label="Task content" on:input={positionEditor}></textarea>
-		{#if canEditDates}<div class="mobile-task-editor-dates"><DateInputFields values={draftDates} onDateChange={updateDate} /></div>{/if}
-		<div class="mobile-task-editor-actions"><button type="button" on:click={cancel} disabled={saving}>Cancel</button><button type="button" class="mod-cta" on:click={() => void save()} disabled={saving}>Save</button></div>
-	</div>
-</div>
-
-<style lang="scss">
-	.mobile-task-editor-root {
-		position: fixed;
-		inset: 0;
-		z-index: 1000;
-	}
-
-	// Keep the board readable behind editing, as it is when adding a task.
-	// The button still supplies a generous tap target for cancelling.
-	.mobile-task-editor-backdrop {
-		position: fixed;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		margin: 0;
-		border: 0;
-		border-radius: 0;
-		background: transparent;
-		cursor: default;
-	}
-
-	.mobile-task-editor {
-		position: fixed;
-		z-index: 1;
-		box-sizing: border-box;
-		padding: var(--size-4-3);
-		overflow: auto;
-		background: color-mix(in srgb, var(--background-primary) 94%, transparent);
-		border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border));
-		border-radius: var(--radius-l, 12px);
-		box-shadow:
-			0 18px 48px rgba(0, 0, 0, 0.24),
-			0 2px 10px rgba(0, 0, 0, 0.12);
-		backdrop-filter: blur(14px) saturate(1.15);
-		-webkit-backdrop-filter: blur(14px) saturate(1.15);
-
-		&:focus-within {
-			border-color: color-mix(in srgb, var(--interactive-accent) 68%, var(--background-modifier-border));
-			box-shadow:
-				0 18px 48px rgba(0, 0, 0, 0.24),
-				0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
-		}
-	}
-
-	.mobile-task-editor-heading {
-		margin-bottom: var(--size-2-2);
-		color: var(--text-muted);
-		font-size: var(--font-ui-small);
-		font-weight: var(--font-medium);
-	}
-
-	.mobile-task-editor textarea {
-		width: 100%;
-		min-height: 112px;
-		box-sizing: border-box;
-		padding: var(--size-4-3);
-		background: color-mix(in srgb, var(--background-secondary) 82%, transparent);
-		color: var(--text-normal);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: var(--radius-m);
-		font-size: 16px;
-		line-height: 1.45;
-		resize: vertical;
-
-		&:focus,
-		&:focus-visible {
-			border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
-			box-shadow: none;
-			outline: none;
-		}
-	}
-
-	.mobile-task-editor-dates { margin-top: var(--size-4-2); }
-
-	.mobile-task-editor-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--size-2-2);
-		margin-top: var(--size-4-3);
-	}
-
-	.mobile-task-editor-actions button { min-height: 36px; }
-</style>
+<MobileEditorSheet title={sourceRowIndex === undefined ? "Edit task" : "Edit subtask"}
+ context={task.path} bind:content={draftContent} bind:dates={draftDates} showDates={canEditDates}
+ onSave={save} {onClose} />

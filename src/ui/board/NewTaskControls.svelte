@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { Platform, type TFile } from "obsidian";
-	import { onDestroy, tick } from "svelte";
+	import { type TFile } from "obsidian";
+	import { getContext, tick } from "svelte";
 	import type { Readable } from "svelte/store";
 	import { type ColumnTagTable, isColumnTag } from "../columns/columns";
 	import type { PrimaryBucketId } from "./board_matrix";
 	import type { TaskActions } from "../tasks/actions";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
 	import IconButton from "../components/icon_button.svelte";
-	import { lockMobileBoardLayout } from "../mobile_editor_layout";
+	import { MOBILE_CREATION, captureMobileCreation, type MobileCreationStore } from "./mobile_creation";
+	import { mobileFloatingAction } from "./mobile_floating_action";
+	import Icon from "../components/icon.svelte";
 	import {
 		getPropertyWriteAdapter,
 		PropertySchemaOption,
@@ -26,30 +28,19 @@
 	export let targetFileIsDefault: boolean = false;
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let isVerticalFlow: boolean = false;
-	/** The stacked board gives creation controls a larger, clearly bounded tap target. */
+	/** Mobile creation is hosted by the board, with a section-bound floating trigger. */
 	export let mobileLayout: boolean = false;
+	export let groupTitle = "";
+	const mobileCreation = getContext<MobileCreationStore>(MOBILE_CREATION);
+	function openMobileCreation() {
+		if (!isColumnTag(column, columnTagTableStore)) return;
+		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, propertySchemaOption, taskActions }));
+	}
 
 	let pendingNewTask: TFile | null = null;
 	let pendingCancelled = false;
 	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
 	let newTaskInputEl: HTMLDivElement | undefined;
-	let stopWatchingViewport: (() => void) | undefined;
-	let unlockBoardLayout: (() => void) | undefined;
-	let mobileEditorStyle = "";
-	let boardMainEl: HTMLElement | null = null;
-
-	function mobilePortal(node: HTMLElement) {
-		if (!Platform.isMobile) {
-			return {};
-		}
-		boardMainEl = node.closest<HTMLElement>(".board-main");
-		document.body.appendChild(node);
-		return {
-			destroy() {
-				node.remove();
-			},
-		};
-	}
 	const emptyDateValues: DateFieldValues = { due: "", scheduled: "", start: "" };
 	let newTaskDateValues: DateFieldValues = { ...emptyDateValues };
 	$: canEditNewTaskDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
@@ -62,7 +53,6 @@
 		}
 
 		if (pendingCancelled) {
-			stopViewportWatcher();
 			pendingCancelled = false;
 			pendingNewTask = null;
 			newTaskDateValues = { ...emptyDateValues };
@@ -72,7 +62,6 @@
 		const content = newTaskTextAreaEl?.value?.trim();
 		const file = pendingNewTask;
 		const targetColumn = column;
-		stopViewportWatcher();
 		pendingNewTask = null;
 
 		if (!content || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
@@ -90,57 +79,6 @@
 		newTaskDateValues = { ...emptyDateValues };
 	}
 
-	function positionNewTaskEditor() {
-		requestAnimationFrame(() => {
-			if (!newTaskInputEl || !Platform.isMobile) {
-				mobileEditorStyle = "";
-				return;
-			}
-			const viewport = window.visualViewport;
-			const viewportWidth = viewport?.width ?? window.innerWidth;
-			const viewportHeight = viewport?.height ?? window.innerHeight;
-			const viewportLeft = viewport?.offsetLeft ?? 0;
-			const viewportTop = viewport?.offsetTop ?? 0;
-			const margin = 16;
-			const editorWidth = Math.min(520, Math.max(200, viewportWidth - margin * 2));
-			const editorMaxHeight = Math.max(120, viewportHeight - margin * 2);
-			const editorHeight = Math.min(
-				newTaskInputEl.scrollHeight,
-				editorMaxHeight,
-			);
-			const top = viewportTop + Math.max(margin, (viewportHeight - editorHeight) / 2);
-			mobileEditorStyle = [
-				`left: ${Math.round(viewportLeft + (viewportWidth - editorWidth) / 2)}px`,
-				`top: ${Math.round(top)}px`,
-				`width: ${Math.round(editorWidth)}px`,
-				`max-height: ${Math.round(editorMaxHeight)}px`,
-			].join("; ");
-		});
-	}
-
-	function stopViewportWatcher() {
-		stopWatchingViewport?.();
-		stopWatchingViewport = undefined;
-		unlockBoardLayout?.();
-		unlockBoardLayout = undefined;
-	}
-
-	function watchViewportWhileEditing() {
-		if (!Platform.isMobile) return;
-		stopViewportWatcher();
-		unlockBoardLayout = lockMobileBoardLayout(boardMainEl);
-		const viewport = window.visualViewport;
-		if (viewport) {
-			viewport.addEventListener("resize", positionNewTaskEditor);
-			viewport.addEventListener("scroll", positionNewTaskEditor);
-			stopWatchingViewport = () => {
-				viewport.removeEventListener("resize", positionNewTaskEditor);
-				viewport.removeEventListener("scroll", positionNewTaskEditor);
-			};
-		}
-		positionNewTaskEditor();
-	}
-
 	function handleNewTaskKeydown(e: KeyboardEvent) {
 		if (e.key === "Escape") {
 			e.preventDefault();
@@ -155,11 +93,8 @@
 	$: if (pendingNewTask && newTaskTextAreaEl) {
 		void tick().then(() => {
 			newTaskTextAreaEl?.focus();
-			watchViewportWhileEditing();
 		});
 	}
-
-	onDestroy(stopViewportWatcher);
 
 	function handleAddNewClick(e: MouseEvent | KeyboardEvent) {
 		const targetColumn = column;
@@ -208,8 +143,10 @@
 
 </script>
 
-{#if isColTag}
-	<div class="add-new-controls" class:vertical-flow={isVerticalFlow} class:mobile-layout={mobileLayout}>
+{#if isColTag && mobileLayout}
+	<button type="button" class="mobile-create-task" aria-label={`Add task to ${[columnTitle, groupTitle].filter(Boolean).join(" / ")}`} use:mobileFloatingAction on:click={openMobileCreation}><Icon name="plus" size={24} /></button>
+{:else if isColTag}
+	<div class="add-new-controls" class:vertical-flow={isVerticalFlow}>
 		<div
 			class="add-new-btn"
 			class:disabled={!!pendingNewTask}
@@ -252,16 +189,12 @@
 	<div
 		class="new-task-input"
 		class:vertical-flow={isVerticalFlow}
-		class:mobile-app={Platform.isMobile}
 		bind:this={newTaskInputEl}
-		use:mobilePortal
-		style={mobileEditorStyle}
 		on:focusout={handleNewTaskSave}
 	>
 		<textarea
 			bind:this={newTaskTextAreaEl}
 			on:keydown={handleNewTaskKeydown}
-			on:focus={watchViewportWhileEditing}
 			placeholder="Task name..."
 		></textarea>
 		{#if canEditNewTaskDates}
@@ -276,51 +209,6 @@
 {/if}
 
 <style lang="scss">
-	@mixin mobile-editor-surface {
-		position: fixed;
-		z-index: 1000;
-		box-sizing: border-box;
-		margin: 0;
-		padding: var(--size-4-3);
-		overflow: auto;
-		background: color-mix(in srgb, var(--background-primary) 94%, transparent);
-		border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border));
-		border-radius: var(--radius-l, 12px);
-		box-shadow:
-			0 18px 48px rgba(0, 0, 0, 0.24),
-			0 2px 10px rgba(0, 0, 0, 0.12);
-		backdrop-filter: blur(14px) saturate(1.15);
-		-webkit-backdrop-filter: blur(14px) saturate(1.15);
-
-		&:focus-within {
-			border-color: color-mix(in srgb, var(--interactive-accent) 68%, var(--background-modifier-border));
-			box-shadow:
-				0 18px 48px rgba(0, 0, 0, 0.24),
-				0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
-		}
-
-		textarea {
-			min-height: 104px;
-			box-sizing: border-box;
-			padding: var(--size-4-3);
-			background: color-mix(in srgb, var(--background-secondary) 82%, transparent);
-			color: var(--text-normal);
-			border: 1px solid var(--background-modifier-border);
-			border-radius: var(--radius-m);
-			box-shadow: none;
-			font-size: 16px;
-			line-height: 1.45;
-			resize: none;
-
-			&:focus,
-			&:focus-visible {
-				border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
-				box-shadow: none;
-				outline: none;
-			}
-		}
-	}
-
 	/*
 	 * These elements are direct flex children of BoardCell's .tasks-wrapper
 	 * (Svelte components do not add a wrapper element). In vertical flow the
@@ -353,10 +241,6 @@
 			background-color: var(--color-base-25);
 			width: 100%;
 		}
-	}
-
-	.new-task-input.mobile-app {
-		@include mobile-editor-surface;
 	}
 
 	.new-task-date-fields {
@@ -408,21 +292,6 @@
 		box-shadow: none;
 	}
 
-	.add-new-controls.mobile-layout {
-		align-self: stretch;
-		min-height: 36px;
-		margin-top: var(--size-2-2);
-		padding: 1px 4px 1px var(--size-4-2);
-		border: 1px solid var(--background-modifier-border);
-		border-radius: var(--radius-m);
-		background: color-mix(in srgb, var(--background-secondary) 62%, var(--background-primary));
-
-		.add-new-btn {
-			align-self: stretch;
-			flex: 1 1 auto;
-			min-height: 34px;
-		}
-	}
 
 	.add-new-controls :global(.add-new-picker-btn) {
 		flex-shrink: 0;
@@ -443,10 +312,6 @@
 		}
 	}
 
-	.add-new-controls.mobile-layout :global(.add-new-picker-btn) {
-		width: 32px;
-		height: 32px;
-	}
 
 	.add-new-btn,
 	.add-new-controls :global(.add-new-picker-btn) {
@@ -465,10 +330,6 @@
 		color: var(--text-accent-hover);
 	}
 
-	.add-new-controls.mobile-layout:hover:not(:has(.disabled)) {
-		border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border));
-		background: color-mix(in srgb, var(--interactive-accent) 7%, var(--background-primary));
-	}
 
 	.add-new-btn:focus-visible,
 	.add-new-controls :global(.add-new-picker-btn:focus-visible) {

@@ -1,4 +1,4 @@
-Status: IN_PROGRESS (design only; implementation not started)
+Status: IN_PROGRESS (implementation written; automated checks and device validation tracked below)
 
 # Mobile task lists and shared editing
 
@@ -71,49 +71,49 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 
 ## Implementation Plan
 
-### Phase 1: A readable mobile task list
+### Phase 1: A readable mobile task list — implementation written
 
 **Goal:** Deliver a denser, coherent reading surface before changing creation.
 
-1. [ ] Add an explicit mobile-list presentation to BoardCell/task components; remove card gaps, outlines, shadows, and nested horizontal padding only in that presentation, while preserving each task’s column-colored left bar.
-2. [ ] Tighten mobile headers and section spacing while preserving counts, selection, rule subtitles, and sticky offsets.
-3. [ ] Hide the creation-destination row on mobile with no preference.
-4. [ ] Implement the icon toolbar, expandable search with visible active filters, and viewport-safe labeled control surfaces in main.svelte.
+1. ✅ Add an explicit mobile-list presentation to BoardCell/task components; remove card gaps, outlines, shadows, and nested horizontal padding only in that presentation, while preserving each task’s column-colored left bar.
+2. ✅ Tighten mobile headers and section spacing while preserving counts, selection, rule subtitles, and sticky offsets.
+3. ✅ Hide the creation-destination row on mobile with no preference.
+4. ✅ Implement the icon toolbar, expandable search with visible active filters, and viewport-safe labeled control surfaces in main.svelte.
 5. [ ] Verify long tasks, metadata, nested rows, large text, theme overrides, filter/menu behavior, and desktop regressions.
 
 **Deliverable:** Full-width adjoining task rows with compact board chrome.
 
-**Implemented by:** Pending.
+**Implemented by:** Implementation in the accompanying commit (Refs #176); device verification remains pending.
 
-### Phase 2: One working mobile editing sheet
+### Phase 2: One working mobile editing sheet — implementation written
 
 **Goal:** New/Edit/source-row editing share presentation and keyboard behavior.
 
-1. [ ] Extract the shell/lifecycle from MobileTaskEditor.svelte and NewTaskControls.svelte; centralize viewport handling with mobile_editor_layout.ts.
-2. [ ] Connect existing persistence adapters; add context/file choice for creation and explicit submit/cancel behavior.
+1. ✅ Extract the shell/lifecycle from MobileTaskEditor.svelte and NewTaskControls.svelte; centralize viewport handling with mobile_editor_layout.ts.
+2. ✅ Connect existing persistence adapters; add context/file choice for creation and explicit submit/cancel behavior.
 3. [ ] Verify date-field focus, multiline text, error retention, duplicate-submit protection, focus restoration, and listener cleanup.
 
 **Deliverable:** Matching keyboard-safe editing flows, initially invoked from existing creation triggers.
 
-**Implemented by:** Pending.
+**Implemented by:** Implementation in the accompanying commit (Refs #176); device verification remains pending.
 
-### Phase 3: Creation that travels with its section
+### Phase 3: Creation that travels with its section — implementation written
 
 **Goal:** Replace the body creation row with a floating plus that retains exact destination context.
 
-1. [ ] Separate creation-session ownership from trigger placement; keep the shared editor outside conditionally mounted list content.
-2. [ ] Let board_mobile_list.svelte assign each eligible cell a bounded overlay trigger. Prefer section-constrained sticky placement; prototype and verify clipping/scroll behavior before choosing a small measured overlay fallback.
-3. [ ] If measurement is needed, use board-local section rectangles, ResizeObserver and coalesced scroll updates, not window-fixed buttons with guessed offsets. Derive placement from section/viewport intersections.
-4. [ ] Reuse deriveCellCreationMetadata and file resolution; remove duplicate mobile Add controls.
+1. ✅ Separate creation-session ownership from trigger placement; keep the shared editor outside conditionally mounted list content.
+2. ✅ Let board_mobile_list.svelte assign each eligible cell a bounded overlay trigger. Prefer section-constrained sticky placement; prototype and verify clipping/scroll behavior before choosing a small measured overlay fallback.
+3. ✅ If measurement is needed, use board-local section rectangles, ResizeObserver and coalesced scroll updates, not window-fixed buttons with guessed offsets. Derive placement from section/viewport intersections.
+4. ✅ Reuse deriveCellCreationMetadata and file resolution; remove duplicate mobile Add controls.
 5. [ ] Test grouped/ungrouped flow directions, two visible sections, short/empty/collapsed lists, last-row access, section removal/filtering, file choice, and correct tags/destination on save.
 
 **Deliverable:** Section-specific thumb-accessible creation without repeated full-width control rows.
 
-**Implemented by:** Pending.
+**Implemented by:** Implementation in the accompanying commit (Refs #176); device verification remains pending.
 
 ### Validation for every code phase
 
-1. [ ] Run npm run build and npm test. Add focused behavioral tests for changed interactions/context routing and floating geometry; avoid tests that merely duplicate CSS declarations.
+1. ✅ Run npm run build and npm test. Add focused behavioral tests for changed interactions/context routing and floating geometry; avoid tests that merely duplicate CSS declarations.
 2. [ ] Inspect 320–430 CSS-pixel widths, larger text, light/dark themes and another theme configuration. Verify all controls remain touchable without overlap.
 3. [ ] Validate actual Android Obsidian keyboard open/resize/close, portrait/landscape, and stable background scroll. Check iOS where available and document any untested device behavior.
 4. [ ] Compare visible complete tasks and toolbar/section heights using the same board, query, and scroll position. Report measured gains, not a promised five-task increase.
@@ -124,4 +124,24 @@ Use Lucide `panels-top-left` for View on both desktop and mobile (selected by th
 
 The grouped mockup shows column-dominant hierarchy: Uncategorized → 2022-04-23 (empty) and Unassigned (populated), then a second illustrative column. Column totals and Done/Select live only on column headers. Group counts/collapse and section-specific floating plus buttons belong below those headers. Two hierarchy levels remain visible without nesting task rows in padded cards.
 
-No application code or commits are part of this design revision.
+## Implementation and verification notes
+
+- Reviewed plan committed as `6c9dad6` (Refs #176). Implementation and cleanup are authorized for commit.
+- Mobile-only styling is scoped under `.mobile-task-list`; the selected View icon also changes on desktop. The filter is rendered in platform-appropriate DOM order so desktop layout and focus order stay intact.
+- `MobileEditorSheet.svelte` owns the portaled sheet, pre-focus layout lock, viewport tracking, focus trap/restoration, background inertness, explicit submission, and error display. Existing edit/source-row persistence remains separate from creation.
+- `MobileCreationHost.svelte` lives at board level so a creation draft survives removal of the source section. Creation context is copied at tap time. File selection stays inside the shared sheet.
+- Floating controls use measured section/board bounds and coalesced scroll/resize updates, with safe-area spacing. Tests cover long/short/empty sections, two visible sections, viewport shrinkage, and hiding controls beneath sticky headers.
+- Direct Obsidian UI inspection was unavailable: Computer Use was not approved for Obsidian. Android keyboard behavior, theme/light/dark appearance, large-text layouts, and visual density measurements remain unverified and are intentionally unchecked above.
+- Final automated validation: `npm run lint` passed with zero warnings/errors; `npm run build` passed with zero Svelte warnings/errors; `npm test` passed all 1,043 tests across 59 files. `git diff --check` passed.
+- Refreshed the vendored test-vault plugin with the validated build, including the corrected desktop order: View, filter, Open files, Settings. Reload the plugin to use these files.
+
+### Robustness follow-up
+
+- ✅ Position and reveal the editor synchronously before requesting focus; retain the board lock before keyboard activation.
+- ✅ Use one scheduler and observer set per board for floating controls, cache shared geometry per frame, and batch reads before writes.
+- ✅ Give creation sessions stable identities and immutable file updates; ignore stale picker callbacks and saves finishing after their sheet is destroyed.
+- ✅ Consolidate duplicate CSS rules, name toolbar labels explicitly, and limit important overrides to controls that override existing host-resistant toolbar rules.
+- ✅ Mount real Svelte components in interaction tests covering visibility at focus time, explicit submit/cancel, duplicate submits, save failures, file/date draft preservation, stale callbacks, teardown/focus restoration, and desktop/mobile toolbar ordering.
+- ✅ Test shared floating-controller observation counts, geometry reads, section placement, and cleanup.
+
+The DOM tests do not validate actual device keyboard appearance or theme rendering. Those manual checks remain open.

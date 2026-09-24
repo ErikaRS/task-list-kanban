@@ -1,8 +1,12 @@
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import sveltePreprocess from "svelte-preprocess";
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+	plugins: [svelte({ preprocess: sveltePreprocess(), compilerOptions: { compatibility: { componentApi: 4 } } })],
 	resolve: {
+		conditions: ["browser"],
 		alias: {
 			// The real Obsidian package supplies types but no Node-loadable module.
 			// Unit tests that need its bundled Moment value use this small shim;

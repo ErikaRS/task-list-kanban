@@ -16,6 +16,7 @@
 	"license": "MIT",
 	"devDependencies": {
 		"@smui-extra/autocomplete": "^8.0.3",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tsconfig/svelte": "^5.0.4",
 		"@types/node": "^20.12.12",
 		"@typescript-eslint/eslint-plugin": "^8.70.0",
@@ -24,6 +25,7 @@
 		"esbuild-svelte": "^0.8.1",
 		"eslint": "^10.11.0",
 		"eslint-plugin-obsidianmd": "^0.4.2",
+		"happy-dom": "^20.14.5",
 		"obsidian": "^1.13.1",
 		"svelte": "^5.56.0",
 		"svelte-check": "^4.7.1",

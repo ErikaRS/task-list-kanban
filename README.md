@@ -136,6 +136,19 @@ For an ungrouped mobile board, the group-dominant options naturally render as a 
 
 Card width can be adjusted from the view controls between 200px and 600px.
 
+On mobile, boards use full-width task rows with column-colored left edges.
+View and Search sit together on the left of the toolbar; source-file options
+and Settings sit on the right. Search expands when needed and stays visible
+while a filter is applied. Tap the folder icon to choose and open source files.
+
+Each expanded section that supports task creation has its own floating **+**
+button. It stays within that section while scrolling, so creation retains the
+column and group destination. New and existing tasks use the same
+keyboard-aware editing sheet with explicit **Create/Save** and **Cancel**
+buttons. The destination file appears in the creation sheet instead of a
+repeated row on the board.
+
+
 ### Obsidian Tasks plugin / Dataview integration
 
 Enable a **Property schema** in settings to read and write task metadata from the Obsidian Tasks plugin or Dataview inline fields.

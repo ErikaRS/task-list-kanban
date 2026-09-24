@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { setContext } from "svelte";
+	import BoardToolbarLayout from "./components/BoardToolbarLayout.svelte";
+	import MobileCreationHost from "./board/MobileCreationHost.svelte";
+	import { MOBILE_CREATION, type MobileCreationSession } from "./board/mobile_creation";
+
 	import {
 		type ColumnTag,
 		type ColumnMatchTagTable,
@@ -126,6 +131,14 @@
 	export let onDeleteBoard: ((path: string) => boolean | Promise<boolean>) | undefined =
 		undefined;
 	export let requestSave: () => void;
+
+	const mobileCreation = writable<MobileCreationSession | null>(null);
+	setContext(MOBILE_CREATION, mobileCreation);
+	let mobileSearchExpanded = false;
+	async function toggleMobileSearch() {
+		mobileSearchExpanded = !mobileSearchExpanded;
+		if (mobileSearchExpanded) { await tick(); filterInputEl?.focus(); }
+	}
 
 	// --- Board rail (SPEC 0034) ---
 	// The rail exists exactly when the vault has something to switch to; the
@@ -1159,7 +1172,9 @@
 	on:scroll={handleWindowViewportChange}
 />
 
-<div class="main">
+
+
+<div class="main" class:mobile-task-list={isMobileBoardLayout}>
 	<!-- The rail (multi-board vaults) spans the view's full height on the
 	     left — or its full width on top, per the dock setting. Because the
 	     dashboard slide-over anchors inside .board-body, it can cover the
@@ -1183,216 +1198,234 @@
 		{/if}
 		<div class="board-body" bind:this={boardContentEl}>
 		<div class="board-toolbar" class:dashboard-open={$dashboardOpenStore}>
-			<div class="view-control" bind:this={viewControlContainer} inert={$dashboardOpenStore}>
-				<button
-					type="button"
-					class="view-editor-toggle"
-					class:active={viewEditorExpanded}
-					aria-expanded={viewEditorExpanded}
-					aria-label={viewEditorExpanded ? "Hide view settings" : "Show view settings"}
-					on:click={toggleViewEditor}
-				>
-					<Icon name="sliders-horizontal" size={16} />
-					<span>View</span>
-					<span class="view-editor-chevron">
-						<Icon name={viewEditorExpanded ? "chevron-up" : "chevron-down"} size={15} />
-					</span>
-				</button>
-				{#if viewEditorExpanded}
-					<div
-						class="view-editor-popover"
-						bind:this={viewEditorPopover}
-						style={viewEditorPopoverStyle}
+			<BoardToolbarLayout mobile={isMobileBoardLayout}>
+				<div slot="view" class="view-control" bind:this={viewControlContainer} inert={$dashboardOpenStore}>
+					<button
+						type="button"
+						class="view-editor-toggle"
+						class:active={viewEditorExpanded}
+						aria-expanded={viewEditorExpanded}
+						aria-label={viewEditorExpanded ? "Hide view settings" : "Show view settings"}
+						on:click={toggleViewEditor}
 					>
-						<ViewEditor
-							{sortSelectValue}
-							{availableSortKeys}
-							{isDirectionalSort}
-							sortDirection={$settingsStore.sortDirection ?? "asc"}
-							onSortChange={onSortChange}
-							onToggleSortDirection={toggleSortDirection}
-							{groupSelectValue}
-							{availableGroupKeys}
-							{isDirectionalGroup}
-							groupDirection={$settingsStore.groupDirection ?? "asc"}
-							onGroupChange={onGroupChange}
-							onToggleGroupDirection={toggleGroupDirection}
-							{showCollapsePastDatesToggle}
-							collapsePastDates={propertyGroupSource?.collapsePastDates ?? false}
-							onSetCollapsePastDates={setCollapsePastDates}
-							{isTagPrefixGrouping}
-							{tagGroupInputMode}
-							{availableTags}
-							{tagGroupPrefix}
-							{tagGroupIncludeTags}
-							onSetTagGroupInputMode={setTagGroupInputMode}
-							onUpdateTagGroupPrefix={updateTagGroupPrefix}
-							onUpdateTagGroupIncludeTags={updateTagGroupIncludeTags}
-							{flowDirection}
-							{columnWidth}
-							onSetFlowDirection={setFlowDirection}
-							onSetColumnWidth={setColumnWidth}
-							savedViews={mergedSavedViews}
-							{savedViewListExpanded}
-							canSaveView={canSaveCurrentView}
-							currentViewProperties={currentSavedViewProperties}
-							onSaveCurrentView={saveCurrentView}
-							onApplySavedView={applySavedView}
-							onDeleteSavedView={(view) => (savedViewPendingDelete = view)}
-							onToggleSavedViewList={(expanded) => (savedViewListExpanded = expanded)}
-						/>
-					</div>
-				{/if}
-			</div>
-			<div class="filter-bar-container" bind:this={filterBarContainer} inert={$dashboardOpenStore}>
-				<div class="filter-bar">
-					<Icon name="search" size={16} opacity={0.7} />
-					<input
-						type="text"
-						class="filter-bar-input"
-						bind:this={filterInputEl}
-						bind:value={filterQueryText}
-						on:input={refreshBarSuggestions}
-						on:keydown={handleFilterInputKeydown}
-						on:click={handleFilterInputClick}
-						on:blur={hideBarSuggestions}
-						placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
-						aria-label="Filter tasks (press Enter to apply)"
-						spellcheck="false"
-					/>
-					{#if filterQueryText !== "" || appliedQueryText !== ""}
-						<button
-							class="filter-bar-clear"
-							aria-label="Clear filter"
-							on:click={clearFilter}
+						<Icon name="panels-top-left" size={isMobileBoardLayout ? 20 : 16} />
+						<span class="view-control-label">View</span>
+						<span class="view-editor-chevron">
+							<Icon name={viewEditorExpanded ? "chevron-up" : "chevron-down"} size={15} />
+						</span>
+					</button>
+					{#if viewEditorExpanded}
+						<div
+							class="view-editor-popover"
+							bind:this={viewEditorPopover}
+							style={viewEditorPopoverStyle}
 						>
-							×
-						</button>
+							<ViewEditor
+								{sortSelectValue}
+								{availableSortKeys}
+								{isDirectionalSort}
+								sortDirection={$settingsStore.sortDirection ?? "asc"}
+								onSortChange={onSortChange}
+								onToggleSortDirection={toggleSortDirection}
+								{groupSelectValue}
+								{availableGroupKeys}
+								{isDirectionalGroup}
+								groupDirection={$settingsStore.groupDirection ?? "asc"}
+								onGroupChange={onGroupChange}
+								onToggleGroupDirection={toggleGroupDirection}
+								{showCollapsePastDatesToggle}
+								collapsePastDates={propertyGroupSource?.collapsePastDates ?? false}
+								onSetCollapsePastDates={setCollapsePastDates}
+								{isTagPrefixGrouping}
+								{tagGroupInputMode}
+								{availableTags}
+								{tagGroupPrefix}
+								{tagGroupIncludeTags}
+								onSetTagGroupInputMode={setTagGroupInputMode}
+								onUpdateTagGroupPrefix={updateTagGroupPrefix}
+								onUpdateTagGroupIncludeTags={updateTagGroupIncludeTags}
+								{flowDirection}
+								{columnWidth}
+								onSetFlowDirection={setFlowDirection}
+								onSetColumnWidth={setColumnWidth}
+								savedViews={mergedSavedViews}
+								{savedViewListExpanded}
+								canSaveView={canSaveCurrentView}
+								currentViewProperties={currentSavedViewProperties}
+								onSaveCurrentView={saveCurrentView}
+								onApplySavedView={applySavedView}
+								onDeleteSavedView={(view) => (savedViewPendingDelete = view)}
+								onToggleSavedViewList={(expanded) => (savedViewListExpanded = expanded)}
+							/>
+						</div>
 					{/if}
-					<button
-						class="filter-bar-expand"
-						aria-label={filterEditorExpanded
-							? "Hide search options"
-							: "Show search options"}
-						aria-expanded={filterEditorExpanded}
-						on:click={() => (filterEditorExpanded = !filterEditorExpanded)}
-					>
-						<Icon name="sliders-horizontal" size={18} />
-					</button>
 				</div>
-				{#if barSuggestionsVisible}
-					<FilterSuggestionList
-						suggestions={barSuggestions}
-						selectedIndex={barSuggestionIndex}
-						onAccept={acceptBarSuggestion}
-					/>
-				{/if}
-				{#if filterEditorExpanded}
-					<FilterEditor
-						query={draftQuery}
-						dateKeys={dateFilterKeys}
-						tagSuggestionItems={availableTags}
-						fileSuggestionItems={taskFilePaths}
-						savedFilters={savedFilterEntries}
-						savedListExpanded={savedFilterListExpanded}
-						onChange={applyEditorQuery}
-						onSearch={searchFromEditor}
-						onClear={clearFilter}
-						onApplySavedFilter={applySavedFilter}
-						onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
-						onSaveFilter={saveCurrentFilter}
-						onToggleSavedList={(expanded) => (savedFilterListExpanded = expanded)}
-					/>
-				{/if}
-			</div>
-			<div
-				class="source-file-control"
-				bind:this={sourceFileControlContainer}
-				inert={$dashboardOpenStore}
-			>
-				<div class="source-file-split-button">
-					<button
-						type="button"
-						class="source-file-open-button"
-						disabled={sourceFilesOpening || selectedSourceFilePaths.length === 0}
-						title={sourceFileOpenMode === "all"
-							? "Open selected source files in new tabs"
-							: "Open selected source files not already open"}
-						aria-label={sourceFileOpenMode === "all"
-							? "Open selected source files in new tabs"
-							: "Open selected source files not already open"}
-						on:click={openSelectedSourceFiles}
-					>
-						<Icon name="folder-open" size={16} />
-						<span>Open files</span>
-					</button>
-					<button
-						type="button"
-						class="source-file-chevron"
-						disabled={sourceFilesOpening || sourceFilePaths.length === 0}
-						aria-label="Choose source files to open"
-						aria-expanded={sourceFilePopoverExpanded}
-						on:click={() => (sourceFilePopoverExpanded = !sourceFilePopoverExpanded)}
-					>
-						<Icon name={sourceFilePopoverExpanded ? "chevron-up" : "chevron-down"} size={15} />
-					</button>
-				</div>
-				{#if sourceFilePopoverExpanded}
-					<div class="source-file-popover" role="dialog" aria-label="Open matching source files">
-						<div class="source-file-popover-heading">Open matching source files</div>
-						<div class="source-file-popover-count">
-							{pluraliseFile(sourceFilePaths.length)} match the current filter
-						</div>
-						<div class="source-file-bulk-actions">
-							<button type="button" on:click={() => selectAllSourceFiles(true)}>Select all</button>
-							<button type="button" on:click={() => selectAllSourceFiles(false)}>Select none</button>
-						</div>
-						<div class="source-file-open-mode">
-							<span>Skip files already open</span>
-							<div
-								class="checkbox-container source-file-skip-toggle"
-								class:is-enabled={sourceFileOpenMode === "unopened"}
-								role="switch"
-								tabindex="0"
-								aria-label="Skip files already open"
-								aria-checked={sourceFileOpenMode === "unopened"}
-								on:click={toggleSkipAlreadyOpenSourceFiles}
-								on:keydown={handleSkipAlreadyOpenSourceFilesKeydown}
-							></div>
-						</div>
-						<div class="source-file-list">
-							{#each sourceFilePaths as path (path)}
-								<label class="source-file-choice">
-									<input
-										type="checkbox"
-										checked={sourceFileSelection[path] !== false}
-										on:change={(event) => setSourceFileChecked(path, event.currentTarget.checked)}
-									/>
-									<span>{path}</span>
-								</label>
-							{/each}
-						</div>
-						<div class="source-file-popover-footer">
-							{#if sourceFileOpenMode === "unopened" && selectedSourceFilePaths.length > 0 && eligibleSelectedSourceFileCount === 0}
-								<span class="source-file-empty-note">All selected files are already open.</span>
-							{/if}
-							<button
-								type="button"
-								class="mod-cta"
-								disabled={sourceFilesOpening || eligibleSelectedSourceFileCount === 0}
-								on:click={openSelectedSourceFiles}
-							>
-								{sourceFileOpenMode === "unopened"
-									? `Open ${pluraliseFile(eligibleSelectedSourceFileCount).replace("file", "unopened file")}`
-									: `Open ${pluraliseFile(selectedSourceFilePaths.length)}`}
-							</button>
-						</div>
+
+				<button
+					slot="search"
+					type="button"
+					class="mobile-search-toggle"
+					aria-label="Search tasks"
+					aria-expanded={mobileSearchExpanded || !!appliedQueryText}
+					on:click={toggleMobileSearch}
+					inert={$dashboardOpenStore}
+				>
+					<Icon name="search" size={20} />
+				</button>
+				<div
+					class="source-file-control"
+					slot="files"
+					bind:this={sourceFileControlContainer}
+					inert={$dashboardOpenStore}
+				>
+					<div class="source-file-split-button">
+						<button
+							type="button"
+							class="source-file-open-button"
+							disabled={!isMobileBoardLayout && (sourceFilesOpening || selectedSourceFilePaths.length === 0)}
+							aria-expanded={isMobileBoardLayout ? sourceFilePopoverExpanded : undefined}
+							title={isMobileBoardLayout ? "Open source file options" : sourceFileOpenMode === "all"
+								? "Open selected source files in new tabs"
+								: "Open selected source files not already open"}
+							aria-label={isMobileBoardLayout ? "Open source file options" : sourceFileOpenMode === "all"
+								? "Open selected source files in new tabs"
+								: "Open selected source files not already open"}
+							on:click={() => isMobileBoardLayout ? sourceFilePopoverExpanded = !sourceFilePopoverExpanded : openSelectedSourceFiles()}
+						>
+							<Icon name="folder-open" size={isMobileBoardLayout ? 20 : 16} />
+							<span class="source-file-control-label">Open files</span>
+						</button>
+						{#if !isMobileBoardLayout}
+						<button
+							type="button"
+							class="source-file-chevron"
+							disabled={sourceFilesOpening || sourceFilePaths.length === 0}
+							aria-label="Choose source files to open"
+							aria-expanded={sourceFilePopoverExpanded}
+							on:click={() => (sourceFilePopoverExpanded = !sourceFilePopoverExpanded)}
+						>
+							<Icon name={sourceFilePopoverExpanded ? "chevron-up" : "chevron-down"} size={15} />
+						</button>
+						{/if}
 					</div>
-				{/if}
-			</div>
-			<div class="settings-control" inert={$dashboardOpenStore}>
-				<IconButton icon="lucide-settings" on:click={handleOpenSettings} />
-			</div>
+					{#if sourceFilePopoverExpanded}
+						<div class="source-file-popover" role="dialog" aria-label="Open matching source files">
+							<div class="source-file-popover-heading">Open matching source files</div>
+							<div class="source-file-popover-count">
+								{pluraliseFile(sourceFilePaths.length)} match the current filter
+							</div>
+							<div class="source-file-bulk-actions">
+								<button type="button" on:click={() => selectAllSourceFiles(true)}>Select all</button>
+								<button type="button" on:click={() => selectAllSourceFiles(false)}>Select none</button>
+							</div>
+							<div class="source-file-open-mode">
+								<span>Skip files already open</span>
+								<div
+									class="checkbox-container source-file-skip-toggle"
+									class:is-enabled={sourceFileOpenMode === "unopened"}
+									role="switch"
+									tabindex="0"
+									aria-label="Skip files already open"
+									aria-checked={sourceFileOpenMode === "unopened"}
+									on:click={toggleSkipAlreadyOpenSourceFiles}
+									on:keydown={handleSkipAlreadyOpenSourceFilesKeydown}
+								></div>
+							</div>
+							<div class="source-file-list">
+								{#each sourceFilePaths as path (path)}
+									<label class="source-file-choice">
+										<input
+											type="checkbox"
+											checked={sourceFileSelection[path] !== false}
+											on:change={(event) => setSourceFileChecked(path, event.currentTarget.checked)}
+										/>
+										<span>{path}</span>
+									</label>
+								{/each}
+							</div>
+							<div class="source-file-popover-footer">
+								{#if sourceFileOpenMode === "unopened" && selectedSourceFilePaths.length > 0 && eligibleSelectedSourceFileCount === 0}
+									<span class="source-file-empty-note">All selected files are already open.</span>
+								{/if}
+								<button
+									type="button"
+									class="mod-cta"
+									disabled={sourceFilesOpening || eligibleSelectedSourceFileCount === 0}
+									on:click={openSelectedSourceFiles}
+								>
+									{sourceFileOpenMode === "unopened"
+										? `Open ${pluraliseFile(eligibleSelectedSourceFileCount).replace("file", "unopened file")}`
+										: `Open ${pluraliseFile(selectedSourceFilePaths.length)}`}
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+				<div slot="settings" class="settings-control" inert={$dashboardOpenStore}>
+					<IconButton icon="lucide-settings" aria-label="Board settings" on:click={handleOpenSettings} />
+				</div>
+				<div slot="filter" class="filter-bar-container" class:mobile-search-hidden={isMobileBoardLayout && !mobileSearchExpanded && !appliedQueryText} bind:this={filterBarContainer} inert={$dashboardOpenStore}>
+					<div class="filter-bar">
+						<Icon name="search" size={16} opacity={0.7} />
+						<input
+							type="text"
+							class="filter-bar-input"
+							bind:this={filterInputEl}
+							bind:value={filterQueryText}
+							on:input={refreshBarSuggestions}
+							on:keydown={handleFilterInputKeydown}
+							on:click={handleFilterInputClick}
+							on:blur={hideBarSuggestions}
+							placeholder={'Filter tasks — e.g. "big rocks" tag:home file:projects due:<$TODAY'}
+							aria-label="Filter tasks (press Enter to apply)"
+							spellcheck="false"
+						/>
+						{#if filterQueryText !== "" || appliedQueryText !== ""}
+							<button
+								class="filter-bar-clear"
+								aria-label="Clear filter"
+								on:click={clearFilter}
+							>
+								×
+							</button>
+						{/if}
+						<button
+							class="filter-bar-expand"
+							aria-label={filterEditorExpanded
+								? "Hide search options"
+								: "Show search options"}
+							aria-expanded={filterEditorExpanded}
+							on:click={() => (filterEditorExpanded = !filterEditorExpanded)}
+						>
+							<Icon name="sliders-horizontal" size={18} />
+						</button>
+					</div>
+					{#if barSuggestionsVisible}
+						<FilterSuggestionList
+							suggestions={barSuggestions}
+							selectedIndex={barSuggestionIndex}
+							onAccept={acceptBarSuggestion}
+						/>
+					{/if}
+					{#if filterEditorExpanded}
+						<FilterEditor
+							query={draftQuery}
+							dateKeys={dateFilterKeys}
+							tagSuggestionItems={availableTags}
+							fileSuggestionItems={taskFilePaths}
+							savedFilters={savedFilterEntries}
+							savedListExpanded={savedFilterListExpanded}
+							onChange={applyEditorQuery}
+							onSearch={searchFromEditor}
+							onClear={clearFilter}
+							onApplySavedFilter={applySavedFilter}
+							onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
+							onSaveFilter={saveCurrentFilter}
+							onToggleSavedList={(expanded) => (savedFilterListExpanded = expanded)}
+						/>
+					{/if}
+				</div>
+</BoardToolbarLayout>
 		</div>
 		{#if savedFilterPendingDelete}
 			<DeleteFilterModal
@@ -1410,6 +1443,7 @@
 			/>
 		{/if}
 			<div class="board-main">
+				<MobileCreationHost session={mobileCreation} />
 				<div
 					class="columns"
 					class:vertical-flow={isVerticalFlow}
