@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from "svelte";
-	import { Modal, Component, Keymap, MarkdownRenderer, type App } from "obsidian";
+	import { Modal, Component, Keymap, MarkdownRenderer, Platform, type App } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import {
 		getSourceNodeText,
@@ -12,6 +12,7 @@
 	import TaskSourceStatusButton from "./TaskSourceStatusButton.svelte";
 	import Icon from "./icon.svelte";
 	import { subtaskDraggingStore } from "../dnd/store";
+	import MobileTaskEditor from "./MobileTaskEditor.svelte";
 
 	export let app: App;
 	export let task: Task;
@@ -21,6 +22,7 @@
 	export let depth = 0;
 
 	let isEditing = false;
+	let isMobileEditing = false;
 	let isDragging = false;
 	let isDraggedOver = false;
 	let dropBefore = false;
@@ -82,6 +84,11 @@
 
 	function handleFocus(e?: Event) {
 		if (eventHasInteractiveTarget(e)) {
+			return;
+		}
+
+		if (Platform.isMobile) {
+			isMobileEditing = true;
 			return;
 		}
 
@@ -358,7 +365,7 @@
 	class:drop-before={isDraggedOver && dropBefore}
 	class:drop-after={isDraggedOver && dropAfter}
 	style:--drag-indicator-depth={dragIndicatorDepth}
-	draggable={!isEditing}
+	draggable={!isEditing && !isMobileEditing}
 	on:dragstart={handleDragStart}
 	on:dragend={handleDragEnd}
 	on:dragover={handleDragOver}
@@ -411,6 +418,16 @@
 	</TaskLineRow>
 	<slot />
 </div>
+
+{#if isMobileEditing}
+	<MobileTaskEditor
+		{task}
+		{taskActions}
+		sourceRowIndex={node.rowIndex}
+		initialContent={editText}
+		onClose={() => (isMobileEditing = false)}
+	/>
+{/if}
 
 <style lang="scss">
 	.source-row {

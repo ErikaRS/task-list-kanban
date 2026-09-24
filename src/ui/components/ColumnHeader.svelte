@@ -43,6 +43,8 @@
 	// count scoped to one matrix cell instead of the whole column.
 	export let taskCountOverride: number | undefined = undefined;
 	export let showTaskCount: boolean = false;
+	/** Compact mobile headers keep the title, count, and mode toggle on one row. */
+	export let compactMobileHeader: boolean = false;
 	export let headingId: string | undefined = undefined;
 	export let headingLevel: 2 | 3 = 2;
 	// Desktop frames own all sticky positioning; this opt-in styles content only.
@@ -98,6 +100,12 @@
 	$: selectedIds = columnTaskIds.filter((id) =>
 		isTaskSelected(id, $taskSelectionStore),
 	);
+	$: compactHeaderCount = compactMobileHeader && isSelectMode && selectedCount > 0
+		? `${selectedCount} selected`
+		: displayTaskCount;
+	$: compactHeaderCountLabel = compactMobileHeader && isSelectMode && selectedCount > 0
+		? `${selectedCount} selected; ${taskCountLabel} in column`
+		: taskCountLabel;
 
 	function showMenu(e: MouseEvent) {
 		const menu = new Menu();
@@ -178,6 +186,7 @@
 	class="column-header"
 	class:collapsed={isCollapsed}
 	class:folded
+	class:mobile-compact={compactMobileHeader}
 	class:desktop-axis={desktopAxis !== undefined}
 	class:desktop-row={desktopAxis === "row"}
 	style:--column-color={columnColor}
@@ -200,8 +209,34 @@
 		<div class="column-title-group">
 			<svelte:element this={`h${headingLevel}`} id={headingId ?? `column-title-${column}`} title={columnTitle}>{columnTitle}</svelte:element>
 		</div>
-		{#if isCollapsed || showTaskCount}
-			<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
+		{#if isCollapsed || showTaskCount || compactMobileHeader}
+			<span class="task-count" aria-live="polite" aria-label={compactHeaderCountLabel}>{compactHeaderCount}</span>
+		{/if}
+		{#if compactMobileHeader && !isCollapsed}
+			<div
+				class="mode-toggle"
+				role="toolbar"
+				aria-label="Column interaction mode"
+			>
+				<button
+					class="mode-btn"
+					class:active={!isSelectMode}
+					aria-pressed={!isSelectMode}
+					aria-label="Done mode: click tasks to mark complete"
+					on:click={() => {
+						if (isSelectMode) toggleSelectionMode(column);
+					}}
+				>Done</button>
+				<button
+					class="mode-btn"
+					class:active={isSelectMode}
+					aria-pressed={isSelectMode}
+					aria-label="Select mode: click tasks to select for bulk actions"
+					on:click={() => {
+						if (!isSelectMode) toggleSelectionMode(column);
+					}}
+				>Select</button>
+			</div>
 		{/if}
 		<div class="header-menu">
 			{#if showContextMenu}
@@ -213,7 +248,7 @@
 			{/if}
 		</div>
 	</div>
-	{#if !isCollapsed}
+	{#if !isCollapsed && (!compactMobileHeader || showColumnMatchTags || showColumnStatus || showColumnPriority)}
 		<div class="column-meta">
 			<div class="column-meta-line">
 				{#if showColumnMatchTags}
@@ -243,35 +278,37 @@
 						</span>
 					</div>
 				{/if}
-				<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
-				<div
-					class="mode-toggle"
-					role="toolbar"
-					aria-label="Column interaction mode"
-				>
-					<button
-						class="mode-btn"
-						class:active={!isSelectMode}
-						aria-pressed={!isSelectMode}
-						aria-label="Done mode: click tasks to mark complete"
-						on:click={() => {
-							if (isSelectMode) toggleSelectionMode(column);
-						}}
-					>Done</button>
-					<button
-						class="mode-btn"
-						class:active={isSelectMode}
-						aria-pressed={isSelectMode}
-						aria-label="Select mode: click tasks to select for bulk actions"
-						on:click={() => {
-							if (!isSelectMode) toggleSelectionMode(column);
-						}}
-					>Select</button>
-				</div>
+				{#if !compactMobileHeader}
+					<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
+					<div
+						class="mode-toggle"
+						role="toolbar"
+						aria-label="Column interaction mode"
+					>
+						<button
+							class="mode-btn"
+							class:active={!isSelectMode}
+							aria-pressed={!isSelectMode}
+							aria-label="Done mode: click tasks to mark complete"
+							on:click={() => {
+								if (isSelectMode) toggleSelectionMode(column);
+							}}
+						>Done</button>
+						<button
+							class="mode-btn"
+							class:active={isSelectMode}
+							aria-pressed={isSelectMode}
+							aria-label="Select mode: click tasks to select for bulk actions"
+							on:click={() => {
+								if (!isSelectMode) toggleSelectionMode(column);
+							}}
+						>Select</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}
-	{#if isSelectMode && selectedCount > 0}
+	{#if isSelectMode && selectedCount > 0 && !compactMobileHeader}
 		<div class="selection-info" aria-live="polite">
 			{selectedCount} selected
 		</div>
@@ -442,6 +479,23 @@
 			}
 		}
 
+	}
+
+	.column-header.mobile-compact {
+		gap: 0;
+
+		&::before { height: 6px; }
+
+		.header {
+			gap: var(--size-2-2);
+			min-height: 28px;
+		}
+		.header .column-title-group { min-width: 2.5rem; }
+		.header .task-count {
+			align-self: center;
+			line-height: 1.2;
+		}
+		.header .mode-toggle { flex-shrink: 0; }
 	}
 
 	.mode-toggle {

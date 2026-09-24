@@ -9,18 +9,21 @@
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
+	/** Source-row editing supplies its own raw text and does not expose dates. */
+	export let sourceRowIndex: number | undefined = undefined;
+	export let initialContent: string | undefined = undefined;
 	export let onClose: () => void = () => {};
 
 	let editorEl: HTMLDivElement | undefined;
 	let textAreaEl: HTMLTextAreaElement | undefined;
-	let draftContent = task.content.replaceAll("<br />", "\n");
+	let draftContent = initialContent ?? task.content.replaceAll("<br />", "\n");
 	let draftDates: DateFieldValues = { due: getDateValue("due"), scheduled: getDateValue("scheduled"), start: getDateValue("start") };
 	let editorStyle = "";
 	let saving = false;
 	let stopWatchingViewport: (() => void) | undefined;
 	let unlockBoardLayout: (() => void) | undefined;
 	let boardMainEl: HTMLElement | null = null;
-	$: canEditDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
+	$: canEditDates = sourceRowIndex === undefined && getPropertyWriteAdapter(propertySchemaOption) !== null;
 
 	function getDateValue(key: EditableDatePropertyKey): string {
 		const property = getPropertyByKey(task.properties, key);
@@ -83,8 +86,14 @@
 		try {
 			const content = draftContent.trim();
 			if (content) {
-				const updatedContent = content.replaceAll("\n", "<br />");
-				if (updatedContent !== task.content) await taskActions.updateContent(task.id, updatedContent);
+				if (sourceRowIndex !== undefined) {
+					if (draftContent !== initialContent) {
+						await taskActions.updateSourceBlockRow(task.id, sourceRowIndex, draftContent);
+					}
+				} else {
+					const updatedContent = content.replaceAll("\n", "<br />");
+					if (updatedContent !== task.content) await taskActions.updateContent(task.id, updatedContent);
+				}
 			}
 			if (canEditDates) {
 				const edits = EDITABLE_DATE_PROPERTY_KEYS.map((key) => ({ key, value: draftDates[key] ?? "" })).filter(({ key, value }) => value !== getDateValue(key));
@@ -112,8 +121,8 @@
 <!-- Outside the board flex layout so Android keyboard resize cannot reflow it. -->
 <div class="mobile-task-editor-root" use:portalToBody>
 	<button class="mobile-task-editor-backdrop" type="button" aria-label="Cancel task edit" on:click={cancel}></button>
-	<div class="mobile-task-editor" bind:this={editorEl} style={editorStyle} role="dialog" aria-modal="true" aria-label="Edit task" tabindex="-1" on:keydown={handleKeydown}>
-		<div class="mobile-task-editor-heading">Edit task</div>
+	<div class="mobile-task-editor" bind:this={editorEl} style={editorStyle} role="dialog" aria-modal="true" aria-label={sourceRowIndex === undefined ? "Edit task" : "Edit subtask"} tabindex="-1" on:keydown={handleKeydown}>
+		<div class="mobile-task-editor-heading">{sourceRowIndex === undefined ? "Edit task" : "Edit subtask"}</div>
 		<textarea bind:this={textAreaEl} bind:value={draftContent} aria-label="Task content" on:input={positionEditor}></textarea>
 		{#if canEditDates}<div class="mobile-task-editor-dates"><DateInputFields values={draftDates} onDateChange={updateDate} /></div>{/if}
 		<div class="mobile-task-editor-actions"><button type="button" on:click={cancel} disabled={saving}>Cancel</button><button type="button" class="mod-cta" on:click={() => void save()} disabled={saving}>Save</button></div>
@@ -121,14 +130,85 @@
 </div>
 
 <style lang="scss">
-	.mobile-task-editor-root { position: fixed; inset: 0; z-index: 1000; }
+	.mobile-task-editor-root {
+		position: fixed;
+		inset: 0;
+		z-index: 1000;
+	}
+
 	// Keep the board readable behind editing, as it is when adding a task.
 	// The button still supplies a generous tap target for cancelling.
-	.mobile-task-editor-backdrop { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; border: 0; border-radius: 0; background: transparent; cursor: default; }
-	.mobile-task-editor { position: fixed; z-index: 1; box-sizing: border-box; padding: var(--size-4-3); overflow: auto; background: color-mix(in srgb, var(--background-primary) 94%, transparent); border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border)); border-radius: var(--radius-l, 12px); box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24), 0 2px 10px rgba(0, 0, 0, 0.12); backdrop-filter: blur(14px) saturate(1.15); -webkit-backdrop-filter: blur(14px) saturate(1.15); }
-	.mobile-task-editor-heading { margin-bottom: var(--size-2-2); color: var(--text-muted); font-size: var(--font-ui-small); font-weight: var(--font-medium); }
-	.mobile-task-editor textarea { width: 100%; min-height: 112px; box-sizing: border-box; padding: var(--size-4-3); background: var(--background-secondary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); border-radius: var(--radius-m); font-size: 16px; line-height: 1.45; resize: vertical; }
+	.mobile-task-editor-backdrop {
+		position: fixed;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		cursor: default;
+	}
+
+	.mobile-task-editor {
+		position: fixed;
+		z-index: 1;
+		box-sizing: border-box;
+		padding: var(--size-4-3);
+		overflow: auto;
+		background: color-mix(in srgb, var(--background-primary) 94%, transparent);
+		border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border));
+		border-radius: var(--radius-l, 12px);
+		box-shadow:
+			0 18px 48px rgba(0, 0, 0, 0.24),
+			0 2px 10px rgba(0, 0, 0, 0.12);
+		backdrop-filter: blur(14px) saturate(1.15);
+		-webkit-backdrop-filter: blur(14px) saturate(1.15);
+
+		&:focus-within {
+			border-color: color-mix(in srgb, var(--interactive-accent) 68%, var(--background-modifier-border));
+			box-shadow:
+				0 18px 48px rgba(0, 0, 0, 0.24),
+				0 0 0 3px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+		}
+	}
+
+	.mobile-task-editor-heading {
+		margin-bottom: var(--size-2-2);
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		font-weight: var(--font-medium);
+	}
+
+	.mobile-task-editor textarea {
+		width: 100%;
+		min-height: 112px;
+		box-sizing: border-box;
+		padding: var(--size-4-3);
+		background: color-mix(in srgb, var(--background-secondary) 82%, transparent);
+		color: var(--text-normal);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: var(--radius-m);
+		font-size: 16px;
+		line-height: 1.45;
+		resize: vertical;
+
+		&:focus,
+		&:focus-visible {
+			border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
+			box-shadow: none;
+			outline: none;
+		}
+	}
+
 	.mobile-task-editor-dates { margin-top: var(--size-4-2); }
-	.mobile-task-editor-actions { display: flex; justify-content: flex-end; gap: var(--size-2-2); margin-top: var(--size-4-3); }
+
+	.mobile-task-editor-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--size-2-2);
+		margin-top: var(--size-4-3);
+	}
+
 	.mobile-task-editor-actions button { min-height: 36px; }
 </style>

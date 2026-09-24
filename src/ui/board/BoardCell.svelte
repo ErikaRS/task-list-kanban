@@ -229,6 +229,7 @@
 		targetFileIsDefault={effectiveTargetFileIsDefault}
 		{propertySchemaOption}
 		{isVerticalFlow}
+		mobileLayout={isCompactEmpty}
 	/>
 	<div class="tasks">
 		{#each tasks as task (task.id)}

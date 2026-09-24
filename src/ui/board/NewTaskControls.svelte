@@ -26,6 +26,8 @@
 	export let targetFileIsDefault: boolean = false;
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let isVerticalFlow: boolean = false;
+	/** The stacked board gives creation controls a larger, clearly bounded tap target. */
+	export let mobileLayout: boolean = false;
 
 	let pendingNewTask: TFile | null = null;
 	let pendingCancelled = false;
@@ -207,7 +209,7 @@
 </script>
 
 {#if isColTag}
-	<div class="add-new-controls" class:vertical-flow={isVerticalFlow}>
+	<div class="add-new-controls" class:vertical-flow={isVerticalFlow} class:mobile-layout={mobileLayout}>
 		<div
 			class="add-new-btn"
 			class:disabled={!!pendingNewTask}
@@ -406,6 +408,22 @@
 		box-shadow: none;
 	}
 
+	.add-new-controls.mobile-layout {
+		align-self: stretch;
+		min-height: 36px;
+		margin-top: var(--size-2-2);
+		padding: 1px 4px 1px var(--size-4-2);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: var(--radius-m);
+		background: color-mix(in srgb, var(--background-secondary) 62%, var(--background-primary));
+
+		.add-new-btn {
+			align-self: stretch;
+			flex: 1 1 auto;
+			min-height: 34px;
+		}
+	}
+
 	.add-new-controls :global(.add-new-picker-btn) {
 		flex-shrink: 0;
 		width: 22px;
@@ -425,6 +443,11 @@
 		}
 	}
 
+	.add-new-controls.mobile-layout :global(.add-new-picker-btn) {
+		width: 32px;
+		height: 32px;
+	}
+
 	.add-new-btn,
 	.add-new-controls :global(.add-new-picker-btn) {
 		background-color: transparent;
@@ -440,6 +463,17 @@
 	.add-new-controls :global(.add-new-picker-btn:active:not(.disabled)) {
 		background-color: transparent;
 		color: var(--text-accent-hover);
+	}
+
+	.add-new-controls.mobile-layout:hover:not(:has(.disabled)) {
+		border-color: color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border));
+		background: color-mix(in srgb, var(--interactive-accent) 7%, var(--background-primary));
+	}
+
+	.add-new-btn:focus-visible,
+	.add-new-controls :global(.add-new-picker-btn:focus-visible) {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
 	}
 
 	.file-indicator {

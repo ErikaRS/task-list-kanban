@@ -93,7 +93,7 @@
 					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 					{uncategorizedColumnName}
 					{doneColumnName}
-					showTaskCount={false}
+					compactMobileHeader={true}
 					headingId={`mobile-column-${pBucket.id}`}
 				/>
 			</header>
@@ -182,7 +182,7 @@
 								{uncategorizedColumnName}
 								{doneColumnName}
 								taskCountOverride={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
-								showTaskCount={false}
+								compactMobileHeader={true}
 								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
 								headingLevel={3}
 							/>
@@ -225,7 +225,7 @@
 	.mobile-board-list {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4-3);
+		gap: var(--size-4-4);
 		width: 100%;
 		padding-bottom: var(--size-4-4);
 	}
@@ -261,7 +261,7 @@
 	.mobile-group-header {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2-3);
+		gap: var(--size-2-2);
 
 		// Match the outer column header's visual rhythm. Columns get their
 		// own colored strip from ColumnHeader; groups deliberately stay neutral.
@@ -269,7 +269,7 @@
 			content: "";
 			display: block;
 			width: calc(100% + calc(2 * var(--size-4-3)));
-			height: 12px;
+			height: 6px;
 			margin: calc(-1 * var(--size-4-2)) calc(-1 * var(--size-4-3)) 0;
 			border-radius: 2px;
 			background: var(--background-modifier-border-hover);
@@ -302,7 +302,7 @@
 	}
 
 	:global(.mobile-group-label) {
-		padding: var(--size-2-3) var(--size-4-2);
+		padding: var(--size-2-2) var(--size-4-2);
 		border-left: 3px solid var(--background-modifier-border-hover);
 		border-radius: var(--radius-s);
 		background: color-mix(in srgb, var(--background-secondary) 60%, var(--background-primary));
