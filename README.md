@@ -143,10 +143,11 @@ while a filter is applied. Tap the folder icon to choose and open source files.
 
 Each expanded section that supports task creation has its own floating **+**
 button. It stays within that section while scrolling, so creation retains the
-column and group destination. New and existing tasks use the same
+column and group destination, including **Uncategorized**. New and existing tasks use the same
 keyboard-aware editing sheet with explicit **Create/Save** and **Cancel**
 buttons. The destination file appears in the creation sheet instead of a
 repeated row on the board.
+View settings and source-file options open as full-height panels on mobile.
 
 
 ### Obsidian Tasks plugin / Dataview integration

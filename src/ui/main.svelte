@@ -17,6 +17,7 @@
 	import BoardMatrixDesktop from "./board/board_matrix_desktop.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
 	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
+	import { mobileKeyboardBoardLayout } from "./mobile_editor_layout";
 	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
 	import ViewEditor from "./view_editor.svelte";
 	import {
@@ -442,6 +443,15 @@
 			app.workspace.offref(workspaceRef);
 		};
 	});
+	onMount(() => {
+		const viewport = window.visualViewport;
+		viewport?.addEventListener("resize", handleWindowViewportChange);
+		viewport?.addEventListener("scroll", handleWindowViewportChange);
+		return () => {
+			viewport?.removeEventListener("resize", handleWindowViewportChange);
+			viewport?.removeEventListener("scroll", handleWindowViewportChange);
+		};
+	});
 
 	function saveFilterState() {
 		if (!hydrated || appliedQueryText === lastPersistedQuery) {
@@ -490,6 +500,7 @@
 	let boardContentEl: HTMLDivElement | undefined;
 	let viewEditorPopover: HTMLDivElement | undefined;
 	let viewEditorPopoverStyle = "";
+	let mobilePanelStyle = "";
 
 	const VIEW_EDITOR_POPOVER_GAP = 8;
 	const VIEW_EDITOR_POPOVER_MARGIN = 12;
@@ -504,9 +515,18 @@
 			void tick().then(updateViewEditorPopoverPosition);
 		}
 	}
+	$: if (isMobileBoardLayout && sourceFilePopoverExpanded) {
+		void tick().then(updateMobilePanelPosition);
+	}
 
 	function toggleViewEditor() {
 		viewEditorExpanded = !viewEditorExpanded;
+		if (viewEditorExpanded) sourceFilePopoverExpanded = false;
+	}
+
+	function toggleSourceFilePopover() {
+		sourceFilePopoverExpanded = !sourceFilePopoverExpanded;
+		if (sourceFilePopoverExpanded) viewEditorExpanded = false;
 	}
 
 	function pluraliseFile(count: number): string {
@@ -594,6 +614,10 @@
 	}
 
 	function updateViewEditorPopoverPosition() {
+		if (isMobileBoardLayout) {
+			updateMobilePanelPosition();
+			return;
+		}
 		if (!viewEditorExpanded || !boardContentEl || !viewControlContainer || !viewEditorPopover) {
 			return;
 		}
@@ -614,6 +638,20 @@
 			`left: ${Math.round(left - triggerRect.left)}px`,
 			`max-width: ${Math.round(maxWidth)}px`,
 			`max-height: ${Math.round(maxHeight)}px`,
+		].join("; ");
+	}
+
+	function updateMobilePanelPosition() {
+		if (!isMobileBoardLayout || !boardContentEl) return;
+		const rect = boardContentEl.getBoundingClientRect();
+		const viewport = window.visualViewport;
+		const top = Math.max(rect.top, viewport?.offsetTop ?? 0);
+		const bottom = (viewport?.offsetTop ?? 0) + Math.min(viewport?.height ?? window.innerHeight, window.innerHeight);
+		mobilePanelStyle = [
+			`--mobile-panel-top: ${Math.round(top)}px`,
+			`--mobile-panel-left: ${Math.round(rect.left)}px`,
+			`--mobile-panel-width: ${Math.round(rect.width)}px`,
+			`--mobile-panel-height: ${Math.max(0, Math.round(bottom - top))}px`,
 		].join("; ");
 	}
 
@@ -909,6 +947,7 @@
 	function handleWindowViewportChange() {
 		isMobileViewport = Platform.isMobile || window.innerWidth <= 760;
 		updateViewEditorPopoverPosition();
+		updateMobilePanelPosition();
 	}
 
 	$: filteredTasks = isFiltered
@@ -1174,7 +1213,7 @@
 
 
 
-<div class="main" class:mobile-task-list={isMobileBoardLayout}>
+<div class="main" class:mobile-task-list={isMobileBoardLayout} use:mobileKeyboardBoardLayout={isMobileBoardLayout}>
 	<!-- The rail (multi-board vaults) spans the view's full height on the
 	     left — or its full width on top, per the dock setting. Because the
 	     dashboard slide-over anchors inside .board-body, it can cover the
@@ -1215,11 +1254,16 @@
 						</span>
 					</button>
 					{#if viewEditorExpanded}
+						{#if isMobileBoardLayout}<button type="button" class="mobile-panel-backdrop" tabindex="-1" aria-label="Close view settings" on:click={() => viewEditorExpanded = false}></button>{/if}
 						<div
 							class="view-editor-popover"
 							bind:this={viewEditorPopover}
-							style={viewEditorPopoverStyle}
+							style={isMobileBoardLayout ? mobilePanelStyle : viewEditorPopoverStyle}
+							role={isMobileBoardLayout ? "dialog" : undefined}
+							aria-modal={isMobileBoardLayout ? "true" : undefined}
+							aria-label={isMobileBoardLayout ? "View settings" : undefined}
 						>
+							{#if isMobileBoardLayout}<div class="mobile-panel-heading"><strong>View settings</strong><button type="button" on:click={() => viewEditorExpanded = false}>Done</button></div>{/if}
 							<ViewEditor
 								{sortSelectValue}
 								{availableSortKeys}
@@ -1290,7 +1334,7 @@
 							aria-label={isMobileBoardLayout ? "Open source file options" : sourceFileOpenMode === "all"
 								? "Open selected source files in new tabs"
 								: "Open selected source files not already open"}
-							on:click={() => isMobileBoardLayout ? sourceFilePopoverExpanded = !sourceFilePopoverExpanded : openSelectedSourceFiles()}
+							on:click={() => isMobileBoardLayout ? toggleSourceFilePopover() : openSelectedSourceFiles()}
 						>
 							<Icon name="folder-open" size={isMobileBoardLayout ? 20 : 16} />
 							<span class="source-file-control-label">Open files</span>
@@ -1309,8 +1353,10 @@
 						{/if}
 					</div>
 					{#if sourceFilePopoverExpanded}
-						<div class="source-file-popover" role="dialog" aria-label="Open matching source files">
-							<div class="source-file-popover-heading">Open matching source files</div>
+						{#if isMobileBoardLayout}<button type="button" class="mobile-panel-backdrop" tabindex="-1" aria-label="Close source file options" on:click={() => sourceFilePopoverExpanded = false}></button>{/if}
+						<div class="source-file-popover" role="dialog" aria-modal={isMobileBoardLayout ? "true" : undefined} aria-label="Open matching source files" style={isMobileBoardLayout ? mobilePanelStyle : ""}>
+							{#if isMobileBoardLayout}<div class="mobile-panel-heading"><strong>Open matching source files</strong><button type="button" on:click={() => sourceFilePopoverExpanded = false}>Done</button></div>{/if}
+							{#if !isMobileBoardLayout}<div class="source-file-popover-heading">Open matching source files</div>{/if}
 							<div class="source-file-popover-count">
 								{pluraliseFile(sourceFilePaths.length)} match the current filter
 							</div>

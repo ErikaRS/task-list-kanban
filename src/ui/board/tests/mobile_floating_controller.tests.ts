@@ -44,3 +44,20 @@ it("shares listeners, observations and geometry reads, and cleans up after the l
 	expect(remove).toHaveBeenCalledWith("scroll", expect.any(Function));
 	expect(frames.size).toBe(0);
 });
+
+it("registers a button after its nested board is attached", async () => {
+	const observe = vi.fn();
+	vi.stubGlobal("ResizeObserver", class { observe = observe; unobserve = vi.fn(); disconnect = vi.fn(); });
+	const viewport = document.createElement("div");
+	viewport.className = "columns";
+	const section = document.createElement("div");
+	section.className = "tasks-wrapper";
+	const button = document.createElement("button");
+	section.append(button);
+	const action = mobileFloatingAction(button);
+	viewport.append(section);
+	document.body.append(viewport);
+	await Promise.resolve();
+	expect(observe).toHaveBeenCalledWith(section);
+	action.destroy?.();
+});

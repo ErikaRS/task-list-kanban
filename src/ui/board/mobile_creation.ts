@@ -1,12 +1,12 @@
 import type { TFile } from "obsidian";
 import type { Writable } from "svelte/store";
 import type { TaskActions } from "../tasks/actions";
-import type { ColumnTag } from "../columns/columns";
+import type { NewTaskColumn } from "../tasks/task_line_builder";
 import type { PropertySchemaOption } from "../../parsing/properties";
 export const MOBILE_CREATION = Symbol("mobile-task-creation");
 export interface MobileCreationSession {
 	readonly id: symbol;
-	column: ColumnTag;
+	column: NewTaskColumn;
 	context: string;
 	file: TFile | null;
 	fixedFile: boolean;

@@ -24,11 +24,19 @@
 	function positionNow() {
 		const viewport = ownerWindow.visualViewport;
 		const viewportWidth = viewport?.width ?? ownerWindow.innerWidth;
-		const viewportHeight = viewport?.height ?? ownerWindow.innerHeight;
+		const viewportHeight = Math.min(viewport?.height ?? ownerWindow.innerHeight, ownerWindow.innerHeight);
 		const width = Math.min(520, viewportWidth);
+		// Size the portal to the *visible* viewport. Anchoring the sheet to its
+		// bottom avoids a translated fixed element being stranded by Android's
+		// keyboard resize and keeps the actions above the keyboard.
+		Object.assign(root.style, {
+			left: `${viewport?.offsetLeft ?? 0}px`,
+			top: `${viewport?.offsetTop ?? 0}px`,
+			width: `${viewportWidth}px`,
+			height: `${viewportHeight}px`,
+		});
 		Object.assign(sheet.style, {
-			left: `${(viewport?.offsetLeft ?? 0) + (viewportWidth - width) / 2}px`,
-			top: `${(viewport?.offsetTop ?? 0) + viewportHeight}px`,
+			left: `${(viewportWidth - width) / 2}px`,
 			width: `${width}px`,
 			maxHeight: `${Math.max(0, viewportHeight - 8)}px`,
 			visibility: "visible",
@@ -103,6 +111,7 @@
 		ownerWindow.addEventListener("resize", schedulePosition);
 		positionNow();
 		textarea.focus({ preventScroll: true });
+		schedulePosition();
 		return () => {
 			disposed = true;
 			ownerWindow.cancelAnimationFrame(frame);

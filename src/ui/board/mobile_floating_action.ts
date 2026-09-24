@@ -74,7 +74,10 @@ class FloatingActionController {
 		const viewport = rect(this.viewport);
 		const visual = this.ownerWindow.visualViewport;
 		const visibleTop = Math.max(viewport.top, visual?.offsetTop ?? 0);
-		const bottom = Math.min(viewport.bottom, (visual?.offsetTop ?? 0) + (visual?.height ?? this.ownerWindow.innerHeight));
+		const visualBottom = (visual?.offsetTop ?? 0) + Math.min(visual?.height ?? this.ownerWindow.innerHeight, this.ownerWindow.innerHeight);
+		// Mobile host/browser navigation can overlay the board's bottom edge.
+		// Leave a thumb-sized clear area so the + remains reachable above it.
+		const bottom = Math.min(viewport.bottom, visualBottom) - (this.viewport.closest(".mobile-task-list") ? 64 : 0);
 		// Batch reads before writes to avoid repeatedly forcing layout while scrolling.
 		const placements = Array.from(this.entries, entry => {
 			const section = rect(entry.section);
@@ -120,22 +123,29 @@ class FloatingActionController {
 const controllers = new WeakMap<HTMLElement, FloatingActionController>();
 
 export function mobileFloatingAction(node: HTMLButtonElement) {
-	const section = node.closest<HTMLElement>(".tasks-wrapper");
-	const viewport = node.closest<HTMLElement>(".columns");
-	if (!section || !viewport) return {};
-	const outer = section.closest(".mobile-outer-section")?.querySelector<HTMLElement>(".mobile-outer-header");
-	const inner = section.closest(".mobile-cell")?.querySelector<HTMLElement>(".mobile-inner-header");
-	const headers = [outer, inner].filter((header): header is HTMLElement => !!header);
-	let controller = controllers.get(viewport);
-	if (!controller) {
-		controller = new FloatingActionController(viewport);
-		controllers.set(viewport, controller);
-	}
-	const unregister = controller.register({ node, section, headers });
 	let destroyed = false;
+	let unregister: (() => void) | undefined;
+	const register = () => {
+		if (destroyed || unregister) return;
+		const section = node.closest<HTMLElement>(".tasks-wrapper");
+		const viewport = node.closest<HTMLElement>(".columns");
+		if (!section || !viewport) return;
+		const outer = section.closest(".mobile-outer-section")?.querySelector<HTMLElement>(".mobile-outer-header");
+		const inner = section.closest(".mobile-cell")?.querySelector<HTMLElement>(".mobile-inner-header");
+		const headers = [outer, inner].filter((header): header is HTMLElement => !!header);
+		let controller = controllers.get(viewport);
+		if (!controller) {
+			controller = new FloatingActionController(viewport);
+			controllers.set(viewport, controller);
+		}
+		unregister = controller.register({ node, section, headers });
+	};
+	register();
+	// A nested Svelte component can mount before its board viewport is attached.
+	if (!unregister) queueMicrotask(register);
 	return { destroy() {
 		if (destroyed) return;
 		destroyed = true;
-		unregister();
+		unregister?.();
 	} };
 }

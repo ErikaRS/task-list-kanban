@@ -33,7 +33,6 @@
 	export let groupTitle = "";
 	const mobileCreation = getContext<MobileCreationStore>(MOBILE_CREATION);
 	function openMobileCreation() {
-		if (!isColumnTag(column, columnTagTableStore)) return;
 		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, propertySchemaOption, taskActions }));
 	}
 
@@ -143,7 +142,7 @@
 
 </script>
 
-{#if isColTag && mobileLayout}
+{#if mobileLayout}
 	<button type="button" class="mobile-create-task" aria-label={`Add task to ${[columnTitle, groupTitle].filter(Boolean).join(" / ")}`} use:mobileFloatingAction on:click={openMobileCreation}><Icon name="plus" size={24} /></button>
 {:else if isColTag}
 	<div class="add-new-controls" class:vertical-flow={isVerticalFlow}>

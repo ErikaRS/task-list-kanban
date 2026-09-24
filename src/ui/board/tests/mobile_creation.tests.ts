@@ -32,6 +32,11 @@ describe("mobile creation sessions", () => {
 		await expect(saveMobileCreation(source, " \n ", {})).rejects.toThrow("task text");
 		expect(createTask).not.toHaveBeenCalled();
 	});
+	it("creates an untagged task in the built-in Uncategorized section", async () => {
+		const { source, createTask } = fixture();
+		await saveMobileCreation({ ...source, column: "uncategorised", additionalTags: [] }, "New task", {});
+		expect(createTask).toHaveBeenCalledWith(source.file, "New task", "uncategorised", [], {});
+	});
 	it("propagates failures without discarding the session, permitting a retry", async () => {
 		const { source, createTask } = fixture();
 		createTask.mockRejectedValueOnce(new Error("Disk unavailable"));

@@ -1689,14 +1689,57 @@ If your plugin does not need CSS, delete this file.
 
 .task-list-kanban-view .mobile-task-list .source-file-popover {
 	position: fixed !important;
-	top: auto !important;
-	bottom: max(12px, env(safe-area-inset-bottom)) !important;
-	left: 12px !important;
-	right: 12px !important;
-	width: auto !important;
+	top: var(--mobile-panel-top, 0px) !important;
+	bottom: auto !important;
+	left: var(--mobile-panel-left, 0px) !important;
+	right: auto !important;
+	width: var(--mobile-panel-width, 100vw) !important;
+	height: var(--mobile-panel-height, 100dvh) !important;
 	max-width: none !important;
-	max-height: 70dvh !important;
-	overflow: auto !important;
+	max-height: none !important;
+	padding: 0 16px max(16px, env(safe-area-inset-bottom)) !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	overflow: hidden !important;
+	box-shadow: var(--shadow-l) !important;
+}
+
+.task-list-kanban-view .mobile-task-list .source-file-list {
+	flex: 1 1 auto !important;
+	max-height: none !important;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-panel-backdrop {
+	position: fixed !important;
+	inset: 0 !important;
+	z-index: 190 !important;
+	width: 100% !important;
+	height: 100% !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	background: color-mix(in srgb, var(--background-primary) 55%, transparent) !important;
+	box-shadow: none !important;
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-panel-heading {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 56px;
+	padding: 0 4px;
+	background: var(--background-primary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-medium);
+}
+
+.task-list-kanban-view .mobile-task-list .mobile-panel-heading button {
+	min-height: 44px;
 }
 
 .task-list-kanban-view .mobile-task-list .mobile-board-list {
@@ -1795,10 +1838,11 @@ If your plugin does not need CSS, delete this file.
 }
 
 .task-list-kanban-view .mobile-create-task {
-	visibility: hidden;
+	visibility: visible;
 	position: absolute;
 	z-index: 2;
 	right: max(12px, env(safe-area-inset-right));
+	top: 12px;
 	width: 48px;
 	height: 48px;
 	min-height: 48px;
@@ -1822,7 +1866,8 @@ body:has(.tlk-mobile-editor-root) .task-list-kanban-view .mobile-create-task {
 
 .tlk-mobile-editor-root {
 	position: fixed;
-	inset: 0;
+	left: 0;
+	top: 0;
 	z-index: var(--layer-modal, 1000);
 }
 
@@ -1840,8 +1885,8 @@ body:has(.tlk-mobile-editor-root) .task-list-kanban-view .mobile-create-task {
 }
 
 .tlk-mobile-editor-root .tlk-mobile-editor-sheet {
-	position: fixed;
-	transform: translateY(-100%);
+	position: absolute;
+	bottom: 0;
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
@@ -1912,14 +1957,27 @@ body:has(.tlk-mobile-editor-root) .task-list-kanban-view .mobile-create-task {
 
 .task-list-kanban-view .mobile-task-list .view-editor-popover {
 	position: fixed !important;
-	top: auto !important;
-	bottom: max(12px, env(safe-area-inset-bottom)) !important;
-	left: 12px !important;
-	right: 12px !important;
-	width: auto !important;
+	top: var(--mobile-panel-top, 0px) !important;
+	bottom: auto !important;
+	left: var(--mobile-panel-left, 0px) !important;
+	right: auto !important;
+	width: var(--mobile-panel-width, 100vw) !important;
+	height: var(--mobile-panel-height, 100dvh) !important;
 	max-width: none !important;
-	max-height: 70dvh !important;
+	max-height: none !important;
 	overflow: auto !important;
+	padding: 0 16px max(16px, env(safe-area-inset-bottom)) !important;
+	background: var(--background-primary) !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	box-shadow: var(--shadow-l) !important;
+}
+
+.task-list-kanban-view .mobile-task-list .view-editor-popover .view-editor {
+	padding: 12px 0 !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
 }
 
 .task-list-kanban-view .mobile-task-list .view-editor-toggle.active,
