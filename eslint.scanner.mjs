@@ -1,22 +1,19 @@
+// Approximates the Obsidian community directory scanner: the stock obsidianmd
+// rules with none of this repo's ignores beyond tests and build output.
+// Run with `npm run communitylint`.
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default defineConfig([
 	{
 		ignores: [
-			"build/**",
-			"dist/**",
 			"main.js",
+			"node_modules/**",
 			"src/**/tests/**",
-			"src/test_support/**",
 			"test-vault/**",
 			"worktrees/**",
-			"esbuild.config.mjs",
-			"eslint.config.mjs",
-			"eslint.scanner.mjs",
-			"svelte.config.js",
-			"version-bump.mjs",
-			"vite.config.ts",
+			"*.mjs",
+			"*.js",
 		],
 	},
 	...obsidianmd.configs.recommended,

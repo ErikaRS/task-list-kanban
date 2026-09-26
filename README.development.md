@@ -39,6 +39,12 @@ npm run lint
 ```
 Runs ESLint across the project. Add `-- --fix` to apply safe automatic fixes.
 
+**Community Lint**
+```bash
+npm run communitylint
+```
+Approximates the Obsidian community directory scanner, which uses its own settings instead of this repo's config. It runs the stock `eslint-plugin-obsidianmd` rules (see `eslint.scanner.mjs`), skipping only `src/**/tests/**` and build output, then runs Stylelint with `stylelint-config-obsidianmd` on `styles.css`. It reports issues `npm run lint` does not.
+
 **Version Bump**
 ```bash
 npm run version
