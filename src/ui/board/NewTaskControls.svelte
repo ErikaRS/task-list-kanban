@@ -5,6 +5,7 @@
 	import { type ColumnTagTable, isColumnTag } from "../columns/columns";
 	import type { PrimaryBucketId } from "./board_matrix";
 	import type { TaskActions } from "../tasks/actions";
+	import type { GroupProperty } from "../tasks/task_line_builder";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
 	import IconButton from "../components/icon_button.svelte";
 	import { MOBILE_CREATION, captureMobileCreation, type MobileCreationStore } from "./mobile_creation";
@@ -21,6 +22,8 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnTitle: string;
 	export let additionalTags: string[] = [];
+	/** The property a property lane writes so new tasks stay in that lane. */
+	export let groupProperty: GroupProperty | null = null;
 	/** The file a file-group lane creates tasks in; skips the picker menu. */
 	export let fileGroupTargetFile: TFile | null = null;
 	/** The file shown in the "→ file" indicator. */
@@ -33,7 +36,7 @@
 	export let groupTitle = "";
 	const mobileCreation = getContext<MobileCreationStore>(MOBILE_CREATION);
 	function openMobileCreation() {
-		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, propertySchemaOption, taskActions }));
+		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, groupProperty, propertySchemaOption, taskActions }));
 	}
 
 	let pendingNewTask: TFile | null = null;
@@ -74,6 +77,7 @@
 			targetColumn,
 			additionalTags,
 			newTaskDateValues,
+			groupProperty,
 		);
 		newTaskDateValues = { ...emptyDateValues };
 	}

@@ -13,9 +13,16 @@ import {
 	type EditableDatePropertyKey,
 	type PropertySchemaOption,
 } from "../../parsing/properties";
+import { createSwimlanePropertyTransform } from "./swimlane_property";
 import { createTaskLine } from "./task_creation";
 
 export type NewTaskColumn = ColumnTag | DefaultColumns;
+
+/** A swimlane property value a new task inherits from the lane it was added in. */
+export interface GroupProperty {
+	key: string;
+	value: string | number | Date;
+}
 
 export interface NewTaskLineOptions {
 	content: string;
@@ -25,6 +32,7 @@ export interface NewTaskLineOptions {
 	propertySchemaOption: PropertySchemaOption;
 	additionalTags?: string[];
 	dateProperties?: Partial<Record<EditableDatePropertyKey, string>>;
+	groupProperty?: GroupProperty | null;
 }
 
 export function buildNewTaskLine({
@@ -35,6 +43,7 @@ export function buildNewTaskLine({
 	propertySchemaOption,
 	additionalTags = [],
 	dateProperties = {},
+	groupProperty = null,
 }: NewTaskLineOptions): string {
 	const columnDefinition =
 		column === "uncategorised" || column === "done"
@@ -56,6 +65,14 @@ export function buildNewTaskLine({
 	const priority = getColumnPriority(columnDefinition);
 	if (priority && priorityAdapter) {
 		taskLine = priorityAdapter.upsertPriority(taskLine, priority);
+	}
+
+	if (adapter && groupProperty) {
+		// Applied before the entered dates so a date typed in the new-task form wins.
+		const transform = createSwimlanePropertyTransform(adapter, groupProperty.key, groupProperty.value);
+		if (transform) {
+			taskLine = transform(taskLine);
+		}
 	}
 
 	if (adapter) {
