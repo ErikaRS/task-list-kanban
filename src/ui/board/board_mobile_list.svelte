@@ -14,6 +14,8 @@
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
+	import type { CardActionMode } from "../selection/card_action_mode";
+	import type { ColumnTag } from "../columns/columns";
 	import MobileSectionHeader from "./MobileSectionHeader.svelte";
 	import {
 		deriveMobileHierarchyMode,
@@ -41,6 +43,8 @@
 	export let onToggleGroupCollapse: (groupId: string) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	export let cardActionMode: CardActionMode = "done";
+	export let workflowColumns: ColumnTag[] = [];
 	export let isManualOrder = false;
 	export let manualOrder: ManualOrderStore = {};
 	export let reorderEnabled = false;
@@ -75,7 +79,10 @@
 
 <div class="mobile-board-list">
 	{#if taskCountLabel}
-		<span class="mobile-task-count" aria-live="polite">{taskCountLabel}</span>
+		<div class="mobile-task-summary">
+			<slot name="summary-action" />
+			<span class="mobile-task-count" aria-live="polite">{taskCountLabel}</span>
+		</div>
 	{/if}
 	{#if !groupDominant}
 		{#each matrix.primaryAxis as pBucket (pBucket.id)}
@@ -93,6 +100,7 @@
 					onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 					{uncategorizedColumnName}
 					{doneColumnName}
+					{cardActionMode}
 					compactMobileHeader={true}
 					headingId={`mobile-column-${pBucket.id}`}
 				/>
@@ -135,6 +143,8 @@
 							{targetTaskFile}
 							{targetFileIsDefault}
 							{doneColumnName}
+							{cardActionMode}
+							{workflowColumns}
 							accentColor={pBucket.meta?.color}
 							{isManualOrder}
 							manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
@@ -181,6 +191,7 @@
 								onToggleCollapse={() => onToggleCollapse(pBucket.id)}
 								{uncategorizedColumnName}
 								{doneColumnName}
+								{cardActionMode}
 								taskCountOverride={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
 								compactMobileHeader={true}
 								headingId={`mobile-cell-${sBucket.id}-${pBucket.id}`}
@@ -206,6 +217,8 @@
 								{targetTaskFile}
 								{targetFileIsDefault}
 								{doneColumnName}
+								{cardActionMode}
+								{workflowColumns}
 								accentColor={pBucket.meta?.color}
 								{isManualOrder}
 								manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
@@ -238,10 +251,16 @@
 		box-shadow: var(--shadow-s);
 	}
 
+	.mobile-task-summary {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 0 var(--size-4-2);
+	}
+
 	.mobile-task-count {
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
-		padding: 0 var(--size-4-2);
 	}
 
 	.mobile-outer-header {

@@ -21,7 +21,10 @@
 	style:--cell-card-width={`calc(${columnWidth} - 34px)`}>
 	{#if taskCountLabel}
 		<div class="matrix-summary" bind:clientHeight={summaryHeight}>
-			<span aria-live="polite">{taskCountLabel}</span>
+			<div class="matrix-summary-content">
+				<slot name="summary-action" />
+				<span aria-live="polite">{taskCountLabel}</span>
+			</div>
 		</div>
 	{/if}
 	{#if showColumnHeaders}
@@ -78,15 +81,17 @@
 		top: 0;
 		z-index: 4;
 		background: var(--background-primary);
-		padding: 6px 12px;
+		padding: 3px 12px;
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 	}
-	.matrix-summary span {
+	.matrix-summary-content {
 		position: sticky;
 		left: 12px;
-		display: block;
+		display: flex;
+		align-items: center;
+		gap: 8px;
 		width: fit-content;
 		max-width: var(--viewport-width);
 	}

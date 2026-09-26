@@ -13,11 +13,7 @@
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import IconButton from "./icon_button.svelte";
-	import {
-		selectionModeStore,
-		isInSelectionMode,
-		toggleSelectionMode,
-	} from "../selection/selection_mode_store";
+	import type { CardActionMode } from "../selection/card_action_mode";
 	import {
 		taskSelectionStore,
 		getSelectedTaskCount,
@@ -39,11 +35,12 @@
 	export let onToggleCollapse: () => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	export let cardActionMode: CardActionMode = "done";
 	// A nested renderer can retain this header's column actions while showing a
 	// count scoped to one matrix cell instead of the whole column.
 	export let taskCountOverride: number | undefined = undefined;
 	export let showTaskCount: boolean = false;
-	/** Compact mobile headers keep the title, count, and mode toggle on one row. */
+	/** Compact mobile headers keep the title and count on one row. */
 	export let compactMobileHeader: boolean = false;
 	export let headingId: string | undefined = undefined;
 	export let headingLevel: 2 | 3 = 2;
@@ -94,7 +91,7 @@
 	$: showColumnPriority = columnSubtitle?.kind === "priority" && !isCollapsed;
 
 	// Selection state
-	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
+	$: isSelectMode = cardActionMode === "select";
 	$: columnTaskIds = tasks.map((t) => t.id);
 	$: selectedCount = getSelectedTaskCount(columnTaskIds, $taskSelectionStore);
 	$: selectedIds = columnTaskIds.filter((id) =>
@@ -212,32 +209,6 @@
 		{#if isCollapsed || showTaskCount || compactMobileHeader}
 			<span class="task-count" aria-live="polite" aria-label={compactHeaderCountLabel}>{compactHeaderCount}</span>
 		{/if}
-		{#if compactMobileHeader && !isCollapsed}
-			<div
-				class="mode-toggle"
-				role="toolbar"
-				aria-label="Column interaction mode"
-			>
-				<button
-					class="mode-btn"
-					class:active={!isSelectMode}
-					aria-pressed={!isSelectMode}
-					aria-label="Done mode: click tasks to mark complete"
-					on:click={() => {
-						if (isSelectMode) toggleSelectionMode(column);
-					}}
-				>Done</button>
-				<button
-					class="mode-btn"
-					class:active={isSelectMode}
-					aria-pressed={isSelectMode}
-					aria-label="Select mode: click tasks to select for bulk actions"
-					on:click={() => {
-						if (!isSelectMode) toggleSelectionMode(column);
-					}}
-				>Select</button>
-			</div>
-		{/if}
 		<div class="header-menu">
 			{#if showContextMenu}
 				<IconButton
@@ -280,30 +251,6 @@
 				{/if}
 				{#if !compactMobileHeader}
 					<span class="task-count" aria-live="polite" aria-label={taskCountLabel}>{displayTaskCount}</span>
-					<div
-						class="mode-toggle"
-						role="toolbar"
-						aria-label="Column interaction mode"
-					>
-						<button
-							class="mode-btn"
-							class:active={!isSelectMode}
-							aria-pressed={!isSelectMode}
-							aria-label="Done mode: click tasks to mark complete"
-							on:click={() => {
-								if (isSelectMode) toggleSelectionMode(column);
-							}}
-						>Done</button>
-						<button
-							class="mode-btn"
-							class:active={isSelectMode}
-							aria-pressed={isSelectMode}
-							aria-label="Select mode: click tasks to select for bulk actions"
-							on:click={() => {
-								if (!isSelectMode) toggleSelectionMode(column);
-							}}
-						>Select</button>
-					</div>
 				{/if}
 			</div>
 		</div>
@@ -495,54 +442,7 @@
 			align-self: center;
 			line-height: 1.2;
 		}
-		.header .mode-toggle { flex-shrink: 0; }
-	}
-
-	.mode-toggle {
-		display: flex;
-		align-items: center;
-		background: var(--background-modifier-form-field, var(--background-secondary));
-		border-radius: var(--radius-s);
-		padding: 2px;
-		gap: 0;
-		width: fit-content;
-		max-width: 100%;
-		flex: 0 0 auto;
-
-		.mode-btn {
-			font-size: var(--font-ui-smaller);
-			padding: 1px 5px;
-			min-width: 0;
-			width: auto;
-			border: none;
-			background: transparent;
-			color: var(--text-muted);
-			border-radius: calc(var(--radius-s) - 2px);
-			cursor: pointer;
-			transition: background 0.15s ease, color 0.15s ease;
-			white-space: nowrap;
-			box-shadow: none;
-			line-height: 1.2;
-
-			&:hover {
-				background: transparent;
-				color: var(--text-normal);
-				box-shadow: none;
-			}
-
-			&.active {
-				background: var(--background-primary);
-				color: var(--text-normal);
-				box-shadow: var(--input-shadow);
-				font-weight: var(--font-medium);
-			}
-
-			&:focus-visible {
-				outline: 2px solid var(--background-modifier-border-focus);
-				outline-offset: 1px;
-			}
 		}
-	}
 
 	.column-meta {
 		display: flex;

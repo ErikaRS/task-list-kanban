@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { setContext } from "svelte";
 	import BoardToolbarLayout from "./components/BoardToolbarLayout.svelte";
+	import CardActionModeSelector from "./components/CardActionModeSelector.svelte";
 	import MobileCreationHost from "./board/MobileCreationHost.svelte";
 	import { MOBILE_CREATION, type MobileCreationSession } from "./board/mobile_creation";
 
@@ -95,9 +96,11 @@
 		getVisibleSelectedTaskIds,
 	} from "./commands/board_command_targets";
 	import {
+		clearTaskSelections,
 		clearTaskIdSelections,
 		taskSelectionStore,
 	} from "./selection/task_selection_store";
+	import type { CardActionMode } from "./selection/card_action_mode";
 	import { ConfirmModal } from "./settings/confirm_modal";
 
 	type TagGroupInputMode = "prefix" | "include";
@@ -136,6 +139,23 @@
 	const mobileCreation = writable<MobileCreationSession | null>(null);
 	setContext(MOBILE_CREATION, mobileCreation);
 	let mobileSearchExpanded = false;
+	$: cardActionMode = $settingsStore.cardActionMode ?? "done";
+	function setCardActionMode(mode: CardActionMode) {
+		if (mode === cardActionMode) return;
+		if (cardActionMode === "select") clearTaskSelections();
+		settingsStore.update((settings) => ({ ...settings, cardActionMode: mode }));
+		requestSave();
+	}
+	function openCardActionModeMenu() {
+		viewEditorExpanded = false;
+		sourceFilePopoverExpanded = false;
+		filterEditorExpanded = false;
+	}
+	let lastBoardPath: string | null = null;
+	$: if ($currentPathStore !== lastBoardPath) {
+		clearTaskSelections();
+		lastBoardPath = $currentPathStore;
+	}
 	async function toggleMobileSearch() {
 		mobileSearchExpanded = !mobileSearchExpanded;
 		if (mobileSearchExpanded) { await tick(); filterInputEl?.focus(); }
@@ -399,7 +419,7 @@
 		return output;
 	}
 
-	let columns: ("uncategorised" | ColumnTag)[];
+	let columns: ColumnTag[];
 	$: columns = $settingsStore.columns.map((column) => column.id);
 
 	// The board's filter is one query string (SPEC 0029). The bar holds an
@@ -1541,6 +1561,8 @@
 							onToggleGroupCollapse={toggleGroupCollapse}
 							{uncategorizedColumnName}
 							{doneColumnName}
+							{cardActionMode}
+							workflowColumns={columns}
 							{propertyDisplay}
 							{propertySchemaOption}
 							{isManualOrder}
@@ -1549,7 +1571,12 @@
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
 							{isVerticalFlow}
-						/>
+						>
+							<svelte:fragment slot="summary-action">
+								<CardActionModeSelector mode={cardActionMode} disabled={$dashboardOpenStore}
+									onChange={setCardActionMode} onOpen={openCardActionModeMenu} />
+							</svelte:fragment>
+						</BoardMobileList>
 					{:else}
 						<BoardMatrixDesktop
 							{app}
@@ -1568,6 +1595,8 @@
 							onToggleGroupCollapse={toggleGroupCollapse}
 							{uncategorizedColumnName}
 							{doneColumnName}
+							{cardActionMode}
+							workflowColumns={columns}
 							columnWidth={responsiveColumnWidth}
 							viewportWidth={columnsClientWidth}
 							{propertyDisplay}
@@ -1578,7 +1607,12 @@
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
 							{isVerticalFlow}
-						/>
+						>
+							<svelte:fragment slot="summary-action">
+								<CardActionModeSelector mode={cardActionMode} disabled={$dashboardOpenStore}
+									onChange={setCardActionMode} onOpen={openCardActionModeMenu} />
+							</svelte:fragment>
+						</BoardMatrixDesktop>
 					{/if}
 				</div>
 			</div>

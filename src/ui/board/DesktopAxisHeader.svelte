@@ -11,6 +11,7 @@
 	import { deriveCollapsedGroupDropPlan, executeDropPlan } from "./drop_plan";
 	import { getPropertyWriteAdapter, PropertySchemaOption } from "../../parsing/properties";
 	import { clearColumnSelections } from "../selection/task_selection_store";
+	import type { CardActionMode } from "../selection/card_action_mode";
 	export let bucket: AxisBucket;
 	export let role: "column" | "row";
 	export let app: App;
@@ -24,6 +25,7 @@
 	export let onToggleGroupCollapse: (id: SecondaryBucketId) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	export let cardActionMode: CardActionMode = "done";
 	export let excludedTags: string[] = [];
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 
@@ -91,6 +93,7 @@
 	<ColumnHeader column={bucket.id as PrimaryBucketId} {tasks} {taskActions}
 		{columnTagTableStore} {columnColourTableStore} {columnMatchTagTableStore} {columnSubtitleTableStore}
 		{uncategorizedColumnName} {doneColumnName}
+		{cardActionMode}
 		isCollapsed={bucket.collapsed} desktopAxis={role}
 		onToggleCollapse={() => onToggleCollapse(bucket.id as PrimaryBucketId)} />
 {:else}

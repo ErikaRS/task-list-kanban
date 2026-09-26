@@ -20,6 +20,11 @@
 	import { renderTaskMarkdownSource } from "./task_markdown";
 	import MobileTaskEditor from "./MobileTaskEditor.svelte";
 	import { canStartTaskDrag } from "./task_drag";
+	import {
+		advanceCard,
+		nextAdvanceDestination,
+		type CardActionMode,
+	} from "../selection/card_action_mode";
 
 	export let app: App;
 	export let task: Task;
@@ -33,6 +38,8 @@
 	export let displayColumn: ColumnTag | DefaultColumns;
 	export let displaySecondaryId: string;
 	export let isSelectionMode: boolean = false;
+	export let cardActionMode: CardActionMode = "done";
+	export let workflowColumns: ColumnTag[] = [];
 	export let isSelected: boolean = false;
 	export let onToggleSelection: () => void = () => {};
 	export let selectedTaskIds: string[] = [];
@@ -77,6 +84,24 @@
 		isSubtasksCollapsed = !isSubtasksCollapsed;
 	}
 	$: displayStatusIsCustom = task.displayStatus !== " ";
+	$: advanceDestination = nextAdvanceDestination(displayColumn, workflowColumns);
+	$: advanceActionLabel = advanceDestination === "archive"
+		? "Archive task"
+		: advanceDestination === "done"
+			? `Advance to ${doneColumnName || "Done"}`
+			: advanceDestination === "uncategorised"
+				? "Advance to Uncategorized"
+				: advanceDestination
+					? `Advance to ${$columnTagTableStore[advanceDestination] ?? advanceDestination}`
+					: "Next column unavailable";
+
+	function activateCardMarker() {
+		if (cardActionMode === "advance") {
+			void advanceCard(task.id, displayColumn, workflowColumns, taskActions);
+		} else {
+			void taskActions.toggleDone(task.id);
+		}
+	}
 
 	function handleDragStart(e: DragEvent) {
 		// Selected text in an editor can emit a native drag event which bubbles
@@ -227,7 +252,7 @@
 	}
 
 	// Render markdown content using Obsidian's MarkdownRenderer
-	async function renderMarkdown(selectionMode: boolean) {
+	async function renderMarkdown(mode: CardActionMode) {
 		if (!previewContainerEl) return;
 
 		// Unload previous component before re-rendering
@@ -253,7 +278,7 @@
 
 		// Set up event handlers after rendering
 		setupLinkHandlers();
-		postProcessRenderedContent(selectionMode);
+		postProcessRenderedContent(mode);
 	}
 
 	// Set up click and hover handlers for internal links
@@ -297,7 +322,7 @@
 	}
 
 	// Post-process rendered content for safety and compatibility
-	function postProcessRenderedContent(selectionMode: boolean) {
+	function postProcessRenderedContent(mode: CardActionMode) {
 		if (!previewContainerEl) return;
 
 		function stopPropagation(e: Event) {
@@ -331,7 +356,7 @@
 			primaryCheckbox.addEventListener('mouseup', stopPropagation);
 			primaryCheckbox.addEventListener('keypress', stopPropagation);
 
-			if (selectionMode) {
+			if (mode !== "done") {
 				primaryCheckbox.disabled = true;
 				primaryCheckbox.tabIndex = -1;
 				primaryCheckbox.style.visibility = "hidden";
@@ -373,11 +398,11 @@
 		const markdownKey = JSON.stringify({
 			source: renderTaskMarkdown(),
 			path: task.path,
-			selectionMode: isSelectionMode,
+			cardActionMode,
 		});
 		if (markdownKey !== lastRenderedMarkdownKey) {
 			lastRenderedMarkdownKey = markdownKey;
-			void renderMarkdown(isSelectionMode);
+			void renderMarkdown(cardActionMode);
 		}
 	}
 
@@ -446,12 +471,6 @@
 					aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
 					aria-checked={isSelected}
 					on:click={onToggleSelection}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							onToggleSelection();
-						}
-					}}
 					tabindex="0"
 				>
 					<Icon
@@ -466,19 +485,18 @@
 					class="icon-button toggle-done-task"
 					class:is-done={task.done}
 					class:usesStatusMarker={displayStatusIsCustom}
-					role="checkbox"
-					aria-label="Advance status"
-					aria-checked={task.done}
-					on:click={() => void taskActions.toggleDone(task.id)}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							void taskActions.toggleDone(task.id);
-						}
-					}}
+					role={cardActionMode === "done" ? "checkbox" : undefined}
+					aria-label={cardActionMode === "advance" ? advanceActionLabel : "Advance status"}
+					aria-checked={cardActionMode === "done" ? task.done : undefined}
+					disabled={cardActionMode === "advance" && advanceDestination === null}
+					on:click={activateCardMarker}
 					tabindex="0"
 				>
-					<TaskStatusMarker status={task.displayStatus} isDone={task.done} size={16} />
+					{#if cardActionMode === "advance"}
+						<Icon name="lucide-arrow-right" size={18} />
+					{:else}
+						<TaskStatusMarker status={task.displayStatus} isDone={task.done} size={16} />
+					{/if}
 				</button>
 			{/if}
 		</svelte:fragment>

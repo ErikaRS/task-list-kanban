@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type App, TFile } from "obsidian";
 	import type { AxisBucket, BoardCell, SecondaryBucketId } from "./board_matrix";
-	import type { ColumnTagTable } from "../columns/columns";
+	import type { ColumnTag, ColumnTagTable } from "../columns/columns";
 	import { deriveCellCreationMetadata } from "./cell_creation";
 	import type { TaskActions } from "../tasks/actions";
 	import { deriveDropPlan, executeDropPlan } from "./drop_plan";
@@ -9,10 +9,7 @@
 	import TaskComponent from "../components/task.svelte";
 	import NewTaskControls from "./NewTaskControls.svelte";
 	import { isDraggingStore } from "../dnd/store";
-	import {
-		selectionModeStore,
-		isInSelectionMode,
-	} from "../selection/selection_mode_store";
+	import type { CardActionMode } from "../selection/card_action_mode";
 	import {
 		taskSelectionStore,
 		toggleTaskSelection,
@@ -43,6 +40,8 @@
 	export let targetTaskFile: TFile | null = null;
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
+	export let cardActionMode: CardActionMode = "done";
+	export let workflowColumns: ColumnTag[] = [];
 	export let accentColor: string | undefined = undefined;
 	export let treatNestedTasksAsSubtasks: boolean = false;
 	// Manual ordering. `isManualOrder` controls marker display; `reorderEnabled`
@@ -73,7 +72,7 @@
 		: targetFileIsDefault;
 
 	// Selection state
-	$: isSelectMode = isInSelectionMode(column, $selectionModeStore);
+	$: isSelectMode = cardActionMode === "select";
 	$: columnTaskIds = primaryTasks.map((t) => t.id);
 	$: selectedIds = columnTaskIds.filter((id) =>
 		isTaskSelected(id, $taskSelectionStore),
@@ -258,6 +257,8 @@
 						displayColumn={column}
 						displaySecondaryId={cell.secondaryId}
 						isSelectionMode={isSelectMode}
+						{cardActionMode}
+						{workflowColumns}
 					isSelected={isTaskSelected(task.id, $taskSelectionStore)}
 					onToggleSelection={() => toggleTaskSelection(task.id)}
 					selectedTaskIds={selectedIds}
