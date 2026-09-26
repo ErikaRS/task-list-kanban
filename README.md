@@ -224,7 +224,8 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 
 - **Edit**: click task text, edit inline, then click away or press Enter.
 - **Move**: drag a task to another column, or choose a column from the task menu.
-- **Complete / Cycle Status**: click the task checkbox to mark a task done and move it to **Done**. If a status cycle sequence is configured, clicking the checkbox will instead advance the task status through the specified sequence.
+- **Complete / Cycle Status**: in **Done** mode, click the task checkbox to mark a task done and move it to **Done**. If a status cycle sequence is configured, clicking the checkbox will instead advance the task status through the specified sequence.
+- **Advance**: choose **Advance** from the card action mode selector beside the total task count above the board, then click a card's arrow to move it to the next configured column. The workflow runs from **Uncategorized** through custom columns to **Done**, then **Archived**, regardless of the board's visual direction or hidden columns.
 - **Cancel or restore**: use the task menu to switch between cancelled and active.
 - **Archive**: archive tasks from the task menu or bulk menu. By default this marks open tasks done and adds the `#archived` tag. Boards configured to replace the tag with an archive status write their first archive marker instead.
 - **Duplicate**: duplicate a task directly below the original source line.
@@ -281,12 +282,13 @@ edited from plugin settings.
 
 ### Bulk Actions
 
-Each column header has a **Done / Select** toggle.
+The gutter above the board shows a **Done / Advance / Select** card action mode selector to the left of the total task count. The icon matches the action shown on cards: square for Done, arrow for Advance, and circle for Select. Open its menu for mode names and descriptions. The chosen mode applies to every column and is saved separately for each board.
 
 - **Done mode**: cards complete tasks.
+- **Advance mode**: card arrows move tasks to the next workflow step.
 - **Select mode**: cards select tasks for bulk actions.
 
-After selecting tasks, use the column bulk menu to move, complete, cancel,
+After selecting tasks, use each column's bulk menu to move, complete, cancel,
 restore, archive, duplicate, or delete them. Selected-card command palette
 actions are also available for marking done, cancelling, archiving,
 duplicating, and deleting. Dragging one selected task moves all selected tasks

@@ -1945,10 +1945,6 @@ If your plugin does not need CSS, delete this file.
 	gap: 4px;
 }
 
-.task-list-kanban-view .mobile-task-list .column-header .mode-btn {
-	min-height: 44px;
-}
-
 .task-list-kanban-view .mobile-task-list .mobile-cell {
 	padding: 0;
 	background: var(--background-primary);

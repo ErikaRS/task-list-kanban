@@ -15,6 +15,8 @@
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
+	import type { CardActionMode } from "../selection/card_action_mode";
+	import type { ColumnTag } from "../columns/columns";
 
 	import { deriveDesktopMatrixProjection } from "./desktop_matrix_projection";
 
@@ -38,6 +40,8 @@
 	export let onToggleGroupCollapse: (groupId: string) => void;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
+	export let cardActionMode: CardActionMode = "done";
+	export let workflowColumns: ColumnTag[] = [];
 	export let columnWidth = "300px";
 	export let isManualOrder = false;
 	export let manualOrder: ManualOrderStore = {};
@@ -60,6 +64,7 @@
 <DesktopMatrixGrid visualColumns={projection.visualColumns} visualRows={projection.visualRows}
 	showColumnHeaders={projection.showColumnHeaders} showRowHeaders={projection.showRowHeaders}
 	{columnWidth} {viewportWidth} {taskCountLabel}>
+	<svelte:fragment slot="summary-action"><slot name="summary-action" /></svelte:fragment>
 	<svelte:fragment slot="column-decoration" let:bucket>
 		{#if bucket.kind === "column"}
 			<div class="category-accent" style:--category-color={bucket.meta?.color}></div>
@@ -80,6 +85,7 @@
 			{propertySchemaOption}
 			{uncategorizedColumnName}
 			{doneColumnName}
+			{cardActionMode}
 			{overdueRescheduleCount}
 			{onRescheduleOverdue} />
 	</svelte:fragment>
@@ -103,6 +109,8 @@
 			{targetTaskFile}
 			{targetFileIsDefault}
 			{doneColumnName}
+			{cardActionMode}
+			{workflowColumns}
 			isCollapsed={primaryBucket.collapsed}
 			accentColor={primaryBucket.meta?.color}
 			{isManualOrder}

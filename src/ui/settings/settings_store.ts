@@ -294,6 +294,7 @@ const settingsObject = z.object({
 	// means the historical "always create a tab" behaviour.
 	openSourceFileSelection: z.record(z.string(), z.boolean()).optional(),
 	openSourceFileOpenMode: z.enum(["all", "unopened"]).optional(),
+	cardActionMode: z.enum(["done", "advance", "select"]).catch("done").optional(),
 });
 
 export interface SettingValues {
@@ -340,6 +341,7 @@ export interface SettingValues {
 	manualOrder?: ManualOrderStore;
 	openSourceFileSelection?: Record<string, boolean>;
 	openSourceFileOpenMode?: SourceFileOpenMode;
+	cardActionMode?: "done" | "advance" | "select";
 }
 
 export const defaultSettings: SettingValues = {
