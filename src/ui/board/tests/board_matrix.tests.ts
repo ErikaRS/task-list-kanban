@@ -207,9 +207,9 @@ describe("deriveBoardMatrix", () => {
 	});
 
 	it.each([
-		["asc" as const, ["one", "ten", "eleven", "two"]],
-		["desc" as const, ["two", "eleven", "ten", "one"]],
-	])("sorts a column by task name lexicographically %s", (sortDirection, expectedIds) => {
+		["asc" as const, ["one", "two", "ten", "eleven"]],
+		["desc" as const, ["eleven", "ten", "two", "one"]],
+	])("sorts a column by task name with numbers in numeric order %s", (sortDirection, expectedIds) => {
 		const settings: SettingValues = {
 			...defaultSettings,
 			columnOrderMode: ColumnOrderMode.TaskName,
