@@ -8,7 +8,6 @@ export default defineConfig([
 			"dist/**",
 			"main.js",
 			"src/**/tests/**",
-			"src/test_support/**",
 			"test-vault/**",
 			"worktrees/**",
 			"esbuild.config.mjs",

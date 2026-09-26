@@ -208,6 +208,7 @@
 <div
 	class="tasks-wrapper"
 	class:mobile-list-cell={isCompactEmpty}
+	class:has-mobile-create-task={isCompactEmpty}
 	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
 	class:vertical-collapsed={isCollapsed && isVerticalFlow}
