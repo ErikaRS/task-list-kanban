@@ -15,6 +15,7 @@
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 	import type { ManualOrderStore } from "../tasks/manual_order";
 	import MobileSectionHeader from "./MobileSectionHeader.svelte";
+	import { getBoardTaskCount } from "../board_counts";
 	import {
 		deriveMobileHierarchyMode,
 		getMobileCellTaskCount,
@@ -155,7 +156,7 @@
 				<header class="mobile-outer-header mobile-group-header" use:setStickyOffset>
 					<MobileSectionHeader
 						bucket={sBucket}
-						count={tasksBySecondary[sBucket.id]?.length ?? 0}
+						count={getBoardTaskCount(tasksBySecondary[sBucket.id] ?? [])}
 						headingLevel={2}
 						className="mobile-outer-heading"
 						collapsible={isCollapsibleGroup(sBucket)}
