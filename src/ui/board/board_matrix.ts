@@ -292,9 +292,12 @@ function sortTasksByProperty(
 	});
 }
 
+// Numeric-aware so "Task 2" sorts before "Task 10".
+const taskNameCollator = new Intl.Collator(undefined, { numeric: true });
+
 function sortTasksByTaskName(tasks: Task[], direction: SortDirection) {
 	tasks.sort((a, b) => {
-		const result = a.content.trim().localeCompare(b.content.trim());
+		const result = taskNameCollator.compare(a.content.trim(), b.content.trim());
 		if (result !== 0) {
 			return direction === "desc" ? -result : result;
 		}
