@@ -2,6 +2,7 @@
 	import { formatMobileTaskCount } from "./mobile_layout";
 	import type { AxisBucket, PrimaryBucketId } from "./board_matrix";
 	import GroupLabel from "./GroupLabel.svelte";
+	import RescheduleOverdueButton from "./RescheduleOverdueButton.svelte";
 	import { TFile, type App } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import { isDraggingStore } from "../dnd/store";
@@ -20,6 +21,8 @@
 	export let taskActions: TaskActions | undefined = undefined;
 	export let excludedTags: string[] = [];
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
+	export let overdueRescheduleCount = 0;
+	export let onRescheduleOverdue: (() => void) | undefined = undefined;
 
 	$: fileGroupTargetFile = (() => {
 		if (!app || bucket.meta?.source?.kind !== "file" || typeof bucket.meta.value !== "string") return null;
@@ -83,6 +86,7 @@
 		</button>
 	{/if}
 	<GroupLabel {bucket} /> <span class="mobile-section-count">{isCollapsed ? count : formatMobileTaskCount(count)}</span>
+	<RescheduleOverdueButton {bucket} count={overdueRescheduleCount} onReschedule={onRescheduleOverdue} />
 </svelte:element>
 
 <style>

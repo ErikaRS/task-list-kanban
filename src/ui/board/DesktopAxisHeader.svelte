@@ -7,6 +7,8 @@
 	import type { ColumnTagTable, ColumnColourTable, ColumnMatchTagTable, ColumnSubtitleTable } from "../columns/columns";
 	import ColumnHeader from "../components/ColumnHeader.svelte";
 	import GroupLabel from "./GroupLabel.svelte";
+	import RescheduleOverdueButton from "./RescheduleOverdueButton.svelte";
+	import { getBoardTaskCount } from "../board_counts";
 	import { isDraggingStore } from "../dnd/store";
 	import { deriveCollapsedGroupDropPlan, executeDropPlan } from "./drop_plan";
 	import { getPropertyWriteAdapter, PropertySchemaOption } from "../../parsing/properties";
@@ -28,10 +30,16 @@
 	export let cardActionMode: CardActionMode = "done";
 	export let excludedTags: string[] = [];
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
+	export let overdueRescheduleCount = 0;
+	export let onRescheduleOverdue: (() => void) | undefined = undefined;
 
 	$: isCollapsibleGroup = bucket.kind === "group" && bucket.meta?.source !== undefined &&
 		bucket.meta.source.kind !== "none";
-	$: groupTaskCountLabel = tasks.length === 1 ? "1 task" : `${tasks.length} tasks`;
+	// Swimlane counts match the board total: open tasks only. Done cards stay
+	// in their lane (a completed task keeps its past due date, so they pile up
+	// in a combined Overdue lane) but are not counted.
+	$: groupTaskCount = getBoardTaskCount(tasks);
+	$: groupTaskCountLabel = groupTaskCount === 1 ? "1 task" : `${groupTaskCount} tasks`;
 	$: groupName = bucket.label;
 	$: fileGroupTargetFile = (() => {
 		if (bucket.meta?.source?.kind !== "file" || typeof bucket.meta.value !== "string") return null;
@@ -115,9 +123,10 @@
 		<h2 title={groupName}><GroupLabel {bucket} /></h2>
 		{#if isCollapsibleGroup}
 			<span class="group-task-count" aria-live="polite" aria-label={groupTaskCountLabel}>
-				{bucket.collapsed ? tasks.length : groupTaskCountLabel}
+				{bucket.collapsed ? groupTaskCount : groupTaskCountLabel}
 			</span>
 		{/if}
+		<RescheduleOverdueButton {bucket} count={overdueRescheduleCount} onReschedule={onRescheduleOverdue} />
 	</div>
 {/if}
 

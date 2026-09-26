@@ -49,6 +49,8 @@ type MainComponent = Main & {
 	cancelSelectedCards: () => Promise<boolean>;
 	duplicateSelectedCards: () => Promise<boolean>;
 	deleteSelectedCardsCommand: () => Promise<boolean>;
+	hasReschedulableOverdueTasks: () => boolean;
+	rescheduleOverdueTasks: () => boolean;
 };
 
 export class KanbanView extends TextFileView {
@@ -261,6 +263,14 @@ export class KanbanView extends TextFileView {
 
 	hasVisibleSelectedCards(): boolean {
 		return this.component?.hasVisibleSelectedCards() ?? false;
+	}
+
+	hasReschedulableOverdueTasks(): boolean {
+		return this.component?.hasReschedulableOverdueTasks() ?? false;
+	}
+
+	rescheduleOverdueTasks(): void {
+		this.component?.rescheduleOverdueTasks();
 	}
 
 	markSelectedCardsDone(): void {

@@ -93,8 +93,15 @@
 	import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 	import type { BoardTaskCounts } from "./dashboard/board_stats";
 	import {
+		getVisibleBoardTasks,
 		getVisibleSelectedTaskIds,
 	} from "./commands/board_command_targets";
+	import { getPropertyWriteAdapter } from "../parsing/properties/write";
+	import { getToday } from "./filters/date_filter";
+	import {
+		getReschedulableDateKey,
+		getReschedulableOverdueTasks,
+	} from "./tasks/reschedule_overdue";
 	import {
 		clearTaskSelections,
 		clearTaskIdSelections,
@@ -280,6 +287,57 @@
 		}).open();
 		return true;
 	}
+
+	// --- Reschedule overdue tasks to today (SPEC 0046) ---
+	function getReschedulableTaskIds(): string[] {
+		if (getPropertyWriteAdapter(propertySchemaOption) === null) {
+			return [];
+		}
+		return getReschedulableOverdueTasks(
+			getVisibleBoardTasks(activeMatrix, $dashboardOpenStore),
+			$settingsStore.groupSource,
+			getToday(),
+		).map((task) => task.id);
+	}
+
+	export function hasReschedulableOverdueTasks() {
+		return getReschedulableTaskIds().length > 0;
+	}
+
+	export function rescheduleOverdueTasks() {
+		const key = getReschedulableDateKey($settingsStore.groupSource);
+		const count = getReschedulableTaskIds().length;
+		if (key === null || count === 0) {
+			return false;
+		}
+		const taskNoun = count === 1 ? "task" : "tasks";
+		const todayValue = getToday().toISOString().slice(0, 10);
+		new ConfirmModal(app, {
+			title: `Reschedule ${count} overdue ${taskNoun} to today?`,
+			body: `Their ${key} date will be set to ${todayValue}.`,
+			note: "Other dates and task text are unchanged.",
+			confirmText: "Reschedule",
+			onConfirm: async () => {
+				// Recompute so a task that changed while the modal was open is
+				// not written with a stale view of the board.
+				const ids = getReschedulableTaskIds();
+				if (ids.length === 0) return;
+				await taskActions.updateSwimlaneProperty(ids, key, getToday());
+				new Notice(`Rescheduled ${ids.length} ${ids.length === 1 ? "task" : "tasks"} to today`);
+			},
+		}).open();
+		return true;
+	}
+
+	// Recomputed with the board so the Overdue header button hides itself
+	// once nothing is left to reschedule.
+	$: overdueRescheduleCount = getPropertyWriteAdapter(propertySchemaOption) === null
+		? 0
+		: getReschedulableOverdueTasks(
+			getVisibleBoardTasks(activeMatrix, $dashboardOpenStore),
+			$settingsStore.groupSource,
+			$todayStore,
+		).length;
 
 	// Every open/close path (Esc, scrim, X, card select, button, command)
 	// flips the store, so acting on its edges covers them all: focus returns
@@ -1546,6 +1604,8 @@
 					{#if isMobileBoardLayout}
 						<BoardMobileList
 							{app}
+							{overdueRescheduleCount}
+							onRescheduleOverdue={rescheduleOverdueTasks}
 							matrix={renderedMatrix}
 							{taskActions}
 							{columnTagTableStore}
@@ -1580,6 +1640,8 @@
 					{:else}
 						<BoardMatrixDesktop
 							{app}
+							{overdueRescheduleCount}
+							onRescheduleOverdue={rescheduleOverdueTasks}
 							matrix={renderedMatrix}
 							{taskActions}
 							{columnTagTableStore}

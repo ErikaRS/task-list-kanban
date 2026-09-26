@@ -17,6 +17,7 @@
 	import type { CardActionMode } from "../selection/card_action_mode";
 	import type { ColumnTag } from "../columns/columns";
 	import MobileSectionHeader from "./MobileSectionHeader.svelte";
+	import { getBoardTaskCount } from "../board_counts";
 	import {
 		deriveMobileHierarchyMode,
 		getMobileCellTaskCount,
@@ -27,6 +28,8 @@
 
 	export let app: App;
 	export let matrix: BoardMatrix;
+	export let overdueRescheduleCount = 0;
+	export let onRescheduleOverdue: (() => void) | undefined = undefined;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
@@ -163,7 +166,7 @@
 				<header class="mobile-outer-header mobile-group-header" use:setStickyOffset>
 					<MobileSectionHeader
 						bucket={sBucket}
-						count={tasksBySecondary[sBucket.id]?.length ?? 0}
+						count={getBoardTaskCount(tasksBySecondary[sBucket.id] ?? [])}
 						headingLevel={2}
 						className="mobile-outer-heading"
 						collapsible={isCollapsibleGroup(sBucket)}
@@ -173,6 +176,8 @@
 						{taskActions}
 						{excludedTags}
 						{propertySchemaOption}
+						{overdueRescheduleCount}
+						{onRescheduleOverdue}
 					/>
 				</header>
 				{#if !sBucket.collapsed}
