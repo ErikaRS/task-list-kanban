@@ -20,6 +20,8 @@
 
 	export let app: App;
 	export let matrix: BoardMatrix;
+	export let overdueRescheduleCount = 0;
+	export let onRescheduleOverdue: (() => void) | undefined = undefined;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
@@ -77,7 +79,9 @@
 			{excludedTags}
 			{propertySchemaOption}
 			{uncategorizedColumnName}
-			{doneColumnName} />
+			{doneColumnName}
+			{overdueRescheduleCount}
+			{onRescheduleOverdue} />
 	</svelte:fragment>
 	<svelte:fragment slot="cell" let:visualColumn let:visualRow>
 		{@const { cell, primaryBucket, secondaryBucket } = projection.getCell(visualColumn, visualRow)}

@@ -1,4 +1,5 @@
 import type { BoardMatrix } from "../board/board_matrix";
+import type { Task } from "../tasks/task";
 
 export function getVisibleSelectedTaskIds(
 	matrix: BoardMatrix,
@@ -28,6 +29,29 @@ export function getVisibleSelectedTaskIds(
 				if (selected.has(task.id)) {
 					output.push(task.id);
 				}
+			}
+		}
+	}
+	return output;
+}
+
+/**
+ * Every task rendered on the board, in display order. Hidden columns are not
+ * on the primary axis, so their tasks are excluded; collapsed columns and
+ * swimlanes still count as visible. Empty while the dashboard covers the
+ * board, matching the selected-card commands.
+ */
+export function getVisibleBoardTasks(matrix: BoardMatrix, dashboardOpen: boolean): Task[] {
+	if (dashboardOpen) {
+		return [];
+	}
+
+	const output: Task[] = [];
+	for (const primary of matrix.primaryAxis) {
+		for (const secondary of matrix.secondaryAxis) {
+			const cell = matrix.cells[primary.id]?.[secondary.id];
+			if (cell) {
+				output.push(...cell.tasks);
 			}
 		}
 	}

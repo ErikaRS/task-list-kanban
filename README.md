@@ -326,6 +326,12 @@ When a Tasks Plugin or Dataview property schema is enabled, tasks can also be
 grouped by parsed properties. Date groups support **Combine past dates** so
 overdue dates can collapse into one past bucket.
 
+When grouped by **due**, **scheduled**, or **start**, run **Reschedule overdue
+tasks to today** from the command palette, or use the calendar button on the
+combined **Overdue** swimlane, to set that date to today on every visible open
+task whose date has passed. Filtered-out, done, and cancelled tasks are left
+alone, and no other dates change.
+
 Saved views replace the older saved grouping workflow and can reuse common
 grouping setups, including folder, file, tag-prefix, include-list, and property
 groups, group direction, and the surrounding layout.

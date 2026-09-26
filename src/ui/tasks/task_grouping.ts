@@ -449,7 +449,7 @@ function createPropertyMissingGroupBucketId(key: string): string {
 	return `property:${key}:__missing__`;
 }
 
-function createPropertyOverdueGroupBucketId(key: string): string {
+export function createPropertyOverdueGroupBucketId(key: string): string {
 	return `property:${key}:__overdue__`;
 }
 
@@ -463,7 +463,7 @@ function isPropertyOverdueBucket(bucket: GroupBucket): boolean {
 // Datetime values (possible under Dataview) are truncated to their local
 // calendar day, matching the date-filter semantics: overdue means strictly
 // before today's calendar day.
-function isOverdueValue(value: string | number | Date, today: Date): boolean {
+export function isOverdueValue(value: string | number | Date, today: Date): boolean {
 	return value instanceof Date && toCalendarDay(value).getTime() < today.getTime();
 }
 

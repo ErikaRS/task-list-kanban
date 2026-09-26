@@ -22,7 +22,7 @@ Issue [#193](https://github.com/ErikaRS/task-list-kanban/issues/193) asks for a 
 
 A pure helper, `getReschedulableOverdueTasks(tasks, groupSource, today)`, returns the IDs of tasks that:
 
-- are in the board's visible task set (the same `filteredByDate` list that feeds `deriveBoardMatrix`),
+- are rendered on the board: every task in a cell of the current `BoardMatrix` (`getVisibleBoardTasks`), so filtered-out tasks and hidden built-in columns are excluded while collapsed columns and swimlanes still count,
 - have a `Date` value for `groupSource.key` strictly before `today` (the same `isOverdueValue` rule the Overdue swimlane uses, including local-day truncation of Dataview datetimes),
 - are not `done` and not `isCancelled`.
 
@@ -40,7 +40,7 @@ After the write, the rescheduled tasks leave the Overdue swimlane and appear in 
 
 ### Entry points
 
-**Overdue swimlane header.** When `collapsePastDates` is on and the Overdue bucket is rendered, its group header (desktop `DesktopAxisHeader` and mobile `MobileSectionHeader`) shows a small **Reschedule to today** button next to the count. The button is hidden when the helper returns no tasks (for example, every overdue card is already done). Its accessible name includes the count and property, for example **Reschedule 7 overdue tasks to today (due)**.
+**Overdue swimlane header.** When `collapsePastDates` is on and the Overdue bucket is rendered, its group header (desktop `DesktopAxisHeader` and mobile `MobileSectionHeader`) shows a small calendar icon button, **Reschedule to today**, next to the count. On mobile it appears on the group-first layout's swimlane header; the column-first layout repeats group labels inside every column, so it relies on the command instead. The button is hidden when the helper returns no tasks (for example, every overdue card is already done). Its accessible name includes the count and property, for example **Reschedule 7 overdue tasks to today (due)**.
 
 **Command.** Add a board command, **Reschedule overdue tasks to today**, using the same `checkCallback` pattern as the other `KanbanView` commands in `entry.ts`. It is available only when the active view is a kanban board and the helper returns at least one task. `KanbanView` exposes `hasReschedulableOverdueTasks()` and `rescheduleOverdueTasks()`, which delegate to the Svelte board component the same way the selected-card commands do.
 
@@ -76,27 +76,27 @@ The task list is recomputed when the user confirms, so a task that stopped being
 
 ## Implementation Plan
 
-### Phase 1: Command-palette reschedule
+### Phase 1: Command-palette reschedule 🚧 IN PROGRESS
 
 **Goal:** The user can reschedule all visible overdue tasks on a date-grouped board from the command palette.
 
-1. [ ] Export `isOverdueValue` and add `getReschedulableOverdueTasks` with unit tests for due/scheduled/start, non-editable date keys, non-date groups, done and cancelled tasks, Dataview datetimes, and the `collapsePastDates` on/off cases.
-2. [ ] Add `hasReschedulableOverdueTasks()` / `rescheduleOverdueTasks()` on `KanbanView`, wired to the board component's visible task list.
-3. [ ] Register the **Reschedule overdue tasks to today** command with confirmation and a completion notice.
+1. ✅ Export `isOverdueValue` and add `getReschedulableOverdueTasks` with unit tests for due/scheduled/start, non-editable date keys, non-date groups, done and cancelled tasks, Dataview datetimes, and the `collapsePastDates` on/off cases.
+2. ✅ Add `hasReschedulableOverdueTasks()` / `rescheduleOverdueTasks()` on `KanbanView`, wired to the board component's visible task list.
+3. ✅ Register the **Reschedule overdue tasks to today** command with confirmation and a completion notice.
 4. [ ] Test in a vault under the Tasks and Dataview schemas: only the grouped date changes, filtered-out tasks are untouched, and rescheduled cards move to today's swimlane.
 
 **Deliverable:** A working command that reschedules only visible, open, overdue tasks by the grouped date.
 
 **Implemented by:** Pending.
 
-### Phase 2: Overdue swimlane header button
+### Phase 2: Overdue swimlane header button 🚧 IN PROGRESS
 
 **Goal:** The same action is one click away on the combined Overdue swimlane.
 
-1. [ ] Add the **Reschedule to today** button to the Overdue group header on desktop and mobile, hidden when no tasks are eligible.
-2. [ ] Route it through the same confirmation and write path as the command.
+1. ✅ Add the **Reschedule to today** button to the Overdue group header on desktop and mobile, hidden when no tasks are eligible.
+2. ✅ Route it through the same confirmation and write path as the command.
 3. [ ] Test keyboard and touch activation, the accessible name, both flow directions, and a collapsed Overdue swimlane.
-4. [ ] Update the README's grouping section to describe the command and button.
+4. ✅ Update the README's grouping section to describe the command and button.
 
 **Deliverable:** The Overdue swimlane header offers a one-click reschedule that behaves exactly like the command.
 

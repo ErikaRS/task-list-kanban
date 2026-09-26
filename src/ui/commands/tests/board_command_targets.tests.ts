@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BoardMatrix, PrimaryBucketId } from "../../board/board_matrix";
 import {
 	clearTaskIdsFromSelection,
+	getVisibleBoardTasks,
 	getVisibleSelectedTaskIds,
 } from "../board_command_targets";
 
@@ -25,6 +26,13 @@ describe("board command targets", () => {
 		const matrix = matrixWithTasks({ doing: ["a"] });
 
 		expect(getVisibleSelectedTaskIds(matrix, new Map([["a", true]]), true)).toEqual([]);
+	});
+
+	it("lists every visible task in board display order", () => {
+		const matrix = matrixWithTasks({ doing: ["a", "b"], done: ["c"] });
+
+		expect(getVisibleBoardTasks(matrix, false).map((task) => task.id)).toEqual(["a", "b", "c"]);
+		expect(getVisibleBoardTasks(matrix, true)).toEqual([]);
 	});
 
 	it("clears only affected selected task ids", () => {

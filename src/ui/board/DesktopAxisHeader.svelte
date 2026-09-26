@@ -7,6 +7,7 @@
 	import type { ColumnTagTable, ColumnColourTable, ColumnMatchTagTable, ColumnSubtitleTable } from "../columns/columns";
 	import ColumnHeader from "../components/ColumnHeader.svelte";
 	import GroupLabel from "./GroupLabel.svelte";
+	import RescheduleOverdueButton from "./RescheduleOverdueButton.svelte";
 	import { isDraggingStore } from "../dnd/store";
 	import { deriveCollapsedGroupDropPlan, executeDropPlan } from "./drop_plan";
 	import { getPropertyWriteAdapter, PropertySchemaOption } from "../../parsing/properties";
@@ -26,6 +27,8 @@
 	export let doneColumnName: string | undefined = undefined;
 	export let excludedTags: string[] = [];
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
+	export let overdueRescheduleCount = 0;
+	export let onRescheduleOverdue: (() => void) | undefined = undefined;
 
 	$: isCollapsibleGroup = bucket.kind === "group" && bucket.meta?.source !== undefined &&
 		bucket.meta.source.kind !== "none";
@@ -115,6 +118,7 @@
 				{bucket.collapsed ? tasks.length : groupTaskCountLabel}
 			</span>
 		{/if}
+		<RescheduleOverdueButton {bucket} count={overdueRescheduleCount} onReschedule={onRescheduleOverdue} />
 	</div>
 {/if}
 

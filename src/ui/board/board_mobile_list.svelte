@@ -25,6 +25,8 @@
 
 	export let app: App;
 	export let matrix: BoardMatrix;
+	export let overdueRescheduleCount = 0;
+	export let onRescheduleOverdue: (() => void) | undefined = undefined;
 	export let taskActions: TaskActions;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnColourTableStore: Readable<ColumnColourTable>;
@@ -163,6 +165,8 @@
 						{taskActions}
 						{excludedTags}
 						{propertySchemaOption}
+						{overdueRescheduleCount}
+						{onRescheduleOverdue}
 					/>
 				</header>
 				{#if !sBucket.collapsed}

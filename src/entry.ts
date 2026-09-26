@@ -217,6 +217,21 @@ export default class Base extends Plugin {
 			view.deleteSelectedCards(),
 		);
 
+		this.addCommand({
+			id: "reschedule-overdue-tasks-to-today",
+			name: "Reschedule overdue tasks to today",
+			checkCallback: (checking) => {
+				const view = this.app.workspace.getActiveViewOfType(KanbanView);
+				if (!view || !view.hasReschedulableOverdueTasks()) {
+					return false;
+				}
+				if (!checking) {
+					view.rescheduleOverdueTasks();
+				}
+				return true;
+			},
+		});
+
 		this.switchToKanbanAfterLoad();
 
 		this.registerEvent(
