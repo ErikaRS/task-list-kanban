@@ -24,7 +24,7 @@ function context() {
 	const session = writable<MobileCreationSession | null>(captureMobileCreation({
 		column: "this-week" as ColumnTag, context: "This Week / Home",
 		file: { path: "tasks.md" } as TFile, fixedFile: false,
-		additionalTags: ["home"], propertySchemaOption: PropertySchemaOption.TasksPlugin,
+		additionalTags: ["home"], groupProperty: null, propertySchemaOption: PropertySchemaOption.TasksPlugin,
 		taskActions: { createTask, pickFileForNewTask } as unknown as TaskActions,
 	}));
 	component = new MobileCreationHost({ target: board.querySelector(".board-main")!, props: { session } });
@@ -53,7 +53,7 @@ describe("mobile creation host", () => {
 		expect(date.value).toBe("2026-09-26");
 		(document.querySelector(".tlk-editor-actions button") as HTMLButtonElement).click();
 		await tick();
-		expect(createTask).toHaveBeenCalledWith({ path: "other.md" }, "A draft", "this-week", ["home"], expect.objectContaining({ due: "2026-09-26" }));
+		expect(createTask).toHaveBeenCalledWith({ path: "other.md" }, "A draft", "this-week", ["home"], expect.objectContaining({ due: "2026-09-26" }), null);
 		await vi.waitFor(() => expect(document.querySelector(".tlk-mobile-editor-root")).toBeNull());
 	});
 	it("ignores old picker callbacks after a new session starts", async () => {

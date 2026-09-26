@@ -37,7 +37,7 @@ import {
 	writeFileRows,
 	type PrepareFileContentsForWrite,
 } from "./source_line_editor";
-import { buildNewTaskLine, type NewTaskColumn } from "./task_line_builder";
+import { buildNewTaskLine, type GroupProperty, type NewTaskColumn } from "./task_line_builder";
 import { changeColumnTransform } from "./column_change";
 
 export type TaskActions = {
@@ -117,6 +117,7 @@ export type TaskActions = {
 		column: NewTaskColumn,
 		additionalTags?: string[],
 		dateProperties?: Partial<Record<EditableDatePropertyKey, string>>,
+		groupProperty?: GroupProperty | null,
 	) => Promise<void>;
 	getTargetFile: () => TFile | null;
 	/**
@@ -864,7 +865,7 @@ export function createTaskActions({
 			});
 		},
 
-		async createTask(file, content, column, additionalTags = [], dateProperties = {}) {
+		async createTask(file, content, column, additionalTags = [], dateProperties = {}, groupProperty = null) {
 			const taskLine = buildNewTaskLine({
 				content,
 				column,
@@ -873,6 +874,7 @@ export function createTaskActions({
 				propertySchemaOption: getPropertySchemaOption(),
 				additionalTags,
 				dateProperties,
+				groupProperty,
 			});
 
 			await updateRow(

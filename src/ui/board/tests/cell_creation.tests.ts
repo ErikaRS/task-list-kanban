@@ -24,6 +24,7 @@ describe("cell creation metadata", () => {
 		).toEqual({
 			targetFilePath: "projects/tasks.md",
 			additionalTags: [],
+			groupProperty: null,
 		});
 	});
 
@@ -38,6 +39,7 @@ describe("cell creation metadata", () => {
 		).toEqual({
 			targetFilePath: null,
 			additionalTags: ["Project-Alpha"],
+			groupProperty: null,
 		});
 	});
 
@@ -53,6 +55,37 @@ describe("cell creation metadata", () => {
 		).toEqual({
 			targetFilePath: null,
 			additionalTags: [],
+			groupProperty: null,
 		});
+	});
+
+	it("carries a property lane's value so new tasks stay in that lane", () => {
+		const scheduled = new Date("2026-09-30T00:00:00.000Z");
+		expect(
+			deriveCellCreationMetadata(
+				bucket({
+					value: scheduled,
+					source: { kind: "property", key: "scheduled" },
+				}),
+			),
+		).toEqual({
+			targetFilePath: null,
+			additionalTags: [],
+			groupProperty: { key: "scheduled", value: scheduled },
+		});
+	});
+
+	it("does not write a property for the Unassigned or Overdue lanes", () => {
+		for (const isDefault of [true, false]) {
+			expect(
+				deriveCellCreationMetadata(
+					bucket({
+						value: null,
+						source: { kind: "property", key: "scheduled", collapsePastDates: true },
+						isDefault,
+					}),
+				).groupProperty,
+			).toBeNull();
+		}
 	});
 });
