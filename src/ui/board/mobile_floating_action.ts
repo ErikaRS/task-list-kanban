@@ -89,7 +89,7 @@ class FloatingActionController {
 			};
 		});
 		for (const placement of placements) {
-			placement.node.style.visibility = placement.top === null ? "hidden" : "visible";
+			placement.node.style.setProperty("--tlk-floating-action-visibility", placement.top === null ? "hidden" : "visible");
 			placement.node.style.top = `${placement.top ?? 0}px`;
 		}
 	};

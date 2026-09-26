@@ -52,6 +52,7 @@ describe("shared mobile editing sheet", () => {
 		expect((textarea.closest(".tlk-mobile-editor-sheet") as HTMLElement).style.visibility).toBe("visible");
 		expect(board.inert).toBe(true);
 		expect(document.querySelector(".tlk-mobile-editor-root")?.parentElement).toBe(document.body);
+		expect(document.body.classList.contains("tlk-mobile-editor-open")).toBe(true);
 	});
 	it("keeps the editor above the host workspace when it shrinks for the keyboard", async () => {
 		const workspace = document.createElement("div");
@@ -118,6 +119,7 @@ describe("shared mobile editing sheet", () => {
 		expect(board.inert).toBe(false);
 		expect(board.querySelector<HTMLElement>(".board-main")!.style.minHeight).toBe("");
 		expect(document.querySelector(".tlk-mobile-editor-root")).toBeNull();
+		expect(document.body.classList.contains("tlk-mobile-editor-open")).toBe(false);
 		expect(remove).toHaveBeenCalledWith("resize", expect.any(Function));
 	});
 	it("does not close a replacement editor when an unmounted save finishes", async () => {

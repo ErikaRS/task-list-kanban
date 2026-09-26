@@ -110,6 +110,8 @@
 		const board = root.closest<HTMLElement>(".board-content");
 		const wasInert = board?.inert ?? false;
 		ownerDocument.body.appendChild(root);
+		// Hides the board's floating create buttons while any editor sheet is open.
+		ownerDocument.body.classList.add("tlk-mobile-editor-open");
 		if (board) board.inert = true;
 		const viewport = ownerWindow.visualViewport;
 		viewport?.addEventListener("resize", schedulePosition);
@@ -134,6 +136,7 @@
 			ownerWindow.removeEventListener("resize", schedulePosition);
 			unlock();
 			root.remove();
+			if (!ownerDocument.body.querySelector(".tlk-mobile-editor-root")) ownerDocument.body.classList.remove("tlk-mobile-editor-open");
 			if (board) board.inert = wasInert;
 			if (previous?.isConnected) previous.focus({ preventScroll: true });
 		};
