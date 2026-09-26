@@ -101,6 +101,18 @@ describe("prefix part of a prefixed token", () => {
 });
 
 describe("tag tokens", () => {
+	it("completes negated tag prefixes and values", () => {
+		expect(labels(suggest("-ta|"))).toEqual(["tag:"]);
+		expect(accept("-ta|", "tag:")).toBe("-tag:|");
+		expect(accept("-tag:ho|", "home")).toBe("-tag:home|");
+		expect(labels(suggest("-du|"))).toEqual([]);
+		expect(labels(suggest("-due:|"))).toEqual([]);
+	});
+
+	it("completes an alternative inside parentheses without replacing the group", () => {
+		expect(accept("(tag:ho| OR file:archive)", "home")).toBe("(tag:home| OR file:archive)");
+		expect(accept("(file:archive OR tag:ho|)", "home")).toBe("(file:archive OR tag:home|)");
+	});
 	it("suggests every known tag right after tag:", () => {
 		expect(labels(suggest("tag:|"))).toEqual(["errand", "home", "homework"]);
 	});

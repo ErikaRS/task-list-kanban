@@ -4,6 +4,7 @@ import {
 	isEmptyFilterQuery,
 	parseContentTerms,
 	parseFilterQuery,
+	parseFilterQueryResult,
 	serializeContentTerms,
 	serializeFilterQuery,
 	taskMatchesFilterQuery,
@@ -246,6 +247,110 @@ describe("parseFilterQuery", () => {
 				{ property: "due", operator: "before", value: "$TODAY" },
 			],
 		});
+	});
+});
+
+describe("limited CNF queries", () => {
+	const reading = task({
+		content: "Read Paul Krugman on trade #reading",
+		path: "essays/economics.md",
+		tags: ["reading"],
+		properties: { due: parseDateOnly("2026-07-01")! },
+	});
+	const archived = task({
+		content: "Read Keynes #archived",
+		path: "archive/economics.md",
+		tags: ["archived"],
+	});
+
+	function matches(text: string, candidate: FilterableTask): boolean {
+		const result = parseFilterQueryResult(text, DATE_KEYS);
+		expect(result.error).toBeUndefined();
+		return taskMatchesFilterQuery(candidate, result.query, today);
+	}
+
+	it("excludes individual content, tag, and file atoms", () => {
+		expect(matches('"Paul Krugman" -Keynes', reading)).toBe(true);
+		expect(matches('"Paul Krugman" -trade', reading)).toBe(false);
+		expect(matches("-tag:archived -file:archive", reading)).toBe(true);
+		expect(matches("-tag:archived", archived)).toBe(false);
+		expect(matches("-file:archive", archived)).toBe(false);
+	});
+
+	it("matches flat OR clauses across kinds and ANDs the clauses", () => {
+		expect(matches("(tag:reading OR file:archive) -Keynes", reading)).toBe(true);
+		expect(matches("(tag:reading OR file:archive) -Keynes", archived)).toBe(false);
+		expect(matches("(Keynes OR tag:reading) (file:essays OR file:other)", reading)).toBe(true);
+		expect(matches("(Keynes OR tag:reading) (file:essays OR file:other)", archived)).toBe(false);
+		expect(matches("(due:<$TODAY OR tag:archived)", reading)).toBe(true);
+		expect(matches("( tag:reading OR file:archive ) -Keynes", reading)).toBe(true);
+	});
+
+	it("negation sees tags and content in nested card rows", () => {
+		const parent = task({
+			content: "Plan a reading session",
+			tags: [],
+			sourceChildren: [subtaskNode("Read Keynes #school")],
+		});
+		expect(matches("-Keynes", parent)).toBe(false);
+		expect(matches("-tag:school", parent)).toBe(false);
+		expect(matches("(-Keynes OR tag:school)", parent)).toBe(true);
+	});
+
+	it("preserves positive comma OR and repeated-file OR when negation is present", () => {
+		expect(matches("tag:reading,home -Keynes", reading)).toBe(true);
+		expect(matches("file:archive -file:archive file:essays", reading)).toBe(true);
+		expect(matches("file:archive -file:archive file:essays", archived)).toBe(false);
+		expect(matches("(tag:reading,home OR file:archive) -Keynes", reading)).toBe(true);
+		expect(matches("tag:reading,home tag:home -Keynes", reading)).toBe(false);
+	});
+
+	it("matches legacy filters identically when an unrelated exclusion is added", () => {
+		const candidates = [reading, archived, task({ content: "Plan a home errand", path: "notes/home.md", tags: ["home", "errand"] })];
+		for (const legacy of [
+			"tag:reading,home",
+			"tag:home,errand tag:reading",
+			"file:archive,essays",
+			"file:archive file:essays",
+			'file:"home notes",essays tag:reading,home',
+			"due:<$TODAY tag:reading,home",
+		]) {
+			const before = parseFilterQuery(legacy, DATE_KEYS);
+			const after = parseFilterQueryResult(`${legacy} -unrelated`, DATE_KEYS);
+			expect(after.error).toBeUndefined();
+			for (const candidate of candidates) {
+				expect(taskMatchesFilterQuery(candidate, after.query, today), legacy).toBe(
+					taskMatchesFilterQuery(candidate, before, today),
+				);
+			}
+		}
+	});
+
+	it("round-trips mixed clauses and keeps explicit file groups separate", () => {
+		const original = '(file:essays OR tag:reading) file:archive -Keynes';
+		const query = parseFilterQueryResult(original, DATE_KEYS).query;
+		expect(serializeFilterQuery(query)).toBe(original);
+		expect(parseFilterQueryResult(serializeFilterQuery(query), DATE_KEYS).query).toEqual(query);
+		expect(matches(original, reading)).toBe(false);
+		const literal = parseFilterQueryResult('("OR" OR "-Keynes")', DATE_KEYS).query;
+		expect(serializeFilterQuery(literal)).toBe('("OR" OR "-Keynes")');
+	});
+
+	it("keeps unparenthesized OR as a literal content term", () => {
+		expect(parseFilterQueryResult("foo OR bar", DATE_KEYS).query.contentTerms).toEqual(["foo", "OR", "bar"]);
+		expect(parseFilterQueryResult("(foo) OR bar", DATE_KEYS).query.contentTerms).toEqual(["(foo)", "OR", "bar"]);
+		expect(parseFilterQueryResult("tag: -foo", DATE_KEYS).error).toBeUndefined();
+	});
+
+	it("rejects invalid boolean syntax without returning a partial query", () => {
+		for (const text of [
+			"-", "-(foo OR bar)", "-tag:a,b", "-file:a,b", "-due:<$TODAY",
+			"(foo OR)", "(foo OR ", "(foo OR (bar OR baz))", "(foo OR )",
+		]) {
+			const result = parseFilterQueryResult(text, DATE_KEYS);
+			expect(result.error, text).toBeTruthy();
+			expect(result.query).toEqual(emptyFilterQuery());
+		}
 	});
 });
 

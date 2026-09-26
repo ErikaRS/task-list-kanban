@@ -26,6 +26,25 @@ export interface FilterQuery {
 	// satisfiable; repeated `file:` tokens merge into this list.
 	filePaths: string[];
 	dateConditions: DateFilterCondition[];
+	// Present for queries using negation or explicit OR. Legacy queries keep
+	// their original shape and behavior for compatibility.
+	clauses?: FilterClause[];
+}
+
+export type FilterAtom =
+	| { kind: "content" | "tag" | "file"; value: string; negative: boolean }
+	| { kind: "date"; condition: DateFilterCondition; negative: false };
+
+export interface FilterClause {
+	atoms: FilterAtom[];
+	// Explicit parentheses prevent file alternatives from merging with
+	// ungrouped positive file tokens elsewhere in the query.
+	explicit?: boolean;
+}
+
+export interface FilterQueryResult {
+	query: FilterQuery;
+	error?: string;
 }
 
 export interface FilterableTask {
@@ -62,6 +81,7 @@ export function emptyFilterQuery(): FilterQuery {
 }
 
 export function isEmptyFilterQuery(query: FilterQuery): boolean {
+	if (query.clauses) return query.clauses.length === 0;
 	return (
 		query.contentTerms.length === 0 &&
 		query.tagGroups.length === 0 &&
@@ -151,7 +171,7 @@ function parseDateToken(
  * date-shaped token whose op/value doesn't parse — falls back to a content
  * term, so the board visibly over-filters instead of silently dropping it.
  */
-export function parseFilterQuery(text: string, dateKeys: string[]): FilterQuery {
+function parseLegacyFilterQuery(text: string, dateKeys: string[]): FilterQuery {
 	const query = emptyFilterQuery();
 
 	for (const segments of tokenize(text)) {
@@ -203,6 +223,152 @@ export function parseFilterQuery(text: string, dateKeys: string[]): FilterQuery 
 	return query;
 }
 
+function rawTokens(text: string): string[] {
+	const tokens: string[] = [];
+	let current = "";
+	let quoted = false;
+	for (const char of text) {
+		if (char === '"') quoted = !quoted;
+		if (!quoted && /\s/.test(char)) {
+			if (current) tokens.push(current);
+			current = "";
+		} else {
+			current += char;
+		}
+	}
+	if (current) tokens.push(current);
+	return tokens;
+}
+
+function hasUnquotedParenthesis(text: string): boolean {
+	let quoted = false;
+	for (const char of text) {
+		if (char === '"') quoted = !quoted;
+		else if (!quoted && (char === "(" || char === ")")) return true;
+	}
+	return false;
+}
+
+function groupHasOr(tokens: string[], start: number): boolean {
+	for (let i = start; i < tokens.length; i++) {
+		const token = tokens[i]!;
+		if (token === "OR" || token === "OR)") return true;
+		if (token.endsWith(")")) return false;
+	}
+	return false;
+}
+
+function hasBooleanSyntax(tokens: string[]): boolean {
+	return tokens.some((token, index) => token.startsWith("-")
+		|| (token.startsWith("(") && groupHasOr(tokens, index)));
+}
+
+function parseSignedAtom(raw: string, dateKeys: string[]): { atoms?: FilterAtom[]; error?: string } {
+	const negative = raw.startsWith("-");
+	const text = negative ? raw.slice(1) : raw;
+	if (!text) return { error: "Add a term after -." };
+	if (text.startsWith("(") && negative) return { error: "- can only exclude one term, not a group." };
+	const parsed = parseLegacyFilterQuery(text, dateKeys);
+	if (parsed.tagGroups.length > 0) {
+		const tags = parsed.tagGroups[0]!;
+		if (negative && tags.length > 1) return { error: "Exclude tags individually; - cannot apply to a comma list." };
+		return { atoms: tags.map((value) => ({ kind: "tag", value, negative })) };
+	}
+	if (parsed.filePaths.length > 0) {
+		if (negative && parsed.filePaths.length > 1) return { error: "Exclude files individually; - cannot apply to a comma list." };
+		return { atoms: parsed.filePaths.map((value) => ({ kind: "file", value, negative })) };
+	}
+	if (parsed.dateConditions.length > 0) {
+		if (negative) return { error: "Date comparisons cannot be excluded." };
+		return { atoms: [{ kind: "date", condition: parsed.dateConditions[0]!, negative: false }] };
+	}
+	const value = parsed.contentTerms[0];
+	if (!value) return negative
+		? { error: "Add a term to the filter." }
+		: { atoms: [] };
+	return { atoms: [{ kind: "content", value, negative }] };
+}
+
+/** Parse a committed query, returning a syntax error without changing its meaning. */
+export function parseFilterQueryResult(text: string, dateKeys: string[]): FilterQueryResult {
+	const tokens = rawTokens(text);
+	if (!hasBooleanSyntax(tokens)) return { query: parseLegacyFilterQuery(text, dateKeys) };
+
+	const clauses: FilterClause[] = [];
+	let fileClause: FilterClause | undefined;
+	for (let i = 0; i < tokens.length; i++) {
+		const raw = tokens[i]!;
+		if (raw.startsWith("(") && groupHasOr(tokens, i)) {
+			const group: string[] = [];
+			let closed = false;
+			while (i < tokens.length) {
+				const part = tokens[i]!;
+				group.push(part);
+				if (part.endsWith(")")) { closed = true; break; }
+				i++;
+			}
+			if (!closed) return { query: emptyFilterQuery(), error: "Close the OR group with )." };
+			group[0] = group[0]!.slice(1);
+			group[group.length - 1] = group[group.length - 1]!.slice(0, -1);
+			const parts = group.filter((part) => part !== "");
+			if (parts.some(hasUnquotedParenthesis)) {
+				return { query: emptyFilterQuery(), error: "OR groups cannot be nested or contain empty terms." };
+			}
+			const alternatives: string[][] = [[]];
+			for (const part of parts) {
+				if (part === "OR") alternatives.push([]);
+				else alternatives[alternatives.length - 1]!.push(part);
+			}
+			if (alternatives.length < 2 || alternatives.some((arm) => arm.length !== 1)) {
+				return { query: emptyFilterQuery(), error: "Separate each OR alternative with OR inside parentheses." };
+			}
+			const atoms: FilterAtom[] = [];
+			for (const arm of alternatives) {
+				const parsed = parseSignedAtom(arm[0]!, dateKeys);
+				if (parsed.error) return { query: emptyFilterQuery(), error: parsed.error };
+				if (!parsed.atoms?.length) return { query: emptyFilterQuery(), error: "Add a term to every OR alternative." };
+				atoms.push(...parsed.atoms);
+			}
+			clauses.push({ atoms, explicit: true });
+			continue;
+		}
+		if (raw.startsWith("-(")) return { query: emptyFilterQuery(), error: "- can only exclude one term, not a group." };
+		const parsed = parseSignedAtom(raw, dateKeys);
+		if (parsed.error) return { query: emptyFilterQuery(), error: parsed.error };
+		const atoms = parsed.atoms!;
+		if (atoms.length === 0) continue;
+		if (atoms.every((atom) => atom.kind === "file" && !atom.negative)) {
+			if (!fileClause) {
+				fileClause = { atoms: [] };
+				clauses.push(fileClause);
+			}
+			fileClause.atoms.push(...atoms);
+		} else clauses.push({ atoms });
+	}
+	return { query: { ...emptyFilterQuery(), clauses } };
+}
+
+export function parseFilterQuery(text: string, dateKeys: string[]): FilterQuery {
+	return parseFilterQueryResult(text, dateKeys).query;
+}
+
+/** Adapt existing flat queries to the clause editor without changing their semantics. */
+export function filterQueryClauses(query: FilterQuery): FilterClause[] {
+	if (query.clauses) return query.clauses.map((clause) => ({
+		atoms: clause.atoms.map((atom) => atom.kind === "date"
+			? { ...atom, condition: { ...atom.condition } }
+			: { ...atom }),
+		explicit: clause.explicit,
+	}));
+	const clauses: FilterClause[] = [
+		...query.contentTerms.map((value) => ({ atoms: [{ kind: "content" as const, value, negative: false }] })),
+		...query.tagGroups.map((group) => ({ atoms: group.map((value) => ({ kind: "tag" as const, value, negative: false })) })),
+	];
+	if (query.filePaths.length) clauses.push({ atoms: query.filePaths.map((value) => ({ kind: "file", value, negative: false })) });
+	clauses.push(...query.dateConditions.map((condition) => ({ atoms: [{ kind: "date" as const, condition: { ...condition }, negative: false as const }] })));
+	return clauses;
+}
+
 /**
  * A content term is quoted when unquoted text would tokenize or parse
  * differently: whitespace, a leading quote, or a leading `word:` prefix
@@ -210,7 +376,7 @@ export function parseFilterQuery(text: string, dateKeys: string[]): FilterQuery 
  * over-quoting is harmless and keeps the round-trip schema-independent).
  */
 function serializeContentTerm(term: string): string {
-	const needsQuoting = /\s/.test(term) || /^[^\s:"]+:/.test(term) || term.startsWith('"');
+	const needsQuoting = /\s/.test(term) || /^[^\s:"]+:/.test(term) || term.startsWith('"') || term.startsWith("-") || term === "OR" || term.startsWith("(") || term.endsWith(")");
 	return needsQuoting ? `"${term}"` : term;
 }
 
@@ -239,6 +405,28 @@ export function serializeContentTerms(terms: string[]): string {
  * for any query whose terms contain no `"` (not expressible in the syntax).
  */
 export function serializeFilterQuery(query: FilterQuery): string {
+	if (query.clauses) {
+		return query.clauses.map((clause) => {
+			const atoms = clause.atoms.map((atom) => {
+				let text: string;
+				switch (atom.kind) {
+					case "content": text = serializeContentTerm(atom.value); break;
+					case "tag": text = `tag:${atom.value}`; break;
+					case "file": text = `file:${serializeFileEntry(atom.value)}`; break;
+					case "date": text = `${atom.condition.property}:${TEXT_BY_OPERATOR[atom.condition.operator]}${atom.condition.value}`; break;
+				}
+				return atom.negative ? `-${text}` : text;
+			});
+			if (clause.explicit && atoms.length > 1) return `(${atoms.join(" OR ")})`;
+			if (atoms.length > 1 && clause.atoms.every((atom) => atom.kind === "tag" && !atom.negative)) {
+				return `tag:${clause.atoms.map((atom) => (atom as { value: string }).value).join(",")}`;
+			}
+			if (atoms.length > 1 && clause.atoms.every((atom) => atom.kind === "file" && !atom.negative)) {
+				return `file:${clause.atoms.map((atom) => serializeFileEntry((atom as { value: string }).value)).join(",")}`;
+			}
+			return atoms.length > 1 ? `(${atoms.join(" OR ")})` : atoms[0] ?? "";
+		}).filter(Boolean).join(" ");
+	}
 	return [
 		...query.contentTerms.map(serializeContentTerm),
 		...query.tagGroups.map((group) => `tag:${group.join(",")}`),
@@ -270,6 +458,35 @@ export function taskMatchesFilterQuery(
 	query: FilterQuery,
 	today: Date,
 ): boolean {
+	if (query.clauses) {
+		let descendants: SourceBlockNode[] | undefined;
+		let texts: string[] | undefined;
+		let tags: Set<string> | undefined;
+		const getDescendants = () => descendants ??= task.sourceChildren?.length
+			? flattenSourceBlockNodes(task.sourceChildren)
+			: [];
+		return query.clauses.every((clause) => clause.atoms.some((atom) => {
+			let matches: boolean;
+			switch (atom.kind) {
+				case "content":
+					texts ??= [task.content, ...getDescendants().map(getSourceNodeText)].map((text) => text.toLowerCase());
+					matches = texts.some((text) => text.includes(atom.value.toLowerCase()));
+					break;
+				case "tag":
+					if (!tags) {
+						tags = new Set(task.tags);
+						for (const node of getDescendants()) {
+							for (const tag of getTagsFromContent(getSourceNodeText(node))) tags.add(tag);
+						}
+					}
+					matches = tags.has(atom.value);
+					break;
+				case "file": matches = task.path.toLowerCase().includes(atom.value.toLowerCase()); break;
+				case "date": matches = taskMatchesDateConditions(task, [atom.condition], today); break;
+			}
+			return atom.negative ? !matches : matches;
+		}));
+	}
 	const descendants = task.sourceChildren?.length
 		? flattenSourceBlockNodes(task.sourceChildren)
 		: [];

@@ -111,6 +111,18 @@ If your plugin does not need CSS, delete this file.
 	margin: 0 !important;
 }
 
+.task-list-kanban-view .filter-syntax-error {
+	box-sizing: border-box;
+	margin-top: var(--size-2-1);
+	padding: var(--size-2-2) var(--size-4-3);
+	background: var(--background-primary);
+	border: 1px solid var(--color-red);
+	border-radius: var(--radius-s);
+	color: var(--text-error);
+	font-size: var(--font-ui-small);
+	line-height: 1.4;
+}
+
 .task-list-kanban-view .filter-bar {
 	box-sizing: border-box !important;
 	display: flex !important;
@@ -209,6 +221,159 @@ If your plugin does not need CSS, delete this file.
 	grid-template-columns: 72px minmax(0, 1fr) !important;
 	gap: var(--size-2-3) !important;
 	align-items: start !important;
+}
+
+.task-list-kanban-view .filter-editor .clause-row {
+	display: flex !important;
+	flex-direction: column !important;
+	gap: var(--size-2-1) !important;
+	padding: var(--size-2-2) !important;
+	border: 1px solid var(--background-modifier-border) !important;
+	border-radius: var(--radius-s) !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-row,
+.task-list-kanban-view .filter-editor .clause-actions {
+	display: flex !important;
+	align-items: center !important;
+	gap: var(--size-2-2) !important;
+	min-width: 0 !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-row {
+	flex-wrap: wrap !important;
+}
+
+.task-list-kanban-view .filter-editor .clause-actions {
+	justify-content: space-between !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-row input.text-input {
+	flex: 1 1 140px !important;
+	width: auto !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-value-anchor {
+	position: relative !important;
+	display: flex !important;
+	flex: 1 1 140px !important;
+	min-width: 0 !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-value-anchor input.text-input {
+	flex: 1 1 auto !important;
+	width: 100% !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-kind-control {
+	position: relative !important;
+	display: flex !important;
+	align-items: center !important;
+	flex: 0 0 112px !important;
+	box-sizing: border-box !important;
+	width: 112px !important;
+	height: 32px !important;
+	background: var(--background-modifier-form-field, var(--background-primary)) !important;
+	border: 1px solid var(--background-modifier-border) !important;
+	border-radius: var(--radius-s) !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-kind-control:focus-within {
+	border-color: var(--interactive-accent) !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-kind-control select.atom-kind.dropdown {
+	width: 100% !important;
+	height: 100% !important;
+	padding: 0 28px 0 var(--size-2-3) !important;
+	appearance: none !important;
+	background: transparent !important;
+	border: 0 !important;
+	border-radius: var(--radius-s) !important;
+	cursor: pointer !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-kind-control select.atom-kind.dropdown:focus-visible {
+	border: 0 !important;
+	outline: 2px solid var(--interactive-accent) !important;
+	outline-offset: 2px !important;
+}
+
+.task-list-kanban-view .filter-editor .atom-kind-chevron {
+	position: absolute !important;
+	top: 50% !important;
+	right: var(--size-2-2) !important;
+	display: inline-flex !important;
+	transform: translateY(-50%) !important;
+	pointer-events: none !important;
+	color: var(--text-muted) !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-toggle {
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	flex: 0 0 auto !important;
+	box-sizing: border-box !important;
+	height: 32px !important;
+	margin: 0 !important;
+	padding: 0 var(--size-2-1) !important;
+	gap: var(--size-2-2) !important;
+	background: transparent !important;
+	border: 0 !important;
+	color: var(--text-muted) !important;
+	font-size: var(--font-ui-smaller) !important;
+	font-weight: 600 !important;
+	line-height: 1 !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-toggle.active {
+	color: var(--text-normal) !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-track {
+	position: relative !important;
+	display: block !important;
+	flex: 0 0 38px !important;
+	width: 38px !important;
+	height: 20px !important;
+	box-sizing: border-box !important;
+	background: var(--background-modifier-border) !important;
+	border-radius: 999px !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-thumb {
+	position: absolute !important;
+	top: 2px !important;
+	left: 2px !important;
+	width: 16px !important;
+	height: 16px !important;
+	box-sizing: border-box !important;
+	background: var(--background-primary) !important;
+	border-radius: 50% !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-toggle.active .exclude-track {
+	background: var(--interactive-accent) !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-toggle.active .exclude-thumb {
+	transform: translateX(18px) !important;
+}
+
+.task-list-kanban-view .filter-editor .exclude-toggle:disabled {
+	opacity: 0.5 !important;
+	cursor: default !important;
+}
+
+.task-list-kanban-view .filter-editor .clause-join {
+	color: var(--text-muted) !important;
+	font-size: var(--font-ui-small) !important;
+	font-weight: 600 !important;
+}
+
+.task-list-kanban-view .mobile-task-list .filter-editor .editor-section {
+	grid-template-columns: minmax(0, 1fr) !important;
 }
 
 .task-list-kanban-view .filter-editor .section-label,
@@ -455,6 +620,10 @@ If your plugin does not need CSS, delete this file.
 .task-list-kanban-view .filter-suggestions li:hover,
 .task-list-kanban-view .filter-suggestions li.selected {
 	background: var(--background-modifier-hover) !important;
+}
+
+.task-list-kanban-view .filter-editor .filter-suggestions .suggestion-label {
+	font-weight: 400 !important;
 }
 
 /* Keep the source-file split button and its menu intact across themes and

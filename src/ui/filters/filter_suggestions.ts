@@ -199,11 +199,12 @@ function prefixSuggestions(
 	replaceStart: number,
 	replaceEnd: number,
 	context: FilterSuggestionContext,
+	includeDates = true,
 ): FilterSuggestion[] {
 	const candidates: { insert: string; detail: string }[] = [
 		{ insert: "tag:", detail: "filter by tag" },
 		{ insert: "file:", detail: "filter by file path" },
-		...context.dateKeys.map((key) => ({
+		...(includeDates ? context.dateKeys : []).map((key) => ({
 			insert: `${key.key}:`,
 			detail: `filter by ${key.label} date`,
 		})),
@@ -238,8 +239,20 @@ export function getFilterSuggestions(
 	caret: number,
 	context: FilterSuggestionContext,
 ): FilterSuggestion[] {
-	const span = tokenSpanAt(text, caret);
+	const fullSpan = tokenSpanAt(text, caret);
+	const fullToken = text.slice(fullSpan.start, fullSpan.end);
+	const groupStart = fullToken.startsWith("(") ? 1 : 0;
+	const groupEnd = fullToken.endsWith(")") ? 1 : 0;
+	const negated = fullToken.slice(groupStart).startsWith("-");
+	const span = {
+		start: fullSpan.start + groupStart + (negated ? 1 : 0),
+		end: fullSpan.end - groupEnd,
+	};
+	if (caret < span.start) return [];
 	const token = text.slice(span.start, span.end);
+	const withSign = (suggestions: FilterSuggestion[]): FilterSuggestion[] => negated
+		? suggestions.map((suggestion) => ({ ...suggestion, replaceStart: suggestion.replaceStart - 1, insert: `-${suggestion.insert}` }))
+		: suggestions;
 
 	if (token.startsWith('"')) {
 		return [];
@@ -255,8 +268,8 @@ export function getFilterSuggestions(
 	if (!hasPrefix) {
 		const typed = text.slice(span.start, caret);
 		return [
-			...prefixSuggestions(typed, span.start, span.end, context),
-			...rankMatches(context.savedFilterNames, typed).map((name) => ({
+			...withSign(prefixSuggestions(typed, span.start, span.end, context, !negated)),
+			...(!negated && groupStart === 0 ? rankMatches(context.savedFilterNames, typed) : []).map((name) => ({
 				kind: "saved" as const,
 				label: name,
 				detail: "saved filter",
@@ -270,12 +283,13 @@ export function getFilterSuggestions(
 	// Caret still inside the prefix part: offer prefixes, replacing only
 	// `word:` so the value survives (`t|ag:home` + `file:` → `file:home`).
 	if (caret <= span.start + colonIndex) {
-		return prefixSuggestions(
+		return withSign(prefixSuggestions(
 			text.slice(span.start, caret),
 			span.start,
 			span.start + colonIndex + 1,
 			context,
-		);
+			!negated,
+		));
 	}
 
 	const prefix = token.slice(0, colonIndex).toLowerCase();
@@ -309,6 +323,7 @@ export function getFilterSuggestions(
 		(key) => key.key.toLowerCase() === prefix,
 	);
 	if (dateKey) {
+		if (negated) return [];
 		const typed = text.slice(valueStart, caret);
 		return DATE_FILTER_OPERATORS.map((operator) => ({
 			insert: `${TEXT_BY_OPERATOR[operator.value]}${TODAY_FILTER_VALUE}`,

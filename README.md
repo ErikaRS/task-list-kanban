@@ -261,13 +261,15 @@ The search bar above the board filters tasks with a single query. A query is a s
 
 Details:
 
-- Everything is AND-ed: `fix tag:home file:projects due:<$TODAY` keeps tasks containing "fix", tagged `home`, in a file path containing "projects", due before today. There is no OR across tokens and no negation.
+- Separate conditions are AND-ed: `fix tag:home file:projects due:<$TODAY` keeps tasks containing "fix", tagged `home`, in a file path containing "projects", due before today.
+- Prefix a content term, tag, or file condition with `-` to exclude it: `"Paul Krugman" -Keynes`, `-tag:archived`, or `-file:archive`. Date comparisons cannot be negated. Quote a literal content term beginning with `-`.
+- Use a parenthesized `OR` group for alternatives, including mixed types: `(Krugman OR Friedman) -Keynes` or `(tag:reading OR file:essays)`. Groups cannot nest, and `-` applies only to one condition. Outside parentheses, `OR` remains a literal content word.
 - Repeated `tag:` tokens AND together, so `tag:home tag:errand` requires both tags, while `tag:home,errand` matches either. Repeated `file:` tokens merge into one "any of" list.
 - Quote values containing spaces: `file:"weekly notes"`.
 - Date tokens use a date-typed property key from the active property schema (such as `due`, `scheduled`, `start`, `done`, `created`) with an operator (`<`, `<=`, `=`, `>=`, `>`) and either a `YYYY-MM-DD` date or `$TODAY`, which re-evaluates at midnight. Tasks without the referenced property are never hidden by a date token.
 - A token that doesn't parse as a filter (an unknown prefix like `note:` or a bad date value) is treated as plain content text.
 
-Filtering applies when you press Enter. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, and query-only saved view names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
+Filtering applies when you press Enter. Invalid boolean syntax shows an error only then and keeps the last applied filter; the draft stays available to correct. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, and query-only saved view names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
 
 **Saved views** live in the expanded view controls. A saved view can capture the
 current filter, sort, grouping, flow direction, and card width. Save one with

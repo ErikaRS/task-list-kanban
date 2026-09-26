@@ -48,10 +48,9 @@
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import {
 		isEmptyFilterQuery,
-		parseFilterQuery,
+		parseFilterQueryResult,
 		serializeFilterQuery,
 		taskMatchesFilterQuery,
-		type FilterQuery,
 	} from "./filters/filter_query";
 	import FilterEditor from "./filters/filter_editor.svelte";
 	import FilterSuggestionList from "./filters/filter_suggestion_list.svelte";
@@ -409,6 +408,7 @@
 	// board and persists. Filtering never changes mid-keystroke.
 	let filterQueryText = "";
 	let appliedQueryText = "";
+	let filterSyntaxError = "";
 	let hydrated = false;
 	let lastPersistedQuery = "";
 
@@ -475,9 +475,11 @@
 
 	$: dateFilterKeyNames = dateFilterKeys.map((key) => key.key);
 	// Draft: mirrored by the expanded editor. Applied: filters the board.
-	$: draftQuery = parseFilterQuery(filterQueryText, dateFilterKeyNames);
-	$: appliedQuery = parseFilterQuery(appliedQueryText, dateFilterKeyNames);
-	$: isFiltered = !isEmptyFilterQuery(appliedQuery);
+	$: draftResult = parseFilterQueryResult(filterQueryText, dateFilterKeyNames);
+	$: draftQuery = draftResult.query;
+	$: appliedResult = parseFilterQueryResult(appliedQueryText, dateFilterKeyNames);
+	$: appliedQuery = appliedResult.query;
+	$: isFiltered = !!appliedResult.error || !isEmptyFilterQuery(appliedQuery);
 	$: savedViews = $settingsStore.savedViews ?? [];
 	$: globalSavedViews = $globalViewsStore ?? [];
 	$: mergedSavedViews = mergeLocalAndGlobalSavedViews(savedViews, globalSavedViews);
@@ -664,18 +666,24 @@
 
 	// Committing canonicalizes the draft (quoting, $TODAY casing, token
 	// order), so the bar always shows exactly what was understood.
-	function applyFilter() {
-		const canonical = serializeFilterQuery(
-			parseFilterQuery(filterQueryText, dateFilterKeyNames),
-		);
+	function applyFilter(): boolean {
+		const result = parseFilterQueryResult(filterQueryText, dateFilterKeyNames);
+		if (result.error) {
+			filterSyntaxError = result.error;
+			return false;
+		}
+		const canonical = serializeFilterQuery(result.query);
 		filterQueryText = canonical;
 		appliedQueryText = canonical;
+		filterSyntaxError = "";
 		hideBarSuggestions();
+		return true;
 	}
 
 	function clearFilter() {
 		filterQueryText = "";
 		appliedQueryText = "";
+		filterSyntaxError = "";
 		hideBarSuggestions();
 	}
 
@@ -712,6 +720,11 @@
 		barSuggestionsVisible = barSuggestions.length > 0;
 	}
 
+	function handleFilterInput() {
+		filterSyntaxError = "";
+		refreshBarSuggestions();
+	}
+
 	function hideBarSuggestions() {
 		barSuggestionsVisible = false;
 		barSuggestionIndex = -1;
@@ -737,6 +750,7 @@
 		}
 		const applied = applyFilterSuggestion(filterQueryText, suggestion);
 		filterQueryText = applied.text;
+		filterSyntaxError = "";
 		await tick();
 		filterInputEl?.focus();
 		filterInputEl?.setSelectionRange(applied.caret, applied.caret);
@@ -792,13 +806,13 @@
 		}
 	}
 
-	function applyEditorQuery(next: FilterQuery) {
-		filterQueryText = serializeFilterQuery(next);
+	function applyEditorQuery(next: string) {
+		filterQueryText = next;
+		filterSyntaxError = "";
 	}
 
 	function searchFromEditor() {
-		applyFilter();
-		filterEditorExpanded = false;
+		if (applyFilter()) filterEditorExpanded = false;
 	}
 
 	// --- Saved views (SPEC 0030 Phase 3) ---
@@ -826,6 +840,7 @@
 	// duplicates are guarded editor-side; the empty check here is a
 	// backstop.
 	function saveCurrentFilter(name: string | undefined) {
+		if (draftResult.error) return;
 		const query = serializeFilterQuery(draftQuery);
 		if (query === "") {
 			return;
@@ -957,7 +972,7 @@
 		updateMobilePanelPosition();
 	}
 
-	$: filteredTasks = isFiltered
+	$: filteredTasks = appliedResult.error ? [] : isFiltered
 		? $tasksStore.filter((task) =>
 				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
 			)
@@ -1425,7 +1440,7 @@
 							class="filter-bar-input"
 							bind:this={filterInputEl}
 							bind:value={filterQueryText}
-							on:input={refreshBarSuggestions}
+							on:input={handleFilterInput}
 							on:keydown={handleFilterInputKeydown}
 							on:click={handleFilterInputClick}
 							on:blur={hideBarSuggestions}
@@ -1452,8 +1467,11 @@
 						>
 							<Icon name="sliders-horizontal" size={18} />
 						</button>
-					</div>
-					{#if barSuggestionsVisible}
+						</div>
+						{#if filterSyntaxError}
+							<div class="filter-syntax-error" role="alert">{filterSyntaxError}</div>
+						{/if}
+						{#if barSuggestionsVisible}
 						<FilterSuggestionList
 							suggestions={barSuggestions}
 							selectedIndex={barSuggestionIndex}
@@ -1463,6 +1481,7 @@
 					{#if filterEditorExpanded}
 						<FilterEditor
 							query={draftQuery}
+							draftText={filterQueryText}
 							dateKeys={dateFilterKeys}
 							tagSuggestionItems={availableTags}
 							fileSuggestionItems={taskFilePaths}
@@ -1470,6 +1489,7 @@
 							savedListExpanded={savedFilterListExpanded}
 							onChange={applyEditorQuery}
 							onSearch={searchFromEditor}
+							onInvalidSearch={(message) => (filterSyntaxError = message)}
 							onClear={clearFilter}
 							onApplySavedFilter={applySavedFilter}
 							onDeleteSavedFilter={(entry) => (savedFilterPendingDelete = entry)}
