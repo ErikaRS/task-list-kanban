@@ -198,7 +198,7 @@ describe("property suggestions", () => {
 
 	function suggest(marked: string) {
 		const caret = marked.indexOf("|");
-		return getFilterSuggestions(marked.replace("|", ""), caret, context);
+		return getFilterSuggestions(marked.slice(0, caret) + marked.slice(caret + 1), caret, context);
 	}
 
 	it("collects non-date keys and their values", () => {
