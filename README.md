@@ -259,6 +259,7 @@ The search bar above the board filters tasks with a single query. A query is a s
 | `tag:x` or `tag:x,y` | task has the tag; a comma list matches **any** listed tag | `tag:home,errand` |
 | `file:x` or `file:x,y` | file path contains **any** listed entry (case-insensitive) | `file:projects` |
 | `due:<$TODAY` | date property compared to a date | `due:<=2026-07-04` |
+| `key::value` | a task property equals a value; `key::a,b` matches **any** listed value, `key::*` matches any value, and `key::<=3` compares numbers or priorities | `project::website`, `priority::>=high` |
 
 Details:
 
@@ -268,9 +269,10 @@ Details:
 - Repeated `tag:` tokens AND together, so `tag:home tag:errand` requires both tags, while `tag:home,errand` matches either. Repeated `file:` tokens merge into one "any of" list.
 - Quote values containing spaces: `file:"weekly notes"`.
 - Date tokens use a date-typed property key from the active property schema (such as `due`, `scheduled`, `start`, `done`, `created`) with an operator (`<`, `<=`, `=`, `>=`, `>`) and either a `YYYY-MM-DD` date or `$TODAY`, which re-evaluates at midnight. Tasks without the referenced property are never hidden by a date token.
-- A token that doesn't parse as a filter (an unknown prefix like `note:` or a bad date value) is treated as plain content text.
+- Property tokens use a double colon and work with any property the active schema parses: `priority`, `status` (the checkbox marker, with `status::todo` for a space), and any Dataview inline field such as `[project:: website]`. Values match whole and ignore case (`project::web` does not match `website`). Priorities compare as highest > high > medium > none > low > lowest, and a task without a priority counts as `none`. Negate with `-`, as in `-owner::*` for tasks with no owner. Property tokens read only the task's own line, not nested subtasks. Date properties support only `due::*`; compare dates with `due:<…`.
+- A token that doesn't parse as a filter (an unknown single-colon prefix like `note:` or a bad date value) is treated as plain content text.
 
-Filtering applies when you press Enter. Invalid boolean syntax shows an error only then and keeps the last applied filter; the draft stays available to correct. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, and query-only saved view names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
+Filtering applies when you press Enter. Invalid boolean syntax shows an error only then and keeps the last applied filter; the draft stays available to correct. As you type, suggestions appear for the token under the caret — tag names, file paths, date keys and operators, property keys and their values, and query-only saved view names. The sliders icon expands a structured editor under the bar; it and the bar are two views of the same query, so edits in either stay in sync. Filters persist per board.
 
 **Saved views** live in the expanded view controls. A saved view can capture the
 current filter, sort, grouping, flow direction, and card width. Save one with

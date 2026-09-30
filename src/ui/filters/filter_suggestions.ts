@@ -1,5 +1,7 @@
 import { DATE_FILTER_OPERATORS, TODAY_FILTER_VALUE } from "./date_filter";
 import { TEXT_BY_OPERATOR } from "./filter_query";
+import { normalizePropertyKey } from "../../parsing/properties/normalization";
+import type { PropertyKeyMeta, TaskPropertyMap } from "../../parsing/properties/property_schema";
 
 /**
  * Typed text suggestions for the unified filter bar (SPEC 0029, Phase 3).
@@ -17,11 +19,63 @@ export interface FilterSuggestionContext {
 	filePaths: readonly string[];
 	// Date-typed keys of the active property schema.
 	dateKeys: readonly { key: string; label: string }[];
+	// Non-date property keys for `key::` terms (SPEC 0047), and the values
+	// seen for each, keyed by lowercase canonical key.
+	propertyKeys?: readonly { key: string; label: string }[];
+	propertyValues?: ReadonlyMap<string, readonly string[]>;
 	// Unified saved-filter names (wired in Phase 4; empty until then).
 	savedFilterNames: readonly string[];
 }
 
-export type FilterSuggestionKind = "prefix" | "tag" | "file" | "date" | "saved";
+export type FilterSuggestionKind = "prefix" | "tag" | "file" | "date" | "saved" | "property";
+
+const PRIORITY_VALUE_SUGGESTIONS = ["highest", "high", "medium", "none", "low", "lowest"];
+const MAX_PROPERTY_VALUES = 50;
+
+/** Lowercase canonical form used to look up a key's suggested values. */
+export function propertySuggestionKey(key: string): string {
+	return normalizePropertyKey(key.toLowerCase());
+}
+
+/**
+ * Property keys and values for `key::` suggestions: the schema's non-date
+ * keys plus every non-date key found on the board's tasks, with the
+ * distinct values seen for each. Priority always offers its fixed names and
+ * status offers `todo` for the space marker.
+ */
+export function collectPropertySuggestions(
+	tasks: readonly { properties: TaskPropertyMap }[],
+	knownKeys: readonly PropertyKeyMeta[],
+): { keys: { key: string; label: string }[]; values: Map<string, string[]> } {
+	const dateKeys = new Set(knownKeys.filter((meta) => meta.type === "date").map((meta) => propertySuggestionKey(meta.key)));
+	const keys = new Map<string, { key: string; label: string }>();
+	for (const meta of knownKeys) {
+		if (meta.type !== "date") keys.set(propertySuggestionKey(meta.key), { key: meta.key, label: meta.label });
+	}
+	const values = new Map<string, Set<string>>();
+	for (const task of tasks) {
+		for (const [key, property] of task.properties) {
+			const canonical = propertySuggestionKey(key);
+			if (dateKeys.has(canonical) || property.value instanceof Date) continue;
+			if (!keys.has(canonical)) keys.set(canonical, { key, label: key });
+			if (property.value === null) continue;
+			const text = canonical === "status" && property.value === " " ? "todo" : String(property.value).trim();
+			if (text === "") continue;
+			const seen = values.get(canonical) ?? new Set<string>();
+			if (seen.size < MAX_PROPERTY_VALUES) seen.add(text);
+			values.set(canonical, seen);
+		}
+	}
+	const result = new Map<string, string[]>();
+	for (const [key, seen] of values) {
+		result.set(key, [...seen].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+	}
+	if (keys.has("priority")) result.set("priority", PRIORITY_VALUE_SUGGESTIONS);
+	return {
+		keys: [...keys.values()].sort((a, b) => a.key.localeCompare(b.key)),
+		values: result,
+	};
+}
 
 export interface FilterSuggestion {
 	kind: FilterSuggestionKind;
@@ -149,7 +203,7 @@ function listEntrySuggestions(
 	listEnd: number,
 	caret: number,
 	items: readonly string[],
-	kind: "tag" | "file",
+	kind: "tag" | "file" | "property",
 	quoteWhitespace: boolean,
 ): FilterSuggestion[] {
 	const value = text.slice(listStart, listEnd);
@@ -189,7 +243,7 @@ export function getListSuggestions(
 	value: string,
 	caret: number,
 	items: readonly string[],
-	kind: "tag" | "file",
+	kind: "tag" | "file" | "property",
 ): FilterSuggestion[] {
 	return listEntrySuggestions(value, 0, value.length, caret, items, kind, false);
 }
@@ -207,6 +261,10 @@ function prefixSuggestions(
 		...(includeDates ? context.dateKeys : []).map((key) => ({
 			insert: `${key.key}:`,
 			detail: `filter by ${key.label} date`,
+		})),
+		...(context.propertyKeys ?? []).map((key) => ({
+			insert: `${key.key}::`,
+			detail: `filter by ${key.label}`,
 		})),
 	];
 	const ranked = rankMatches(
@@ -256,6 +314,32 @@ export function getFilterSuggestions(
 
 	if (token.startsWith('"')) {
 		return [];
+	}
+
+	// `key::value` property token (SPEC 0047).
+	const propertyMatch = /^([A-Za-z0-9_-]+)::/.exec(token);
+	if (propertyMatch) {
+		const key = propertyMatch[1]!;
+		if (caret <= span.start + key.length) {
+			return withSign(prefixSuggestions(
+				text.slice(span.start, caret),
+				span.start,
+				span.start + propertyMatch[0].length,
+				context,
+				!negated,
+			));
+		}
+		const valueStart = span.start + propertyMatch[0].length;
+		if (/^[<>=*]/.test(text.slice(valueStart, span.end))) return [];
+		return listEntrySuggestions(
+			text,
+			valueStart,
+			span.end,
+			caret,
+			context.propertyValues?.get(propertySuggestionKey(key)) ?? [],
+			"property",
+			true,
+		);
 	}
 
 	// Mirrors the parser's prefix rule: a colon in the first (unquoted)

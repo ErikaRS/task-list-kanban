@@ -1,5 +1,6 @@
-import { parseDateOnly } from "../../parsing/properties/value_parsers";
-import type { TaskPropertyMap } from "../../parsing/properties/property_schema";
+import { parseDateOnly, parseNumber } from "../../parsing/properties/value_parsers";
+import type { TaskProperty, TaskPropertyMap } from "../../parsing/properties/property_schema";
+import { normalizePropertyKey } from "../../parsing/properties/normalization";
 import { getTagsFromContent } from "../../parsing/tags/tags";
 import {
 	flattenSourceBlockNodes,
@@ -33,7 +34,14 @@ export interface FilterQuery {
 
 export type FilterAtom =
 	| { kind: "content" | "tag" | "file"; value: string; negative: boolean }
-	| { kind: "date"; condition: DateFilterCondition; negative: false };
+	| { kind: "date"; condition: DateFilterCondition; negative: false }
+	| { kind: "property"; key: string; match: PropertyMatch; negative: boolean };
+
+/** How a `key::…` atom (SPEC 0047) tests a task property. */
+export type PropertyMatch =
+	| { type: "present" }
+	| { type: "any-of"; values: string[] }
+	| { type: "compare"; operator: DateFilterOperator; value: string };
 
 export interface FilterClause {
 	atoms: FilterAtom[];
@@ -258,9 +266,90 @@ function groupHasOr(tokens: string[], start: number): boolean {
 	return false;
 }
 
+// `key::` at the start of a token, optionally inside an OR group or negated.
+const PROPERTY_TOKEN_REGEX = /^\(?-?[A-Za-z0-9_-]+::/;
+
 function hasBooleanSyntax(tokens: string[]): boolean {
 	return tokens.some((token, index) => token.startsWith("-")
-		|| (token.startsWith("(") && groupHasOr(tokens, index)));
+		|| (token.startsWith("(") && groupHasOr(tokens, index))
+		|| PROPERTY_TOKEN_REGEX.test(token));
+}
+
+const PRIORITY_RANKS: ReadonlyMap<string, number> = new Map([
+	["highest", 5],
+	["high", 4],
+	["medium", 3],
+	// The Tasks plugin's "normal": what a task without a priority has.
+	["none", 2.5],
+	["low", 2],
+	["lowest", 1],
+]);
+
+const STATUS_VALUE_ALIASES: Record<string, string> = { todo: " " };
+
+/**
+ * Parses a `key::value-spec` token (SPEC 0047), without any leading `-`.
+ * Returns null when the text is not shaped like a property token, so the
+ * caller falls back to the other atom kinds.
+ */
+function parsePropertyToken(
+	text: string,
+	dateKeys: string[],
+): { atom?: Omit<Extract<FilterAtom, { kind: "property" }>, "negative">; error?: string } | null {
+	const segments = tokenize(text)[0];
+	const first = segments?.[0];
+	if (!segments || !first || first.quoted) return null;
+	const keyMatch = /^([A-Za-z0-9_-]+)::/.exec(first.text);
+	if (!keyMatch) return null;
+	const key = keyMatch[1]!;
+	const pieces: TokenSegment[] = [
+		{ text: first.text.slice(keyMatch[0].length), quoted: false },
+		...segments.slice(1),
+	].filter((piece) => piece.text !== "" || piece.quoted);
+	const lowerKey = key.toLowerCase();
+	const isDateKey = dateKeys.some((dateKey) => dateKey.toLowerCase() === lowerKey);
+
+	if (pieces.length === 0) return { error: `Add a value after ${key}::.` };
+
+	const head = pieces[0]!;
+	if (pieces.length === 1 && !head.quoted && head.text === "*") {
+		return { atom: { kind: "property", key, match: { type: "present" } } };
+	}
+	if (isDateKey) {
+		return { error: `${key}:: only checks whether the date exists (${key}::*). Compare dates with ${key}:=, ${key}:< or ${key}:>.` };
+	}
+
+	const operatorEntry = head.quoted
+		? undefined
+		: OPERATORS_BY_TEXT.find(([op]) => head.text.startsWith(op));
+	if (operatorEntry) {
+		const value = head.text.slice(operatorEntry[0].length) + segmentsText(pieces.slice(1));
+		if (value === "") return { error: `Add a value to compare ${key} with.` };
+		if (lowerKey === "status") return { error: "Status can't be compared. Use status::x to match a marker." };
+		if (lowerKey === "priority") {
+			if (!PRIORITY_RANKS.has(value.toLowerCase())) {
+				return { error: "Compare priority with highest, high, medium, none, low or lowest." };
+			}
+		} else if (parseNumber(value) === null) {
+			return { error: `Only numbers can be compared. ${key}::${operatorEntry[0]}${value} is not a number.` };
+		}
+		return { atom: { kind: "property", key, match: { type: "compare", operator: operatorEntry[1], value } } };
+	}
+
+	// Commas outside quotes separate "any of" values; empty entries drop.
+	const values: string[] = [""];
+	for (const piece of pieces) {
+		if (piece.quoted) {
+			values[values.length - 1] += piece.text;
+			continue;
+		}
+		const parts = piece.text.split(",");
+		values[values.length - 1] += parts[0]!;
+		values.push(...parts.slice(1));
+	}
+	const nonEmpty = values.filter((value) => value !== "");
+	if (nonEmpty.length === 0) return { error: `Add a value after ${key}::.` };
+	return { atom: { kind: "property", key, match: { type: "any-of", values: nonEmpty } } };
 }
 
 function parseSignedAtom(raw: string, dateKeys: string[]): { atoms?: FilterAtom[]; error?: string } {
@@ -268,6 +357,15 @@ function parseSignedAtom(raw: string, dateKeys: string[]): { atoms?: FilterAtom[
 	const text = negative ? raw.slice(1) : raw;
 	if (!text) return { error: "Add a term after -." };
 	if (text.startsWith("(") && negative) return { error: "- can only exclude one term, not a group." };
+	const property = parsePropertyToken(text, dateKeys);
+	if (property) {
+		if (property.error) return { error: property.error };
+		const atom = property.atom!;
+		if (negative && atom.match.type === "any-of" && atom.match.values.length > 1) {
+			return { error: "Exclude property values individually; - cannot apply to a comma list." };
+		}
+		return { atoms: [{ ...atom, negative }] };
+	}
 	const parsed = parseLegacyFilterQuery(text, dateKeys);
 	if (parsed.tagGroups.length > 0) {
 		const tags = parsed.tagGroups[0]!;
@@ -355,9 +453,13 @@ export function parseFilterQuery(text: string, dateKeys: string[]): FilterQuery 
 /** Adapt existing flat queries to the clause editor without changing their semantics. */
 export function filterQueryClauses(query: FilterQuery): FilterClause[] {
 	if (query.clauses) return query.clauses.map((clause) => ({
-		atoms: clause.atoms.map((atom) => atom.kind === "date"
-			? { ...atom, condition: { ...atom.condition } }
-			: { ...atom }),
+		atoms: clause.atoms.map((atom): FilterAtom => {
+			if (atom.kind === "date") return { ...atom, condition: { ...atom.condition } };
+			if (atom.kind === "property") {
+				return { ...atom, match: atom.match.type === "any-of" ? { ...atom.match, values: [...atom.match.values] } : { ...atom.match } };
+			}
+			return { ...atom };
+		}),
 		explicit: clause.explicit,
 	}));
 	const clauses: FilterClause[] = [
@@ -382,6 +484,21 @@ function serializeContentTerm(term: string): string {
 
 function serializeFileEntry(path: string): string {
 	return /\s/.test(path) ? `"${path}"` : path;
+}
+
+function serializePropertyValue(value: string): string {
+	return /[\s,]/.test(value) || /^[<>=]/.test(value) || value === "*" || value.startsWith("(") || value.endsWith(")")
+		? `"${value}"`
+		: value;
+}
+
+/** The part of a property atom after `key::`. */
+export function serializePropertyMatch(match: PropertyMatch): string {
+	switch (match.type) {
+		case "present": return "*";
+		case "any-of": return match.values.map(serializePropertyValue).join(",");
+		case "compare": return `${TEXT_BY_OPERATOR[match.operator]}${serializePropertyValue(match.value)}`;
+	}
 }
 
 /**
@@ -414,6 +531,7 @@ export function serializeFilterQuery(query: FilterQuery): string {
 					case "tag": text = `tag:${atom.value}`; break;
 					case "file": text = `file:${serializeFileEntry(atom.value)}`; break;
 					case "date": text = `${atom.condition.property}:${TEXT_BY_OPERATOR[atom.condition.operator]}${atom.condition.value}`; break;
+					case "property": text = `${atom.key}::${serializePropertyMatch(atom.match)}`; break;
 				}
 				return atom.negative ? `-${text}` : text;
 			});
@@ -483,6 +601,7 @@ export function taskMatchesFilterQuery(
 					break;
 				case "file": matches = task.path.toLowerCase().includes(atom.value.toLowerCase()); break;
 				case "date": matches = taskMatchesDateConditions(task, [atom.condition], today); break;
+				case "property": matches = taskMatchesPropertyAtom(task.properties, atom.key, atom.match); break;
 			}
 			return atom.negative ? !matches : matches;
 		}));
@@ -525,4 +644,78 @@ export function taskMatchesFilterQuery(
 	}
 
 	return taskMatchesDateConditions(task, query.dateConditions, today);
+}
+
+function findProperty(properties: TaskPropertyMap, key: string): TaskProperty | undefined {
+	const wanted = normalizePropertyKey(key.toLowerCase());
+	for (const [propertyKey, property] of properties) {
+		if (normalizePropertyKey(propertyKey.toLowerCase()) === wanted) return property;
+	}
+	return undefined;
+}
+
+function propertyText(value: TaskProperty["value"]): string {
+	if (value === null) return "";
+	if (value instanceof Date) return value.toISOString().slice(0, 10);
+	return String(value).trim();
+}
+
+// Tasks-plugin priorities are stored as weights, Dataview ones as text. A
+// task with no priority ranks as "none", as in the Tasks plugin.
+function priorityRank(property: TaskProperty | undefined): number | null {
+	if (!property || property.value === null) return PRIORITY_RANKS.get("none")!;
+	if (typeof property.value === "number") return property.value;
+	return PRIORITY_RANKS.get(propertyText(property.value).toLowerCase()) ?? null;
+}
+
+function compareValues(actual: number, operator: DateFilterOperator, expected: number): boolean {
+	switch (operator) {
+		case "before": return actual < expected;
+		case "on-or-before": return actual <= expected;
+		case "on": return actual === expected;
+		case "on-or-after": return actual >= expected;
+		case "after": return actual > expected;
+	}
+}
+
+function propertyEquals(key: string, property: TaskProperty | undefined, value: string): boolean {
+	if (key === "priority") {
+		const rank = PRIORITY_RANKS.get(value.toLowerCase());
+		if (rank !== undefined) return priorityRank(property) === rank;
+	}
+	if (!property || property.value === null) return false;
+	if (key === "status") return property.value === (STATUS_VALUE_ALIASES[value.toLowerCase()] ?? value);
+	if (typeof property.value === "number") return property.value === parseNumber(value);
+	return propertyText(property.value).toLowerCase() === value.toLowerCase();
+}
+
+/**
+ * Evaluates one `key::…` atom against a task's own properties (SPEC 0047).
+ * Keys match case-insensitively and through the schema's aliases. A value
+ * or comparison atom is false when the property is missing, except that a
+ * missing priority counts as "none".
+ */
+export function taskMatchesPropertyAtom(
+	properties: TaskPropertyMap,
+	key: string,
+	match: PropertyMatch,
+): boolean {
+	const property = findProperty(properties, key);
+	const canonicalKey = normalizePropertyKey(key.toLowerCase());
+	switch (match.type) {
+		case "present":
+			return !!property && propertyText(property.value) !== "";
+		case "any-of":
+			return match.values.some((value) => propertyEquals(canonicalKey, property, value));
+		case "compare": {
+			if (canonicalKey === "priority") {
+				const actual = priorityRank(property);
+				const expected = PRIORITY_RANKS.get(match.value.toLowerCase());
+				return actual !== null && expected !== undefined && compareValues(actual, match.operator, expected);
+			}
+			const expected = parseNumber(match.value);
+			return typeof property?.value === "number" && expected !== null
+				&& compareValues(property.value, match.operator, expected);
+		}
+	}
 }
