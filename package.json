@@ -1,6 +1,6 @@
 {
 	"name": "task-list-kanban",
-	"version": "2.20.1",
+	"version": "2.21.0",
 	"description": "Kanban plugin to create task lists",
 	"main": "main.js",
 	"scripts": {
