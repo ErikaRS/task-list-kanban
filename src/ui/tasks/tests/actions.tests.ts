@@ -6,7 +6,7 @@ import { DataviewSchema } from "../../../parsing/properties/dataview_schema";
 import { NoneSchema } from "../../../parsing/properties/none_schema";
 import { TasksPluginSchema } from "../../../parsing/properties/tasks_schema";
 import { createColumnData, type ColumnDefinition, type ColumnTag } from "../../columns/columns";
-import { createTaskActions } from "../actions";
+import { createTaskActions, type TaskActions } from "../actions";
 import { updateMapsFromFile, type Metadata } from "../tasks";
 import {
 	DEFAULT_CANCELLED_STATUS_MARKERS,
@@ -15,7 +15,7 @@ import {
 	type Task,
 } from "../task";
 import { createTaskLine } from "../task_creation";
-import { parseTask } from "./task_test_helpers";
+import { createNameModeColumns, createPriorityModeColumns, parseTask } from "./task_test_helpers";
 
 import { TFile } from "obsidian";
 import { showFilePickerMenu } from "../../components/file_picker_menu";
@@ -246,6 +246,160 @@ describe("task actions", () => {
 			await actions.changeColumn(taskId, "next" as ColumnTag);
 
 			expect(contents()).toBe("- [ ] Send invoice #next");
+		});
+	});
+
+	describe("keeping the column tag on completion", () => {
+		const columns = [
+			...createNameModeColumns(["Todo", "Doing"]),
+			...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
+		];
+
+		function setupColumnActions(
+			line: string,
+			options: {
+				keepColumnTagOnCompletion?: boolean;
+				statusMarkerOrder?: string;
+				replaceArchiveTagWithStatus?: boolean;
+				archiveStatusMarkers?: string;
+			} = {},
+		) {
+			const fileHandle = { path: "tasks.md" };
+			const task = parseTask(line, {
+				columns,
+				propertySchema: new TasksPluginSchema(),
+				replaceArchiveTagWithStatus: options.replaceArchiveTagWithStatus,
+				archiveStatusMarkers: options.archiveStatusMarkers,
+			});
+			const { actions, contents } = setupActions(
+				line,
+				PropertySchemaOption.TasksPlugin,
+				new Map([[task.id, task]]),
+				new Map([[task.id, { fileHandle, rowIndex: 0 }]]),
+				fileHandle,
+				columns,
+				options,
+			);
+			return { actions, taskId: task.id, contents };
+		}
+
+		it.each([
+			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
+			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
+			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
+		])("removes the column tag by default via %s", async (_name, complete) => {
+			const { actions, taskId, contents } = setupColumnActions("- [ ] Write #doing ^abc");
+
+			await complete(actions, taskId);
+
+			expect(contents()).toBe("- [x] Write ✅ 2026-06-15 ^abc");
+		});
+
+		it.each([
+			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
+			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
+			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
+		])("keeps the column tag when the setting is on via %s", async (_name, complete) => {
+			const { actions, taskId, contents } = setupColumnActions("- [ ] Write #doing ^abc", {
+				keepColumnTagOnCompletion: true,
+			});
+
+			await complete(actions, taskId);
+
+			expect(contents()).toBe("- [x] Write #doing ✅ 2026-06-15 ^abc");
+		});
+
+		it.each([
+			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
+			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
+			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
+			["archiveTasks", (actions: TaskActions, id: string) => actions.archiveTasks([id])],
+		])("keeps the priority of a priority-column task via %s", async (_name, complete) => {
+			const { actions, taskId, contents } = setupColumnActions("- [ ] Write ⏫");
+
+			await complete(actions, taskId);
+
+			expect(contents()).toContain("⏫");
+		});
+
+		it("does not rebuild the line when the checkbox completes a task", async () => {
+			const { actions, taskId, contents } = setupColumnActions("  * [ ] Write  #note #doing ^abc", {
+				keepColumnTagOnCompletion: true,
+			});
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("  * [x] Write  #note #doing ✅ 2026-06-15 ^abc");
+		});
+
+		it("advances through the status order with only a marker change", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [ ] Write  #doing", { statusMarkerOrder: " /x" });
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [/] Write  #doing");
+		});
+
+		it("returns an unchecked task to its kept column", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [x] Write #doing ✅ 2026-06-01");
+
+			await actions.toggleDone(taskId);
+
+			expect(contents()).toBe("- [ ] Write #doing ✅ 2026-06-01");
+		});
+
+		it("moves a done task out of Done by the normal rules for its kept tag's column", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [x] Write #todo");
+
+			await actions.changeColumn(taskId, "doing" as ColumnTag);
+
+			expect(contents()).toBe("- [ ] Write #doing");
+		});
+
+		it("removes the column tag on archive by default", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [ ] Write #doing");
+
+			await actions.archiveTasks([taskId]);
+
+			expect(contents()).toBe("- [x] Write #archived");
+		});
+
+		it("keeps the column tag on archive when the setting is on", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [x] Write #doing", { keepColumnTagOnCompletion: true });
+
+			await actions.archiveTasks([taskId]);
+
+			expect(contents()).toBe("- [x] Write #doing #archived");
+		});
+
+		it("keeps the column tag when archiving by status with the setting on", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [ ] Write #doing", {
+				keepColumnTagOnCompletion: true,
+				replaceArchiveTagWithStatus: true,
+				archiveStatusMarkers: "d",
+			});
+
+			await actions.archiveTasks([taskId]);
+
+			expect(contents()).toBe("- [d] Write #doing");
+		});
+
+		it("cancels and restores with only a marker change", async () => {
+			const cancelled = setupColumnActions("- [ ] Write  #doing");
+			await cancelled.actions.cancelTasks([cancelled.taskId]);
+			expect(cancelled.contents()).toBe("- [-] Write  #doing");
+
+			const restored = setupColumnActions("- [-] Write  #doing");
+			await restored.actions.restoreTasks([restored.taskId]);
+			expect(restored.contents()).toBe("- [ ] Write  #doing");
+		});
+
+		it("keeps a done task's tags when editing its text", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [x] Write #doing");
+
+			await actions.updateContent(taskId, "Rewrite #doing");
+
+			expect(contents()).toBe("- [x] Rewrite #doing");
 		});
 	});
 
@@ -1050,6 +1204,7 @@ function setupActions(
 	columnDefinitions: ColumnDefinition[] = [],
 	options: {
 		statusMarkerOrder?: string;
+		keepColumnTagOnCompletion?: boolean;
 		prepareFileContentsForWrite?: Parameters<typeof createTaskActions>[0]["prepareFileContentsForWrite"];
 	} = {},
 ) {
@@ -1075,6 +1230,7 @@ function setupActions(
 		setLastUsedTaskFile: () => undefined,
 		getPropertySchemaOption: () => propertySchemaOption,
 		getStatusMarkerOrder: () => options.statusMarkerOrder ?? "",
+		getKeepColumnTagOnCompletion: () => options.keepColumnTagOnCompletion ?? false,
 		getCurrentDate: () => new Date(2026, 5, 15, 12),
 		getManualOrder: () => ({}),
 		setManualOrder: () => undefined,

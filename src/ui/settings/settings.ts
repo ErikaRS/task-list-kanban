@@ -635,6 +635,18 @@ export class SettingsModal extends Modal {
 		const addButton = controls.createEl("button", { text: "Add column" });
 		addButton.addEventListener("click", () => this.addColumn());
 
+		new Setting(section)
+			.setName("Keep column tag when completing")
+			.setDesc("Leave a task's column tag in place when it is completed or archived. Status-based columns cannot be kept, because completing a task changes its status.")
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.keepColumnTagOnCompletion ?? false);
+				toggle.onChange((value) => {
+					this.settings.keepColumnTagOnCompletion = value;
+					this.touchSettings();
+				});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["keepColumnTagOnCompletion"]));
+
 		if (this.focusTagEditorColumnId) {
 			const targetColumnId = this.focusTagEditorColumnId;
 			this.focusTagEditorColumnId = null;
@@ -1438,6 +1450,7 @@ export class SettingsModal extends Modal {
 				"uncategorizedVisibility",
 				"doneColumnName",
 				"doneVisibility",
+				"keepColumnTagOnCompletion",
 			],
 		);
 		const taskPropertiesSection = createSection(

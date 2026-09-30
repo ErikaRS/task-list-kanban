@@ -6,6 +6,8 @@ import { FlowDirection, VisibilityOption, type SettingValues, defaultSettings } 
 import { DEFAULT_GROUP_BUCKET_ID } from "../../tasks/task_grouping";
 import { ColumnOrderMode } from "../../../parsing/properties/comparators";
 import { UNIVERSAL_STATUS_PROPERTY_KEY } from "../../../parsing/properties/property_schema";
+import { isTrackedTaskString } from "../../tasks/task";
+import { createNameModeColumns, parseTask } from "../../tasks/tests/task_test_helpers";
 
 function taskWithProperty(
 	overrides: Partial<Task> & { path: string; rowIndex: number },
@@ -19,6 +21,21 @@ function taskWithProperty(
 }
 
 describe("deriveBoardMatrix", () => {
+	it("puts a done task in Done even when it keeps a column tag", () => {
+		const columns = createNameModeColumns(["Doing"]);
+		const task = parseTask("- [x] Shipped #doing", { columns });
+
+		const matrix = deriveBoardMatrix([task], columns, defaultSettings);
+
+		expect(matrix.cells["done"]![DEFAULT_GROUP_BUCKET_ID]!.tasks).toEqual([task]);
+		expect(matrix.cells["doing"]![DEFAULT_GROUP_BUCKET_ID]!.tasks).toEqual([]);
+	});
+
+	it("never tracks an archived task that keeps a column tag", () => {
+		expect(isTrackedTaskString("- [x] Shipped #doing #archived")).toBe(false);
+		expect(isTrackedTaskString("- [d] Shipped #doing", "", true, "d")).toBe(false);
+	});
+
 	it("derives empty matrix correctly", () => {
 		const settings: SettingValues = {
 			...defaultSettings,

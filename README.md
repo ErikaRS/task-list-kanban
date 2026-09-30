@@ -118,6 +118,8 @@ Column display options:
 - **Width**: set all columns between 200px and 600px.
 - **Visibility**: show **Uncategorized** and **Done** always, never, or only when non-empty.
 
+**Keep column tag when completing**, below **Add column**: leave a task's column tag in place when it is completed or archived, for example `- [x] Write report #doing`. Done and Archived still take priority over the tag, so the task shows in Done or stays hidden. Unchecking the task returns it to that column, and dragging it to another column swaps the tag as usual. Status-based columns cannot be kept, because completing a task changes its status. Off by default.
+
 ### Tag Display
 
 Enable **Consolidate tags** in settings to move non-column tags to the card footer.
@@ -227,7 +229,7 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 - **Complete / Cycle Status**: in **Done** mode, click the task checkbox to mark a task done and move it to **Done**. If a status cycle sequence is configured, clicking the checkbox will instead advance the task status through the specified sequence.
 - **Advance**: choose **Advance** from the card action mode selector beside the total task count above the board, then click a card's arrow to move it to the next configured column. The workflow runs from **Uncategorized** through custom columns to **Done**, then **Archived**, regardless of the board's visual direction or hidden columns.
 - **Cancel or restore**: use the task menu to switch between cancelled and active.
-- **Archive**: archive tasks from the task menu or bulk menu. By default this marks open tasks done and adds the `#archived` tag. Boards configured to replace the tag with an archive status write their first archive marker instead.
+- **Archive**: archive tasks from the task menu or bulk menu. By default this marks open tasks done and adds the `#archived` tag. Boards configured to replace the tag with an archive status write their first archive marker instead. Completing or archiving a task never removes its priority.
 - **Duplicate**: duplicate a task directly below the original source line.
 - **Open source file**: click the file path or arrow icon on a card.
 - **Open matching source files**: use **Open files** beside the filter bar to

@@ -72,6 +72,7 @@ export const BOARD_DEFAULT_SETTING_KEYS = [
 	"doneStatusMarkers",
 	"cancelledStatusMarkers",
 	"ignoredStatusMarkers",
+	"keepColumnTagOnCompletion",
 	"statusMarkerOrder",
 	"propertySchema",
 	"treatNestedTasksAsSubtasks",

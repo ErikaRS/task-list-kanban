@@ -160,6 +160,7 @@ export function createTasksStore(
 		},
 		getPropertySchemaOption: () => get(settingsStore).propertySchema ?? PropertySchemaOption.None,
 		getStatusMarkerOrder: () => get(settingsStore).statusMarkerOrder ?? "",
+		getKeepColumnTagOnCompletion: () => get(settingsStore).keepColumnTagOnCompletion ?? false,
 		getManualOrder: () => get(settingsStore).manualOrder ?? {},
 		setManualOrder: (next) => {
 			// Lightweight settings mutation: unlike the settings modal, this must not

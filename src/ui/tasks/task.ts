@@ -7,9 +7,6 @@ import type {
 } from "../columns/columns";
 import { getTagsFromContent, isValidTag } from "src/parsing/tags/tags";
 import {
-	getColumnPriority,
-	getColumnPrioritySchema,
-	getColumnStatus,
 	isPlacementTag,
 	type PriorityColumnSchema,
 	resolveMatchedColumnDefinition,
@@ -17,7 +14,6 @@ import {
 	usesStatusMatching,
 } from "../columns/definitions";
 import { PropertySchemaOption, type PropertySchema, type TaskPropertyMap } from "../../parsing/properties/property_schema";
-import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
 import { getSchemaImpl } from "../../parsing/properties";
 import { getOrderedStatusMarkers } from "../../parsing/properties/comparators";
@@ -218,7 +214,7 @@ export function createCancelledStatusMarkers(markers: string): CancelledStatusMa
  * Common helper to check if a checkbox status matches any of the provided markers.
  * Properly handles multi-codepoint Unicode characters using Array.from.
  */
-function isStatusMatch(statusContent: string | undefined, markers: string): boolean {
+export function isStatusMatch(statusContent: string | undefined, markers: string): boolean {
 	if (!statusContent || !markers) return false;
 
 	// Convert to arrays of Unicode code points to handle multi-codepoint chars
@@ -242,7 +238,6 @@ function isStatusMatch(statusContent: string | undefined, markers: string): bool
 
 export interface TaskParseContext {
 	columnDefinitions: ColumnDefinition[];
-	columnWriteDefinitions?: ColumnDefinition[];
 	columnPlacementTagTable: ColumnPlacementTagTable;
 	consolidateTags: boolean;
 	doneStatusMarkers: string;
@@ -311,7 +306,6 @@ export class Task {
 		this._id = createTaskId(content + fileHandle.path + rowIndex);
 		this.content = content;
 		this._displayStatus = status || " ";
-		this._done = isStatusMatch(this._displayStatus, context.doneStatusMarkers);
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
 		this.properties = context.propertySchema.parseProperties(rawContent);
@@ -329,7 +323,21 @@ export class Task {
 			priorities: priorityMatches,
 		});
 
+		this._done = isStatusMatch(this._displayStatus, context.doneStatusMarkers);
+		this.taggedColumn = matchedColumn && Array.from(tags).some((tag) => isPlacementTag(matchedColumn, tag))
+			? matchedColumn.id
+			: undefined;
+
 		for (const tag of tags) {
+			// A done task's column tags are ordinary tags: Done takes priority, and
+			// rewriting the task (e.g. editing its text) must keep every tag.
+			if (this._done) {
+				if (context.consolidateTags) {
+					this.content = this.stripTagFromContent(this.content, tag);
+				}
+				continue;
+			}
+
 			if (tag === "done") {
 				if (!this._column) {
 					this._column = "done";
@@ -365,8 +373,7 @@ export class Task {
 		this._tags = tags;
 		this.blockLink = blockLink;
 		this.consolidateTags = context.consolidateTags;
-		this.sourceColumnDefinitions = context.columnDefinitions;
-		this.columnDefinitions = context.columnWriteDefinitions ?? context.columnDefinitions;
+		this.columnDefinitions = context.columnDefinitions;
 		this.columnPlacementTagTable = context.columnPlacementTagTable;
 		this.doneStatusMarkers = context.doneStatusMarkers;
 		this.cancelledStatusMarkers = context.cancelledStatusMarkers;
@@ -386,7 +393,6 @@ export class Task {
 
 	content: string;
 	private consolidateTags: boolean;
-	private sourceColumnDefinitions: ColumnDefinition[];
 	private columnDefinitions: ColumnDefinition[];
 	private columnPlacementTagTable: ColumnPlacementTagTable;
 	private doneStatusMarkers: string;
@@ -403,35 +409,23 @@ export class Task {
 	get doneStatusMarker(): string {
 		return Array.from(this.doneStatusMarkers)[0] ?? "x";
 	}
-	set done(done: true) {
-		this._done = done;
-		this._column = undefined;
-		this._displayStatus = Array.from(this.doneStatusMarkers)[0] ?? "x";
+	/**
+	 * First archive status marker when the board archives by status instead
+	 * of the `#archived` tag.
+	 */
+	get archiveStatusMarker(): string | undefined {
+		return this.replaceArchiveTagWithStatus
+			? Array.from(this.archiveStatusMarkers)[0] ?? this.doneStatusMarker
+			: undefined;
 	}
 
 	get isCancelled(): boolean {
 		return isStatusMatch(this._displayStatus, this.cancelledStatusMarkers);
 	}
 
-	undone() {
-		this._done = false;
-		this._displayStatus = " ";
-	}
-
-	cycleStatus(statusMarkerOrder: string): boolean {
-		const next = getNextStatusMarker(
-			this._displayStatus,
-			this.doneStatusMarkers,
-			statusMarkerOrder,
-		);
-		if (next.done) {
-			this.done = true;
-			return true;
-		}
-
-		this._done = false;
-		this._displayStatus = next.status;
-		return false;
+	/** The status the board's checkbox advances this task to. */
+	nextStatus(statusMarkerOrder: string): { status: string; done: boolean } {
+		return getNextStatusMarker(this._displayStatus, this.doneStatusMarkers, statusMarkerOrder);
 	}
 
 	private _displayStatus: string;
@@ -455,26 +449,12 @@ export class Task {
 	get column(): ColumnTag | DefaultColumns | "archived" | undefined {
 		return this._column;
 	}
-	set column(column: ColumnTag | DefaultColumns) {
-		if (column === "done") {
-			this.done = true;
-			return;
-		}
-		const wasDone = this._done;
-		if (column === "uncategorised") {
-			this.moveToUncategorised();
-			if (wasDone) {
-				this._displayStatus = " ";
-			}
-			return;
-		}
-
-		this._done = false;
-		if (wasDone) {
-			this._displayStatus = " ";
-		}
-		this.moveToColumn(column);
-	}
+	/**
+	 * The tag-based column this task's tags point to. Unlike `column`, this is
+	 * set for done tasks too, so moving a done task out of Done follows the
+	 * normal column-change rules for the column its kept tag names.
+	 */
+	readonly taggedColumn: ColumnTag | undefined;
 
 	readonly blockLink: string | undefined;
 	private _tags: Set<string>;
@@ -494,58 +474,9 @@ export class Task {
 		return this.getPlacementTagsForColumn(this.column);
 	}
 
-	private getColumnDefinition(
-		column: ColumnTag | undefined,
-		definitions: ColumnDefinition[] = this.columnDefinitions,
-	): ColumnDefinition | undefined {
+	private getColumnDefinition(column: ColumnTag | undefined): ColumnDefinition | undefined {
 		if (!column) return undefined;
-		return definitions.find((definition) => definition.id === column);
-	}
-
-	private moveToColumn(column: ColumnTag) {
-		const sourceColumn = this.getColumnDefinition(
-			this._column && this._column !== "archived" && this._column !== "done" && this._column !== "uncategorised"
-				? this._column
-				: undefined,
-			this.sourceColumnDefinitions,
-		);
-		const destinationColumn = this.getColumnDefinition(column);
-
-		if (sourceColumn && usesStatusMatching(sourceColumn)) {
-			this._displayStatus = " ";
-		}
-		const sourcePrioritySchema = getColumnPrioritySchema(sourceColumn);
-		if (sourceColumn && sourcePrioritySchema) {
-			this.removePriorityPlacement(sourcePrioritySchema);
-		}
-		const destinationStatus = destinationColumn ? getColumnStatus(destinationColumn) : undefined;
-		if (destinationStatus) {
-			this._displayStatus = destinationStatus;
-		}
-		const destinationPriority = getColumnPriority(destinationColumn);
-		if (destinationPriority && destinationColumn) {
-			this.writePriorityPlacement(destinationPriority, getColumnPrioritySchema(destinationColumn));
-		}
-
-		this._column = column;
-	}
-
-	private moveToUncategorised() {
-		const sourceColumn = this.getColumnDefinition(
-			this._column && this._column !== "archived" && this._column !== "done" && this._column !== "uncategorised"
-				? this._column
-				: undefined,
-			this.sourceColumnDefinitions,
-		);
-		if (sourceColumn && usesStatusMatching(sourceColumn)) {
-			this._displayStatus = " ";
-		}
-		const sourcePrioritySchema = getColumnPrioritySchema(sourceColumn);
-		if (sourceColumn && sourcePrioritySchema) {
-			this.removePriorityPlacement(sourcePrioritySchema);
-		}
-		this._column = undefined;
-		this._done = false;
+		return this.columnDefinitions.find((definition) => definition.id === column);
 	}
 
 	private stripTagFromContent(value: string, tag: string): string {
@@ -572,29 +503,6 @@ export class Task {
 
 	private stripPlacementTags(value: string, placementTags: string[]): string {
 		return placementTags.reduce((nextValue, tag) => this.stripTagFromContent(nextValue, tag), value);
-	}
-
-	private transformContentWithPropertyWriter(transform: (rawLine: string) => string) {
-		const rawLine = `- [ ] ${this.content.trim()}`;
-		const transformed = transform(rawLine);
-		const match = transformed.match(taskStringRegex);
-		if (match?.[3]) {
-			this.content = match[3];
-		}
-	}
-
-	private removePriorityPlacement(schema: PriorityColumnSchema | undefined = getPriorityColumnContextSchema(this.propertySchemaOption)) {
-		if (!schema) return;
-		const adapter = getPropertyWriteAdapter(schema);
-		if (!adapter) return;
-		this.transformContentWithPropertyWriter((rawLine) => adapter.removePriority(rawLine));
-	}
-
-	private writePriorityPlacement(priority: string, schema: PriorityColumnSchema | undefined = getPriorityColumnContextSchema(this.propertySchemaOption)) {
-		if (!schema) return;
-		const adapter = getPropertyWriteAdapter(schema);
-		if (!adapter) return;
-		this.transformContentWithPropertyWriter((rawLine) => adapter.upsertPriority(rawLine, priority));
 	}
 
 	serialise(): string {
@@ -708,60 +616,8 @@ export class Task {
 		return flattenSourceBlockNodes(this.sourceChildren).find((node) => node.rowIndex === rowIndex) ?? null;
 	}
 
-	serialiseForColumn(column: ColumnTag | DefaultColumns): string {
-		const originalColumn = this._column;
-		const originalDone = this._done;
-		const originalDisplayStatus = this._displayStatus;
-		const originalContent = this.content;
-
-		if (column === "done") {
-			this.done = true;
-		} else if (column === "uncategorised") {
-			this.moveToUncategorised();
-		} else {
-			this.column = column;
-		}
-
-		try {
-			return this.serialise();
-		} finally {
-			this._column = originalColumn;
-			this._done = originalDone;
-			this._displayStatus = originalDisplayStatus;
-			this.content = originalContent;
-		}
-	}
-
-	archive() {
-		const sourceColumn = this.getColumnDefinition(
-			this._column && this._column !== "archived" && this._column !== "done" && this._column !== "uncategorised"
-				? this._column
-				: undefined,
-			this.sourceColumnDefinitions,
-		);
-		const sourcePrioritySchema = getColumnPrioritySchema(sourceColumn);
-		if (sourceColumn && sourcePrioritySchema) {
-			this.removePriorityPlacement(sourcePrioritySchema);
-		}
-		if (this.replaceArchiveTagWithStatus) {
-			this._displayStatus = Array.from(this.archiveStatusMarkers)[0] ?? this.doneStatusMarker;
-			this._done = false;
-			this._column = undefined;
-			return;
-		}
-		if (!this._done) {
-			this._displayStatus = this.doneStatusMarker;
-		}
-		this._done = true;
-		this._column = "archived";
-	}
-
-	cancel() {
-		this._displayStatus = Array.from(this.cancelledStatusMarkers)[0] ?? "-";
-	}
-
-	restore() {
-		this._displayStatus = " ";
+	get cancelledStatusMarker(): string {
+		return Array.from(this.cancelledStatusMarkers)[0] ?? "-";
 	}
 
 	delete() {
@@ -839,14 +695,6 @@ function getTaskPriorityMatchValue(
 		return priority.value.trim();
 	}
 	return undefined;
-}
-
-function getPriorityColumnContextSchema(
-	propertySchemaOption: PropertySchemaOption,
-): PriorityColumnSchema | undefined {
-	return propertySchemaOption === PropertySchemaOption.TasksPlugin || propertySchemaOption === PropertySchemaOption.Dataview
-		? propertySchemaOption
-		: undefined;
 }
 
 function getTaskPriorityMatchValues(rawLine: string): Partial<Record<PriorityColumnSchema, string | undefined>> {

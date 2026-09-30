@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyChangedColumnTagUpdates, getChangedColumnMatchRules } from "../column_rename_migration";
-import type { ColumnTag } from "../../columns/columns";
+import type { ColumnDefinition, ColumnTag } from "../../columns/columns";
 import { defaultSettings, ScopeOption, type SettingValues } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
 import { PropertySchemaOption } from "../../../parsing/properties";
@@ -363,7 +363,7 @@ describe("applyChangedColumnTagUpdates", () => {
 		expect(contents).toBe("- [ ] Task A #later ⏫");
 	});
 
-	it("retags completed tasks when a column rule changes", async () => {
+	it("never changes completed tasks when a column rule changes", async () => {
 		const oldColumns = migrateColumnDefinitions(["Doing"]);
 		const newColumns = oldColumns.map((column) => ({ ...column, label: "In Progress" }));
 		const file = { path: "projects/tasks.md" };
@@ -385,6 +385,32 @@ describe("applyChangedColumnTagUpdates", () => {
 			updateChoices: { [newColumns[0]!.id]: true },
 		});
 
-		expect(contents).toBe("- [x] Task A");
+		// Done tasks are a record of finished work: board changes never touch them.
+		expect(contents).toBe("- [x] Task A #doing");
+	});
+
+	it("leaves a completed task's status and priority alone when its priority column changes", async () => {
+		const oldColumns: ColumnDefinition[] = [
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high", matchPropertySchema: PropertySchemaOption.TasksPlugin },
+		];
+		const newColumns: ColumnDefinition[] = [{ ...oldColumns[0]!, matchPriority: "highest" }];
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [x] Task A ⏫";
+
+		await applyChangedColumnTagUpdates({
+			vault: {
+				getMarkdownFiles: () => [file],
+				read: async () => contents,
+				modify: async (_file: unknown, nextContents: string) => {
+					contents = nextContents;
+				},
+			} as never,
+			oldSettings: { ...defaultSettings, columns: oldColumns, propertySchema: PropertySchemaOption.TasksPlugin },
+			newSettings: { ...defaultSettings, columns: newColumns, propertySchema: PropertySchemaOption.TasksPlugin },
+			boardFolderPath: "projects",
+			updateChoices: { high: true },
+		});
+
+		expect(contents).toBe("- [x] Task A ⏫");
 	});
 });

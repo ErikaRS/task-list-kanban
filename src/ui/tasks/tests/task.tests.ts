@@ -82,8 +82,8 @@ describe("Task", () => {
 		});
 
 		it("serialises a basic task string with a block link", () => {
-			const task = parseTask("- [ ] Something #tag ^link-link");
-			task.column = "column" as ColumnTag;
+			const task = parseTask("- [ ] Something #column #tag ^link-link");
+			expect(task.column).toBe("column");
 			expect(task.serialise()).toBe("- [ ] Something #tag #column ^link-link");
 		});
 
@@ -165,60 +165,6 @@ describe("Task", () => {
 			expect(task.content).toBe("Draft #project/alpha #this-week #note");
 		});
 
-		it("writes the destination marker when moving into a status column", () => {
-			const columns = [
-				...createNameModeColumns(["Backlog"]),
-				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
-			];
-			const task = parseTaskWithColumns("- [ ] Something #tag #backlog", columns);
-
-			task.column = "doing" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [/] Something #tag");
-		});
-
-		it("clears the source marker when moving out of a status column", () => {
-			const columns = [
-				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
-				...createNameModeColumns(["Backlog"]),
-			];
-			const task = parseTaskWithColumns("- [/] Something #tag", columns);
-
-			task.column = "backlog" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
-		});
-
-		it("replaces the marker when moving between status columns", () => {
-			const task = parseTaskWithColumns("- [/] Something #tag", statusColumns);
-
-			task.column = "blocked" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [!] Something #tag");
-		});
-
-		it("preserves unrelated custom status markers when moving between tag columns", () => {
-			const columns = createNameModeColumns(["Backlog", "Next"]);
-			const task = parseTaskWithColumns("- [?] Something #tag #backlog", columns);
-
-			task.column = "next" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [?] Something #tag #next");
-		});
-
-		it("preserves unrelated custom status markers when moving to uncategorised", () => {
-			const columns = createNameModeColumns(["Backlog"]);
-			const task = parseTaskWithColumns("- [?] Something #tag #backlog", columns);
-
-			expect(task.serialiseForColumn("uncategorised")).toBe("- [?] Something #tag");
-		});
-
-		it("clears status placement when moving from a status column to uncategorised", () => {
-			const task = parseTaskWithColumns("- [/] Something #tag", statusColumns);
-
-			expect(task.serialiseForColumn("uncategorised")).toBe("- [ ] Something #tag");
-		});
-
 		it("keeps done status precedence over custom status columns", () => {
 			const columns = createStatusModeColumns([{ id: "done-ish", label: "Done-ish", matchStatus: "x" }]);
 			const task = parseTaskWithColumns("- [x] Completed #tag", columns);
@@ -250,55 +196,6 @@ describe("Task", () => {
 
 			expect(task.column).toBe(expectedColumn);
 			expect(task.serialise()).toBe(`- [ ] Triage release ${emoji} #project`);
-		});
-
-		it("writes the destination priority when moving into a priority column", () => {
-			const columns = [
-				...createNameModeColumns(["Backlog"]),
-				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
-			];
-			const task = parseTaskWithColumns("- [ ] Something #tag #backlog", columns, {
-				propertySchema: new TasksPluginSchema(),
-			});
-
-			task.column = "high" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag ⏫");
-		});
-
-		it("replaces the priority when moving between priority columns", () => {
-			const task = parseTaskWithColumns("- [ ] Something #tag ⏫", priorityColumns, {
-				propertySchema: new TasksPluginSchema(),
-			});
-
-			task.column = "low" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag 🔽");
-		});
-
-		it("removes source priority when moving from a priority column to a tag column", () => {
-			const columns = [
-				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
-				...createNameModeColumns(["Backlog"]),
-			];
-			const task = parseTaskWithColumns("- [ ] Something #tag ⏫", columns, {
-				propertySchema: new TasksPluginSchema(),
-			});
-
-			task.column = "backlog" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
-		});
-
-		it("preserves unrelated priority when moving between tag columns", () => {
-			const columns = createNameModeColumns(["Backlog", "Next"]);
-			const task = parseTaskWithColumns("- [ ] Something #tag ⏫ #backlog", columns, {
-				propertySchema: new TasksPluginSchema(),
-			});
-
-			task.column = "next" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag ⏫ #next");
 		});
 
 		it("uses column order to break equal-specificity priority and tag ties", () => {
@@ -366,48 +263,6 @@ describe("Task", () => {
 			expect(task.column).toBe("high");
 			expect(task.serialise()).toBe("- [ ] Triage release [priority:: HIGH] #project");
 		});
-
-		it("writes the destination Dataview priority when moving into a priority column", () => {
-			const columns = [
-				...createNameModeColumns(["Backlog"]),
-				...createPriorityModeColumns([
-					{ id: "high", label: "High", matchPriority: "high", matchPropertySchema: PropertySchemaOption.Dataview },
-				]),
-			];
-			const task = parseTaskWithColumns("- [ ] Something #tag #backlog", columns, {
-				propertySchema: new DataviewSchema(),
-			});
-
-			task.column = "high" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag [priority:: high]");
-		});
-
-		it("replaces the Dataview priority when moving between priority columns", () => {
-			const task = parseTaskWithColumns("- [ ] Something #tag [priority:: high]", dataviewPriorityColumns, {
-				propertySchema: new DataviewSchema(),
-			});
-
-			task.column = "low" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag [priority:: low]");
-		});
-
-		it("removes source Dataview priority when moving from a priority column to a tag column", () => {
-			const columns = [
-				...createPriorityModeColumns([
-					{ id: "high", label: "High", matchPriority: "high", matchPropertySchema: PropertySchemaOption.Dataview },
-				]),
-				...createNameModeColumns(["Backlog"]),
-			];
-			const task = parseTaskWithColumns("- [ ] Something #tag [priority:: high]", columns, {
-				propertySchema: new DataviewSchema(),
-			});
-
-			task.column = "backlog" as ColumnTag;
-
-			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
-		});
 	});
 
 	describe("tag-mode columns", () => {
@@ -452,25 +307,6 @@ describe("Task", () => {
 			expect(task.serialise()).toBe(taskString);
 		});
 
-		it("writes all placement tags for a tags-mode column", () => {
-			const task = parseTask("- [ ] Something #tag", {
-				columns: activeWorkColumns,
-				placementTags: activeWorkPlacementTags,
-			});
-			task.column = "active-work" as ColumnTag;
-			expect(task.serialise()).toBe("- [ ] Something #tag #project/alpha #status/active");
-		});
-
-		it("removes all placement tags when moving out of a multi-tag column", () => {
-			const columns = [
-				...activeWorkColumns,
-				...createNameModeColumns(["Backlog"]),
-			];
-			const task = parseTaskWithColumns("- [ ] Something #tag #project/alpha #status/active", columns);
-			task.column = "backlog" as ColumnTag;
-			expect(task.serialise()).toBe("- [ ] Something #tag #backlog");
-		});
-
 		it("prefers the most specific matching column when multiple columns match", () => {
 			const columns = createTagModeColumns([
 				{ id: "a", label: "A", matchTags: ["A"] },
@@ -510,27 +346,6 @@ describe("Task", () => {
 			});
 			expect(orderedTask.column).toBe("active-work");
 			expect(reversedTask.column).toBe("active-work");
-		});
-
-		it("archives a multi-tag column by removing all placement tags and adding archived", () => {
-			const task = parseTask("- [ ] Something #tag #project/alpha #status/active", {
-				columns: activeWorkColumns,
-				placementTags: activeWorkPlacementTags,
-			});
-			task.archive();
-			expect(task.serialise()).toBe("- [x] Something #tag #archived");
-		});
-
-		it("does not duplicate an explicit placement tag already present in task content", () => {
-			const doingPlacementTags = {
-				...defaultPlacementTags,
-				doing: ["status/now"],
-			};
-			const task = parseTask("- [ ] Something #tag #status/now", {
-				placementTags: doingPlacementTags,
-			});
-			task.column = "doing" as ColumnTag;
-			expect(task.serialise()).toBe("- [ ] Something #tag #status/now");
 		});
 	});
 
@@ -811,43 +626,16 @@ describe("Status Marker Order Validation", () => {
 });
 
 describe("Task archiving", () => {
-	it.each([
-		["- [X] Already done task #column", "xX", "- [X] Already done task #archived"],
-		["- [x] Already done task #column", "xX", "- [x] Already done task #archived"],
-		["- [✓] Custom done marker task #column", "xX✓", "- [✓] Custom done marker task #archived"],
-		["- [✅] Emoji done marker task #column", "xX✅", "- [✅] Emoji done marker task #archived"],
-		["- [ ] Incomplete task #column", "xX", "- [x] Incomplete task #archived"],
-		["- [?] Unknown status task #column", "xX", "- [x] Unknown status task #archived"],
-	])("archives %s using expected display status", (taskString, doneStatusMarkers, expected) => {
-		const task = parseTask(taskString, { doneStatusMarkers });
-		task.archive();
-		expect(task.done).toBe(true);
-		expect(task.column).toBe("archived");
-		expect(task.serialise()).toBe(expected);
+	it("exposes no archive status marker in #archived tag mode", () => {
+		expect(parseTask("- [ ] Task #column").archiveStatusMarker).toBeUndefined();
 	});
 
-	it("writes the first archive status marker without adding #archived", () => {
-		const task = parseTask("- [/] Active task #column", {
+	it("exposes the first archive status marker in archive-status mode", () => {
+		const task = parseTask("- [ ] Task #column", {
 			replaceArchiveTagWithStatus: true,
 			archiveStatusMarkers: "dD",
 		});
-
-		task.archive();
-
-		expect(task.done).toBe(false);
-		expect(task.column).toBeUndefined();
-		expect(task.serialise()).toBe("- [d] Active task");
-	});
-
-	it("preserves an existing #archived tag in archive-status mode", () => {
-		const task = parseTask("- [ ] Legacy archive #archived", {
-			replaceArchiveTagWithStatus: true,
-			archiveStatusMarkers: "d",
-		});
-
-		task.archive();
-
-		expect(task.serialise()).toBe("- [d] Legacy archive #archived");
+		expect(task.archiveStatusMarker).toBe("d");
 	});
 
 	it("ignores legacy archive tags when archive statuses replace them", () => {
@@ -857,59 +645,62 @@ describe("Task archiving", () => {
 	});
 });
 
-describe("Task marking as done", () => {
-	it.each([
-		["xX", "- [x] Incomplete task"],
-		["✓✅", "- [✓] Incomplete task"],
-		["✅", "- [✅] Incomplete task"],
-	])("uses the first configured done marker for %s", (doneStatusMarkers, expected) => {
-		const task = parseTask("- [ ] Incomplete task #column", { doneStatusMarkers });
-		task.done = true;
+describe("Done tasks keep their tags", () => {
+	it("treats a done task's column tag as an ordinary tag", () => {
+		const task = parseTask("- [x] Shipped #column #note");
+
 		expect(task.done).toBe(true);
 		expect(task.column).toBeUndefined();
-		expect(task.serialise()).toBe(expected);
+		expect(task.taggedColumn).toBe("column");
+		expect(task.tags.has("column")).toBe(true);
+		expect(task.content).toBe("Shipped #column #note");
 	});
 
-	it("clears column when marking as done", () => {
-		const task = parseTask("- [ ] Task in column #column");
-		task.done = true;
-		expect(task.column).toBeUndefined();
-		expect(task.serialise()).not.toContain("#column");
+	it("keeps a done task's column tag when the task is rewritten", () => {
+		const task = parseTask("- [x] Shipped #column #note ^link");
+		task.content = "Shipped again #column #note";
+
+		expect(task.serialise()).toBe("- [x] Shipped again #column #note ^link");
 	});
 
-	it("preserves task content when marking as done", () => {
-		const task = parseTask("- [ ] Important task with #tags #column");
-		task.done = true;
-		expect(task.content).toBe("Important task with #tags");
-		expect(task.serialise()).toBe("- [x] Important task with #tags");
+	it("keeps a done task's column tag with consolidated tags", () => {
+		const task = parseTask("- [x] Shipped #column #note", { consolidateTags: true });
+
+		expect(task.content).toBe("Shipped");
+		expect(task.serialise()).toBe("- [x] Shipped #column #note");
+	});
+
+	it("keeps a done task's #done tag", () => {
+		expect(parseTask("- [x] Shipped #done").serialise()).toBe("- [x] Shipped #done");
+	});
+
+	it("exposes the tagged column of an open task too", () => {
+		expect(parseTask("- [ ] Open #column").taggedColumn).toBe("column");
+		expect(parseTask("- [ ] Open").taggedColumn).toBeUndefined();
+	});
+
+	it("does not report a status or priority column as tagged", () => {
+		const task = parseTaskWithColumns(
+			"- [/] Draft #note",
+			createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
+		);
+		expect(task.column).toBe("doing");
+		expect(task.taggedColumn).toBeUndefined();
 	});
 });
 
-describe("Task serialiseForColumn", () => {
-	it("serialises a task for a destination column without mutating the task", () => {
-		const task = parseTask("- [ ] Task in column #column");
-
-		expect(task.serialiseForColumn("next" as ColumnTag)).toBe("- [ ] Task in column #next");
-		expect(task.column).toBe("column");
-		expect(task.done).toBe(false);
-		expect(task.serialise()).toBe("- [ ] Task in column #column");
+describe("Task next status", () => {
+	it("completes an open task without a status order", () => {
+		expect(parseTask("- [ ] Task #column").nextStatus("")).toEqual({ status: "x", done: true });
 	});
 
-	it("serialises a task for uncategorised by removing placement tags", () => {
-		const task = parseTask("- [ ] Task in column #column");
-
-		expect(task.serialiseForColumn("uncategorised")).toBe("- [ ] Task in column");
-		expect(task.column).toBe("column");
-		expect(task.serialise()).toBe("- [ ] Task in column #column");
+	it("advances through the status order before completing", () => {
+		expect(parseTask("- [ ] Task #column").nextStatus(" /x")).toEqual({ status: "/", done: false });
+		expect(parseTask("- [/] Task #column").nextStatus(" /x")).toEqual({ status: "x", done: true });
 	});
 
-	it("serialises a task for done without mutating the task", () => {
-		const task = parseTask("- [ ] Task in column #column");
-
-		expect(task.serialiseForColumn("done")).toBe("- [x] Task in column");
-		expect(task.column).toBe("column");
-		expect(task.done).toBe(false);
-		expect(task.displayStatus).toBe(" ");
+	it("reopens a done task", () => {
+		expect(parseTask("- [x] Task #column").nextStatus(" /x")).toEqual({ status: " ", done: false });
 	});
 });
 
@@ -921,35 +712,11 @@ describe("Task display status", () => {
 	it("preserves parsed custom status marker", () => {
 		expect(parseTask("- [/] In progress task #column").displayStatus).toBe("/");
 	});
-
-	it("updates to first done marker when marked done", () => {
-		const task = parseTask("- [ ] Incomplete task #column", { doneStatusMarkers: "✓✅" });
-		task.done = true;
-		expect(task.displayStatus).toBe("✓");
-	});
-
-	it("updates to cancel marker and then resets on restore", () => {
-		const task = parseTask("- [ ] Incomplete task #column", { cancelledStatusMarkers: "CA" });
-		task.cancel();
-		expect(task.displayStatus).toBe("C");
-		task.restore();
-		expect(task.displayStatus).toBe(" ");
-	});
 });
 
 describe("Task cancelling", () => {
-	it("cancelling a task updates the status to '-'", () => {
-		const task = parseTask("- [ ] Incomplete task #column");
-		task.cancel();
-		expect(task.isCancelled).toBe(true);
-		expect(task.serialise()).toBe("- [-] Incomplete task #column");
-	});
-
-	it("restoring a task updates the status to ' '", () => {
-		const task = parseTask("- [-] Cancelled task #column");
-		task.restore();
-		expect(task.isCancelled).toBe(false);
-		expect(task.serialise()).toBe("- [ ] Cancelled task #column");
+	it("exposes the first configured cancel marker", () => {
+		expect(parseTask("- [ ] Task #column", { cancelledStatusMarkers: "CA" }).cancelledStatusMarker).toBe("C");
 	});
 
 	it.each([
@@ -957,13 +724,6 @@ describe("Task cancelling", () => {
 		["- [A] Parsed as cancelled #column", "CA"],
 	])("returns true for isCancelled with custom markers for %s", (taskString, cancelledStatusMarkers) => {
 		expect(parseTask(taskString, { cancelledStatusMarkers }).isCancelled).toBe(true);
-	});
-
-	it("outputs first configured cancel marker on cancel()", () => {
-		const task = parseTask("- [ ] Incomplete task #column", { cancelledStatusMarkers: "CA" });
-		task.cancel();
-		expect(task.isCancelled).toBe(true);
-		expect(task.serialise()).toBe("- [C] Incomplete task #column");
 	});
 });
 
@@ -990,14 +750,5 @@ describe("Columns with spaces and special characters", () => {
 			placementTags: specialPlacementTags,
 		});
 		expect(task.serialise()).toBe("- [ ] Something #done");
-	});
-
-	it("serialises a task after moving to 'In Progress' column", () => {
-		const task = parseTask("- [ ] Something", {
-			columns: specialColumns,
-			placementTags: specialPlacementTags,
-		});
-		task.column = kebab<ColumnTag>("In Progress");
-		expect(task.serialise()).toBe("- [ ] Something #in-progress");
 	});
 });
