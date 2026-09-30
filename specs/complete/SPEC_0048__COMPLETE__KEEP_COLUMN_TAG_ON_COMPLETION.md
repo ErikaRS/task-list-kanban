@@ -160,9 +160,12 @@ could land in **Todo** instead of **Doing**.
 
 ### 6. Column rename migration
 
-`column_rename_migration.ts:159` skips done tasks. Once done tasks can carry
-column tags, renaming a tag column should also rewrite the kept tag on done
-tasks. Archived tasks are never tracked, so their tags are left as they are.
+Done tasks are a record of finished work, so changes to the board never
+modify them (decided 2026-09-30). The migration skips any done task before it
+looks at its column. Previously it rewrote done tasks and dropped their column
+tag (`column_rename_migration.ts:159`). A kept tag keeps its old name after a
+column is renamed. Archived tasks are never tracked, so they were already left
+alone.
 
 ### Settings
 
@@ -237,7 +240,7 @@ block links, and existing completion metadata.
 2. ✅ Pass `keepColumnTag` into `changeColumnTransform` and `archiveTransform`
 3. ✅ Treat a done task's placement tag as an ordinary tag when parsing
 4. ✅ When moving a done task, resolve its source column from its kept tags so the normal drag rules apply
-5. ✅ Update the rename migration to rewrite kept tags on done tasks
+5. ✅ Make the rename migration skip done tasks entirely
 6. ✅ Test: each Detailed Behavior row, with the setting on and off
 7. ✅ Test: `deriveBoardMatrix` puts a done task carrying `#doing` in **Done**; an `#archived` task carrying `#doing` stays untracked
 8. ✅ Update the README (Columns, Archive)
@@ -257,3 +260,5 @@ Made by Erika on 2026-09-30.
    change follows the normal column-drag rules (section 5).
 3. Editing a done task keeps all of its tags, whatever their source and
    whatever the setting (section 4).
+4. Done tasks are never changed by board configuration changes, such as
+   column rule edits (section 6).

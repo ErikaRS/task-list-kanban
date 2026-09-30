@@ -363,7 +363,7 @@ describe("applyChangedColumnTagUpdates", () => {
 		expect(contents).toBe("- [ ] Task A #later ⏫");
 	});
 
-	it("retags completed tasks when a column rule changes", async () => {
+	it("never changes completed tasks when a column rule changes", async () => {
 		const oldColumns = migrateColumnDefinitions(["Doing"]);
 		const newColumns = oldColumns.map((column) => ({ ...column, label: "In Progress" }));
 		const file = { path: "projects/tasks.md" };
@@ -385,8 +385,8 @@ describe("applyChangedColumnTagUpdates", () => {
 			updateChoices: { [newColumns[0]!.id]: true },
 		});
 
-		// A done task's kept column tag is renamed rather than dropped.
-		expect(contents).toBe("- [x] Task A #in-progress");
+		// Done tasks are a record of finished work: board changes never touch them.
+		expect(contents).toBe("- [x] Task A #doing");
 	});
 
 	it("leaves a completed task's status and priority alone when its priority column changes", async () => {

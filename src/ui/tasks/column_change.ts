@@ -122,16 +122,6 @@ export function archiveTransform(rawLine: string, options: ArchiveOptions): stri
 	return hasTag(next, "archived") ? next : appendBeforeBlockLink(next, ["archived"]);
 }
 
-/**
- * Swaps a tag column's old placement tags for its new ones after the
- * column's rule changes. Used for done tasks, whose kept column tags are
- * renamed but whose status and priority are left alone.
- */
-export function renameColumnTags(rawLine: string, oldColumn: ColumnDefinition, newColumn: ColumnDefinition): string {
-	const oldTags = getColumnWriteTags(oldColumn);
-	return oldTags.length > 0 ? replacePlacementTags(rawLine, oldTags, getColumnWriteTags(newColumn)) : rawLine;
-}
-
 /** Replaces only the checkbox marker. */
 export function replaceStatusMarker(rawLine: string, marker: string): string {
 	return rawLine.replace(/^(\s*[-*+]\s+\[)[^[\]]*(\]\s)/u, `$1${marker}$2`);

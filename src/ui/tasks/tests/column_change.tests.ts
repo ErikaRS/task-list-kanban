@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PropertySchemaOption } from "../../../parsing/properties";
 import type { ColumnDefinition, ColumnTag } from "../../columns/columns";
-import { archiveTransform, changeColumnTransform, renameColumnTags, replaceStatusMarker } from "../column_change";
+import { archiveTransform, changeColumnTransform, replaceStatusMarker } from "../column_change";
 
 const columns: ColumnDefinition[] = [
 	{ id: "backlog" as ColumnTag, label: "Backlog", matchMode: "name", matchTags: [] },
@@ -324,19 +324,6 @@ describe("archiveTransform", () => {
 	it("never removes a priority", () => {
 		expect(archive("- [ ] Ship ⏫", { fromColumn: "high" as ColumnTag })).toBe("- [x] Ship ⏫ #archived");
 		expect(archive("- [ ] Ship ⏫", { fromColumn: "high" as ColumnTag, archiveStatusMarker: "d" })).toBe("- [d] Ship ⏫");
-	});
-});
-
-describe("renameColumnTags", () => {
-	it("swaps the old placement tags for the new ones", () => {
-		const oldColumn: ColumnDefinition = { id: "doing" as ColumnTag, label: "Doing", matchMode: "name", matchTags: [] };
-		expect(renameColumnTags("- [x] Ship #doing #note", oldColumn, { ...oldColumn, label: "In Progress" }))
-			.toBe("- [x] Ship #in-progress #note");
-	});
-
-	it("never adds a tag for a column that was not tag-based", () => {
-		const high = columns.find((column) => column.id === "high")!;
-		expect(renameColumnTags("- [x] Ship ⏫", high, columns[0]!)).toBe("- [x] Ship ⏫");
 	});
 });
 

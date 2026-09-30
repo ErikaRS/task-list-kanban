@@ -20,7 +20,7 @@ import {
 	isStatusMatch,
 	isTrackedTaskString,
 } from "../tasks/task";
-import { changeColumnTransform, renameColumnTags } from "../tasks/column_change";
+import { changeColumnTransform } from "../tasks/column_change";
 import { getSchemaImpl } from "../../parsing/properties";
 import { PropertySchemaOption, type TaskPropertyMap } from "../../parsing/properties/property_schema";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
@@ -121,6 +121,10 @@ async function updateFileForChangedColumns(
 		}
 
 		const status = row.match(/^\s*[-*+]\s\[([^[\]]*)\]\s/)?.[1] || " ";
+		// Done tasks are a record of finished work: board changes never touch them.
+		if (isStatusMatch(status, doneStatusMarkers)) {
+			continue;
+		}
 		const oldProperties = oldPropertySchema.parseProperties(row);
 		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, {
 			tags: getTagsFromContent(row),
@@ -136,16 +140,14 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
-		const nextRow = isStatusMatch(status, doneStatusMarkers)
-			? renameColumnTags(row, changedColumn.oldColumn, changedColumn.newColumn)
-			: changeColumnTransform(row, {
-				fromColumn: changedColumn.id as ColumnTag,
-				toColumn: changedColumn.id as ColumnTag,
-				columnDefinitions: newColumnDefinitions,
-				sourceColumnDefinitions: oldColumnDefinitions,
-				propertySchemaOption: getMigrationSchema(changedColumn, oldPropertySchemaOption),
-				doneStatusMarker: Array.from(doneStatusMarkers)[0] ?? "x",
-			});
+		const nextRow = changeColumnTransform(row, {
+			fromColumn: changedColumn.id as ColumnTag,
+			toColumn: changedColumn.id as ColumnTag,
+			columnDefinitions: newColumnDefinitions,
+			sourceColumnDefinitions: oldColumnDefinitions,
+			propertySchemaOption: getMigrationSchema(changedColumn, oldPropertySchemaOption),
+			doneStatusMarker: Array.from(doneStatusMarkers)[0] ?? "x",
+		});
 		if (nextRow !== row) {
 			rows[i] = nextRow;
 			changed = true;
