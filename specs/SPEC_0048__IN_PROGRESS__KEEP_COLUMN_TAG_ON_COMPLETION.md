@@ -170,8 +170,8 @@ keepColumnTagOnCompletion?: boolean; // default false, inherited, board-overrida
 ```
 
 The setting is also a global board default (`BOARD_DEFAULT_SETTING_KEYS`).
-It lives in **Task Status Settings** under **Replace `#archived` with
-status**, with the normal override chip.
+It lives in the **Columns** section, directly below the **Add column**
+button, with the normal override chip (decided 2026-09-30).
 
 ```text
 Keep column tag when completing  [toggle]
@@ -239,7 +239,7 @@ block links, and existing completion metadata.
 5. ✅ Update the rename migration to rewrite kept tags on done tasks
 6. ✅ Test: each Detailed Behavior row, with the setting on and off
 7. ✅ Test: `deriveBoardMatrix` puts a done task carrying `#doing` in **Done**; an `#archived` task carrying `#doing` stays untracked
-8. ✅ Update the README (Task Status Settings, Archive)
+8. ✅ Update the README (Columns, Archive)
 9. Manual: complete, uncheck, drag out of Done, and archive in a test vault, with consolidated tags on and off
 
 **Deliverable:** Issue #192 is resolved behind the new setting.

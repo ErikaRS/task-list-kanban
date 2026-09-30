@@ -118,6 +118,8 @@ Column display options:
 - **Width**: set all columns between 200px and 600px.
 - **Visibility**: show **Uncategorized** and **Done** always, never, or only when non-empty.
 
+**Keep column tag when completing**, below **Add column**: leave a task's column tag in place when it is completed or archived, for example `- [x] Write report #doing`. Done and Archived still take priority over the tag, so the task shows in Done or stays hidden. Unchecking the task returns it to that column, and dragging it to another column swaps the tag as usual. Status-based columns cannot be kept, because completing a task changes its status. Off by default.
+
 ### Tag Display
 
 Enable **Consolidate tags** in settings to move non-column tags to the card footer.
@@ -204,8 +206,6 @@ Status marker settings control how checkbox characters behave:
 - **Cancelled markers**: characters used by cancel/restore. Default: `-`.
 - **Status cycle sequence**: characters used to advance the task status when clicking the checkbox on the board.
 - **Replace `#archived` with status**: use one or more archive status markers instead of the archive tag. The first configured marker is written by Archive; all configured markers are hidden as archived. Archive markers cannot overlap other status roles. Existing `#archived` tags are left intact but ignored by boards using archive statuses, so another board can still use tag-based archiving.
-
-- **Keep column tag when completing**: leave a task's column tag in place when it is completed or archived, for example `- [x] Write report #doing`. Done and Archived still take priority over the tag, so the task shows in Done or stays hidden. Unchecking the task returns it to that column, and dragging it to another column swaps the tag as usual. Status-based columns cannot be kept, because completing a task changes its status. Off by default.
 
 For example, with archive markers set to `dD`, archiving `- [/] Review notes` writes `- [d] Review notes`. Both `[d]` and `[D]` are then treated as archived and hidden. Changing an archived marker to a non-archive status makes the task visible again.
 
