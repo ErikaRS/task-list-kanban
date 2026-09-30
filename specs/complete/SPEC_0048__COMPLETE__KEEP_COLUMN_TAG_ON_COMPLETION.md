@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-09
 
 # SPEC 0048 - Keep Column Tag On Completion
 
@@ -213,7 +214,7 @@ block links, and existing completion metadata.
 
 **Deliverable:** Priority is never lost on completion or archive.
 
-**Implemented by:**
+**Implemented by:** [#202](https://github.com/ErikaRS/task-list-kanban/pull/202)
 
 ### Phase 2: One completion path ✅ COMPLETE
 **Goal:** Every completion action writes through `changeColumnTransform`, with no behavior change.
@@ -227,9 +228,9 @@ block links, and existing completion metadata.
 
 **Deliverable:** Identical behavior with less code; the checkbox no longer rebuilds the line.
 
-**Implemented by:**
+**Implemented by:** [#202](https://github.com/ErikaRS/task-list-kanban/pull/202)
 
-### Phase 3: Keep column tag setting 🚧 IN PROGRESS
+### Phase 3: Keep column tag setting ✅ COMPLETE
 **Goal:** With the setting on, completion and archive keep the tag, and Done/Archived still win.
 
 1. ✅ Add `keepColumnTagOnCompletion` to the settings store, global settings, and the settings UI
@@ -240,11 +241,11 @@ block links, and existing completion metadata.
 6. ✅ Test: each Detailed Behavior row, with the setting on and off
 7. ✅ Test: `deriveBoardMatrix` puts a done task carrying `#doing` in **Done**; an `#archived` task carrying `#doing` stays untracked
 8. ✅ Update the README (Columns, Archive)
-9. Manual: complete, uncheck, drag out of Done, and archive in a test vault, with consolidated tags on and off
+9. ✅ Manual: complete, uncheck, drag out of Done, and archive in a test vault, with consolidated tags on and off (verified by Erika, 2026-09-30)
 
 **Deliverable:** Issue #192 is resolved behind the new setting.
 
-**Implemented by:**
+**Implemented by:** [#202](https://github.com/ErikaRS/task-list-kanban/pull/202)
 
 ## Decisions
 
