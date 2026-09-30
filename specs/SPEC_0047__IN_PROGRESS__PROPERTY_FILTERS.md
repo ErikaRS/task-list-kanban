@@ -52,8 +52,8 @@ A double colon keeps existing queries safe. The README promises that an unknown 
 Each property atom evaluates against the task's own parsed properties (`FilterableTask.properties`), looked up with `getPropertyByKey`, so the same aliases and case rules as sorting apply.
 
 - **Text values:** the whole value is compared, ignoring case. `project::web` does not match `website`. Substring matching stays the job of content terms.
-- **Numbers:** `=` and the comparison operators compare numerically. A bare value such as `estimate::3` is equality. A non-numeric value or operand never satisfies a comparison.
-- **Priority:** values are the names `highest`, `high`, `medium`, `low` and `lowest`, ordered by the Tasks-plugin weights. In the Tasks plugin format, a task without a priority emoji counts as `none` for equality and sits between `medium` and `low` for comparisons, matching the Tasks plugin's "normal" priority. In the Dataview format, priority is free text: it matches by name, and comparisons apply only to values that are one of the five names.
+- **Numbers:** `=` and the comparison operators compare numerically. A bare value such as `estimate::3` is equality. A non-numeric property value never satisfies a comparison, and a non-numeric operand is an error on Search/Enter.
+- **Priority:** values are the names `highest`, `high`, `medium`, `low` and `lowest`, ordered by the Tasks-plugin weights. A task without a priority counts as `none` for equality and sits between `medium` and `low` for comparisons, matching the Tasks plugin's "normal" priority. This applies in both formats, so the matcher does not depend on the schema. In the Dataview format, priority is free text: any value matches by equality, and comparisons apply only to values that are one of the five names.
 - **Status:** the value is the literal marker character. Because a space can't be typed unquoted, `status::todo` also matches the space marker. Comparisons are not supported for status.
 - **Presence:** `key::*` is true when the property exists with a non-empty value.
 - **Missing properties:** a value or comparison atom is false when the property is missing, so `-project::website` does match tasks that have no project.
@@ -80,7 +80,7 @@ A query that contains any property atom uses the clause path (`query.clauses`). 
 - **Date keys:** for keys the schema types as dates, `::` supports only presence (`due::*`, `-due::*`). Date comparisons keep their existing single-colon form (`due:<$TODAY`). `due::2026-01-01` is invalid on Search/Enter, with the error message pointing to `due:=`.
 - **Negation:** `-key::…` is valid, but `-key::a,b` is invalid on Search/Enter, like `-tag:a,b`. To exclude several values, write `-key::a -key::b`.
 - **OR groups:** a property atom is a legal alternative inside `( … OR … )`. A comma list inside a group flattens into that clause, as tag lists already do.
-- **Errors:** following SPEC 0044, an empty value (`project::`), an empty key (`::x`), an unknown priority name, or an operator on status shows an error only on Search/Enter and leaves the applied filter unchanged.
+- **Errors:** following SPEC 0044, an empty value (`project::`), a comparison with an unknown priority name or a non-numeric operand, or an operator on status shows an error only on Search/Enter and leaves the applied filter unchanged. A token with an empty key (`::x`) is not a property token, so it stays content text.
 - **Quoting:** `project::"big launch"` matches a value containing spaces. Quoting the whole token (`"project::x"`) makes it literal content.
 - **Schema "None":** only `status` exists, so other keys simply match nothing.
 - **Saved views:** views store the query string as before, with no migration.
@@ -88,31 +88,31 @@ A query that contains any property atom uses the clause path (`query.clauses`). 
 ### Suggestions and structured editor
 
 - **Bar suggestions:** after a bare word, offer `key::` for property keys seen on board tasks, plus the schema's known non-date keys. After `key::`, offer that key's distinct values on the board, capped at the existing suggestion limit. For priority, offer the five names and `none`. For status, offer the configured status markers.
-- **Structured editor:** add a **Property** atom type with a key picker, a mode (is any of / exists / compare) and a value control. Property atoms get the exclude toggle, and compare mode appears only for numeric values and priority.
+- **Structured editor:** add a **Property** atom type with a key input and a value input, both with suggestions. The value input takes the same value spec as the bar (`a,b`, `*` or `>=3`), which keeps bar and editor in exact correspondence. Property atoms get the exclude toggle. A row with an empty key or value is incomplete: Search reports it and Save is disabled, as with an incomplete date row.
 
 ## Implementation Plan
 
 The SPEC 0044 clause model and clause-row editor are already in the code (`filter_query.ts`, `filter_editor.svelte`), so property atoms extend them rather than adding a new structure.
 
-### Phase 1: Equality, any-of and presence
+### Phase 1: Equality, any-of and presence ✅ COMPLETE
 
 **Goal:** `project::website`, `priority::high,highest`, `status::/`, `project::*` and their negations filter correctly from the bar.
 
-1. [ ] Add the property atom to the query model, parser, serializer, validation and matcher.
-2. [ ] Priority and status value handling, including `none` and `todo`.
-3. [ ] Test parsing, round trips, matching per schema, negation of missing properties, OR groups, and nested cards reading only the parent line. Also test that legacy queries such as `note:x` and `tag:a,b` produce the same results as before.
-4. [ ] Update the README filter table.
+1. ✅ Add the property atom to the query model, parser, serializer, validation and matcher.
+2. ✅ Priority and status value handling, including `none` and `todo`.
+3. ✅ Test parsing, round trips, matching per schema, negation of missing properties, OR groups, and nested cards reading only the parent line. Also test that legacy queries such as `note:x` and `tag:a,b` produce the same results as before.
+4. ✅ Update the README filter table.
 
 **Deliverable:** Property equality filters work end to end from the bar and persist in saved views.
 
-### Phase 2: Comparisons, suggestions and editor
+### Phase 2: Comparisons, suggestions and editor 🚧 IN PROGRESS
 
 **Goal:** Numeric and priority comparisons work, and property atoms are discoverable.
 
-1. [ ] Parse and evaluate `<`, `<=`, `=`, `>=` and `>` for numbers and priority, and reject them for status and text.
-2. [ ] Add bar suggestions for keys and values drawn from board tasks.
-3. [ ] Add the Property atom row to the structured editor, keeping bar and editor round trips intact.
-4. [ ] Test comparisons, the priority ordering with `none`, suggestion replacement, and editor equivalence. Manually verify on a large Dataview board.
+1. ✅ Parse and evaluate `<`, `<=`, `=`, `>=` and `>` for numbers and priority, and reject them for status and text.
+2. ✅ Add bar suggestions for keys and values drawn from board tasks.
+3. ✅ Add the Property atom row to the structured editor, keeping bar and editor round trips intact.
+4. [ ] Test comparisons, the priority ordering with `none`, suggestion replacement, and editor equivalence (✅ automated). Manually verify on a large Dataview board.
 
 **Deliverable:** `estimate::<=3` and `priority::>=high` work, and keys and values appear in suggestions and the editor.
 

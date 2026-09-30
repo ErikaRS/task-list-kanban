@@ -2,12 +2,13 @@
 	import { tick } from "svelte";
 	import type { DateFilterOperator } from "../settings/settings_store";
 	import { DATE_FILTER_OPERATORS, TODAY_FILTER_VALUE } from "./date_filter";
-	import { applyFilterSuggestion, getListSuggestions, stepSuggestionIndex, type FilterSuggestion } from "./filter_suggestions";
+	import { applyFilterSuggestion, getListSuggestions, propertySuggestionKey, stepSuggestionIndex, type FilterSuggestion } from "./filter_suggestions";
 	import {
 		filterQueryClauses,
 		parseFilterQueryResult,
 		serializeContentTerms,
 		serializeFilterQuery,
+		serializePropertyMatch,
 		TEXT_BY_OPERATOR,
 		type FilterAtom,
 		type FilterQuery,
@@ -21,6 +22,8 @@
 	export let dateKeys: { key: string; label: string }[] = [];
 	export let tagSuggestionItems: string[] = [];
 	export let fileSuggestionItems: string[] = [];
+	export let propertyKeys: readonly { key: string; label: string }[] = [];
+	export let propertyValues: ReadonlyMap<string, readonly string[]> = new Map();
 	export let savedFilters: SavedFilterEntry[] = [];
 	export let savedListExpanded = false;
 	export let onChange: (text: string) => void;
@@ -32,23 +35,29 @@
 	export let onSaveFilter: (name: string | undefined) => void;
 	export let onToggleSavedList: (expanded: boolean) => void;
 
-	type AtomKind = "content" | "tag" | "file" | "date";
+	type AtomKind = "content" | "tag" | "file" | "date" | "property";
 	type DraftAtom = {
 		kind: AtomKind;
+		// For property atoms, the value spec after `key::` (`a,b`, `*`, `>=3`).
 		value: string;
 		negative: boolean;
+		// Date key for date atoms, property key for property atoms.
 		property: string;
 		operator: DateFilterOperator | "";
 	};
 
 	function emptyAtom(kind: AtomKind = "content"): DraftAtom {
-		return { kind, value: "", negative: false, property: dateKeys[0]?.key ?? "", operator: "" };
+		return { kind, value: "", negative: false, property: kind === "property" ? "" : dateKeys[0]?.key ?? "", operator: "" };
 	}
 
 	function toDraft(atom: FilterAtom): DraftAtom {
-		return atom.kind === "date"
-			? { kind: "date", value: atom.condition.value, negative: false, property: atom.condition.property, operator: atom.condition.operator }
-			: { kind: atom.kind, value: atom.value, negative: atom.negative, property: dateKeys[0]?.key ?? "", operator: "" };
+		if (atom.kind === "date") {
+			return { kind: "date", value: atom.condition.value, negative: false, property: atom.condition.property, operator: atom.condition.operator };
+		}
+		if (atom.kind === "property") {
+			return { kind: "property", value: serializePropertyMatch(atom.match), negative: atom.negative, property: atom.key, operator: "" };
+		}
+		return { kind: atom.kind, value: atom.value, negative: atom.negative, property: dateKeys[0]?.key ?? "", operator: "" };
 	}
 
 	let rows: DraftAtom[][] = [[emptyAtom()]];
@@ -82,6 +91,11 @@
 		if (atom.kind === "date") {
 			if (!atom.property || !atom.operator || !value) return `${atom.property || "due"}:`;
 			return `${atom.property}:${TEXT_BY_OPERATOR[atom.operator]}${value}`;
+		}
+		if (atom.kind === "property") {
+			const key = atom.property.trim();
+			if (!key && !value) return "";
+			return `${atom.negative ? "-" : ""}${key}::${value}`;
 		}
 		if (!value) return "";
 		const text = atom.kind === "content"
@@ -179,6 +193,10 @@
 			onInvalidSearch("Complete the date comparison.");
 			return;
 		}
+		if (!unparseable && rows.some((clause) => clause.some((atom) => atom.kind === "property" && (!atom.property.trim() || !atom.value.trim())))) {
+			onInvalidSearch("Choose a property and a value.");
+			return;
+		}
 		onSearch();
 	}
 
@@ -195,13 +213,27 @@
 		suggestionIndex = -1;
 	}
 
-	function refreshSuggestions(clauseIndex: number, atomIndex: number, input: HTMLInputElement) {
-		const kind = rows[clauseIndex]?.[atomIndex]?.kind;
-		if (kind !== "tag" && kind !== "file") return hideSuggestions();
+	// Which input of a property row the open suggestion list belongs to.
+	let suggestionField: "value" | "property" = "value";
+
+	function refreshSuggestions(clauseIndex: number, atomIndex: number, input: HTMLInputElement, field: "value" | "property" = "value") {
+		const atom = rows[clauseIndex]?.[atomIndex];
+		const kind = atom?.kind;
+		if (kind !== "tag" && kind !== "file" && kind !== "property") return hideSuggestions();
+		const caret = input.selectionStart ?? input.value.length;
+		let items: readonly string[];
+		if (kind === "property") {
+			if (field === "value" && /^[<>=*]/.test(input.value)) return hideSuggestions();
+			items = field === "property"
+				? propertyKeys.map((key) => key.key)
+				: propertyValues.get(propertySuggestionKey(atom!.property.trim())) ?? [];
+		} else items = kind === "tag" ? tagSuggestionItems : fileSuggestionItems;
 		suggestionInput = input;
-		suggestionTarget = `${clauseIndex}:${atomIndex}`;
-		suggestions = getListSuggestions(input.value, input.selectionStart ?? input.value.length,
-			kind === "tag" ? tagSuggestionItems : fileSuggestionItems, kind);
+		suggestionField = field;
+		suggestionTarget = `${clauseIndex}:${atomIndex}:${field}`;
+		suggestions = field === "property"
+			? getListSuggestions(input.value.replace(/,/g, ""), caret, items, "property")
+			: getListSuggestions(input.value, caret, items, kind);
 		suggestionIndex = -1;
 	}
 
@@ -209,15 +241,15 @@
 		const input = suggestionInput;
 		if (!input) return;
 		const applied = applyFilterSuggestion(input.value, suggestion);
-		updateAtom(clauseIndex, atomIndex, { value: applied.text });
+		updateAtom(clauseIndex, atomIndex, suggestionField === "property" ? { property: applied.text } : { value: applied.text });
 		hideSuggestions();
 		await tick();
 		input.focus();
 		input.setSelectionRange(applied.caret, applied.caret);
 	}
 
-	function onAtomKeydown(event: KeyboardEvent, clauseIndex: number, atomIndex: number) {
-		if (suggestionTarget === `${clauseIndex}:${atomIndex}` && suggestions.length > 0) {
+	function onAtomKeydown(event: KeyboardEvent, clauseIndex: number, atomIndex: number, field: "value" | "property" = "value") {
+		if (suggestionTarget === `${clauseIndex}:${atomIndex}:${field}` && suggestions.length > 0) {
 			if (event.key === "ArrowDown" || event.key === "ArrowUp") {
 				event.preventDefault();
 				suggestionIndex = stepSuggestionIndex(suggestions.length, suggestionIndex, event.key === "ArrowDown" ? 1 : -1);
@@ -238,7 +270,8 @@
 	}
 
 	$: parsedDraft = parseFilterQueryResult(draftText, dateKeyNames);
-	$: hasIncompleteDate = rows.some((clause) => clause.some((atom) => atom.kind === "date" && (!atom.property || !atom.operator || !atom.value)));
+	$: hasIncompleteDate = rows.some((clause) => clause.some((atom) => (atom.kind === "date" && (!atom.property || !atom.operator || !atom.value))
+		|| (atom.kind === "property" && (!atom.property.trim() || !atom.value.trim()))));
 	$: draftKey = parsedDraft.error ? "" : serializeFilterQuery(parsedDraft.query);
 	$: savedEntries = savedFilters.map((entry) => ({
 		entry,
@@ -282,15 +315,29 @@
 							<div class="atom-row">
 								<div class="atom-kind-control">
 									<select class="atom-kind dropdown" value={atom.kind} aria-label="Filter type" on:change={(event) => changeKind(clauseIndex, atomIndex, event.currentTarget.value as AtomKind)}>
-										<option value="content">Content</option><option value="tag">Tag</option><option value="file" disabled={fileKindUnavailable(clauseIndex) && atom.kind !== "file"}>File</option><option value="date" disabled={dateKeys.length === 0}>Date</option>
+										<option value="content">Content</option><option value="tag">Tag</option><option value="file" disabled={fileKindUnavailable(clauseIndex) && atom.kind !== "file"}>File</option><option value="date" disabled={dateKeys.length === 0}>Date</option><option value="property">Property</option>
 									</select>
 									<span class="atom-kind-chevron" aria-hidden="true"><Icon name="chevron-down" size={14} /></span>
 								</div>
-								{#if atom.kind !== "date"}
+								{#if atom.kind === "property"}
+									<button type="button" class="exclude-toggle" class:active={atom.negative} role="switch" aria-label="Exclude this condition" aria-checked={atom.negative} title="Exclude matches for this value" on:click={() => updateAtom(clauseIndex, atomIndex, { negative: !atom.negative })}><span class="exclude-label">NOT</span><span class="exclude-track" aria-hidden="true"><span class="exclude-thumb"></span></span></button>
+									<div class="atom-value-anchor property-key-anchor">
+										<input class="text-input atom-value" type="text" value={atom.property} placeholder="property" aria-label="Property name" on:input={(event) => { updateAtom(clauseIndex, atomIndex, { property: event.currentTarget.value }); refreshSuggestions(clauseIndex, atomIndex, event.currentTarget, "property"); }} on:focus={(event) => refreshSuggestions(clauseIndex, atomIndex, event.currentTarget, "property")} on:blur={hideSuggestions} on:keydown={(event) => onAtomKeydown(event, clauseIndex, atomIndex, "property")} spellcheck="false" />
+										{#if suggestionTarget === `${clauseIndex}:${atomIndex}:property` && suggestions.length > 0}
+											<FilterSuggestionList {suggestions} selectedIndex={suggestionIndex} onAccept={(suggestion) => acceptSuggestion(clauseIndex, atomIndex, suggestion)} />
+										{/if}
+									</div>
+									<div class="atom-value-anchor">
+										<input class="text-input atom-value" type="text" value={atom.value} placeholder="value, a,b, * or >=3" aria-label="Property value" on:input={(event) => { updateAtom(clauseIndex, atomIndex, { value: event.currentTarget.value }); refreshSuggestions(clauseIndex, atomIndex, event.currentTarget); }} on:focus={(event) => refreshSuggestions(clauseIndex, atomIndex, event.currentTarget)} on:blur={hideSuggestions} on:keydown={(event) => onAtomKeydown(event, clauseIndex, atomIndex)} spellcheck="false" />
+										{#if suggestionTarget === `${clauseIndex}:${atomIndex}:value` && suggestions.length > 0}
+											<FilterSuggestionList {suggestions} selectedIndex={suggestionIndex} onAccept={(suggestion) => acceptSuggestion(clauseIndex, atomIndex, suggestion)} />
+										{/if}
+									</div>
+								{:else if atom.kind !== "date"}
 									<button type="button" class="exclude-toggle" class:active={atom.negative} role="switch" aria-label="Exclude this condition" aria-checked={atom.negative} disabled={positiveFileToggleUnavailable(clauseIndex, atom)} title={positiveFileToggleUnavailable(clauseIndex, atom) ? "Positive file conditions outside a group merge into one OR clause" : "Exclude matches for this value"} on:click={() => updateAtom(clauseIndex, atomIndex, { negative: !atom.negative })}><span class="exclude-label">NOT</span><span class="exclude-track" aria-hidden="true"><span class="exclude-thumb"></span></span></button>
 									<div class="atom-value-anchor">
 										<input class="text-input atom-value" type="text" value={atom.value} aria-label={atom.kind === "content" ? "Content term" : atom.kind === "tag" ? "Tag" : "File path"} on:input={(event) => { updateAtom(clauseIndex, atomIndex, { value: event.currentTarget.value }); refreshSuggestions(clauseIndex, atomIndex, event.currentTarget); }} on:focus={(event) => refreshSuggestions(clauseIndex, atomIndex, event.currentTarget)} on:click={(event) => { if (suggestionTarget) refreshSuggestions(clauseIndex, atomIndex, event.currentTarget); }} on:blur={hideSuggestions} on:keydown={(event) => onAtomKeydown(event, clauseIndex, atomIndex)} spellcheck="false" />
-										{#if suggestionTarget === `${clauseIndex}:${atomIndex}` && suggestions.length > 0}
+										{#if suggestionTarget === `${clauseIndex}:${atomIndex}:value` && suggestions.length > 0}
 											<FilterSuggestionList {suggestions} selectedIndex={suggestionIndex} onAccept={(suggestion) => acceptSuggestion(clauseIndex, atomIndex, suggestion)} />
 										{/if}
 									</div>
@@ -362,6 +409,7 @@
 	.atom-value-anchor { position: relative; display: flex; flex: 1 1 140px; min-width: 0; }
 	.atom-value { width: 100%; }
 	.date-value { flex: 1 1 130px; }
+	.property-key-anchor { flex: 0 1 120px; }
 	input.text-input { min-width: 0; background: transparent; border: none; border-bottom: 1px solid var(--background-modifier-border); border-radius: 0; box-shadow: none; padding: var(--size-2-2) 0; }
 	input.text-input:focus-visible { border-bottom-color: var(--interactive-accent); outline: none; }
 	.clause-actions { display: flex; justify-content: space-between; }

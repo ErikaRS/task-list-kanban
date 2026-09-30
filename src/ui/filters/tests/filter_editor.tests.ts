@@ -52,6 +52,30 @@ function input(selector: string, value: string) {
 }
 
 describe("clause editor", () => {
+	it("edits a property atom as key and value", async () => {
+		const { onChange } = await mount("-project::website tag:home");
+		const key = document.querySelector<HTMLInputElement>('input[aria-label="Property name"]')!;
+		const value = document.querySelector<HTMLInputElement>('input[aria-label="Property value"]')!;
+		expect(key.value).toBe("project");
+		expect(value.value).toBe("website");
+		expect(document.querySelector<HTMLButtonElement>(".exclude-toggle")?.getAttribute("aria-checked")).toBe("true");
+		input('input[aria-label="Property value"]', "blog");
+		expect(onChange).toHaveBeenLastCalledWith("-project::blog tag:home");
+		input('input[aria-label="Property name"]', "owner");
+		expect(onChange).toHaveBeenLastCalledWith("-owner::blog tag:home");
+	});
+
+	it("switches an atom to a property row", async () => {
+		const { onChange } = await mount("tag:home");
+		const select = document.querySelector<HTMLSelectElement>(".atom-kind")!;
+		select.value = "property";
+		select.dispatchEvent(new Event("change", { bubbles: true }));
+		await tick();
+		input('input[aria-label="Property name"]', "priority");
+		input('input[aria-label="Property value"]', ">=high");
+		expect(onChange).toHaveBeenLastCalledWith("priority::>=high");
+	});
+
 	it("shows mixed OR atoms in one row and a negated atom in another", async () => {
 		await mount("(tag:reading OR file:essays) -Keynes");
 		const clauses = document.querySelectorAll(".clause-row");

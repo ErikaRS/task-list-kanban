@@ -57,6 +57,7 @@
 	import FilterSuggestionList from "./filters/filter_suggestion_list.svelte";
 	import {
 		applyFilterSuggestion,
+		collectPropertySuggestions,
 		getFilterSuggestions,
 		stepSuggestionIndex,
 		type FilterSuggestion,
@@ -776,10 +777,13 @@
 	$: taskFilePaths = [...new Set($tasksStore.map((task) => task.path))].sort(
 		(a, b) => a.localeCompare(b),
 	);
+	$: propertySuggestions = collectPropertySuggestions($tasksStore, activeSchema.knownKeys());
 	$: suggestionContext = {
 		tags: availableTags,
 		filePaths: taskFilePaths,
 		dateKeys: dateFilterKeys,
+		propertyKeys: propertySuggestions.keys,
+		propertyValues: propertySuggestions.values,
 		// Only named saves are suggestible — an unnamed entry has no text
 		// to complete (its query still applies from the editor's list).
 		savedFilterNames: savedFilterEntries
@@ -1563,6 +1567,8 @@
 							dateKeys={dateFilterKeys}
 							tagSuggestionItems={availableTags}
 							fileSuggestionItems={taskFilePaths}
+							propertyKeys={propertySuggestions.keys}
+							propertyValues={propertySuggestions.values}
 							savedFilters={savedFilterEntries}
 							savedListExpanded={savedFilterListExpanded}
 							onChange={applyEditorQuery}
