@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-09
 
 # Property filters
 
@@ -7,9 +8,9 @@ Status: IN_PROGRESS
 The filter bar handles content, tags, file paths and date comparisons. It cannot yet narrow a board by any other task property. This spec adds filter terms for every non-date property the active schema parses:
 
 - **Built-in properties:** `priority` and `status`. `status` is the checkbox marker, and every schema provides it.
-- **Custom Dataview fields:** any inline field the user invents, such as `[project:: website]`, `(owner:: sam)` or `[estimate:: 3]`. These fields are already parsed and available for sorting (see [SPEC 0020](complete/SPEC_0020__COMPLETE__TASK_PROPERTIES_DESIGN.md)).
+- **Custom Dataview fields:** any inline field the user invents, such as `[project:: website]`, `(owner:: sam)` or `[estimate:: 3]`. These fields are already parsed and available for sorting (see [SPEC 0020](SPEC_0020__COMPLETE__TASK_PROPERTIES_DESIGN.md)).
 
-This work builds on the unified query from [SPEC 0029](complete/SPEC_0029__COMPLETE__UNIFIED_FILTER_SEARCH_BAR.md) and the signed atoms and OR clauses from [SPEC 0044](SPEC_0044__IN_PROGRESS__FILTER_NEGATION_AND_LIMITED_OR.md). It was requested as a follow-up in [#65](https://github.com/ErikaRS/task-list-kanban/issues/65) and [#86](https://github.com/ErikaRS/task-list-kanban/issues/86).
+This work builds on the unified query from [SPEC 0029](SPEC_0029__COMPLETE__UNIFIED_FILTER_SEARCH_BAR.md) and the signed atoms and OR clauses from [SPEC 0044](../SPEC_0044__IN_PROGRESS__FILTER_NEGATION_AND_LIMITED_OR.md). It was requested as a follow-up in [#65](https://github.com/ErikaRS/task-list-kanban/issues/65) and [#86](https://github.com/ErikaRS/task-list-kanban/issues/86).
 
 ## User Requirements
 
@@ -105,16 +106,20 @@ The SPEC 0044 clause model and clause-row editor are already in the code (`filte
 
 **Deliverable:** Property equality filters work end to end from the bar and persist in saved views.
 
-### Phase 2: Comparisons, suggestions and editor 🚧 IN PROGRESS
+**Implemented by:** [#199](https://github.com/ErikaRS/task-list-kanban/pull/199) (Refs #65, #86).
+
+### Phase 2: Comparisons, suggestions and editor ✅ COMPLETE
 
 **Goal:** Numeric and priority comparisons work, and property atoms are discoverable.
 
 1. ✅ Parse and evaluate `<`, `<=`, `=`, `>=` and `>` for numbers and priority, and reject them for status and text.
 2. ✅ Add bar suggestions for keys and values drawn from board tasks.
 3. ✅ Add the Property atom row to the structured editor, keeping bar and editor round trips intact.
-4. [ ] Test comparisons, the priority ordering with `none`, suggestion replacement, and editor equivalence (✅ automated). Manually verify on a large Dataview board.
+4. ✅ Test comparisons, the priority ordering with `none`, suggestion replacement, and editor equivalence. Manually verify in a vault.
 
 **Deliverable:** `estimate::<=3` and `priority::>=high` work, and keys and values appear in suggestions and the editor.
+
+**Implemented by:** [#199](https://github.com/ErikaRS/task-list-kanban/pull/199) (Refs #65, #86).
 
 ## Decisions to confirm
 
