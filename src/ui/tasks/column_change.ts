@@ -20,6 +20,20 @@ export type ColumnChangeOptions = {
 	doneStatusMarker: string;
 	wasDone?: boolean;
 	addCompletionDate?: string;
+	/** Leave the source column's placement tags in place when completing. */
+	keepColumnTag?: boolean;
+	/** Definitions that encoded `fromColumn`, when they differ from the destination's (column rule edits). */
+	sourceColumnDefinitions?: ColumnDefinition[];
+};
+
+export type ArchiveOptions = {
+	fromColumn: ColumnTag | undefined;
+	columnDefinitions: ColumnDefinition[];
+	doneStatusMarker: string;
+	wasDone: boolean;
+	/** Archive-status mode writes this marker instead of adding `#archived`. */
+	archiveStatusMarker?: string;
+	keepColumnTag?: boolean;
 };
 
 /**
@@ -28,9 +42,7 @@ export type ColumnChangeOptions = {
  * spacing, list bullets, indentation, and block links survive unchanged.
  */
 export function changeColumnTransform(rawLine: string, options: ColumnChangeOptions): string {
-	const source = options.fromColumn
-		? options.columnDefinitions.find((column) => column.id === options.fromColumn)
-		: undefined;
+	const source = findColumn(options.sourceColumnDefinitions ?? options.columnDefinitions, options.fromColumn);
 	const destination = isCustomColumn(options.toColumn)
 		? options.columnDefinitions.find((column) => column.id === options.toColumn)
 		: undefined;
@@ -40,7 +52,9 @@ export function changeColumnTransform(rawLine: string, options: ColumnChangeOpti
 		next = replaceStatusMarker(next, " ");
 	}
 
-	if (source && usesPriorityMatching(source)) {
+	// Priority describes the task, not its workflow state, so completing a
+	// task never removes it.
+	if (source && usesPriorityMatching(source) && options.toColumn !== "done") {
 		next = getPropertyWriteAdapter(getColumnPrioritySchema(source) ?? options.propertySchemaOption)
 			?.removePriority(next) ?? next;
 	}
@@ -51,6 +65,8 @@ export function changeColumnTransform(rawLine: string, options: ColumnChangeOpti
 
 	const sourceTags = options.toColumn === "uncategorised"
 		? getAllPlacementTags(options.columnDefinitions)
+		: options.toColumn === "done" && options.keepColumnTag
+		? []
 		: source
 		? getColumnWriteTags(source)
 		: [];
@@ -84,16 +100,53 @@ export function changeColumnTransform(rawLine: string, options: ColumnChangeOpti
 	return next;
 }
 
+/**
+ * Archives a task by writing only its status marker and `#archived` tag (or
+ * the archive status), leaving the rest of the line untouched. Like
+ * completion, archiving never removes a priority.
+ */
+export function archiveTransform(rawLine: string, options: ArchiveOptions): string {
+	const source = findColumn(options.columnDefinitions, options.fromColumn);
+	let next = rawLine;
+	if (source && !options.keepColumnTag) {
+		next = replacePlacementTags(next, getColumnWriteTags(source), []);
+	}
+
+	if (options.archiveStatusMarker) {
+		return replaceStatusMarker(next, options.archiveStatusMarker);
+	}
+
+	if (!options.wasDone) {
+		next = replaceStatusMarker(next, options.doneStatusMarker);
+	}
+	return hasTag(next, "archived") ? next : appendBeforeBlockLink(next, ["archived"]);
+}
+
+/**
+ * Swaps a tag column's old placement tags for its new ones after the
+ * column's rule changes. Used for done tasks, whose kept column tags are
+ * renamed but whose status and priority are left alone.
+ */
+export function renameColumnTags(rawLine: string, oldColumn: ColumnDefinition, newColumn: ColumnDefinition): string {
+	const oldTags = getColumnWriteTags(oldColumn);
+	return oldTags.length > 0 ? replacePlacementTags(rawLine, oldTags, getColumnWriteTags(newColumn)) : rawLine;
+}
+
+/** Replaces only the checkbox marker. */
+export function replaceStatusMarker(rawLine: string, marker: string): string {
+	return rawLine.replace(/^(\s*[-*+]\s+\[)[^[\]]*(\]\s)/u, `$1${marker}$2`);
+}
+
+function findColumn(columns: ColumnDefinition[], id: ColumnTag | undefined): ColumnDefinition | undefined {
+	return id ? columns.find((column) => column.id === id) : undefined;
+}
+
 function isCustomColumn(column: ColumnTag | DefaultColumns): column is ColumnTag {
 	return column !== "done" && column !== "uncategorised";
 }
 
 function getAllPlacementTags(columns: ColumnDefinition[]): string[] {
 	return [...new Set(columns.flatMap(getColumnWriteTags))];
-}
-
-function replaceStatusMarker(rawLine: string, marker: string): string {
-	return rawLine.replace(/^(\s*[-*+]\s+\[)[^[\]]*(\]\s)/u, `$1${marker}$2`);
 }
 
 function replacePlacementTags(rawLine: string, oldTags: string[], newTags: string[]): string {

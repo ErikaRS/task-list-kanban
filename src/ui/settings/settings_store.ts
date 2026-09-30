@@ -247,6 +247,7 @@ const settingsObject = z.object({
 	ignoredStatusMarkers: z.string().default(DEFAULT_IGNORED_STATUS_MARKERS).optional(),
 	replaceArchiveTagWithStatus: z.boolean().default(false).optional(),
 	archiveStatusMarkers: z.string().default("").optional(),
+	keepColumnTagOnCompletion: z.boolean().default(false).optional(),
 	statusMarkerOrder: z.string().default("").optional(),
 	savedFilters: z.array(savedFilterSchema).default([]).optional(),
 	savedGroupings: z.array(savedGroupingSchema).default([]).optional(),
@@ -309,6 +310,7 @@ export interface SettingValues {
 	ignoredStatusMarkers?: string;
 	replaceArchiveTagWithStatus?: boolean;
 	archiveStatusMarkers?: string;
+	keepColumnTagOnCompletion?: boolean;
 	statusMarkerOrder?: string;
 	savedFilters?: SavedFilter[];
 	savedGroupings?: SavedGrouping[];
@@ -356,6 +358,7 @@ export const defaultSettings: SettingValues = {
 	ignoredStatusMarkers: DEFAULT_IGNORED_STATUS_MARKERS,
 	replaceArchiveTagWithStatus: false,
 	archiveStatusMarkers: "",
+	keepColumnTagOnCompletion: false,
 	statusMarkerOrder: "",
 	savedFilters: [],
 	savedViews: [],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyChangedColumnTagUpdates, getChangedColumnMatchRules } from "../column_rename_migration";
-import type { ColumnTag } from "../../columns/columns";
+import type { ColumnDefinition, ColumnTag } from "../../columns/columns";
 import { defaultSettings, ScopeOption, type SettingValues } from "../settings_store";
 import { migrateColumnDefinitions } from "../../columns/definitions";
 import { PropertySchemaOption } from "../../../parsing/properties";
@@ -385,6 +385,32 @@ describe("applyChangedColumnTagUpdates", () => {
 			updateChoices: { [newColumns[0]!.id]: true },
 		});
 
-		expect(contents).toBe("- [x] Task A");
+		// A done task's kept column tag is renamed rather than dropped.
+		expect(contents).toBe("- [x] Task A #in-progress");
+	});
+
+	it("leaves a completed task's status and priority alone when its priority column changes", async () => {
+		const oldColumns: ColumnDefinition[] = [
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high", matchPropertySchema: PropertySchemaOption.TasksPlugin },
+		];
+		const newColumns: ColumnDefinition[] = [{ ...oldColumns[0]!, matchPriority: "highest" }];
+		const file = { path: "projects/tasks.md" };
+		let contents = "- [x] Task A ⏫";
+
+		await applyChangedColumnTagUpdates({
+			vault: {
+				getMarkdownFiles: () => [file],
+				read: async () => contents,
+				modify: async (_file: unknown, nextContents: string) => {
+					contents = nextContents;
+				},
+			} as never,
+			oldSettings: { ...defaultSettings, columns: oldColumns, propertySchema: PropertySchemaOption.TasksPlugin },
+			newSettings: { ...defaultSettings, columns: newColumns, propertySchema: PropertySchemaOption.TasksPlugin },
+			boardFolderPath: "projects",
+			updateChoices: { high: true },
+		});
+
+		expect(contents).toBe("- [x] Task A ⏫");
 	});
 });

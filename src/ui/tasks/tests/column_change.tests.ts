@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PropertySchemaOption } from "../../../parsing/properties";
 import type { ColumnDefinition, ColumnTag } from "../../columns/columns";
-import { changeColumnTransform } from "../column_change";
+import { archiveTransform, changeColumnTransform, renameColumnTags, replaceStatusMarker } from "../column_change";
 
 const columns: ColumnDefinition[] = [
 	{ id: "backlog" as ColumnTag, label: "Backlog", matchMode: "name", matchTags: [] },
@@ -164,5 +164,184 @@ describe("changeColumnTransform", () => {
 	it("is idempotent when a row already encodes the destination column", () => {
 		const rawLine = "- [ ] Keep  #status/active #project #note ^block";
 		expect(transform(rawLine, "active" as ColumnTag, "active" as ColumnTag)).toBe(rawLine);
+	});
+});
+
+describe("changeColumnTransform status and priority rules", () => {
+	const statusColumns: ColumnDefinition[] = [
+		{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+		{ id: "blocked" as ColumnTag, label: "Blocked", matchMode: "status", matchTags: [], matchStatus: "!" },
+		...columns,
+	];
+
+	it("replaces the marker when moving between status columns", () => {
+		expect(transform("- [/] Ship #note", "doing" as ColumnTag, "blocked" as ColumnTag, { columnDefinitions: statusColumns }))
+			.toBe("- [!] Ship #note");
+	});
+
+	it("preserves an unrelated custom status marker when moving between tag columns", () => {
+		expect(transform("- [?] Ship #note #backlog", "backlog" as ColumnTag, "active" as ColumnTag))
+			.toBe("- [?] Ship #note #status/active #project");
+	});
+
+	it("preserves an unrelated custom status marker when moving to uncategorised", () => {
+		expect(transform("- [?] Ship #note #backlog", "backlog" as ColumnTag, "uncategorised"))
+			.toBe("- [?] Ship #note");
+	});
+
+	it("clears status placement when moving from a status column to uncategorised", () => {
+		expect(transform("- [/] Ship #note", "doing" as ColumnTag, "uncategorised"))
+			.toBe("- [ ] Ship #note");
+	});
+
+	it("preserves an unrelated priority when moving between tag columns", () => {
+		expect(transform("- [ ] Ship ⏫ #backlog", "backlog" as ColumnTag, "active" as ColumnTag, {
+			propertySchemaOption: PropertySchemaOption.TasksPlugin,
+		})).toBe("- [ ] Ship ⏫ #status/active #project");
+	});
+
+	it("replaces and removes Dataview priorities for Dataview priority columns", () => {
+		const dataviewColumns: ColumnDefinition[] = [
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high", matchPropertySchema: PropertySchemaOption.Dataview },
+			{ id: "low" as ColumnTag, label: "Low", matchMode: "priority", matchTags: [], matchPriority: "low", matchPropertySchema: PropertySchemaOption.Dataview },
+			...columns.filter((column) => column.id === "backlog"),
+		];
+		const options = { columnDefinitions: dataviewColumns, propertySchemaOption: PropertySchemaOption.Dataview };
+		expect(transform("- [ ] Ship #note [priority:: high]", "high" as ColumnTag, "low" as ColumnTag, options))
+			.toBe("- [ ] Ship #note [priority:: low]");
+		expect(transform("- [ ] Ship #note [priority:: high]", "high" as ColumnTag, "backlog" as ColumnTag, options))
+			.toBe("- [ ] Ship #note #backlog");
+	});
+
+	it("uses the source definitions to clear a column whose rule changed", () => {
+		const oldBacklog: ColumnDefinition = { id: "backlog" as ColumnTag, label: "Backlog", matchMode: "name", matchTags: [] };
+		const newBacklog: ColumnDefinition = { ...oldBacklog, label: "Later" };
+		expect(changeColumnTransform("- [ ] Ship #backlog #note", {
+			fromColumn: oldBacklog.id,
+			toColumn: newBacklog.id,
+			columnDefinitions: [newBacklog],
+			sourceColumnDefinitions: [oldBacklog],
+			propertySchemaOption: PropertySchemaOption.None,
+			doneStatusMarker: "x",
+		})).toBe("- [ ] Ship #later #note");
+	});
+});
+
+describe("completing a task", () => {
+	it("keeps a priority-column priority when moving to done", () => {
+		expect(transform("- [ ] Ship #note ⏫ ^abc", "high" as ColumnTag, "done", {
+			propertySchemaOption: PropertySchemaOption.TasksPlugin,
+			addCompletionDate: "2026-09-30",
+		})).toBe("- [x] Ship #note ⏫ ✅ 2026-09-30 ^abc");
+	});
+
+	it("keeps a Dataview priority when moving to done", () => {
+		const dataviewHigh: ColumnDefinition = {
+			id: "urgent" as ColumnTag,
+			label: "Urgent",
+			matchMode: "priority",
+			matchTags: [],
+			matchPriority: "high",
+			matchPropertySchema: PropertySchemaOption.Dataview,
+		};
+		expect(changeColumnTransform("- [ ] Ship [priority:: high]", {
+			fromColumn: dataviewHigh.id,
+			toColumn: "done",
+			columnDefinitions: [dataviewHigh],
+			propertySchemaOption: PropertySchemaOption.Dataview,
+			doneStatusMarker: "x",
+		})).toBe("- [x] Ship [priority:: high]");
+	});
+
+	it("removes the column tag by default", () => {
+		expect(transform("- [ ] Ship #status/active #project #note", "active" as ColumnTag, "done"))
+			.toBe("- [x] Ship #note");
+	});
+
+	it("keeps every column tag when keepColumnTag is set", () => {
+		expect(transform("- [ ] Ship #status/active #project #note ^abc", "active" as ColumnTag, "done", {
+			keepColumnTag: true,
+		})).toBe("- [x] Ship #status/active #project #note ^abc");
+	});
+
+	it("still overwrites a status-column marker when keepColumnTag is set", () => {
+		expect(transform("- [/] Ship #note", "doing" as ColumnTag, "done", { keepColumnTag: true }))
+			.toBe("- [x] Ship #note");
+	});
+
+	it("moves a done task out of Done by the normal rules for its kept tag's column", () => {
+		expect(transform("- [x] Ship #backlog #note ✅ 2026-09-30", "backlog" as ColumnTag, "active" as ColumnTag, {
+			wasDone: true,
+		})).toBe("- [ ] Ship #status/active #project #note ✅ 2026-09-30");
+	});
+});
+
+describe("archiveTransform", () => {
+	function archive(rawLine: string, overrides: Partial<Parameters<typeof archiveTransform>[1]> = {}) {
+		return archiveTransform(rawLine, {
+			fromColumn: undefined,
+			columnDefinitions: columns,
+			doneStatusMarker: "x",
+			wasDone: false,
+			...overrides,
+		});
+	}
+
+	it.each([
+		["- [X] Already done #note", true, "- [X] Already done #note #archived"],
+		["- [✓] Custom done #note", true, "- [✓] Custom done #note #archived"],
+		["- [ ] Incomplete #note", false, "- [x] Incomplete #note #archived"],
+		["- [?] Unknown status #note", false, "- [x] Unknown status #note #archived"],
+	])("archives %s, completing it only when open", (rawLine, wasDone, expected) => {
+		expect(archive(rawLine, { wasDone })).toBe(expected);
+	});
+
+	it("removes every placement tag of a multi-tag column by default", () => {
+		expect(archive("- [ ] Ship #status/active #project #note ^abc", { fromColumn: "active" as ColumnTag }))
+			.toBe("- [x] Ship #note #archived ^abc");
+	});
+
+	it("keeps the column tags when keepColumnTag is set", () => {
+		expect(archive("- [ ] Ship #status/active #project #note", { fromColumn: "active" as ColumnTag, keepColumnTag: true }))
+			.toBe("- [x] Ship #status/active #project #note #archived");
+	});
+
+	it("writes the archive status without adding #archived", () => {
+		expect(archive("- [/] Ship #backlog", { fromColumn: "backlog" as ColumnTag, archiveStatusMarker: "d" }))
+			.toBe("- [d] Ship");
+		expect(archive("- [/] Ship #backlog", { fromColumn: "backlog" as ColumnTag, archiveStatusMarker: "d", keepColumnTag: true }))
+			.toBe("- [d] Ship #backlog");
+	});
+
+	it("preserves an existing #archived tag in archive-status mode", () => {
+		expect(archive("- [ ] Legacy #archived", { archiveStatusMarker: "d" })).toBe("- [d] Legacy #archived");
+	});
+
+	it("does not add a second #archived tag", () => {
+		expect(archive("- [ ] Legacy #archived")).toBe("- [x] Legacy #archived");
+	});
+
+	it("never removes a priority", () => {
+		expect(archive("- [ ] Ship ⏫", { fromColumn: "high" as ColumnTag })).toBe("- [x] Ship ⏫ #archived");
+		expect(archive("- [ ] Ship ⏫", { fromColumn: "high" as ColumnTag, archiveStatusMarker: "d" })).toBe("- [d] Ship ⏫");
+	});
+});
+
+describe("renameColumnTags", () => {
+	it("swaps the old placement tags for the new ones", () => {
+		const oldColumn: ColumnDefinition = { id: "doing" as ColumnTag, label: "Doing", matchMode: "name", matchTags: [] };
+		expect(renameColumnTags("- [x] Ship #doing #note", oldColumn, { ...oldColumn, label: "In Progress" }))
+			.toBe("- [x] Ship #in-progress #note");
+	});
+
+	it("never adds a tag for a column that was not tag-based", () => {
+		const high = columns.find((column) => column.id === "high")!;
+		expect(renameColumnTags("- [x] Ship ⏫", high, columns[0]!)).toBe("- [x] Ship ⏫");
+	});
+});
+
+describe("replaceStatusMarker", () => {
+	it("replaces only the checkbox marker", () => {
+		expect(replaceStatusMarker("  * [ ] Ship [x] #note", "/")).toBe("  * [/] Ship [x] #note");
 	});
 });

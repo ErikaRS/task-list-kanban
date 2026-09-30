@@ -38,7 +38,12 @@ import {
 	type PrepareFileContentsForWrite,
 } from "./source_line_editor";
 import { buildNewTaskLine, type GroupProperty, type NewTaskColumn } from "./task_line_builder";
-import { changeColumnTransform } from "./column_change";
+import {
+	archiveTransform,
+	changeColumnTransform,
+	replaceStatusMarker,
+	type ColumnChangeOptions,
+} from "./column_change";
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
@@ -155,6 +160,7 @@ export function createTaskActions({
 	setLastUsedTaskFile,
 	getPropertySchemaOption,
 	getStatusMarkerOrder,
+	getKeepColumnTagOnCompletion = () => false,
 	getCurrentDate,
 	getManualOrder,
 	setManualOrder,
@@ -174,6 +180,7 @@ export function createTaskActions({
 	setLastUsedTaskFile: (path: string) => void;
 	getPropertySchemaOption: () => PropertySchemaOption;
 	getStatusMarkerOrder: () => string;
+	getKeepColumnTagOnCompletion?: () => boolean;
 	getCurrentDate?: () => Date;
 	getManualOrder: () => ManualOrderStore;
 	setManualOrder: (next: ManualOrderStore) => void;
@@ -228,19 +235,17 @@ export function createTaskActions({
 	// touched (tag placement, spacing). `editTaskSourceRows` applies a
 	// targeted string transform and preserves the rest of the line
 	// byte-for-byte. Prefer the surgical path; rewrite only when the change
-	// inherently goes through the Task model (column, status, content).
+	// inherently goes through the Task model (content, tags). Status and
+	// column changes, completion and archiving included, are all surgical.
 
 	/**
 	 * REWRITE path: applies `updater` to each task and replaces its source
 	 * line with the re-serialised result, reading and writing each affected
-	 * file exactly once. Tasks are processed in order, so a
-	 * `transformSerialized` closure may rely on state set by `updater` for
-	 * the same task.
+	 * file exactly once.
 	 */
 	async function rewriteTaskRows(
 		ids: string[],
 		updater: (task: Task) => void,
-		transformSerialized?: (newTaskString: string) => string,
 	) {
 		const entriesByFile = collectTaskEntriesByFile(ids);
 		notifyMissingTasks(
@@ -250,10 +255,7 @@ export function createTaskActions({
 		for (const [fileHandle, entries] of entriesByFile) {
 			const edits = entries.map(({ task, metadata }) => {
 				updater(task);
-				const serialized = task.serialise();
-				const newRow = transformSerialized
-					? transformSerialized(serialized)
-					: serialized;
+				const newRow = task.serialise();
 				return { rowIndex: metadata.rowIndex, transform: () => newRow };
 			});
 			await transformSourceRows(vault, fileHandle, edits, prepareFileContentsForWrite);
@@ -291,7 +293,11 @@ export function createTaskActions({
 		}
 	}
 
-	async function editTaskColumns(ids: string[], column: ColumnTag | DefaultColumns) {
+	/**
+	 * EDIT path with the parsed task at hand: like `editTaskSourceRows`, but
+	 * the transform may depend on the task's current state.
+	 */
+	async function editTasks(ids: string[], transform: (task: Task, row: string) => string) {
 		const entriesByFile = collectTaskEntriesByFile(ids);
 		notifyMissingTasks(
 			ids.length,
@@ -304,23 +310,45 @@ export function createTaskActions({
 				fileHandle,
 				entries.map(({ task, metadata }) => ({
 					rowIndex: metadata.rowIndex,
-					transform: (row: string) => changeColumnTransform(row, {
-						fromColumn: task.column && task.column !== "archived" && task.column !== "done" && task.column !== "uncategorised"
-							? task.column
-							: undefined,
-						toColumn: column,
-						columnDefinitions: getColumnDefinitions(),
-						propertySchemaOption: getPropertySchemaOption(),
-						doneStatusMarker: task.doneStatusMarker,
-						wasDone: task.done,
-						addCompletionDate: column === "done" && !task.done
-							? formatLocalDate(getCurrentDate?.() ?? new Date())
-							: undefined,
-					}),
+					transform: (row: string) => transform(task, row),
 				})),
 				prepareFileContentsForWrite,
 			);
 		}
+	}
+
+	/**
+	 * The custom column a task is leaving. A done task leaves the column its
+	 * kept tag names, so the normal column-change rules still apply to it.
+	 */
+	function getSourceColumn(task: Task): ColumnTag | undefined {
+		if (task.done) return task.taggedColumn;
+		return task.column && task.column !== "archived" && task.column !== "done" && task.column !== "uncategorised"
+			? task.column
+			: undefined;
+	}
+
+	function getColumnChangeOptions(task: Task, column: ColumnTag | DefaultColumns): ColumnChangeOptions {
+		return {
+			fromColumn: getSourceColumn(task),
+			toColumn: column,
+			columnDefinitions: getColumnDefinitions(),
+			propertySchemaOption: getPropertySchemaOption(),
+			doneStatusMarker: task.doneStatusMarker,
+			wasDone: task.done,
+			addCompletionDate: column === "done" && !task.done
+				? formatLocalDate(getCurrentDate?.() ?? new Date())
+				: undefined,
+			keepColumnTag: getKeepColumnTagOnCompletion(),
+		};
+	}
+
+	/**
+	 * Every column change, completion included, goes through this one
+	 * surgical transform.
+	 */
+	async function editTaskColumns(ids: string[], column: ColumnTag | DefaultColumns) {
+		await editTasks(ids, (task, row) => changeColumnTransform(row, getColumnChangeOptions(task, column)));
 	}
 
 	function getTaskWithMetadata(id: string): { task: Task; metadata: Metadata } | null {
@@ -497,26 +525,21 @@ export function createTaskActions({
 		},
 
 		async markDone(id) {
-			let shouldAddCompletionDate = false;
-			await rewriteTaskRows(
-				[id],
-				(task) => {
-					shouldAddCompletionDate = !task.done;
-					task.done = true;
-				},
-				(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
-			);
+			await editTaskColumns([id], "done");
 		},
 
 		async toggleDone(id) {
-			let shouldAddCompletionDate = false;
-			await rewriteTaskRows(
-				[id],
-				(task) => {
-					shouldAddCompletionDate = task.cycleStatus(getStatusMarkerOrder());
-				},
-				(row) => shouldAddCompletionDate ? addCompletionDateIfEnabled(row) : row,
-			);
+			const task = tasksByTaskId.get(id);
+			if (!task) {
+				notifyMissingTasks(1, 0);
+				return;
+			}
+			const next = task.nextStatus(getStatusMarkerOrder());
+			if (next.done) {
+				await editTaskColumns([id], "done");
+				return;
+			}
+			await editTaskSourceRows([id], (row) => replaceStatusMarker(row, next.status));
 		},
 
 		async updateContent(id, content) {
@@ -665,15 +688,22 @@ export function createTaskActions({
 		},
 
 		async archiveTasks(ids) {
-			await rewriteTaskRows(ids, (task) => task.archive());
+			await editTasks(ids, (task, row) => archiveTransform(row, {
+				fromColumn: getSourceColumn(task),
+				columnDefinitions: getColumnDefinitions(),
+				doneStatusMarker: task.doneStatusMarker,
+				wasDone: task.done,
+				archiveStatusMarker: task.archiveStatusMarker,
+				keepColumnTag: getKeepColumnTagOnCompletion(),
+			}));
 		},
 
 		async cancelTasks(ids) {
-			await rewriteTaskRows(ids, (task) => task.cancel());
+			await editTasks(ids, (task, row) => replaceStatusMarker(row, task.cancelledStatusMarker));
 		},
 
 		async restoreTasks(ids) {
-			await rewriteTaskRows(ids, (task) => task.restore());
+			await editTaskSourceRows(ids, (row) => replaceStatusMarker(row, " "));
 		},
 
 		async deleteTask(id) {
@@ -754,7 +784,7 @@ export function createTaskActions({
 			for (const { task } of moves) {
 				const serializedParent = taskIsInColumn(task, destinationColumn)
 					? task.serialise()
-					: task.serialiseForColumn(destinationColumn);
+					: changeColumnTransform(task.serialise(), getColumnChangeOptions(task, destinationColumn));
 				destinationRows.push(...task.sourceBlockRows(serializedParent));
 			}
 			await writeFileRows(vault, destinationFile, destinationRows, prepareFileContentsForWrite);
@@ -886,15 +916,6 @@ export function createTaskActions({
 			);
 		},
 	};
-
-	function addCompletionDateIfEnabled(rawLine: string): string {
-		const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
-		if (!adapter) {
-			return rawLine;
-		}
-
-		return adapter.addCompletionDateIfMissing(rawLine, formatLocalDate(getCurrentDate?.() ?? new Date()));
-	}
 }
 
 function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean {

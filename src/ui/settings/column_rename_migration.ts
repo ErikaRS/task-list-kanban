@@ -1,5 +1,5 @@
 import type { TFile, Vault } from "obsidian";
-import { createColumnData, type ColumnDefinition } from "../columns/columns";
+import type { ColumnDefinition, ColumnTag } from "../columns/columns";
 import type { SettingValues } from "./settings_store";
 import { getTagsFromContent } from "src/parsing/tags/tags";
 import {
@@ -15,12 +15,12 @@ import {
 	usesPriorityMatching,
 } from "../columns/definitions";
 import {
-	Task,
-	DEFAULT_CANCELLED_STATUS_MARKERS,
 	DEFAULT_DONE_STATUS_MARKERS,
 	DEFAULT_IGNORED_STATUS_MARKERS,
+	isStatusMatch,
 	isTrackedTaskString,
 } from "../tasks/task";
+import { changeColumnTransform, renameColumnTags } from "../tasks/column_change";
 import { getSchemaImpl } from "../../parsing/properties";
 import { PropertySchemaOption, type TaskPropertyMap } from "../../parsing/properties/property_schema";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
@@ -69,7 +69,6 @@ export async function applyChangedColumnTagUpdates({
 		return;
 	}
 
-	const newColumnData = createColumnData(newSettings.columns);
 	const oldSettingsScope = resolveScopeSettings(oldSettings, boardFolderPath, pathScope);
 	const changedColumnsById = new Map(changedColumns.map((column) => [column.id, column]));
 	const files = vault
@@ -90,7 +89,6 @@ export async function applyChangedColumnTagUpdates({
 			changedColumnsById,
 			oldSettings.columns,
 			newSettings.columns,
-			newColumnData.columnPlacementTagTable,
 			oldSettings,
 		);
 	}
@@ -102,13 +100,13 @@ async function updateFileForChangedColumns(
 	changedColumnsById: Map<string, ChangedColumnMatchRule>,
 	oldColumnDefinitions: ColumnDefinition[],
 	newColumnDefinitions: ColumnDefinition[],
-	newPlacementTagTable: ReturnType<typeof createColumnData>["columnPlacementTagTable"],
 	settings: SettingValues,
 ) {
 	const contents = await vault.read(file);
 	const rows = contents.split("\n");
 	const oldPropertySchemaOption = settings.propertySchema ?? PropertySchemaOption.None;
 	const oldPropertySchema = getSchemaImpl(oldPropertySchemaOption);
+	const doneStatusMarkers = settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS;
 	let changed = false;
 
 	for (let i = 0; i < rows.length; i += 1) {
@@ -138,28 +136,16 @@ async function updateFileForChangedColumns(
 			continue;
 		}
 
-		const task = new Task(
-			row,
-			file,
-			i,
-			{
-				columnDefinitions: oldColumnDefinitions,
-				columnWriteDefinitions: newColumnDefinitions,
-				columnPlacementTagTable: newPlacementTagTable,
-				consolidateTags: settings.consolidateTags ?? false,
-				doneStatusMarkers: settings.doneStatusMarkers ?? DEFAULT_DONE_STATUS_MARKERS,
-				cancelledStatusMarkers: settings.cancelledStatusMarkers ?? DEFAULT_CANCELLED_STATUS_MARKERS,
-				ignoredStatusMarkers: settings.ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
-				replaceArchiveTagWithStatus: settings.replaceArchiveTagWithStatus ?? false,
-				archiveStatusMarkers: settings.archiveStatusMarkers ?? "",
-				propertySchema: getSchemaImpl(getMigrationSchema(changedColumn, oldPropertySchemaOption)),
-			}
-		);
-
-		if (!task.done) {
-			task.column = targetColumnId;
-		}
-		const nextRow = task.serialise();
+		const nextRow = isStatusMatch(status, doneStatusMarkers)
+			? renameColumnTags(row, changedColumn.oldColumn, changedColumn.newColumn)
+			: changeColumnTransform(row, {
+				fromColumn: changedColumn.id as ColumnTag,
+				toColumn: changedColumn.id as ColumnTag,
+				columnDefinitions: newColumnDefinitions,
+				sourceColumnDefinitions: oldColumnDefinitions,
+				propertySchemaOption: getMigrationSchema(changedColumn, oldPropertySchemaOption),
+				doneStatusMarker: Array.from(doneStatusMarkers)[0] ?? "x",
+			});
 		if (nextRow !== row) {
 			rows[i] = nextRow;
 			changed = true;

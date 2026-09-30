@@ -205,6 +205,8 @@ Status marker settings control how checkbox characters behave:
 - **Status cycle sequence**: characters used to advance the task status when clicking the checkbox on the board.
 - **Replace `#archived` with status**: use one or more archive status markers instead of the archive tag. The first configured marker is written by Archive; all configured markers are hidden as archived. Archive markers cannot overlap other status roles. Existing `#archived` tags are left intact but ignored by boards using archive statuses, so another board can still use tag-based archiving.
 
+- **Keep column tag when completing**: leave a task's column tag in place when it is completed or archived, for example `- [x] Write report #doing`. Done and Archived still take priority over the tag, so the task shows in Done or stays hidden. Unchecking the task returns it to that column, and dragging it to another column swaps the tag as usual. Status-based columns cannot be kept, because completing a task changes its status. Off by default.
+
 For example, with archive markers set to `dD`, archiving `- [/] Review notes` writes `- [d] Review notes`. Both `[d]` and `[D]` are then treated as archived and hidden. Changing an archived marker to a non-archive status makes the task visible again.
 
 Examples:
@@ -227,7 +229,7 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
 - **Complete / Cycle Status**: in **Done** mode, click the task checkbox to mark a task done and move it to **Done**. If a status cycle sequence is configured, clicking the checkbox will instead advance the task status through the specified sequence.
 - **Advance**: choose **Advance** from the card action mode selector beside the total task count above the board, then click a card's arrow to move it to the next configured column. The workflow runs from **Uncategorized** through custom columns to **Done**, then **Archived**, regardless of the board's visual direction or hidden columns.
 - **Cancel or restore**: use the task menu to switch between cancelled and active.
-- **Archive**: archive tasks from the task menu or bulk menu. By default this marks open tasks done and adds the `#archived` tag. Boards configured to replace the tag with an archive status write their first archive marker instead.
+- **Archive**: archive tasks from the task menu or bulk menu. By default this marks open tasks done and adds the `#archived` tag. Boards configured to replace the tag with an archive status write their first archive marker instead. Completing or archiving a task never removes its priority.
 - **Duplicate**: duplicate a task directly below the original source line.
 - **Open source file**: click the file path or arrow icon on a card.
 - **Open matching source files**: use **Open files** beside the filter bar to
