@@ -1534,6 +1534,7 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	justify-content: flex-start;
 	margin-top: 12px;
+	margin-bottom: 12px;
 }
 
 /* Responsive layout */
