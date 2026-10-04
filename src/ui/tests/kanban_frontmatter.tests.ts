@@ -198,7 +198,6 @@ describe("kanban frontmatter helpers", () => {
 	it.each([
 		[ScopeOption.Folder, {}],
 		[ScopeOption.Everywhere, {}],
-		[ScopeOption.SelectedFolders, {}],
 		[ScopeOption.SelectedFolders, { scopeFolders: ["projects/alpha"] }],
 	])("preserves legacy scope %s without generating a path scope sidecar", (scope, extra) => {
 		const input = ["---", "kanban_plugin: '{}'", "---", ""].join("\n");

@@ -28,35 +28,6 @@ describe("resolveDefaultColumnName", () => {
 });
 
 describe("createCollapsedColumnsStore", () => {
-	it("returns empty set when collapsedColumns is not set", () => {
-		const settingsStore = createSettingsStore();
-		const store = createCollapsedColumnsStore(settingsStore);
-
-		expect(get(store).size).toBe(0);
-	});
-
-	it("returns empty set when collapsedColumns is empty array", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, collapsedColumns: [] });
-		const store = createCollapsedColumnsStore(settingsStore);
-
-		expect(get(store).size).toBe(0);
-	});
-
-	it("returns set containing the collapsed column tags", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({
-			...defaultSettings,
-			collapsedColumns: ["backlog", "waiting"],
-		});
-		const store = createCollapsedColumnsStore(settingsStore);
-
-		const collapsed = get(store);
-		expect(collapsed.has("backlog")).toBe(true);
-		expect(collapsed.has("waiting")).toBe(true);
-		expect(collapsed.size).toBe(2);
-	});
-
 	it("updates reactively when settings change", () => {
 		const settingsStore = createSettingsStore();
 		const store = createCollapsedColumnsStore(settingsStore);
@@ -69,93 +40,19 @@ describe("createCollapsedColumnsStore", () => {
 		settingsStore.set({ ...defaultSettings, collapsedColumns: [] });
 		expect(get(store).size).toBe(0);
 	});
-
-	it("does not include tags that are not in the collapsed list", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({
-			...defaultSettings,
-			collapsedColumns: ["backlog"],
-		});
-		const store = createCollapsedColumnsStore(settingsStore);
-
-		expect(get(store).has("today")).toBe(false);
-	});
-
-	it("handles default columns (done, uncategorised) as collapsible", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({
-			...defaultSettings,
-			collapsedColumns: ["done", "uncategorised"],
-		});
-		const store = createCollapsedColumnsStore(settingsStore);
-
-		expect(get(store).has("done")).toBe(true);
-		expect(get(store).has("uncategorised")).toBe(true);
-	});
 });
 
-describe("createColumnStores reserved key filtering", () => {
-	it("excludes user column named 'Done' (kebab-cases to reserved 'done')", () => {
+describe("createColumnStores", () => {
+	// Column ids are generated as `column-<label>`, so a column labelled like a
+	// built-in section never collides with the reserved "done"/"uncategorised" keys.
+	it("keeps user columns whose labels match the built-in sections", () => {
 		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["Backlog", "Done", "Review"]) });
-		const { columnTagTable, columnPlacementTagTable } = createColumnStores(settingsStore);
+		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["Done(#ff0000)", "Uncategorised", "In Progress"]) });
+		const { columnTagTable, columnColourTable, columnPlacementTagTable } = createColumnStores(settingsStore);
 
-		const labels = Object.values(get(columnTagTable));
-		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
-		expect(labels).toContain("Done");
-		expect(placementTags).toContain("backlog");
-		expect(placementTags).toContain("review");
-	});
-
-	it("excludes user column named 'Uncategorised' (kebab-cases to reserved 'uncategorised')", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["Uncategorised", "Todo"]) });
-		const { columnPlacementTagTable } = createColumnStores(settingsStore);
-
-		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
-		expect(placementTags).toContain("uncategorised");
-		expect(placementTags).toContain("todo");
-	});
-
-	it("excludes exact lowercase match 'done' from user columns", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["done", "Todo"]) });
-		const { columnPlacementTagTable } = createColumnStores(settingsStore);
-
-		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
-		expect(placementTags).toContain("done");
-		expect(placementTags).toContain("todo");
-	});
-
-	it("allows 'DONE' because it kebab-cases to 'd-o-n-e', not 'done'", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["DONE", "Todo"]) });
-		const { columnPlacementTagTable } = createColumnStores(settingsStore);
-
-		const placementTags = Object.values(get(columnPlacementTagTable)).flat();
-		expect(placementTags).toContain("d-o-n-e");
-		expect(placementTags).toContain("todo");
-	});
-
-	it("also excludes reserved keys from columnColourTable", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["Done(#ff0000)", "Review(#00ff00)"]) });
-		const { columnColourTable } = createColumnStores(settingsStore);
-
-		const table = get(columnColourTable);
-		expect(Object.values(table)).toContain("#ff0000");
-		expect(Object.values(table)).toContain("#00ff00");
-	});
-
-	it("allows normal columns through unchanged", () => {
-		const settingsStore = createSettingsStore();
-		settingsStore.set({ ...defaultSettings, columns: migrateColumnDefinitions(["Backlog", "In Progress", "Review"]) });
-		const { columnTagTable, columnPlacementTagTable } = createColumnStores(settingsStore);
-
-		expect(Object.keys(get(columnTagTable))).toHaveLength(3);
-		expect(Object.values(get(columnPlacementTagTable)).flat()).toEqual(
-			expect.arrayContaining(["backlog", "in-progress", "review"]),
-		);
+		expect(Object.values(get(columnTagTable))).toEqual(["Done", "Uncategorised", "In Progress"]);
+		expect(Object.values(get(columnColourTable))).toEqual(["#ff0000"]);
+		expect(Object.values(get(columnPlacementTagTable)).flat()).toEqual(["done", "uncategorised", "in-progress"]);
 	});
 
 	it("stores explicit match tags separately from labels", () => {

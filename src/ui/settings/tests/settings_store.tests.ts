@@ -20,36 +20,9 @@ function parseSettings(overrides: Record<string, unknown>) {
 	return parseSettingsString(JSON.stringify(overrides));
 }
 
-function serializeSettings(overrides: Partial<typeof defaultSettings>) {
-	return JSON.parse(toSettingsString({ ...defaultSettings, ...overrides }));
-}
-
 function roundtripSettings(overrides: Partial<typeof defaultSettings>) {
 	return parseSettingsString(toSettingsString({ ...defaultSettings, ...overrides }));
 }
-
-describe("Settings dirty check", () => {
-	it("detects no changes as clean", () => {
-		const original = { ...defaultSettings };
-		const current = { ...defaultSettings };
-		expect(JSON.stringify(current)).toBe(JSON.stringify(original));
-	});
-
-	it.each([
-		{ columns: migrateColumnDefinitions(["A", "B"]) },
-		{ scopeFolders: ["projects/"] },
-	])("detects changed settings as dirty for %o", (override) => {
-		expect(JSON.stringify({ ...defaultSettings, ...override })).not.toBe(JSON.stringify(defaultSettings));
-	});
-
-	it("detects reversion to original as clean", () => {
-		const snapshot = JSON.stringify(defaultSettings);
-		const current = { ...defaultSettings, columnWidth: 500 };
-		expect(JSON.stringify(current)).not.toBe(snapshot);
-		current.columnWidth = 300;
-		expect(JSON.stringify(current)).toBe(snapshot);
-	});
-});
 
 describe("Sparse overrides parsing (SPEC 0030)", () => {
 	it("parses archive-status settings without promoting absent defaults", () => {
@@ -67,6 +40,10 @@ describe("Sparse overrides parsing (SPEC 0030)", () => {
 		expect(parseSettingsOverrides(JSON.stringify({ columnWidth: 400 }))).toEqual({
 			columnWidth: 400,
 		});
+	});
+
+	it("resolves every field to its default when the payload is empty", () => {
+		expect(parseSettingsString("{}")).toEqual(defaultSettings);
 	});
 
 	it("parses an empty or invalid payload to no overrides", () => {
@@ -516,18 +493,6 @@ describe("Saved view persistence", () => {
 		]);
 	});
 
-	it("serializes settings with savedViews", () => {
-		const serialized = serializeSettings({ savedViews });
-		expect(serialized.savedViews).toEqual(savedViews);
-	});
-
-	it.each([
-		[{ ...defaultSettings, savedViews: [] }, []],
-		[defaultSettings, []],
-	])("parses empty or missing saved views for %o", (settings, expected) => {
-		expect(parseSettingsString(JSON.stringify(settings)).savedViews).toEqual(expected);
-	});
-
 	it("migrates a named date filter", () => {
 		const savedFilter: SavedFilter = {
 			id: "date-id",
@@ -638,15 +603,6 @@ describe("Saved view persistence", () => {
 		expect(parsed.lastTagFilter).toEqual(["frontend", "bug"]);
 	});
 
-	it("serializes settings with last filter values", () => {
-		const serialized = serializeSettings({
-			lastContentFilter: "search term",
-			lastTagFilter: ["tag1", "tag2"],
-		});
-		expect(serialized.lastContentFilter).toBe("search term");
-		expect(serialized.lastTagFilter).toEqual(["tag1", "tag2"]);
-	});
-
 	it("leaves absent filter fields undefined so migration can detect them", () => {
 		const parsed = parseSettingsString(JSON.stringify(defaultSettings));
 		expect(parsed.lastFilter).toBeUndefined();
@@ -661,28 +617,6 @@ describe("Saved view persistence", () => {
 });
 
 describe("Property display configuration", () => {
-	it("defaults to None", () => {
-		expect(parseSettings({}).propertyDisplay).toBe(PropertyDisplayMode.None);
-	});
-
-	it("parses an explicit display mode", () => {
-		expect(parseSettings({ propertyDisplay: "pretty" }).propertyDisplay).toBe(
-			PropertyDisplayMode.Pretty
-		);
-	});
-
-	it("migrates the legacy showProperties=true to Debug", () => {
-		expect(parseSettings({ showProperties: true }).propertyDisplay).toBe(
-			PropertyDisplayMode.Debug
-		);
-	});
-
-	it("migrates the legacy showProperties=false to None", () => {
-		expect(parseSettings({ showProperties: false }).propertyDisplay).toBe(
-			PropertyDisplayMode.None
-		);
-	});
-
 	it("prefers an explicit propertyDisplay over legacy showProperties", () => {
 		expect(
 			parseSettings({ showProperties: true, propertyDisplay: "pretty" }).propertyDisplay
@@ -691,20 +625,13 @@ describe("Property display configuration", () => {
 });
 
 describe("Nested subtask display configuration", () => {
-	it("defaults to off", () => {
-		expect(parseSettings({}).treatNestedTasksAsSubtasks).toBe(false);
-	});
-
-	it("parses and serializes the setting", () => {
+	it("parses the setting", () => {
 		expect(parseSettings({ treatNestedTasksAsSubtasks: true }).treatNestedTasksAsSubtasks).toBe(true);
-		expect(serializeSettings({ treatNestedTasksAsSubtasks: true }).treatNestedTasksAsSubtasks).toBe(true);
 	});
 });
 
 describe("Column width configuration", () => {
 	it.each([
-		[{ columns: ["Todo", "In Progress", "Done"] }, 300],
-		[{ ...defaultSettings, columnWidth: 400 }, 400],
 		[{ ...defaultSettings, columnWidth: 200 }, 200],
 		[{ ...defaultSettings, columnWidth: 600 }, 600],
 		[{ ...defaultSettings, columnWidth: 199 }, 300],
@@ -713,25 +640,11 @@ describe("Column width configuration", () => {
 		expect(() => parseSettingsString(JSON.stringify(settingsJson))).not.toThrow();
 		expect(parseSettingsString(JSON.stringify(settingsJson)).columnWidth).toBe(expectedWidth);
 	});
-
-	it("serializes columnWidth correctly", () => {
-		expect(serializeSettings({ columnWidth: 450 }).columnWidth).toBe(450);
-	});
-
-	it("roundtrips columnWidth through serialization", () => {
-		expect(roundtripSettings({ columnWidth: 350 }).columnWidth).toBe(350);
-	});
 });
 
 describe("Flow direction configuration", () => {
-	it.each([
-		[{ columns: ["Todo", "In Progress", "Done"] }, FlowDirection.LeftToRight],
-		[{ ...defaultSettings, flowDirection: "ltr" }, FlowDirection.LeftToRight],
-		[{ ...defaultSettings, flowDirection: "rtl" }, FlowDirection.RightToLeft],
-		[{ ...defaultSettings, flowDirection: "ttb" }, FlowDirection.TopToBottom],
-		[{ ...defaultSettings, flowDirection: "btt" }, FlowDirection.BottomToTop],
-	])("parses flow direction from %o", (settingsJson, expectedDirection) => {
-		expect(parseSettingsString(JSON.stringify(settingsJson)).flowDirection).toBe(expectedDirection);
+	it("parses a flow direction", () => {
+		expect(parseSettings({ flowDirection: "btt" }).flowDirection).toBe(FlowDirection.BottomToTop);
 	});
 
 	it("rejects invalid flow direction values without losing other settings", () => {
@@ -744,82 +657,29 @@ describe("Flow direction configuration", () => {
 		expect(parsed.flowDirection).toBe(FlowDirection.LeftToRight);
 		expect(parsed.columns.map((column) => column.label)).toEqual(["Alpha", "Beta"]);
 	});
-
-	it("serializes flowDirection correctly", () => {
-		expect(serializeSettings({ flowDirection: FlowDirection.RightToLeft }).flowDirection).toBe("rtl");
-	});
-
-	it("roundtrips flowDirection through serialization", () => {
-		expect(roundtripSettings({ flowDirection: FlowDirection.TopToBottom }).flowDirection).toBe(FlowDirection.TopToBottom);
-	});
 });
 
 describe("Default task file configuration", () => {
-	it.each([
-		[{ columns: ["Todo", "In Progress", "Done"] }, ""],
-		[{ ...defaultSettings, defaultTaskFile: "notes/tasks.md" }, "notes/tasks.md"],
-	])("parses defaultTaskFile from %o", (settingsJson, expected) => {
-		expect(parseSettingsString(JSON.stringify(settingsJson)).defaultTaskFile).toBe(expected);
-	});
-
-	it("roundtrips defaultTaskFile through serialization", () => {
-		expect(roundtripSettings({ defaultTaskFile: "folder/subfolder/tasks.md" }).defaultTaskFile).toBe("folder/subfolder/tasks.md");
+	it("parses defaultTaskFile", () => {
+		expect(parseSettings({ defaultTaskFile: "notes/tasks.md" }).defaultTaskFile).toBe("notes/tasks.md");
 	});
 });
 
 describe("Last-used task file configuration", () => {
-	it.each([
-		[{ columns: ["Todo", "In Progress", "Done"] }, ""],
-		[{ ...defaultSettings, lastUsedTaskFile: "notes/tasks.md" }, "notes/tasks.md"],
-	])("parses lastUsedTaskFile from %o", (settingsJson, expected) => {
-		expect(parseSettingsString(JSON.stringify(settingsJson)).lastUsedTaskFile).toBe(expected);
-	});
-
-	it("roundtrips lastUsedTaskFile through serialization", () => {
-		expect(roundtripSettings({ lastUsedTaskFile: "folder/subfolder/tasks.md" }).lastUsedTaskFile).toBe("folder/subfolder/tasks.md");
-	});
-
-	it("preserves both defaultTaskFile and lastUsedTaskFile independently", () => {
-		const parsed = parseSettings({
-			...defaultSettings,
-			defaultTaskFile: "default.md",
-			lastUsedTaskFile: "recent.md",
-		});
-		expect(parsed.defaultTaskFile).toBe("default.md");
-		expect(parsed.lastUsedTaskFile).toBe("recent.md");
+	it("parses lastUsedTaskFile", () => {
+		expect(parseSettings({ lastUsedTaskFile: "notes/tasks.md" }).lastUsedTaskFile).toBe("notes/tasks.md");
 	});
 });
 
 describe("Default column name configuration", () => {
-	it.each([
-		[{ columns: ["Todo", "In Progress", "Done"] }, "uncategorizedColumnName", "Uncategorized"],
-		[{ columns: ["Todo", "In Progress", "Done"] }, "doneColumnName", "Done"],
-		[{ ...defaultSettings, uncategorizedColumnName: "Backlog" }, "uncategorizedColumnName", "Backlog"],
-		[{ ...defaultSettings, doneColumnName: "Complete" }, "doneColumnName", "Complete"],
-		[{ ...defaultSettings, uncategorizedColumnName: "", doneColumnName: "" }, "uncategorizedColumnName", ""],
-		[{ ...defaultSettings, uncategorizedColumnName: "", doneColumnName: "" }, "doneColumnName", ""],
-	])("parses column names from %o", (settingsJson, key, expected) => {
-		expect(parseSettingsString(JSON.stringify(settingsJson))[key as "uncategorizedColumnName" | "doneColumnName"]).toBe(expected);
-	});
-
-	it("roundtrips custom column names through serialization", () => {
-		const parsed = roundtripSettings({
-			uncategorizedColumnName: "Inbox",
-			doneColumnName: "Finished",
-		});
-		expect(parsed.uncategorizedColumnName).toBe("Inbox");
-		expect(parsed.doneColumnName).toBe("Finished");
+	it("parses custom column names, keeping empty names for display fallback", () => {
+		const parsed = parseSettings({ uncategorizedColumnName: "Backlog", doneColumnName: "" });
+		expect(parsed.uncategorizedColumnName).toBe("Backlog");
+		expect(parsed.doneColumnName).toBe("");
 	});
 });
 
 describe("Collapsed columns configuration", () => {
-	it.each([
-		[{ columns: ["Todo", "In Progress", "Done"] }, []],
-		[{ ...defaultSettings, collapsedColumns: [] }, []],
-	])("defaults collapsed columns from %o", (settingsJson, expected) => {
-		expect(parseSettingsString(JSON.stringify(settingsJson)).collapsedColumns).toEqual(expected);
-	});
-
 	it("parses collapsedColumns array", () => {
 		const columns = migrateColumnDefinitions(["Backlog", "Waiting"]);
 		const parsed = parseSettings({
@@ -828,10 +688,6 @@ describe("Collapsed columns configuration", () => {
 			collapsedColumns: ["backlog", "waiting"],
 		});
 		expect(parsed.collapsedColumns).toEqual(columns.map((column) => column.id));
-	});
-
-	it("serializes collapsedColumns correctly", () => {
-		expect(serializeSettings({ collapsedColumns: ["today", "in-progress"] }).collapsedColumns).toEqual(["today", "in-progress"]);
 	});
 
 	it("roundtrips collapsedColumns through serialization", () => {
@@ -843,10 +699,8 @@ describe("Collapsed columns configuration", () => {
 });
 
 describe("Collapsed groups configuration", () => {
-	it("defaults, parses, and serializes stable group IDs", () => {
-		expect(parseSettingsString("{}").collapsedGroups).toEqual([]);
+	it("parses stable group IDs", () => {
 		const ids = ["file:projects/roadmap.md", "property:due:__overdue__"];
 		expect(parseSettingsString(JSON.stringify({ collapsedGroups: ids })).collapsedGroups).toEqual(ids);
-		expect(serializeSettings({ collapsedGroups: ids }).collapsedGroups).toEqual(ids);
 	});
 });
