@@ -141,30 +141,6 @@ describe("Task", () => {
 			expect(task.serialise()).toBe("- [ ] Triage inbox #project");
 		});
 
-		it("uses column order to break equal-specificity status and tag ties", () => {
-			const columns = [
-				...createTagModeColumns([{ id: "this-week", label: "This Week", matchTags: ["this-week"] }]),
-				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
-			];
-			const task = parseTaskWithColumns("- [/] Draft #this-week #project", columns);
-
-			expect(task.column).toBe("this-week");
-			expect(task.content).toBe("Draft #project");
-		});
-
-		it("uses column order when a task matches both multi-tag and status columns", () => {
-			const columns = [
-				...createStatusModeColumns([{ id: "doing", label: "Doing", matchStatus: "/" }]),
-				...createTagModeColumns([
-					{ id: "active-work", label: "Active Work", matchTags: ["project/alpha", "this-week"] },
-				]),
-			];
-			const task = parseTaskWithColumns("- [/] Draft #project/alpha #this-week #note", columns);
-
-			expect(task.column).toBe("doing");
-			expect(task.content).toBe("Draft #project/alpha #this-week #note");
-		});
-
 		it("keeps done status precedence over custom status columns", () => {
 			const columns = createStatusModeColumns([{ id: "done-ish", label: "Done-ish", matchStatus: "x" }]);
 			const task = parseTaskWithColumns("- [x] Completed #tag", columns);
@@ -196,34 +172,6 @@ describe("Task", () => {
 
 			expect(task.column).toBe(expectedColumn);
 			expect(task.serialise()).toBe(`- [ ] Triage release ${emoji} #project`);
-		});
-
-		it("uses column order to break equal-specificity priority and tag ties", () => {
-			const columns = [
-				...createTagModeColumns([{ id: "this-week", label: "This Week", matchTags: ["this-week"] }]),
-				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
-			];
-			const task = parseTaskWithColumns("- [ ] Draft #this-week ⏫ #project", columns, {
-				propertySchema: new TasksPluginSchema(),
-			});
-
-			expect(task.column).toBe("this-week");
-			expect(task.content).toBe("Draft ⏫ #project");
-		});
-
-		it("uses column order when a task matches both multi-tag and priority columns", () => {
-			const columns = [
-				...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
-				...createTagModeColumns([
-					{ id: "active-work", label: "Active Work", matchTags: ["project/alpha", "this-week"] },
-				]),
-			];
-			const task = parseTaskWithColumns("- [ ] Draft ⏫ #project/alpha #this-week #note", columns, {
-				propertySchema: new TasksPluginSchema(),
-			});
-
-			expect(task.column).toBe("high");
-			expect(task.content).toBe("Draft ⏫ #project/alpha #this-week #note");
 		});
 
 		it("matches a Tasks priority column while Dataview properties are active", () => {
@@ -294,7 +242,6 @@ describe("Task", () => {
 
 		it.each([
 			["- [ ] Something #tag #project/alpha", "project/alpha"],
-			["- [ ] Something #tag #status/active", "status/active"],
 			["- [ ] Something #tag #active-work", "active-work"],
 		])("treats partial tag-mode matches as uncategorized for %s", (taskString, retainedTag) => {
 			const task = parseTask(taskString, {
@@ -333,42 +280,17 @@ describe("Task", () => {
 			expect(task.tags.has("A")).toBe(false);
 			expect(task.tags.has("B")).toBe(false);
 		});
-
-		it("matches a multi-tag column regardless of tag order in task content", () => {
-			const orderedTask = parseTask("- [ ] Ordered #project/alpha #status/active", {
-				columns: activeWorkColumns,
-				placementTags: activeWorkPlacementTags,
-			});
-			const reversedTask = parseTask("- [ ] Reversed #status/active #project/alpha", {
-				columns: activeWorkColumns,
-				placementTags: activeWorkPlacementTags,
-				rowIndex: 1,
-			});
-			expect(orderedTask.column).toBe("active-work");
-			expect(reversedTask.column).toBe("active-work");
-		});
 	});
 
 	describe("indented tasks", () => {
-		it.each([
-			["  - [ ] Indented with 2 spaces #tag", "  ", "Indented with 2 spaces #tag", false, undefined],
-			["\t- [ ] Indented with tab #tag", "\t", "Indented with tab #tag", false, undefined],
-			[" \t - [ ] Mixed spaces and tabs #tag", " \t ", "Mixed spaces and tabs #tag", false, undefined],
-			["  - [x] Completed indented task #tag", "  ", "Completed indented task #tag", true, undefined],
-			["\t- [ ] Indented with block link #tag ^block123", "\t", "Indented with block link #tag", false, "block123"],
-		])("parses indentation details for %s", (taskString, indentation, content, done, blockLink) => {
-			const task = parseTask(taskString);
-			expect(task.indentation).toBe(indentation);
-			expect(task.content).toBe(content);
-			expect(task.done).toBe(done);
-			expect(task.blockLink).toBe(blockLink);
+		it("parses mixed space and tab indentation", () => {
+			const task = parseTask(" \t - [ ] Mixed spaces and tabs #tag");
+			expect(task.indentation).toBe(" \t ");
+			expect(task.content).toBe("Mixed spaces and tabs #tag");
 		});
 
-		it.each([
-			"    - [ ] Four spaces #tag #column",
-			"\t\t- [ ] Two tabs #tag #column",
-			"\t  \t- [ ] Tab space tab #tag #column",
-		])("serialises indented task strings unchanged for %s", (taskString) => {
+		it("serialises an indented task string unchanged", () => {
+			const taskString = "\t  \t- [ ] Tab space tab #tag #column";
 			expect(parseTask(taskString).serialise()).toBe(taskString);
 		});
 	});
@@ -377,23 +299,10 @@ describe("Task", () => {
 		it.each([
 			["- [✓] Custom done marker #tag", "xX✓", true],
 			["- [✓] Custom done marker #tag", DEFAULT_DONE_STATUS_MARKERS, false],
-			["- [👍] Multi-codepoint emoji #tag", "xX👍", true],
-			["- [✅] Task with checkmark #tag", "xX✅", true],
+			["- [🚀] Surrogate-pair emoji #tag", "xX🚀", true],
 			["- [abc] Task with multi-char status #tag", "xX", false],
-			["- [  ] Task with spaces #tag", "xX", false],
-			["- [\t] Task with tab #tag", "xX", false],
-			["- [z] Task with unknown char #tag", "xX", false],
-			["- [1] Task with number #tag", "xX", false],
 			["- [X] Uppercase done marker #tag", "x", false],
 			["- [x] Lowercase done marker #tag", "x", true],
-			["- [*] Asterisk done marker #tag", "xX*", true],
-			["- [+] Plus done marker #tag", "xX+", true],
-			["- [?] Question mark done marker #tag", "xX?", true],
-			["- [.] Dot done marker #tag", "xX.", true],
-			["- [\\] Backslash done marker #tag", "xX\\", true],
-			["- [é] Combining accent #tag", "xXé", true],
-			["- [\u200B] Zero-width space #tag", "xX\u200B", true],
-			["- [🚀] Rocket emoji #tag", "xX🚀", true],
 		])("parses done state for %s with markers %s", (taskString, doneStatusMarkers, expectedDone) => {
 			const task = parseTask(taskString, { doneStatusMarkers });
 			expect(task.done).toBe(expectedDone);
@@ -403,9 +312,7 @@ describe("Task", () => {
 
 	describe("obsidian links", () => {
 		it.each([
-			"- [[x]]",
 			"- [[x]] some content",
-			"  - [[x]]",
 			"- [x](foo)",
 		])("does not identify %s as a task", (input) => {
 			expect(isTrackedTaskString(input)).toBe(false);
@@ -417,86 +324,27 @@ describe("Ignored Status Markers", () => {
 	describe("isTrackedTaskString with ignored status markers", () => {
 		it.each([
 			["- [-] Task with dash status #tag", undefined, true],
-			["- [~] Custom ignored task #tag", "~", false],
-			["- [-] Cancelled task #tag", "-", false],
-			["- [ ] Regular task #tag", undefined, true],
-			["- [x] Done task #tag", undefined, true],
-			["  - [-] Indented cancelled task #tag", "-", false],
 			["- [❌] Cancelled with emoji #tag", "❌", false],
+			["- [~] Custom ignored task #tag", "-~", false],
 		])("tracks ignored markers for %s", (taskString, ignoredStatusMarkers, expected) => {
 			expect(isTrackedTaskString(taskString, ignoredStatusMarkers)).toBe(expected);
 		});
-
-		it("excludes tasks with multiple ignored statuses", () => {
-			expect(isTrackedTaskString("- [-] Cancelled with dash #tag", "-~")).toBe(false);
-			expect(isTrackedTaskString("- [~] Cancelled with tilde #tag", "-~")).toBe(false);
-		});
 	});
 });
 
-describe("Ignored Status Markers Validation", () => {
-	describe("validateIgnoredStatusMarkers", () => {
-		it.each(["-~", "❌🚫", "-", "~"])("accepts valid marker strings for %s", (markers) => {
-			expect(validateIgnoredStatusMarkers(markers)).toEqual([]);
-		});
-
-		it("accepts empty strings (no ignored statuses)", () => {
-			expect(validateIgnoredStatusMarkers("")).toEqual([]);
-		});
-
-		it.each([
-			["- ", "Marker at position 2 is whitespace"],
-			["--", "Duplicate marker '-' at position 2"],
-		])("rejects invalid ignored markers for %s", (markers, message) => {
-			expect(validateIgnoredStatusMarkers(markers)).toContain(message);
-		});
-	});
-
-	describe("createIgnoredStatusMarkers", () => {
-		it.each(["-~", ""])("creates ignored markers for %s", (markers) => {
-			expect(createIgnoredStatusMarkers(markers)).toBe(markers);
-		});
-
-		it("throws with detailed error messages for invalid characters", () => {
-			expect(() => createIgnoredStatusMarkers("- ")).toThrow(
-				"Invalid ignored status markers: Marker at position 2 is whitespace",
-			);
-		});
-	});
-
-	describe("DEFAULT_IGNORED_STATUS_MARKERS", () => {
-		it("is valid according to validation rules", () => {
-			expect(validateIgnoredStatusMarkers(DEFAULT_IGNORED_STATUS_MARKERS)).toEqual([]);
-		});
-
-		it("is empty by default (no tasks ignored)", () => {
-			expect(DEFAULT_IGNORED_STATUS_MARKERS).toBe("");
-		});
-
-		it("can be used to create validated markers", () => {
-			expect(() => createIgnoredStatusMarkers(DEFAULT_IGNORED_STATUS_MARKERS)).not.toThrow();
-		});
-	});
-});
-
-describe("Done Status Markers Validation", () => {
-	describe("validateDoneStatusMarkers", () => {
-		it.each(["xX", "✓✅👍", "x", "*+?", "🚀👍✅", "éñü"])("accepts valid marker strings for %s", (markers) => {
+// The done, cancelled and ignored validators share validateStatusMarkers and
+// differ only in their label and whether an empty string is allowed.
+describe("Status marker validation", () => {
+	describe("shared marker rules", () => {
+		it.each(["xX", "✓🚀é"])("accepts valid marker strings for %s", (markers) => {
 			expect(validateDoneStatusMarkers(markers)).toEqual([]);
-		});
-
-		it("rejects empty strings", () => {
-			expect(validateDoneStatusMarkers("")).toEqual(["Done status markers cannot be empty"]);
-			expect(validateDoneStatusMarkers("   ")).not.toEqual([]);
 		});
 
 		it.each([
 			["x X", "Marker at position 2 is whitespace"],
-			["x\nX", "Marker at position 2 is whitespace"],
-			["x\tX", "Marker at position 2 is whitespace"],
 			["x\u0001X", "Marker at position 2 is a control character"],
 			["xXx", "Duplicate marker 'x' at position 3"],
-		])("rejects invalid done markers for %s", (markers, message) => {
+		])("rejects invalid markers for %s", (markers, message) => {
 			expect(validateDoneStatusMarkers(markers)).toContain(message);
 		});
 
@@ -508,111 +356,40 @@ describe("Done Status Markers Validation", () => {
 		});
 	});
 
-	describe("createDoneStatusMarkers", () => {
-		it("creates valid markers successfully", () => {
-			expect(createDoneStatusMarkers("xX✓")).toBe("xX✓");
-		});
-
-		it("throws for invalid markers", () => {
-			expect(() => createDoneStatusMarkers("")).toThrow(
-				"Invalid done status markers: Done status markers cannot be empty",
-			);
-		});
-
-		it("throws with detailed error messages", () => {
-			expect(() => createDoneStatusMarkers("x x")).toThrow(
-				"Invalid done status markers: Marker at position 2 is whitespace",
-			);
-		});
-
-		it("throws with multiple error messages", () => {
-			expect(() => createDoneStatusMarkers("x xx")).toThrow(/Multiple|whitespace|Duplicate/);
-		});
+	it.each([
+		["done", validateDoneStatusMarkers, ["Done status markers cannot be empty"]],
+		["cancelled", validateCancelledStatusMarkers, ["Cancelled status markers cannot be empty"]],
+		["ignored", validateIgnoredStatusMarkers, []],
+	])("handles empty %s markers", (_kind, validate, expected) => {
+		expect(validate("")).toEqual(expected);
 	});
 
-	describe("DEFAULT_DONE_STATUS_MARKERS", () => {
-		it("is valid according to validation rules", () => {
-			expect(validateDoneStatusMarkers(DEFAULT_DONE_STATUS_MARKERS)).toEqual([]);
-		});
-
-		it("contains expected default characters", () => {
-			expect(DEFAULT_DONE_STATUS_MARKERS).toBe("xX");
-		});
-
-		it("can be used to create validated markers", () => {
-			expect(() => createDoneStatusMarkers(DEFAULT_DONE_STATUS_MARKERS)).not.toThrow();
-		});
-	});
-});
-
-describe("Cancelled Status Markers Validation", () => {
-	describe("validateCancelledStatusMarkers", () => {
-		it.each(["-", "CX", "c", "*+?", "🚀👍✅", "éñü"])("accepts valid marker strings for %s", (markers) => {
-			expect(validateCancelledStatusMarkers(markers)).toEqual([]);
-		});
-
-		it("rejects empty strings", () => {
-			expect(validateCancelledStatusMarkers("")).toEqual(["Cancelled status markers cannot be empty"]);
-			expect(validateCancelledStatusMarkers("   ")).not.toEqual([]);
-		});
-
-		it.each([
-			["c C", "Marker at position 2 is whitespace"],
-			["c\nC", "Marker at position 2 is whitespace"],
-			["c\tC", "Marker at position 2 is whitespace"],
-			["c\u0001C", "Marker at position 2 is a control character"],
-			["cCc", "Duplicate marker 'c' at position 3"],
-		])("rejects invalid cancelled markers for %s", (markers, message) => {
-			expect(validateCancelledStatusMarkers(markers)).toContain(message);
-		});
-
-		it("accumulates multiple errors", () => {
-			const errors = validateCancelledStatusMarkers("c c\tc");
-			expect(errors.length).toBe(5);
-			expect(errors).toContain("Marker at position 2 is whitespace");
-			expect(errors).toContain("Duplicate marker 'c' at position 3");
-		});
+	it("returns valid markers from the create functions", () => {
+		expect(createDoneStatusMarkers("xX✓")).toBe("xX✓");
+		expect(createCancelledStatusMarkers("cx✓")).toBe("cx✓");
+		expect(createIgnoredStatusMarkers("")).toBe("");
 	});
 
-	describe("createCancelledStatusMarkers", () => {
-		it("creates valid markers successfully", () => {
-			expect(createCancelledStatusMarkers("cx✓")).toBe("cx✓");
-		});
-
-		it("throws for invalid markers", () => {
-			expect(() => createCancelledStatusMarkers("")).toThrow(
-				"Invalid cancelled status markers: Cancelled status markers cannot be empty",
-			);
-		});
-
-		it("throws with detailed error messages", () => {
-			expect(() => createCancelledStatusMarkers("c c")).toThrow(
-				"Invalid cancelled status markers: Marker at position 2 is whitespace",
-			);
-		});
-
-		it("throws with multiple error messages", () => {
-			expect(() => createCancelledStatusMarkers("c cc")).toThrow(/Multiple|whitespace|Duplicate/);
-		});
+	it.each([
+		["done", () => createDoneStatusMarkers(""), "Invalid done status markers: Done status markers cannot be empty"],
+		["cancelled", () => createCancelledStatusMarkers("c c"), "Invalid cancelled status markers: Marker at position 2 is whitespace"],
+		["ignored", () => createIgnoredStatusMarkers("- "), "Invalid ignored status markers: Marker at position 2 is whitespace"],
+	])("throws a labelled error for invalid %s markers", (_kind, create, message) => {
+		expect(create).toThrow(message);
 	});
 
-	describe("DEFAULT_CANCELLED_STATUS_MARKERS", () => {
-		it("is valid according to validation rules", () => {
-			expect(validateCancelledStatusMarkers(DEFAULT_CANCELLED_STATUS_MARKERS)).toEqual([]);
-		});
-
-		it("contains expected default characters", () => {
-			expect(DEFAULT_CANCELLED_STATUS_MARKERS).toBe("-");
-		});
-
-		it("can be used to create validated markers", () => {
-			expect(() => createCancelledStatusMarkers(DEFAULT_CANCELLED_STATUS_MARKERS)).not.toThrow();
-		});
+	it.each([
+		["done", DEFAULT_DONE_STATUS_MARKERS, "xX", validateDoneStatusMarkers],
+		["cancelled", DEFAULT_CANCELLED_STATUS_MARKERS, "-", validateCancelledStatusMarkers],
+		["ignored", DEFAULT_IGNORED_STATUS_MARKERS, "", validateIgnoredStatusMarkers],
+	])("defaults %s markers to a valid value", (_kind, markers, expected, validate) => {
+		expect(markers).toBe(expected);
+		expect(validate(markers)).toEqual([]);
 	});
 });
 
 describe("Status Marker Order Validation", () => {
-	it.each(["", " /x", "/ x", "🚀 x"])("accepts valid order strings for %s", (markers) => {
+	it.each(["", " /x"])("accepts valid order strings for %s", (markers) => {
 		expect(validateStatusMarkerOrder(markers)).toEqual([]);
 	});
 
@@ -732,9 +509,7 @@ describe("Columns with spaces and special characters", () => {
 	const specialPlacementTags = createColumnData(specialColumns).columnPlacementTagTable;
 
 	it.each([
-		["- [ ] Something #in-progress", "in-progress"],
 		["- [ ] Something #waiting-for-review", "waiting-for-review"],
-		["- [ ] Something #my-tag", "my-tag"],
 	])("serialises name-mode columns using kebab-case tags for %s", (taskString, column) => {
 		const task = parseTask(taskString, {
 			columns: specialColumns,

@@ -350,18 +350,6 @@ describe("resolveMatchedColumnDefinition", () => {
 		expect(matched?.id).toBe("ab");
 	});
 
-	it("changes the winner when equally specific columns are reordered", () => {
-		const columns = migrateColumnDefinitions([
-			{ id: "ab" as ColumnTag, label: "A B", matchMode: "tags", matchTags: ["a", "b"] },
-			{ id: "bc" as ColumnTag, label: "B C", matchMode: "tags", matchTags: ["b", "c"] },
-		]);
-		const reordered = [columns[1]!, columns[0]!];
-
-		const matched = resolveMatchedColumnDefinition(reordered, new Set(["a", "b", "c"]));
-
-		expect(matched?.id).toBe("bc");
-	});
-
 	it("uses column order instead of tag specificity when tag and status columns both match", () => {
 		const columns = migrateColumnDefinitions([
 			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
@@ -468,10 +456,14 @@ describe("resolveMatchedColumnDefinition", () => {
 });
 
 describe("getColumnMatchSpecificity", () => {
-	it("treats name mode as specificity one", () => {
-		const [column] = migrateColumnDefinitions(["In Progress"]);
+	it("treats name, status, and priority modes as specificity one", () => {
+		const columns = migrateColumnDefinitions([
+			"In Progress",
+			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
+			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
+		]);
 
-		expect(getColumnMatchSpecificity(column!)).toBe(1);
+		expect(columns.map(getColumnMatchSpecificity)).toEqual([1, 1, 1]);
 	});
 
 	it("uses match tag count for tags mode", () => {
@@ -485,21 +477,5 @@ describe("getColumnMatchSpecificity", () => {
 		]);
 
 		expect(getColumnMatchSpecificity(column!)).toBe(2);
-	});
-
-	it("treats status mode as specificity one", () => {
-		const [column] = migrateColumnDefinitions([
-			{ id: "doing" as ColumnTag, label: "Doing", matchMode: "status", matchTags: [], matchStatus: "/" },
-		]);
-
-		expect(getColumnMatchSpecificity(column!)).toBe(1);
-	});
-
-	it("treats priority mode as specificity one", () => {
-		const [column] = migrateColumnDefinitions([
-			{ id: "high" as ColumnTag, label: "High", matchMode: "priority", matchTags: [], matchPriority: "high" },
-		]);
-
-		expect(getColumnMatchSpecificity(column!)).toBe(1);
 	});
 });

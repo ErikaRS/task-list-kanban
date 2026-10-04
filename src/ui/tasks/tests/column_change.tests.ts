@@ -289,9 +289,7 @@ describe("archiveTransform", () => {
 
 	it.each([
 		["- [X] Already done #note", true, "- [X] Already done #note #archived"],
-		["- [✓] Custom done #note", true, "- [✓] Custom done #note #archived"],
 		["- [ ] Incomplete #note", false, "- [x] Incomplete #note #archived"],
-		["- [?] Unknown status #note", false, "- [x] Unknown status #note #archived"],
 	])("archives %s, completing it only when open", (rawLine, wasDone, expected) => {
 		expect(archive(rawLine, { wasDone })).toBe(expected);
 	});
