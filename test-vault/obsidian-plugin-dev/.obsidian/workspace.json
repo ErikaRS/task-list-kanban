@@ -257,20 +257,24 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "task-list-kanban:New kanban board": false,
       "switcher:Open quick switcher": false,
       "graph:Open graph view": false,
       "canvas:Create new canvas": false,
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false,
-      "task-list-kanban:New Kanban board": false
+      "bases:Create new base": false
     }
   },
   "active": "edb014cec5cbad69",
   "lastOpenFiles": [
-    "periodic/2025-05-01.md",
+    "2026-09-19.md",
     "periodic/Kanban-Tasks.md",
+    "styles.css",
+    "manifest.json",
+    "main.js",
+    "periodic/2025-05-01.md",
     "periodic/2025-05-02.md",
     "periodic/2025-05-21.md",
     "periodic/2025-10-27.md",
@@ -279,7 +283,6 @@
     "periodic/2025-10-21.md",
     "periodic/A test file with a very very very long name.md",
     "tasks/Even more tasks.md",
-    "2026-09-19.md",
     "periodic/Kanban-None.md",
     "Kanban-Dataview.md",
     "Kanban-1788834421310.md",
@@ -294,7 +297,6 @@
     "Kanban-1781896482430.md",
     "Kanban-1781896508887.md",
     "Untitled 1.md",
-    "Welcome.md",
     "Untitled.base",
     "periodic/@",
     "tasks"
