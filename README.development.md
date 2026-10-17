@@ -10,6 +10,9 @@
 
 ## Build & Development Commands
 
+Use Node.js 22 (22.13 or newer) and `npm ci` to install the locked dependency tree.
+The release workflow uses Node.js 22 and the same lockfile.
+
 **Development**
 ```bash
 npm run dev
@@ -84,3 +87,8 @@ vault. When adding or changing UI styles:
   are involved. Check open menus, hover, focus, disabled state, narrow widths,
   and long labels. If a user reports a mismatch, compare computed styles and
   enabled snippets/themes before adjusting selectors.
+
+## Dependency audits
+
+Run `npm audit` after dependency updates. Use `npm audit --omit=dev` to check
+production dependencies separately from development tooling.
