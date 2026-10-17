@@ -1,6 +1,10 @@
-Status: IN_PROGRESS
+Status: IN_PROGRESS (implementation merged; manual validation pending)
 
-# SPEC 0043 — Advance Card to Next Column
+Implemented: 2026-09
+
+Renumbered from the duplicate SPEC 0043 during the 2026-10-17 organization pass. SPEC 0043 remains Open Filtered Source Files.
+
+# SPEC 0051 — Advance Card to Next Column
 
 ## Feature Request Summary
 
@@ -71,7 +75,7 @@ The arrow action affects only its card. Select mode remains the path to bulk ope
 ## Implementation Plan
 
 Implementation progress (2026-09): the board-wide selector, sticky per-board mode,
-Advance card action, and automated tests are implemented in the working tree.
+Advance card action, and automated tests are merged in main via [eea3623](https://github.com/ErikaRS/task-list-kanban/commit/eea3623).
 `npm run build`, `npm test`, and `npm run lint` pass. Manual Obsidian UI
 verification is pending.
 
@@ -80,14 +84,14 @@ verification is pending.
 **Goal:** A card in Uncategorized or a non-final custom column can advance one configured step from either board layout.
 
 1. [x] Add a pure workflow destination resolver with tests for configured order and zero/custom columns; the resolver does not use visual order or column visibility.
-2. [ ] Replace the two-state per-column store with a board-local, persisted three-state mode; save changes immediately and clear selected IDs on mode and board changes.
-3. [ ] Add the icon-and-chevron selector beside the task count on desktop and mobile, and remove the repeated column-header controls.
-4. [ ] Show and wire the card arrow in Advance mode, including keyboard and rendered-Markdown-primary-checkbox handling.
+2. ✅ Replace the two-state per-column store with a board-local, persisted three-state mode; save changes immediately and clear selected IDs on mode and board changes.
+3. ✅ Add the icon-and-chevron selector beside the task count on desktop and mobile, and remove the repeated column-header controls.
+4. ✅ Show and wire the card arrow in Advance mode, including keyboard and rendered-Markdown-primary-checkbox handling.
 5. [ ] Test active-column advancement through name/tag, status, and priority matching, and verify that Done and Select modes still work.
 
 **Deliverable:** One click moves an active card exactly one configured custom-column step without changing its unrelated source text.
 
-**Implemented by:** Pending.
+**Implemented by:** [eea3623](https://github.com/ErikaRS/task-list-kanban/commit/eea3623).
 
 ### Phase 2: Done and archive boundary steps
 
@@ -96,11 +100,12 @@ verification is pending.
 1. [x] Route last-custom (or Uncategorized with no custom columns) to Done using the existing Done move action.
 2. [x] Route Done to the existing archive action for both tag-based and status-based archive settings.
 3. [ ] Test completion metadata, archived-task disappearance, toolbar mode changes, per-board mode restoration after switching/reopening, transient selections, and the three-mode interactions in grouped, reversed, and mobile layouts.
-4. [ ] Update the README's Board Controls / Bulk Actions descriptions and manually verify the toolbar menu and card controls in a test vault, including narrow mobile width and keyboard focus.
+4. ✅ Update the README's Board Controls / Bulk Actions descriptions.
+5. [ ] Manually verify the toolbar menu and card controls in a test vault, including narrow mobile width and keyboard focus.
 
 **Deliverable:** Every visible workflow step advances once, including Done → Archived, while existing interaction modes remain usable.
 
-**Implemented by:** Pending.
+**Implemented by:** [eea3623](https://github.com/ErikaRS/task-list-kanban/commit/eea3623).
 
 ## Design Notes and Open Questions
 

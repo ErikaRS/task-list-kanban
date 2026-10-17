@@ -1,4 +1,6 @@
-Status: IN_PROGRESS
+Status: IN_PROGRESS (implementation merged; manual validation and benchmark pending)
+
+Implemented: 2026-09
 
 # Filter negation and limited OR
 
@@ -93,12 +95,17 @@ Compatibility tests must compare the old and new matchers over a task fixture, n
 
 ## Implementation Plan
 
+Implementation merged in [66ef73c](https://github.com/ErikaRS/task-list-kanban/commit/66ef73c) in September 2026. Parser, matcher, editor, and suggestion tests are present. Combined automated/manual verification tasks below stay open until their manual portions are verified.
+
+**Implemented by (both phases):** [66ef73c](https://github.com/ErikaRS/task-list-kanban/commit/66ef73c).
+
 ### Phase 1: Atom negation
 
 **Goal:** Exclusions work from both the bar and expanded editor.
 
-1. [ ] Add signed atoms to the query model, parser, serializer, matcher, and empty-query checks. Compare the old and new matchers on the compatibility matrix above.
-2. [ ] Add exclude controls for content, single tags, and individual file paths; keep bar/editor round trips intact. Date rows stay positive-only.
+1. ✅ Add signed atoms to the query model, parser, serializer, matcher, and empty-query checks.
+   - [ ] Record an explicit old/new matcher comparison on the compatibility matrix above.
+2. ✅ Add exclude controls for content, single tags, and individual file paths; keep bar/editor round trips intact. Date rows stay positive-only.
 3. [ ] Validate on Search/Enter, show no error while editing, and leave the applied filter unchanged for malformed negation. Prevent saving malformed drafts. Verify that an error clears on the next edit and the dropdown stays open after a failed Search.
 4. [ ] Test parsing, matching, nested-card exclusions, invalid negated dates, persistence, saved views, and suggestion replacement. Manually verify bar ↔ editor edits and a large board.
 
@@ -108,11 +115,12 @@ Compatibility tests must compare the old and new matchers over a task fixture, n
 
 **Goal:** Users can choose between atomic alternatives of any supported type without changing the meaning of other filters.
 
-1. [ ] Add flat parenthesized OR groups to parsing, serialization, validation, and direct short-circuit evaluation. Preserve comma OR lists, repeated-tag AND, and legacy positive-file merging.
-2. [ ] Refactor the editor into clause rows with typed atom controls and an OR-row affordance, including per-atom exclusion.
-3. [ ] Make suggestions and caret replacement work inside a group; show syntax errors only on Search/Enter and leave the applied filter unchanged.
+1. ✅ Add flat parenthesized OR groups to parsing, serialization, validation, and direct short-circuit evaluation. Preserve comma OR lists, repeated-tag AND, and legacy positive-file merging.
+2. ✅ Refactor the editor into clause rows with typed atom controls and an OR-row affordance, including per-atom exclusion.
+3. ✅ Make suggestions and caret replacement work inside a group; show syntax errors only on Search/Enter and leave the applied filter unchanged.
 4. [ ] Test multiple groups, mixed atom types, AND precedence, quotes, malformed/nested groups, saved-view round trips, and editor equivalence. Verify that malformed drafts show no error while typed, an invalid Search changes nothing applied or persisted, and a correction can then be submitted. Manually compare filtering and editor state after typing, saving, reopening, and editing a group.
-5. [ ] Benchmark a representative large board with multiple OR groups and update README filter syntax.
+5. ✅ Update README filter syntax.
+6. [ ] Benchmark a representative large board with multiple OR groups and record the fixture, query, and timings.
 
 **Deliverable:** `(Krugman OR tag:reading) -Keynes` works end to end, with a matching structured editor and measured linear-cost behavior.
 

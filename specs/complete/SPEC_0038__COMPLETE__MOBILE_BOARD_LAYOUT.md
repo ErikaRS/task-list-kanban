@@ -24,9 +24,9 @@ this spec concerns the board presentation around them.
 
 Related completed architecture:
 
-- [SPEC 0019 — Board Matrix Rendering Architecture](complete/SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
-- [SPEC 0021 — Group By and Swim Lanes](complete/SPEC_0021__COMPLETE__GROUP_BY_SWIMLANES_DESIGN.md)
-- [SPEC 0022 — Transposed Vertical Board Grid](complete/SPEC_0022__COMPLETE__TRANSPOSED_VERTICAL_BOARD_GRID.md)
+- [SPEC 0019 — Board Matrix Rendering Architecture](SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
+- [SPEC 0021 — Group By and Swim Lanes](SPEC_0021__COMPLETE__GROUP_BY_SWIMLANES_DESIGN.md)
+- [SPEC 0022 — Transposed Vertical Board Grid](SPEC_0022__COMPLETE__TRANSPOSED_VERTICAL_BOARD_GRID.md)
 
 ## User Requirements
 

@@ -1,6 +1,8 @@
-# New Tasks Inherit Their Swimlane Property
+Status: IN_PROGRESS (implementation merged; remaining manual validation pending)
 
-Status: IN_PROGRESS
+Implemented: 2026-09
+
+# New Tasks Inherit Their Swimlane Property
 
 ## Feature Request Summary
 
@@ -57,11 +59,11 @@ the typed dates, so a typed date for the same key replaces it.
    override, priority lane, unwritable lanes) and mobile sessions
 5. ✅ Test: Erika added a task in a dated lane on a status-by-scheduled board and
    it stayed in that lane (2026-09-26)
-6. Test: in a vault, group by scheduled date with status columns and add a task
+6. [ ] Test: in a vault, group by scheduled date with status columns and add a task
    in a dated lane; it appears in that lane and column (Tasks and Dataview)
-7. Test: add a task in the Unassigned lane; it gets no scheduled date
-8. Test: repeat step 6 from the mobile layout
+7. [ ] Test: add a task in the Unassigned lane; it gets no scheduled date
+8. [ ] Test: repeat step 6 from the mobile layout
 
 **Deliverable:** New tasks land in the lane where they were added.
 
-**Implemented by:** pending
+**Implemented by:** [1c6dc56](https://github.com/ErikaRS/task-list-kanban/commit/1c6dc56) ([#198](https://github.com/ErikaRS/task-list-kanban/pull/198)).

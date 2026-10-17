@@ -16,8 +16,8 @@ In plain terms: the board's columns become rows. When grouping is enabled, the g
 
 This is a follow-up to:
 
-- [SPEC 0019 - Board Matrix Rendering Architecture](complete/SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
-- [SPEC 0021 - Group By and Swim Lanes](complete/SPEC_0021__COMPLETE__GROUP_BY_SWIMLANES_DESIGN.md)
+- [SPEC 0019 - Board Matrix Rendering Architecture](SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md)
+- [SPEC 0021 - Group By and Swim Lanes](SPEC_0021__COMPLETE__GROUP_BY_SWIMLANES_DESIGN.md)
 
 Those specs correctly established the shared board matrix model, but their vertical-renderer wording allowed an implementation where vertical flow became stacked column sections. This spec clarifies that `TTB` and `BTT` are visual transposes of the matrix, not stacked columns.
 

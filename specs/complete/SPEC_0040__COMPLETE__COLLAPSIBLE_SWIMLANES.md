@@ -8,7 +8,7 @@ Implemented: 2026-09
 Implement [#165](https://github.com/ErikaRS/task-list-kanban/issues/165): let
 users collapse and expand group-by swimlanes, analogous to columns.
 
-[SPEC 0041](complete/SPEC_0041__COMPLETE__SHARED_DESKTOP_AXIS_RENDERING.md)
+[SPEC 0041](SPEC_0041__COMPLETE__SHARED_DESKTOP_AXIS_RENDERING.md)
 is complete (2026-09), implemented in
 [2e791da](https://github.com/ErikaRS/task-list-kanban/commit/2e791da). It supplies the shared desktop geometry and category
 collapse presentation. This spec now covers only the remaining group state,

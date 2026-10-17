@@ -8,7 +8,7 @@ Implemented: 2026-06
 This spec was split out from the earlier combined task-properties / grouping design.
 
 - [SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md](SPEC_0019__COMPLETE__BOARD_MATRIX_RENDERING.md) owns board rendering architecture.
-- [SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md](../SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md) owns grouping and swimlanes.
+- [SPEC_0021__IN_PROGRESS__GROUP_BY_SWIMLANES_DESIGN.md](SPEC_0021__COMPLETE__GROUP_BY_SWIMLANES_DESIGN.md) owns grouping and swimlanes.
 
 This spec is intentionally limited to property parsing, property display, property-based sorting, and manual ordering within a column.
 

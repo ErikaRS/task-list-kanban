@@ -1,4 +1,6 @@
-Status: IN_PROGRESS
+Status: IN_PROGRESS (implementation merged; manual validation pending)
+
+Implemented: 2026-09
 
 # SPEC 0046 — Reschedule Overdue Tasks to Today
 
@@ -87,7 +89,7 @@ The task list is recomputed when the user confirms, so a task that stopped being
 
 **Deliverable:** A working command that reschedules only visible, open, overdue tasks by the grouped date.
 
-**Implemented by:** Pending.
+**Implemented by:** [098dbd6](https://github.com/ErikaRS/task-list-kanban/commit/098dbd6).
 
 ### Phase 2: Overdue swimlane header button 🚧 IN PROGRESS
 
@@ -100,7 +102,7 @@ The task list is recomputed when the user confirms, so a task that stopped being
 
 **Deliverable:** The Overdue swimlane header offers a one-click reschedule that behaves exactly like the command.
 
-**Implemented by:** Pending.
+**Implemented by:** [098dbd6](https://github.com/ErikaRS/task-list-kanban/commit/098dbd6).
 
 ## Design Notes and Open Questions
 

@@ -2,6 +2,8 @@
 
 ## Planning & Documentation
 
+See the [specification index](specs/README.md) for active work, remaining validation, completed specs, and the next available number.
+
 ### Planning Artifacts Naming Convention
 - Design documents and plans in the `specs/` directory should follow this naming convention:
   - Format: `SPEC_XXXX__STATUS__TITLE.md` where XXXX is a 4-digit sequential number

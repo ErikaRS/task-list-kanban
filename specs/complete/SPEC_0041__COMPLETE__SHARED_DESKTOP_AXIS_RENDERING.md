@@ -10,7 +10,7 @@ and group-dominant flow share grid geometry, sticky behavior, collapse rules,
 and visual hierarchy. Semantic differences are confined to header content and
 category accents. This is the completed prerequisite for
 [#165](https://github.com/ErikaRS/task-list-kanban/issues/165), whose remaining
-group-collapse work is tracked in [SPEC 0040](../SPEC_0040__IN_PROGRESS__COLLAPSIBLE_SWIMLANES.md).
+group-collapse work is tracked in [SPEC 0040](SPEC_0040__COMPLETE__COLLAPSIBLE_SWIMLANES.md).
 
 ## User Requirements
 

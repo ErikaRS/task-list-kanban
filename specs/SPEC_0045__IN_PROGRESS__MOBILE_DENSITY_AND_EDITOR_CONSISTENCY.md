@@ -1,4 +1,6 @@
-Status: IN_PROGRESS (implementation written; automated checks and device validation tracked below)
+Status: IN_PROGRESS (implementation merged; device validation pending)
+
+Implemented: 2026-09
 
 # Mobile task lists and shared editing
 
@@ -43,7 +45,7 @@ Below it, category headers hold collapse, title, one count, and Done/Select. Gro
 - Use approximately 12–16px horizontal content insets, 8–10px vertical content padding, and a 1px theme-derived divider. Keep existing status hit areas and readable text. Variable-height content wraps naturally; no truncation of tasks, notes, or subtasks for density.
 - Align secondary metadata under task text; omit empty metadata containers. Retain configured source paths, dates, tags, nested content, and actions. Hiding the creation-destination row is unrelated to task-card source-path preferences.
 - Column/group headers have about a 44px minimum interactive row, small vertical padding, and no large decorative stripe or surrounding card frame. A thin category accent and hierarchy typography distinguish sections. Long titles and larger accessibility text may wrap.
-- Done/Select remains a labeled column control; it describes a mode and is less obvious as an icon. Preserve its column-wide scope even when the column appears in several groups. Do not add the creation action to this control group.
+- Card interaction controls now follow [SPEC 0051](SPEC_0051__IN_PROGRESS__ADVANCE_CARD_TO_NEXT_COLUMN.md): a board-wide Done / Advance / Select selector beside the total task count supersedes this design's original per-column Done/Select controls. Creation remains section-local.
 - Keep sticky hierarchy headers and measured offsets. Selection can use a subtle row fill and existing markers without reintroducing spaced cards.
 
 ### Section-local floating creation
@@ -83,7 +85,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 
 **Deliverable:** Full-width adjoining task rows with compact board chrome.
 
-**Implemented by:** Implementation in the accompanying commit (Refs #176); device verification remains pending.
+**Implemented by:** [e508df6](https://github.com/ErikaRS/task-list-kanban/commit/e508df6), with follow-ups [dae1311](https://github.com/ErikaRS/task-list-kanban/commit/dae1311) and [ced7a91](https://github.com/ErikaRS/task-list-kanban/commit/ced7a91) (Refs #176); device verification remains pending.
 
 ### Phase 2: One working mobile editing sheet — implementation written
 
@@ -95,7 +97,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 
 **Deliverable:** Matching keyboard-safe editing flows, initially invoked from existing creation triggers.
 
-**Implemented by:** Implementation in the accompanying commit (Refs #176); device verification remains pending.
+**Implemented by:** [e508df6](https://github.com/ErikaRS/task-list-kanban/commit/e508df6), with follow-ups [dae1311](https://github.com/ErikaRS/task-list-kanban/commit/dae1311) and [ced7a91](https://github.com/ErikaRS/task-list-kanban/commit/ced7a91) (Refs #176); device verification remains pending.
 
 ### Phase 3: Creation that travels with its section — implementation written
 
@@ -109,7 +111,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 
 **Deliverable:** Section-specific thumb-accessible creation without repeated full-width control rows.
 
-**Implemented by:** Implementation in the accompanying commit (Refs #176); device verification remains pending.
+**Implemented by:** [e508df6](https://github.com/ErikaRS/task-list-kanban/commit/e508df6), with follow-ups [dae1311](https://github.com/ErikaRS/task-list-kanban/commit/dae1311) and [ced7a91](https://github.com/ErikaRS/task-list-kanban/commit/ced7a91) (Refs #176); device verification remains pending.
 
 ### Validation for every code phase
 
@@ -122,7 +124,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 
 Use Lucide `panels-top-left` for View on both desktop and mobile (selected by the maintainer). All other design changes in this spec are mobile-only. Desktop retains the View text label and existing trigger behavior. Verify the icon exists in the minimum supported Obsidian icon set before implementation.
 
-The grouped mockup shows column-dominant hierarchy: Uncategorized → 2022-04-23 (empty) and Unassigned (populated), then a second illustrative column. Column totals and Done/Select live only on column headers. Group counts/collapse and section-specific floating plus buttons belong below those headers. Two hierarchy levels remain visible without nesting task rows in padded cards.
+The grouped mockup shows column-dominant hierarchy: Uncategorized → 2022-04-23 (empty) and Unassigned (populated), then a second illustrative column. Column totals remain on column headers; the board-wide action selector follows SPEC 0051. Group counts/collapse and section-specific floating plus buttons belong below those headers. Two hierarchy levels remain visible without nesting task rows in padded cards.
 
 ## Implementation and verification notes
 

@@ -1,6 +1,8 @@
-# Open Filtered Source Files
-
 Status: COMPLETE
+
+Implemented: 2026-09
+
+# Open Filtered Source Files
 
 **Related issue:** [#180 — Open All Source Files At Once](https://github.com/ErikaRS/task-list-kanban/issues/180)
 
