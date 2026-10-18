@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from "svelte";
+	import Icon from "../components/icon.svelte";
 	import { type App, Component, MarkdownRenderer, Notice } from "obsidian";
 	import type { ArchivePageReader, ArchiveCard } from "../tasks/archive_reader";
 	import type { Task } from "../tasks/task";
@@ -55,10 +56,13 @@
 		</div>
 		{#if !collapsed}
 			<div class="archive-controls">
-				<button disabled={$state.loading || $state.page === 1} on:click={() => reader.previous()} aria-label="Previous archive page">Previous</button>
+				<button class="archive-icon-button clickable-icon" disabled={$state.loading || $state.page === 1}
+					on:click={() => reader.previous()} aria-label="Previous archive page" title="Previous archive page"><Icon name="arrow-left" size={16} /></button>
 				<span>Page {$state.page}</span>
-				<button disabled={$state.loading || !$state.more} on:click={() => reader.next()} aria-label="Next archive page">Next</button>
-				<button on:click={() => reader.refresh()}>Refresh</button>
+				<button class="archive-icon-button clickable-icon" disabled={$state.loading || !$state.more}
+					on:click={() => reader.next()} aria-label="Next archive page" title="Next archive page"><Icon name="arrow-right" size={16} /></button>
+				<button class="archive-icon-button clickable-icon" on:click={() => reader.refresh()}
+					aria-label="Refresh archive" title="Refresh archive"><Icon name="refresh-cw" size={16} /></button>
 				{#if $state.loading}<button on:click={() => reader.cancel()}>Cancel</button>{/if}
 			</div>
 			<p>File order · 50 tasks per page</p>
@@ -100,6 +104,11 @@
 	.archive-collapse:hover { color: var(--text-normal); }
 	header p, .archive-controls { margin-left: 12px; }
 	.archive-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+	.archive-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px;
+		width: 24px; height: 24px; min-height: 0; margin: 0; padding: 0; border: none;
+		border-radius: var(--radius-s); background: transparent; box-shadow: none; color: var(--text-muted); }
+	.archive-icon-button:hover:enabled { background: var(--background-modifier-hover); color: var(--text-normal); }
+	.archive-icon-button:disabled { opacity: .4; }
 	.archive-controls, p, footer { font-size: var(--font-ui-smaller); color: var(--text-muted); }
 	p { margin: 6px 0; overflow-wrap: anywhere; }
 	.archive-cards { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px 16px; }
