@@ -8,6 +8,7 @@ Active specs stay here until their required implementation is complete and accep
 
 | Spec | Issue | State | Remaining work |
 | --- | --- | --- | --- |
+| [0052 — New task insertion location](SPEC_0052__IN_PROGRESS__NEW_TASK_INSERTION_LOCATION.md) | [#189](https://github.com/ErikaRS/task-list-kanban/issues/189) | Implementation and automated checks complete | Manual Obsidian creation, settings, and theme/vault acceptance checks. |
 
 ## Completed and historical specs
 
@@ -67,7 +68,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 
 ## Numbering and maintenance
 
-- Numbers are global across active and completed specs. The next unused number is **0052**.
+- Numbers are global across active and completed specs. The next unused number is **0053**.
 - Advance Card was originally also numbered 0043. It is now **0051**; **0043** remains Open Filtered Source Files. Historical commits retain the old filename.
 - Keep implementation links current and label waived checks explicitly without claiming they passed. Move a spec into `complete/` and change its status after required checks are verified or explicitly waived by the owner.
 - Follow [the planning guide](../README.planning.md) for new specs.

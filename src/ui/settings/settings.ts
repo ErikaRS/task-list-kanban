@@ -1,3 +1,4 @@
+import { getNewTaskHeadingError } from "../tasks/task_insertion";
 import { App, Modal, Setting, TFile, setIcon } from "obsidian";
 import { mount, unmount } from "svelte";
 import { ConfirmModal } from "./confirm_modal";
@@ -97,6 +98,7 @@ export class SettingsModal extends Modal {
 	private readonly originalPathScopeSnapshot: string;
 	private readonly originalSettings: SettingValues;
 	private scrollWrapper!: HTMLDivElement;
+	private newTaskHeadingErrorEl: HTMLElement | null = null;
 	private validationError: string | null = null;
 	private pathScopeErrorEl: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
@@ -411,7 +413,9 @@ export class SettingsModal extends Modal {
 			!(this.pathScope?.includeBoardFolder || (this.pathScope?.paths.length ?? 0) > 0)
 				? "Selected paths must include at least one file or folder."
 				: null;
-		this.validationError = columnError ?? pathScopeError;
+		const headingError = getNewTaskHeadingError(this.settings.newTaskHeading ?? "");
+		this.newTaskHeadingErrorEl?.setText(headingError ?? "");
+		this.validationError = columnError ?? pathScopeError ?? headingError;
 		if (this.pathScopeErrorEl) {
 			this.pathScopeErrorEl.setText(pathScopeError ?? "");
 			this.pathScopeErrorEl.style.visibility = pathScopeError ? "visible" : "hidden";
@@ -425,11 +429,12 @@ export class SettingsModal extends Modal {
 	}
 
 	private scheduleEmbeddedSubmit() {
-		if (!this.isEmbedded() || this.validationError) {
-			return;
-		}
 		if (this.embeddedSubmitTimer) {
 			window.clearTimeout(this.embeddedSubmitTimer);
+			this.embeddedSubmitTimer = null;
+		}
+		if (!this.isEmbedded() || this.validationError) {
+			return;
 		}
 		this.embeddedSubmitTimer = window.setTimeout(() => {
 			this.embeddedSubmitTimer = null;
@@ -1456,8 +1461,13 @@ export class SettingsModal extends Modal {
 		const taskPropertiesSection = createSection(
 			"task-properties",
 			"Task properties",
-			"Property parsing, card property display, and task creation defaults.",
+			"Property parsing, card property display, and nested task behavior.",
 			["propertySchema", "propertyDisplay", "treatNestedTasksAsSubtasks"],
+		);
+		const newTasksSection = createSection(
+			"new-tasks", "New tasks",
+			"Choose where new tasks are inserted in every destination file.",
+			["newTaskHeading", "newTaskPosition"],
 		);
 		const scopeSection = createSection(
 			"scope",
@@ -1491,6 +1501,7 @@ export class SettingsModal extends Modal {
 		void this.refreshAvailableColumnTags();
 
 		this.renderTaskPropertiesSection(taskPropertiesSection);
+		this.renderNewTasksSection(newTasksSection);
 		this.renderScopeSection(scopeSection);
 		this.renderDisplaySection(displaySection);
 		this.renderStatusMarkersSection(statusMarkersSection);
@@ -1619,7 +1630,9 @@ export class SettingsModal extends Modal {
 			.then((setting) =>
 				this.createOverrideChip(setting.nameEl, ["treatNestedTasksAsSubtasks"]),
 			);
+	}
 
+	private renderNewTasksSection(container: HTMLDivElement) {
 		if (!this.isGlobalDefaultsMode()) {
 			const defaultTaskFileSetting = new Setting(container)
 				.setName("Default task file")
@@ -1655,6 +1668,33 @@ export class SettingsModal extends Modal {
 			this.defaultTaskFileErrorEl = errorEl;
 			this.validateDefaultTaskFile();
 		}
+		const headingSetting = new Setting(container)
+			.setName("Heading")
+			.setDesc("Optional heading text, without # marks. Leave blank to use the whole file.")
+			.addText((text) => {
+				text.setValue(this.settings.newTaskHeading ?? "");
+				text.setPlaceholder("e.g., Tasks");
+				text.onChange((value) => {
+					this.settings.newTaskHeading = getNewTaskHeadingError(value) ? value : value.trim();
+					text.inputEl.toggleAttribute("aria-invalid", !!getNewTaskHeadingError(value));
+					this.touchSettings();
+				});
+			});
+		this.newTaskHeadingErrorEl = headingSetting.descEl.createDiv({ cls: "setting-error-message" });
+		this.newTaskHeadingErrorEl.style.color = "var(--text-error)";
+		this.newTaskHeadingErrorEl.setAttribute("aria-live", "polite");
+		this.createOverrideChip(headingSetting.nameEl, ["newTaskHeading"]);
+		new Setting(container)
+			.setName("Insert at top")
+			.setDesc("When off, insert at the bottom. Applies to the heading's section, or the whole file if Heading is blank. If the heading is missing, create it at the selected end of the file.")
+			.addToggle((toggle) => {
+				toggle.setValue(this.settings.newTaskPosition === "top")
+					.onChange((value) => {
+						this.settings.newTaskPosition = value ? "top" : "bottom";
+						this.touchSettings();
+					});
+			})
+			.then((setting) => this.createOverrideChip(setting.nameEl, ["newTaskPosition"]));
 	}
 
 	private renderScopeSection(scopeSection: HTMLDivElement) {

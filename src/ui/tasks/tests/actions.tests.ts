@@ -833,6 +833,65 @@ describe("task actions", () => {
 		});
 	});
 
+	describe("new task insertion settings", () => {
+		it("reads the current settings for each creation and preserves metadata and the write hook", async () => {
+			let position: "top" | "bottom" = "top";
+			const prepare = vi.fn((_file, contents: string) => contents);
+			const { actions, fileHandle, contents } = setupActions(
+				"# Tasks\nOld\n# Next", PropertySchemaOption.Dataview,
+				undefined, undefined, undefined, [],
+				{ getTaskInsertionSettings: () => ({ newTaskHeading: "Tasks", newTaskPosition: position }), prepareFileContentsForWrite: prepare },
+			);
+			await actions.createTask(fileHandle as never, "First", "doing" as ColumnTag, ["home"], { due: "2026-06-15" }, { key: "scheduled", value: "2026-06-16" });
+			expect(contents()).toBe("# Tasks\n- [ ] First #doing #home [scheduled:: 2026-06-16] [due:: 2026-06-15]\nOld\n# Next");
+			position = "bottom";
+			await actions.createTask(fileHandle as never, "Second", "doing" as ColumnTag);
+			expect(contents()).toContain("Old\n- [ ] Second #doing\n# Next");
+			expect(prepare).toHaveBeenCalledTimes(2);
+		});
+		it("uses one pair across default, recent, picker, and file lane destinations", async () => {
+			const files = ["default.md", "recent.md", "chosen.md", "lane.md"].map((path) => Object.assign(new TFile(), { path }));
+			const sources = new Map(files.map((file, i) => [file.path, i === 0 ? "## Tasks\nOld\n## End" : "Intro"]));
+			let defaultFile: string | null = files[0]!.path;
+			const actions = createTaskActions({
+				tasksByTaskId: new Map(), metadataByTaskId: new Map(),
+				vault: {
+					read: async (file: TFile) => sources.get(file.path)!,
+					modify: async (file: TFile, contents: string) => { sources.set(file.path, contents); },
+					getAbstractFileByPath: (path: string) => files.find((file) => file.path === path),
+					getMarkdownFiles: () => files,
+				} as never,
+				workspace: {} as never,
+				getFilenameFilter: () => null, getExcludeFilter: () => null, getBoardFolderPath: () => null,
+				getPlacementTagsForColumn: () => [], getColumnDefinitions: () => [],
+				getDefaultTaskFile: () => defaultFile, getLastUsedTaskFile: () => files[1]!.path,
+				setLastUsedTaskFile: () => undefined,
+				getTaskInsertionSettings: () => ({ newTaskHeading: "Tasks", newTaskPosition: "top" }),
+				getPropertySchemaOption: () => PropertySchemaOption.None, getStatusMarkerOrder: () => "",
+				getManualOrder: () => ({}), setManualOrder: () => undefined,
+			});
+			await actions.createTask(actions.getTargetFile()!, "First", "doing" as ColumnTag);
+			defaultFile = null;
+			await actions.createTask(actions.getTargetFile()!, "First", "doing" as ColumnTag);
+			const picker = vi.fn();
+			actions.pickFileForNewTask("doing" as ColumnTag, { target: { getBoundingClientRect: () => ({ top: 0, left: 0, height: 20, width: 20 }) } } as unknown as MouseEvent, picker, true);
+			const menuOptions = vi.mocked(showFilePickerMenu).mock.lastCall![0];
+			menuOptions.onFileSelected(files[2]!);
+			await actions.createTask(picker.mock.calls[0]![0], "First", "doing" as ColumnTag);
+			await actions.createTask(files[3]!, "First", "doing" as ColumnTag);
+			expect(sources.get(files[0]!.path)).toBe("## Tasks\n- [ ] First\nOld\n## End");
+			for (const file of files.slice(1)) expect(sources.get(file.path)).toBe("## Tasks\n- [ ] First\n\nIntro");
+		});
+
+		it("does not write when the selected destination has unclosed frontmatter", async () => {
+			const prepare = vi.fn((_file, contents: string) => contents);
+			const { actions, fileHandle, contents } = setupActions("---\ntitle: Test", PropertySchemaOption.None, undefined, undefined, undefined, [], { prepareFileContentsForWrite: prepare });
+			await expect(actions.createTask(fileHandle as never, "Task", "doing" as ColumnTag)).rejects.toThrow("frontmatter");
+			expect(contents()).toBe("---\ntitle: Test");
+			expect(prepare).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("createTask date properties", () => {
 		it("writes Tasks-plugin dates when creating a task", async () => {
 			const { actions, fileHandle, contents } = setupActions(
@@ -1205,6 +1264,7 @@ function setupActions(
 	options: {
 		statusMarkerOrder?: string;
 		keepColumnTagOnCompletion?: boolean;
+		getTaskInsertionSettings?: Parameters<typeof createTaskActions>[0]["getTaskInsertionSettings"];
 		prepareFileContentsForWrite?: Parameters<typeof createTaskActions>[0]["prepareFileContentsForWrite"];
 	} = {},
 ) {
@@ -1234,6 +1294,7 @@ function setupActions(
 		getCurrentDate: () => new Date(2026, 5, 15, 12),
 		getManualOrder: () => ({}),
 		setManualOrder: () => undefined,
+		getTaskInsertionSettings: options.getTaskInsertionSettings,
 		prepareFileContentsForWrite: options.prepareFileContentsForWrite,
 	});
 

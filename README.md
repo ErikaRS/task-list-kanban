@@ -59,6 +59,22 @@ Tasks without a column tag appear in **Uncategorized**. To place a task in a col
 
 Click **Add new** at the bottom of a column to create a task from the board. If a default or recently used task file is available, the input opens immediately; otherwise, choose a file first.
 
+In board settings, **New tasks** groups the **Default task file**, optional
+**Heading**, and **Insert at top** controls. Turn **Insert at top** on to insert
+at the top of that heading's section, or leave it off to insert at the bottom.
+Heading defaults to blank; “e.g., Tasks” is only an example placeholder.
+Leave Heading blank to use the whole file. The same heading and position apply to every file you create tasks in, including file
+swimlanes, mobile creation, and **Add card**. Plugin-wide board defaults can
+supply the heading and position, with normal board overrides.
+
+Headings match their exact text (without `#` marks), using the first matching
+ATX heading at any level. A missing heading is created as `## Heading` at the
+selected end of the file. A section includes its deeper subsections. At top of
+the whole file means after YAML frontmatter. Existing boards continue to append
+to the file until you change these settings: Heading is blank and Insert at top
+is off by default. These preferences affect new tasks;
+duplicates, subtasks, and moved tasks keep their existing placement behavior.
+
 ## Board Configuration
 
 Open board settings with the settings icon in the top-right corner.
@@ -73,7 +89,7 @@ tidy.
 Plugin settings include:
 - **Board rail**: choose whether the board rail docks left or top.
 - **Board defaults**: set default columns, status markers, scope, tag display,
-  property behavior, and nested subtask behavior for boards that do not
+  property behavior, new task placement, and nested subtask behavior for boards that do not
   override those fields.
 - **Default view**: set plugin-wide defaults for flow direction and card width.
 - **Global saved views**: create reusable views available from every board.

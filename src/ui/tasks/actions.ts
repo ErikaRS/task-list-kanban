@@ -1,3 +1,4 @@
+import { insertNewTask, type TaskInsertionSettings } from "./task_insertion";
 import {
 	Keymap,
 	MarkdownView,
@@ -156,6 +157,7 @@ export function createTaskActions({
 	getPlacementTagsForColumn,
 	getColumnDefinitions,
 	getDefaultTaskFile,
+	getTaskInsertionSettings = () => ({}),
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
 	getPropertySchemaOption,
@@ -177,6 +179,7 @@ export function createTaskActions({
 	getPlacementTagsForColumn: (column: ColumnTag) => string[];
 	getColumnDefinitions: () => ColumnDefinition[];
 	getDefaultTaskFile: () => string | null;
+	getTaskInsertionSettings?: () => TaskInsertionSettings;
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
 	getPropertySchemaOption: () => PropertySchemaOption;
@@ -911,13 +914,11 @@ export function createTaskActions({
 				groupProperty,
 			});
 
-			await updateRow(
-				vault,
-				file,
-				undefined,
-				taskLine,
-				prepareFileContentsForWrite,
-			);
+			const contents = await vault.read(file);
+			const nextContents = insertNewTask(contents, taskLine, getTaskInsertionSettings());
+			await vault.modify(file, prepareFileContentsForWrite
+				? prepareFileContentsForWrite(file, nextContents)
+				: nextContents);
 		},
 	};
 }

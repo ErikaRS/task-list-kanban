@@ -1,3 +1,4 @@
+import { getNewTaskHeadingError } from "../tasks/task_insertion";
 import { writable, type Readable, type Writable } from "svelte/store";
 import { z } from "zod";
 import { DEFAULT_DONE_STATUS_MARKERS, DEFAULT_IGNORED_STATUS_MARKERS, DEFAULT_CANCELLED_STATUS_MARKERS } from "../tasks/task";
@@ -271,6 +272,8 @@ const settingsObject = z.object({
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
 	collapsedGroups: z.array(z.string()).default([]).optional(),
+	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").default("").optional(),
+	newTaskPosition: z.enum(["top", "bottom"]).catch("bottom").default("bottom").optional(),
 	defaultTaskFile: z.string().default("").optional(),
 	lastUsedTaskFile: z.string().default("").optional(),
 	scopeFolders: z.array(z.string()).default([]).optional(),
@@ -328,6 +331,8 @@ export interface SettingValues {
 	flowDirection?: FlowDirection;
 	collapsedColumns?: string[];
 	collapsedGroups?: string[];
+	newTaskHeading?: string;
+	newTaskPosition?: "top" | "bottom";
 	defaultTaskFile?: string;
 	lastUsedTaskFile?: string;
 	scopeFolders?: string[];
@@ -370,6 +375,8 @@ export const defaultSettings: SettingValues = {
 	flowDirection: FlowDirection.LeftToRight,
 	collapsedColumns: [],
 	collapsedGroups: [],
+	newTaskHeading: "",
+	newTaskPosition: "bottom",
 	defaultTaskFile: "",
 	lastUsedTaskFile: "",
 	scopeFolders: [],

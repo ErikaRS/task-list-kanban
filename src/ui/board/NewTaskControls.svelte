@@ -41,6 +41,8 @@
 
 	let pendingNewTask: TFile | null = null;
 	let pendingCancelled = false;
+	let savingNewTask = false;
+	let newTaskError = "";
 	let newTaskTextAreaEl: HTMLTextAreaElement | undefined;
 	let newTaskInputEl: HTMLDivElement | undefined;
 	const emptyDateValues: DateFieldValues = { due: "", scheduled: "", start: "" };
@@ -49,6 +51,7 @@
 	$: isColTag = isColumnTag(column, columnTagTableStore);
 
 	async function handleNewTaskSave(event?: FocusEvent) {
+		if (savingNewTask) return;
 		const nextTarget = event?.relatedTarget;
 		if (nextTarget instanceof Node && newTaskInputEl?.contains(nextTarget)) {
 			return;
@@ -64,25 +67,33 @@
 		const content = newTaskTextAreaEl?.value?.trim();
 		const file = pendingNewTask;
 		const targetColumn = column;
-		pendingNewTask = null;
 
 		if (!content || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
+			pendingNewTask = null;
 			newTaskDateValues = { ...emptyDateValues };
 			return;
 		}
 
-		await taskActions.createTask(
-			file,
-			content,
-			targetColumn,
-			additionalTags,
-			newTaskDateValues,
-			groupProperty,
-		);
-		newTaskDateValues = { ...emptyDateValues };
+		savingNewTask = true;
+		newTaskError = "";
+		try {
+			await taskActions.createTask(file, content, targetColumn, additionalTags, newTaskDateValues, groupProperty);
+			pendingNewTask = null;
+			newTaskDateValues = { ...emptyDateValues };
+		} catch (error) {
+			newTaskError = error instanceof Error ? error.message : "Could not create task. Please try again.";
+			await tick();
+			newTaskTextAreaEl?.focus();
+		} finally {
+			savingNewTask = false;
+		}
 	}
 
 	function handleNewTaskKeydown(e: KeyboardEvent) {
+		if (savingNewTask) {
+			if (e.key === "Escape" || e.key === "Enter") e.preventDefault();
+			return;
+		}
 		if (e.key === "Escape") {
 			e.preventDefault();
 			pendingCancelled = true;
@@ -105,6 +116,7 @@
 			return;
 		}
 
+		newTaskError = "";
 		newTaskDateValues = { ...emptyDateValues };
 		if (fileGroupTargetFile) {
 			pendingNewTask = fileGroupTargetFile;
@@ -118,6 +130,7 @@
 	}
 
 	function handleChooseTaskFileClick(e: MouseEvent | KeyboardEvent) {
+		newTaskError = "";
 		const targetColumn = column;
 		if (!isColumnTag(targetColumn, columnTagTableStore)) {
 			return;
@@ -191,15 +204,18 @@
 {#if pendingNewTask}
 	<div
 		class="new-task-input"
+		aria-busy={savingNewTask}
 		class:vertical-flow={isVerticalFlow}
 		bind:this={newTaskInputEl}
 		on:focusout={handleNewTaskSave}
 	>
 		<textarea
 			bind:this={newTaskTextAreaEl}
+			readonly={savingNewTask}
 			on:keydown={handleNewTaskKeydown}
 			placeholder="Task name..."
 		></textarea>
+		{#if newTaskError}<div role="alert" class="new-task-error">{newTaskError}</div>{/if}
 		{#if canEditNewTaskDates}
 			<div class="new-task-date-fields">
 				<DateInputFields
@@ -212,6 +228,7 @@
 {/if}
 
 <style lang="scss">
+	.new-task-error { color: var(--text-error); }
 	/*
 	 * These elements are direct flex children of BoardCell's .tasks-wrapper
 	 * (Svelte components do not add a wrapper element). In vertical flow the
