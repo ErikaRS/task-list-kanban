@@ -1,4 +1,6 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-10
+Completed: 2026-10-17
 
 # SPEC 0050 - Archived Task Column
 
@@ -26,7 +28,7 @@ Add **Show archived column** to the existing **View** panel, beside the flow and
 
 Use `showArchivedColumn?: boolean` in the board-local view-state storage and `SavedViewProperties`, including the saved-view schema. The setting's absence means `false`, and an explicit `false` must be capturable so a saved view can hide an already visible archive. `captureSavedViewProperties` includes it when the board-local value was explicitly chosen; `applySavedViewProperties` changes it only when the saved view carries it. Add an **Archive** property badge and include this property in query-only saved-view detection. A global saved view carrying this option applies it to the target board while archive recognition still uses that board's tag/status configuration. Saved views omit page number and transient collapse state.
 
-Opening the column starts an archive scan. Show a loading state, then up to **50** cards and **Previous** / **Next** page controls. Show “Page N” and “More archived tasks may be available” until the next page is known; do not imply a total count. The page controls replace cards rather than appending them. Keep the archive heading, page controls, Refresh, and loading/cancel controls at the top of its pane, above a separately scrolling card list. The column is read-only except for **Restore to Done** and **Open source file**. No add-card, drag/drop, advance, bulk archive, manual pinning, or selection actions appear on archived cards in the first release.
+Opening the column starts an archive scan. Show a loading state, then up to **50** cards. Use left/right arrow buttons for **Previous** / **Next** and a circular-arrow icon for **Refresh**, with hover tooltips and accessible labels. Show “Page N” and “More archived tasks may be available” until the next page is known; do not imply a total count. The page controls replace cards rather than appending them. Keep the archive heading, page controls, Refresh, and loading/cancel controls at the top of its pane, above a separately scrolling card list. The column is read-only except for **Restore to Done** and **Open source file**. No add-card, drag/drop, advance, bulk archive, manual pinning, or selection actions appear on archived cards in the first release.
 
 Restoration places the task in Done: tag mode removes only the archive tag and sets the board's done marker if the row was not already done; status mode changes an archive marker to the board's done marker. The user can then move it to another active column with the ordinary board actions. Preserve completion dates and unrelated tags. After a successful restore, reset the archive to page 1 and let the normal file watcher update Done.
 
@@ -112,7 +114,7 @@ In status mode, an existing `#archived` tag is left intact on restore, matching 
 
 - Existing boards continue hiding archived tasks unless the setting is enabled.
 - A custom column named Archived does not supersede this special column. If one exists, label the special column **Archived tasks** to avoid two identical headers.
-- Status-based archive behavior from [SPEC 0039](complete/SPEC_0039__COMPLETE__STATUS_BASED_ARCHIVING.md) remains authoritative.
+- Status-based archive behavior from [SPEC 0039](SPEC_0039__COMPLETE__STATUS_BASED_ARCHIVING.md) remains authoritative.
 - Archive visibility is a board-local view option and an optional saved-view property. Board switches restore each board's current view choice and clear the old page. Existing saved views that omit this property leave the current archive visibility unchanged when applied.
 
 ## Performance Acceptance Criteria
@@ -125,33 +127,33 @@ In status mode, an existing `#archived` tag is left intact on restore, matching 
 
 ## Implementation Plan
 
-### Phase 1: Optional Bounded Archive View
+### Phase 1: Optional Bounded Archive View ✅ COMPLETE
 
 **Goal:** A user can enable the column and browse archived tasks safely in fixed-size pages.
 
 1. [x] Add the View-panel option, board-local view persistence, saved-view capture/apply/schema handling, and independent archive pane with its own scroll area and top controls.
 2. [x] Extract the shared archive predicate without adding archived rows to the active task store.
 3. [x] Implement cancellable, scoped page scans and loading/empty/error states.
-4. [ ] Test the tag/status classification table, explicit saved-view `true` and `false`, omitted saved-view properties, forward/backward paging and cursor eviction, board switches, scope/exclusions, and memory bounds.
-5. [ ] Verify Layout Acceptance in normal, reversed, transposed, grouped, and narrow/mobile layouts, including independent scrolling, equal pane heights, and preservation of existing sticky headers.
+4. ✅ Automated coverage verifies tag/status classification, saved-view `true`/`false`/omission/schema handling, forward/backward paging, cursor eviction, eligibility, and retained-card bounds. Remaining integration acceptance checks waived by the owner on 2026-10-17.
+5. ✅ Desktop browser fixture verifies layout, independent scrolling, equal pane heights, and sticky headers. Remaining Obsidian theme/grouped-board regression and physical mobile layout checks waived by the owner on 2026-10-17.
 
 **Deliverable:** Archived tasks can be viewed in bounded pages; normal board data remains bounded to active tasks.
 
-**Implemented by:** Codex; manual acceptance remains pending.
+**Implemented by:** [a8939f5](https://github.com/ErikaRS/task-list-kanban/commit/a8939f5), with compact controls in [7a63d04](https://github.com/ErikaRS/task-list-kanban/commit/7a63d04).
 
-### Phase 2: Restore and Filter
+### Phase 2: Restore and Filter ✅ COMPLETE
 
 **Goal:** A user can find and restore an archived task without risking a stale source write.
 
 1. [x] Apply the board's committed filter to archive scans and reset paging on changes.
 2. [x] Add Restore to Done with source-row verification and targeted edits.
-3. [ ] Test same-text rows, source changes during scan/restore, local and external archives, event coalescing, create/delete/rename, page reset after edits, nested blocks, completion metadata, filter transitions, and cross-board restore behavior for tasks carrying both archive signals.
-4. [ ] Run the performance fixture, `npm run build`, and `npm test`; document the measured results.
+3. ✅ Automated coverage verifies stale scan/source guards, mutation bursts and vault events, page reset, nested ownership, completion metadata, filtering/error recovery, and tag/status restore behavior. Remaining manual integration acceptance checks waived by the owner on 2026-10-17.
+4. ✅ Desktop 10,000-row performance fixture, `npm run build`, and `npm test` passed; results recorded below. Physical mobile performance measurement waived by the owner on 2026-10-17.
 5. [x] Update README usage and archive-mode documentation.
 
 **Deliverable:** Filtered archive browsing and safe restoration work end to end with measured large-archive behavior.
 
-**Implemented by:** Codex; manual acceptance remains pending.
+**Implemented by:** [a8939f5](https://github.com/ErikaRS/task-list-kanban/commit/a8939f5), with compact controls in [7a63d04](https://github.com/ErikaRS/task-list-kanban/commit/7a63d04).
 
 ## Decisions to Revisit After Measurement
 
@@ -165,6 +167,6 @@ In status mode, an existing `#archived` tag is left intact on restore, matching 
 - Browser fixture using the actual `DesktopMatrixGrid` and archive component plus the main view's pane CSS: zero gap, equal 500px viewport heights, unchanged sticky header stack, independent horizontal/vertical board scrolling and archive scrolling, short-board row heights, reversed/transposed layouts, and 380px narrow layout with 200px board + 300px archive overflow. This is not an Obsidian theme or physical mobile-device check.
 - 10,000 archived rows in an in-memory desktop browser fixture: first page 4ms, next page 2ms, sparse last-row filter 384ms, single mutation refresh 530ms, 20-event burst refresh 522ms (refresh includes 100ms coalescing). Maximum observed event-loop interval 13ms. Dense pages retain 50 cards; sparse results retain one card and one cursor. Timings are fixture measurements, not vault/device guarantees.
 - Quality gates: `npm run build` and `npm test` pass (68 files, 989 tests).
-- Remaining manual acceptance: Obsidian theme rendering, grouped board layout in the test vault, and physical mobile performance. Keep the spec in progress until those checks are complete.
+- Acceptance disposition (2026-10-17): the owner explicitly waived the remaining checks and requested completion. Obsidian theme/grouped-board regression checks, physical mobile layout/performance, and remaining manual integration checks were not performed and are not claimed as passed. The mobile measurement requirement in Performance Acceptance Criterion 4 is waived for this implementation.
 
 - Scroll-alignment follow-up: measure summary and column-header border boxes with fractional precision, and include the outer border in sticky offsets. Browser fixture header tops remain exactly 73.5px before and after a 300px scroll. Archive collapse controls use the same filled triangle, 10px glyph, and 28×24px toggle area as standard column headers.

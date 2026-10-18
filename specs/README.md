@@ -12,7 +12,6 @@ Active specs stay here until their required implementation and validation are co
 | [0045 — Mobile task lists and shared editor](SPEC_0045__IN_PROGRESS__MOBILE_DENSITY_AND_EDITOR_CONSISTENCY.md) | [#176](https://github.com/ErikaRS/task-list-kanban/issues/176) | Merged; validation pending | Device keyboard, touch, theme, accessibility, and density validation. |
 | [0046 — Reschedule overdue tasks](SPEC_0046__IN_PROGRESS__RESCHEDULE_OVERDUE_TO_TODAY.md) | [#193](https://github.com/ErikaRS/task-list-kanban/issues/193) | Merged; validation pending | Tasks/Dataview vault checks and header-button interaction checks. |
 | [0049 — Inherit swimlane properties](SPEC_0049__IN_PROGRESS__NEW_TASKS_INHERIT_LANE_PROPERTY.md) | [#188](https://github.com/ErikaRS/task-list-kanban/issues/188) | Merged; validation pending | Remaining Tasks/Dataview, Unassigned-lane, and mobile vault checks. |
-| [0050 — Archived task column](SPEC_0050__IN_PROGRESS__ARCHIVED_TASK_COLUMN.md) | [#174](https://github.com/ErikaRS/task-list-kanban/issues/174) | Implemented; validation pending | Obsidian theme rendering, grouped layout in the test vault, and physical mobile performance checks. |
 | [0051 — Advance card action](SPEC_0051__IN_PROGRESS__ADVANCE_CARD_TO_NEXT_COLUMN.md) | [#163](https://github.com/ErikaRS/task-list-kanban/issues/163) | Merged; validation pending | Manual workflow, persistence, keyboard, grouped/reversed, and mobile checks. |
 
 ## Completed and historical specs
@@ -64,6 +63,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 - [0043 — Open Filtered Source Files](complete/SPEC_0043__COMPLETE__OPEN_FILTERED_SOURCE_FILES.md)
 - [0047 — Property filters](complete/SPEC_0047__COMPLETE__PROPERTY_FILTERS.md)
 - [0048 — SPEC 0048 - Keep Column Tag On Completion](complete/SPEC_0048__COMPLETE__KEEP_COLUMN_TAG_ON_COMPLETION.md)
+- [0050 — Archived Task Column](complete/SPEC_0050__COMPLETE__ARCHIVED_TASK_COLUMN.md) — Remaining manual acceptance checks waived by the owner on 2026-10-17.
 
 ## Numbering and maintenance
 
