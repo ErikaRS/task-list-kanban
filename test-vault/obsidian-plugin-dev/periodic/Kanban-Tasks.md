@@ -14,7 +14,7 @@ kanban_plugin: '{"scope":"selectedFolders","doneStatusMarkers":"xc","cancelledSt
   name","color":"#2cbbce","matchMode":"name","matchTags":[]},{"id":"column-soonish","label":"Soonish","color":"#FF7F50","matchMode":"name","matchTags":[]},{"id":"column-next-week","label":"Next
   week","matchMode":"name","matchTags":[]},{"id":"column-this-week","label":"This
   week","matchMode":"name","matchTags":[]},{"id":"column-in-progress","label":"In
-  Progress","matchMode":"name","matchTags":[]},{"id":"column-review","label":"Review","matchMode":"name","matchTags":[]},{"id":"column-new-column-2","label":"AB","matchMode":"tags","matchTags":["A","Bee"]}],"collapsedColumns":["column-this-is-a-very-very-very-very-very-long-column-name","column-new-column-4","uncategorised","column-soonish","column-next-week","column-this-week","column-in-progress","column-review"]}'
+  Progress","matchMode":"name","matchTags":[]},{"id":"column-review","label":"Review","matchMode":"name","matchTags":[]},{"id":"column-new-column-2","label":"AB","matchMode":"tags","matchTags":["A","Bee"]}],"collapsedColumns":["column-this-is-a-very-very-very-very-very-long-column-name","column-new-column-4","uncategorised","column-soonish","column-next-week","column-this-week","column-in-progress","column-review"],"showArchivedColumn":false}'
 kanban_plugin_path_scope_v2:
   version: 2
   mode: selectedPaths

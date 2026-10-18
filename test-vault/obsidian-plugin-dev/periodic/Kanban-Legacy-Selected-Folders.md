@@ -1,5 +1,5 @@
 ---
-kanban_plugin: '{"scope":"selectedFolders","scopeFolders":["tasks","snippets"],"columns":[]}'
+kanban_plugin: '{"scope":"selectedFolders","scopeFolders":["tasks","snippets"],"columns":[],"showArchivedColumn":false}'
 ---
 
 # Legacy Selected Folders
