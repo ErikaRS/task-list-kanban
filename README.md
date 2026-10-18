@@ -36,6 +36,10 @@ kanban view is focused. The dashboard lists every board in the vault, shows
 task counts plus updated/opened timestamps, and lets you create or switch
 boards without hunting through files.
 
+Cards show open/done totals and an expandable per-column count breakdown.
+Boards with a due-date property schema also show overdue and due-today badges,
+independent of the board's current filter.
+
 From the dashboard, right-click a board card to rename, hide, show, or delete
 that board. Delete asks for confirmation and moves the board file through
 Obsidian's trash flow. Drag cards to choose the dashboard order; hidden boards
@@ -77,7 +81,8 @@ duplicates, subtasks, and moved tasks keep their existing placement behavior.
 
 ## Board Configuration
 
-Open board settings with the settings icon in the top-right corner.
+Open board settings with the settings icon in the top-right corner, or run
+**Open current board settings** while a kanban view is focused.
 
 Board settings inherit from plugin-wide board defaults unless the board has its
 own override. In the settings modal, inherited fields can be pinned to freeze
@@ -206,6 +211,7 @@ Enable **Treat nested tasks as subtasks** to show only the root task as a card
 while keeping nested tasks and notes inside that card. Nested rows can be
 edited, status-cycled, added, deleted, and reordered from the card without
 turning each child task into its own board card.
+Cards with subtasks show a completion count, percentage, and progress bar.
 
 When this mode is on, source-block actions stay together: moving, duplicating,
 deleting, or archiving the parent card operates on the owned nested Markdown
@@ -267,7 +273,7 @@ Archive changes refresh the first page; newly archived tasks may sort onto later
 
 Use the **Sort** dropdown in the board header to order tasks within each column:
 - **File order**: use natural order from Markdown files.
-- **Task name**: sort lexicographically by task text.
+- **Task name**: sort by task text, ordering embedded numbers naturally (for example, Task 2 before Task 10).
 - **Property sorting**: sort by parsed task properties such as dates or priorities when a property schema is enabled.
 - **Manual**: drag one task within a column to pin a custom order.
 
@@ -335,6 +341,10 @@ Use **Group by** in the board header to split tasks into swimlanes.
 
 Group and column headers stay visible while scrolling grouped boards, making large swimlane views easier to scan.
 
+Use a swimlane header's collapse control to fold or expand that lane. Collapsed
+lanes retain their header and task count, and can still receive dragged tasks.
+Collapse state is saved per board and shared between desktop and mobile.
+
 #### Group By File
 
 Tasks are grouped by source Markdown file.
@@ -355,6 +365,8 @@ Tasks are grouped by tag, optionally limited to a configured prefix.
 When a Tasks Plugin or Dataview property schema is enabled, tasks can also be
 grouped by parsed properties. Date groups support **Combine past dates** so
 overdue dates can collapse into one past bucket.
+
+Tasks created within a property swimlane inherit that lane's property value.
 
 When grouped by **due**, **scheduled**, or **start**, run **Reschedule overdue
 tasks to today** from the command palette, or use the calendar button on the
