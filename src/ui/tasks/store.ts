@@ -21,6 +21,7 @@ export function createTasksStore(
 	settingsStore: Writable<SettingValues>,
 	requestSave: () => void,
 	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
+	onArchiveWrite?: (path: string) => void,
 ): {
 	tasksStore: Writable<Task[]>;
 	taskActions: TaskActions;
@@ -168,6 +169,7 @@ export function createTasksStore(
 			settingsStore.update((s) => ({ ...s, manualOrder: next }));
 			requestSave();
 		},
+		onArchiveWrite,
 		prepareFileContentsForWrite,
 	});
 

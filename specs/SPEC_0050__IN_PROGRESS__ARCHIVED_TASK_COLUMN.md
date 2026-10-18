@@ -15,18 +15,20 @@ This spec covers viewing and restoring archived tasks. It does not move archived
 3. Archived cards can be inspected, opened in their source file, and restored to **Done**. Restoration preserves the source block and unrelated metadata.
 4. A large archive does not cause all archived tasks to be retained in board state or rendered in the DOM.
 5. Board counts, dashboard attention counts, active filters, and normal columns retain their existing meaning unless explicitly described below.
+6. Archived is a separate component directly against the main board's right edge, with matching column styling and the same visible height. It has independent scrolling and controls.
+7. The main board keeps its existing grid geometry and sticky column/group headers. Showing, paging, scrolling, or refreshing the archive must not change their sticky behavior.
 
 ## High-Level Design
 
 ### UX
 
-Add **Show archived column** to the existing **View** panel, beside the flow and card-width controls. Its value is board-local current view state, default `false`; it is not an inherited board default or a control in the Board Settings modal. Like sort and flow, the last chosen value persists for that board so reopening it restores the view. When enabled, show a fixed **Archived** column after Done in workflow order; reverse-flow layouts reverse its visual position with the other columns. Showing it opens the first bounded page immediately. Its header can be collapsed for the current session; collapse state is transient and resets when the option is turned off or the board changes. The header says **Archived**, without an all-time count.
+Add **Show archived column** to the existing **View** panel, beside the flow and card-width controls. Its value is board-local current view state, default `false`; it is not an inherited board default or a control in the Board Settings modal. Like sort and flow, the last chosen value persists for that board so reopening it restores the view. When enabled, show an independent **Archived** pane immediately to the right of the main board. It stays on the right in every flow direction, including reversed and transposed layouts. Showing it opens the first bounded page immediately. Its header can be collapsed for the current session; collapse state is transient and resets when the option is turned off or the board changes. The header says **Archived**, without an all-time count.
 
 Use `showArchivedColumn?: boolean` in the board-local view-state storage and `SavedViewProperties`, including the saved-view schema. The setting's absence means `false`, and an explicit `false` must be capturable so a saved view can hide an already visible archive. `captureSavedViewProperties` includes it when the board-local value was explicitly chosen; `applySavedViewProperties` changes it only when the saved view carries it. Add an **Archive** property badge and include this property in query-only saved-view detection. A global saved view carrying this option applies it to the target board while archive recognition still uses that board's tag/status configuration. Saved views omit page number and transient collapse state.
 
-Opening the column starts an archive scan. Show a loading state, then up to **50** cards and **Previous** / **Next** page controls. Show “Page N” and “More archived tasks may be available” until the next page is known; do not imply a total count. The page controls replace cards rather than appending them. The column is read-only except for **Restore to Done** and **Open source file**. No add-card, drag/drop, advance, bulk archive, manual pinning, or selection actions appear on archived cards in the first release.
+Opening the column starts an archive scan. Show a loading state, then up to **50** cards and **Previous** / **Next** page controls. Show “Page N” and “More archived tasks may be available” until the next page is known; do not imply a total count. The page controls replace cards rather than appending them. Keep the archive heading, page controls, Refresh, and loading/cancel controls at the top of its pane, above a separately scrolling card list. The column is read-only except for **Restore to Done** and **Open source file**. No add-card, drag/drop, advance, bulk archive, manual pinning, or selection actions appear on archived cards in the first release.
 
-Restoration places the task in Done: tag mode removes only the archive tag and sets the board's done marker if the row was not already done; status mode changes an archive marker to the board's done marker. The user can then move it to another active column with the ordinary board actions. Preserve completion dates and unrelated tags. After a successful restore, refresh the current archive page and let the normal file watcher update Done.
+Restoration places the task in Done: tag mode removes only the archive tag and sets the board's done marker if the row was not already done; status mode changes an archive marker to the board's done marker. The user can then move it to another active column with the ordinary board actions. Preserve completion dates and unrelated tags. After a successful restore, reset the archive to page 1 and let the normal file watcher update Done.
 
 ### Bounded Archive Reader
 
@@ -46,7 +48,15 @@ The refreshed page appears after the asynchronous scan finishes, not synchronous
 
 ### Board Presentation
 
-Treat Archived as a special board column rather than a normal configured tag column. Keep the bounded page out of `deriveBoardMatrix`, which sorts and groups all supplied tasks. Render one archive section adjacent to the matrix on desktop and after the active columns on mobile. In grouped boards, show one ungrouped archive page; grouping the entire archive would require scanning and retaining group membership across all archived tasks. The archive section uses the same card display where possible, but its actions and pagination are explicit.
+Render Archived as a separate component beside the main board's existing scroll container. Keep it outside `deriveBoardMatrix` and the matrix's rows, columns, groups, and sticky-header containers. It only visually resembles another board column.
+
+The main board scroll pane shrinks to its actual columns when they are narrower than the available area. Archived meets the last visible board column, rather than the edge of an expanded container with empty trailing space. Add a blank strip above the archive header matching the main board summary height for visual continuity. The two panes meet directly at the main board's right edge, with no gap, spacer, or extra viewport-width area between the last board content and the archive. Both panes have the same visible height: the available board area below the toolbar, not the total height of their cards. Archive content must never stretch the grid or distribute extra height across its rows. Match the standard column's border, background, accent, header typography, card styling, and spacing; align the top and bottom edges so the panes look like one board.
+
+Each pane owns its scrolling. The main board retains its current horizontal and vertical scrolling and its existing sticky header stack: column and group headers stay attached to each other and to the board viewport as they do with the archive hidden. The archive remains on the right while the main board scrolls horizontally. Archive cards scroll vertically inside their own pane while the archive heading and controls remain visible at the top. Scrolling either pane must not move the other pane's content or headers. Paging and refreshing reset only the archive card list's scroll position.
+
+Allocate the archive's width once beside the main board's viewport. Measure the main board's available width from its own scroll container, excluding the archive. Preserve the grid's existing sizing and sticky containment; do not turn the grid itself into a stretching flex item, add archive tracks to it, or include archive width in its track or viewport calculations. Hiding the archive returns that space to the board. Keep the archive on the right in reversed, transposed, grouped, and narrow layouts; narrow screens may require horizontal overflow to preserve usable pane widths.
+
+In grouped boards, show one ungrouped archive page. Use the same card display where possible, with its own explicit archive actions and pagination.
 
 The board's existing filter query applies to the archive page when the column is open. Matching is evaluated during the scan. The query is not reinterpreted as `tag:archived`: status-mode archives may have no such tag. Changing a filter resets to page 1. Filtered and total task count labels continue to count active tasks only and are labeled accordingly when Archived is visible. Archived cards do not affect swimlane visibility, active column visibility, or dashboard statistics.
 
@@ -90,6 +100,14 @@ In status mode, an existing `#archived` tag is left intact on restore, matching 
 - If events arrive continuously, coalescing must still start a fresh scan periodically rather than postpone refresh forever; test this with repeated writes.
 - If an archive action writes to a file outside the current board's scope, it must not refresh this board's archive page. If a row enters or leaves the archive under this board's predicate, the active store and archive page must converge after the write/event cycle.
 
+### Layout Acceptance
+
+- Compare the same grouped board with Archived hidden and visible. Column and group headers must keep their original sticky stacking and alignment through vertical and horizontal scrolling.
+- A short board beside a full archive page must keep its normal row heights. A long board beside an empty archive must keep the archive pane at the same visible height.
+- The archive must touch the board on the right, without an extra board-width blank region. Repeat in normal, reversed, transposed, and narrow layouts.
+- Scroll each pane independently. The other pane's content must stay in place; the main board's sticky headers and the archive's heading/controls must remain visible within their respective panes.
+- Paging, refreshing, filtering, collapsing, and hiding the archive must not reset the main board's scroll position or alter its header geometry.
+
 ### Compatibility
 
 - Existing boards continue hiding archived tasks unless the setting is enabled.
@@ -111,31 +129,42 @@ In status mode, an existing `#archived` tag is left intact on restore, matching 
 
 **Goal:** A user can enable the column and browse archived tasks safely in fixed-size pages.
 
-1. [ ] Add the View-panel option, board-local view persistence, saved-view capture/apply/schema handling, and special column shell on desktop and mobile.
-2. [ ] Extract the shared archive predicate without adding archived rows to the active task store.
-3. [ ] Implement cancellable, scoped page scans and loading/empty/error states.
+1. [x] Add the View-panel option, board-local view persistence, saved-view capture/apply/schema handling, and independent archive pane with its own scroll area and top controls.
+2. [x] Extract the shared archive predicate without adding archived rows to the active task store.
+3. [x] Implement cancellable, scoped page scans and loading/empty/error states.
 4. [ ] Test the tag/status classification table, explicit saved-view `true` and `false`, omitted saved-view properties, forward/backward paging and cursor eviction, board switches, scope/exclusions, and memory bounds.
-5. [ ] Manually verify the column in normal, reversed, grouped, and mobile layouts.
+5. [ ] Verify Layout Acceptance in normal, reversed, transposed, grouped, and narrow/mobile layouts, including independent scrolling, equal pane heights, and preservation of existing sticky headers.
 
 **Deliverable:** Archived tasks can be viewed in bounded pages; normal board data remains bounded to active tasks.
 
-**Implemented by:** Pending
+**Implemented by:** Codex; manual acceptance remains pending.
 
 ### Phase 2: Restore and Filter
 
 **Goal:** A user can find and restore an archived task without risking a stale source write.
 
-1. [ ] Apply the board's committed filter to archive scans and reset paging on changes.
-2. [ ] Add Restore to Done with source-row verification and targeted edits.
+1. [x] Apply the board's committed filter to archive scans and reset paging on changes.
+2. [x] Add Restore to Done with source-row verification and targeted edits.
 3. [ ] Test same-text rows, source changes during scan/restore, local and external archives, event coalescing, create/delete/rename, page reset after edits, nested blocks, completion metadata, filter transitions, and cross-board restore behavior for tasks carrying both archive signals.
 4. [ ] Run the performance fixture, `npm run build`, and `npm test`; document the measured results.
-5. [ ] Update README usage and archive-mode documentation.
+5. [x] Update README usage and archive-mode documentation.
 
 **Deliverable:** Filtered archive browsing and safe restoration work end to end with measured large-archive behavior.
 
-**Implemented by:** Pending
+**Implemented by:** Codex; manual acceptance remains pending.
 
 ## Decisions to Revisit After Measurement
 
 1. If first-page scans over sparse archives are slow, add a small per-file archive-presence cache invalidated by vault events. Do not add a full task index without measuring its memory cost.
 2. If users need archive-wide sorting or grouped archive lanes, evaluate a disk-backed index or a separate archive search view. Those features require a different performance model from the bounded file-order reader.
+
+## Reimplementation Verification
+
+- Rebuilt with the archive as a sibling of `.columns`, preserving the matrix tracks and sticky-header rules. When the archive is shown, the matrix no longer fills unused viewport width, and its summary height supplies the archive's blank header strip. The shared source-tree builder parses raw ownership without constructing Tasks for discarded nested rows.
+- Added nine tests covering archive modes and exact tags, eligibility, bounded pages/cursors and eviction, mutation bursts, stale scan cancellation, filter/error recovery, source verification, restore preservation, nested ownership, and saved-view true/false/omission/schema handling.
+- Browser fixture using the actual `DesktopMatrixGrid` and archive component plus the main view's pane CSS: zero gap, equal 500px viewport heights, unchanged sticky header stack, independent horizontal/vertical board scrolling and archive scrolling, short-board row heights, reversed/transposed layouts, and 380px narrow layout with 200px board + 300px archive overflow. This is not an Obsidian theme or physical mobile-device check.
+- 10,000 archived rows in an in-memory desktop browser fixture: first page 4ms, next page 2ms, sparse last-row filter 384ms, single mutation refresh 530ms, 20-event burst refresh 522ms (refresh includes 100ms coalescing). Maximum observed event-loop interval 13ms. Dense pages retain 50 cards; sparse results retain one card and one cursor. Timings are fixture measurements, not vault/device guarantees.
+- Quality gates: `npm run build` and `npm test` pass (68 files, 989 tests).
+- Remaining manual acceptance: Obsidian theme rendering, grouped board layout in the test vault, and physical mobile performance. Keep the spec in progress until those checks are complete.
+
+- Scroll-alignment follow-up: measure summary and column-header border boxes with fractional precision, and include the outer border in sticky offsets. Browser fixture header tops remain exactly 73.5px before and after a 300px scroll. Archive collapse controls use the same filled triangle, 10px glyph, and 28×24px toggle area as standard column headers.

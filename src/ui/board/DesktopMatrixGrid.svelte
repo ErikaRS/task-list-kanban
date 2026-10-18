@@ -6,21 +6,31 @@
 	export let showRowHeaders = true;
 	export let columnWidth = "300px";
 	export let viewportWidth = 0;
+	export let fillViewport = true;
 	export let taskCountLabel = "";
 	$: tracks = visualColumns.map(bucket => bucket.collapsed ? "var(--axis-folded-width)" : columnWidth).join(" ");
 	let headerHeight = 0;
-	let summaryHeight = 0;
+	export let summaryHeight = 0;
+
+	// Sticky offsets include borders and fractional pixels, just like normal layout.
+	function measureHeight(node: HTMLElement, update: (height: number) => void) {
+		const measure = () => update(node.getBoundingClientRect().height);
+		const observer = new ResizeObserver(measure);
+		measure();
+		observer.observe(node);
+		return { destroy: () => observer.disconnect() };
+	}
 </script>
 
 <!-- Geometry depends only on visual roles. Each row owns its sticky band so
 	 the entire opaque surface leaves with the row, including folded gutters. -->
-<div class="matrix-desktop" style:grid-template-columns={tracks}
+<div class="matrix-desktop" class:fill-viewport={fillViewport} style:grid-template-columns={tracks}
 	style:--axis-header-height="{showColumnHeaders ? headerHeight : 0}px"
 	style:--summary-height="{taskCountLabel ? summaryHeight : 0}px"
 	style:--viewport-width={viewportWidth > 0 ? `${viewportWidth}px` : "100%"}
 	style:--cell-card-width={`calc(${columnWidth} - 34px)`}>
 	{#if taskCountLabel}
-		<div class="matrix-summary" bind:clientHeight={summaryHeight}>
+		<div class="matrix-summary" use:measureHeight={(height) => summaryHeight = height}>
 			<div class="matrix-summary-content">
 				<slot name="summary-action" />
 				<span aria-live="polite">{taskCountLabel}</span>
@@ -28,7 +38,7 @@
 		</div>
 	{/if}
 	{#if showColumnHeaders}
-		<div class="axis-column-band" bind:clientHeight={headerHeight}>
+		<div class="axis-column-band" use:measureHeight={(height) => headerHeight = height}>
 			{#each visualColumns as bucket (bucket.id)}
 				<div class="axis-column-header">
 					<div class="axis-column-decoration" aria-hidden="true">
@@ -68,17 +78,17 @@
 		--axis-folded-width: 28px;
 		display: grid;
 		width: max-content;
-		min-width: 100%;
 		position: relative;
 		isolation: isolate;
 		border: var(--border-width) solid var(--background-modifier-border);
 		border-radius: var(--radius-m);
 		background: var(--background-primary);
 	}
+	.matrix-desktop.fill-viewport { min-width: 100%; }
 	.matrix-summary, .axis-column-band, .axis-row, .axis-row-band { grid-column: 1 / -1; }
 	.matrix-summary {
 		position: sticky;
-		top: 0;
+		top: var(--border-width);
 		z-index: 4;
 		background: var(--background-primary);
 		padding: 3px 12px;
@@ -98,7 +108,7 @@
 	.axis-column-band, .axis-row { display: grid; grid-template-columns: subgrid; }
 	.axis-column-band {
 		position: sticky;
-		top: var(--summary-height);
+		top: calc(var(--border-width) + var(--summary-height));
 		z-index: 3;
 		background: var(--background-secondary);
 	}
@@ -130,7 +140,7 @@
 	.axis-row.collapsed { grid-template-rows: auto; }
 	.axis-row-band {
 		position: sticky;
-		top: calc(var(--summary-height) + var(--axis-header-height));
+		top: calc(var(--border-width) + var(--summary-height) + var(--axis-header-height));
 		align-self: start;
 		z-index: 2;
 		background: var(--background-secondary);

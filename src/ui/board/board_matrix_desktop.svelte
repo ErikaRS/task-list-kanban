@@ -52,6 +52,8 @@
 	export let isVerticalFlow = false;
 
 	export let viewportWidth = 0;
+	export let fillViewport = true;
+	export let summaryHeight = 0;
 	$: projection = deriveDesktopMatrixProjection(matrix, isVerticalFlow);
 	$: tasksByPrimary = Object.fromEntries(matrix.primaryAxis.map(bucket => [
 		bucket.id, Object.values(matrix.cells[bucket.id] || {}).flatMap(cell => cell.tasks),
@@ -63,7 +65,7 @@
 
 <DesktopMatrixGrid visualColumns={projection.visualColumns} visualRows={projection.visualRows}
 	showColumnHeaders={projection.showColumnHeaders} showRowHeaders={projection.showRowHeaders}
-	{columnWidth} {viewportWidth} {taskCountLabel}>
+	{columnWidth} {viewportWidth} {taskCountLabel} {fillViewport} bind:summaryHeight>
 	<svelte:fragment slot="summary-action"><slot name="summary-action" /></svelte:fragment>
 	<svelte:fragment slot="column-decoration" let:bucket>
 		{#if bucket.kind === "column"}

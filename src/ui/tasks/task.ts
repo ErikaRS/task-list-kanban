@@ -647,13 +647,20 @@ function createMobileTaskId(value: string): string {
 
 type TaskString = Brand<string, "TaskString">;
 
+export function isArchivedTaskString(input: string, statusMode = false, markers = ""): boolean {
+	const parsed = parseSourceTaskLine(input);
+	return parsed !== null && (statusMode
+		? isStatusMatch(parsed.status, markers)
+		: getTagsFromContent(parsed.content).has("archived"));
+}
+
 export function isTrackedTaskString(
 	input: string,
 	ignoredStatusMarkers: string = DEFAULT_IGNORED_STATUS_MARKERS,
 	replaceArchiveTagWithStatus: boolean = false,
 	archiveStatusMarkers: string = "",
 ): input is TaskString {
-	if (!replaceArchiveTagWithStatus && input.includes("#archived")) {
+	if (isArchivedTaskString(input, replaceArchiveTagWithStatus, archiveStatusMarkers)) {
 		return false;
 	}
 
@@ -663,9 +670,6 @@ export function isTrackedTaskString(
 	}
 
 	if (isStatusMatch(parsed.status, ignoredStatusMarkers)) {
-		return false;
-	}
-	if (replaceArchiveTagWithStatus && isStatusMatch(parsed.status, archiveStatusMarkers)) {
 		return false;
 	}
 

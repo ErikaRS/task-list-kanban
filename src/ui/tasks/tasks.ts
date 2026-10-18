@@ -1,9 +1,12 @@
+import { getTagsFromContent } from "../../parsing/tags/tags";
 import type { TFile, Vault } from "obsidian";
 import {
 	DEFAULT_CANCELLED_STATUS_MARKERS,
 	DEFAULT_DONE_STATUS_MARKERS,
 	DEFAULT_IGNORED_STATUS_MARKERS,
 	isTrackedTaskString,
+	isArchivedTaskString,
+	isStatusMatch,
 	Task,
 } from "./task";
 import type { SettingValues } from "../settings/settings_store";
@@ -119,7 +122,7 @@ export async function updateMapsFromFile({
 				if (
 					node.kind !== "task" ||
 					node.taskVisibility !== "visible" ||
-					hasVisibleTaskAncestor(node, parentByRowIndex)
+					hasOwningTaskAncestor(node, parentByRowIndex)
 				) {
 					continue;
 				}
@@ -222,61 +225,40 @@ type BuildSourceTreeOptions = {
 	excludedTaskTags: Set<string>;
 };
 
-function buildSourceTree({
-	rows,
-	fileHandle,
-	parseContext,
-	excludedTaskTags,
-}: BuildSourceTreeOptions): {
-	nodesByRowIndex: Map<number, SourceBlockNode>;
-	parentByRowIndex: Map<number, SourceBlockNode>;
-} {
+export function buildSourceTree(options: BuildSourceTreeOptions) {
+	const tree = createSourceTree(options);
+	options.rows.forEach((rawLine, rowIndex) => tree.add(rawLine, rowIndex));
+	return tree;
+}
+
+// Raw source ownership is shared with the archive scanner; no Task objects
+// are needed to decide which root owns a nested row.
+export function createSourceTree({ parseContext, excludedTaskTags }: Omit<BuildSourceTreeOptions, "rows">) {
 	const nodesByRowIndex = new Map<number, SourceBlockNode>();
 	const parentByRowIndex = new Map<number, SourceBlockNode>();
 	const stack: SourceBlockNode[] = [];
-
-	for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-		const rawLine = rows[rowIndex] ?? "";
-		if (rawLine === "") {
-			stack.length = 0;
-			continue;
-		}
-
-		const node = createSourceNode({
-			rawLine,
-			rowIndex,
-			fileHandle,
-			parseContext,
-			excludedTaskTags,
-		});
+	return { nodesByRowIndex, parentByRowIndex, add(rawLine: string, rowIndex: number) {
+		if (rawLine === "") { stack.length = 0; return; }
+		const node = createSourceNode({ rawLine, rowIndex, parseContext, excludedTaskTags });
 		nodesByRowIndex.set(rowIndex, node);
-
-		while (stack.length > 0 && !isSourceDescendant(node.indentation, stack[stack.length - 1]!.indentation)) {
-			stack.pop();
-		}
-
+		while (stack.length && !isSourceDescendant(node.indentation, stack[stack.length - 1]!.indentation)) stack.pop();
 		const parent = stack[stack.length - 1];
 		if (parent) {
 			parent.sourceChildren.push(node);
 			parentByRowIndex.set(rowIndex, parent);
 		}
-
 		stack.push(node);
-	}
-
-	return { nodesByRowIndex, parentByRowIndex };
+	} };
 }
 
 function createSourceNode({
 	rawLine,
 	rowIndex,
-	fileHandle,
 	parseContext,
 	excludedTaskTags,
 }: {
 	rawLine: string;
 	rowIndex: number;
-	fileHandle: TFile;
 	parseContext: ConstructorParameters<typeof Task>[3];
 	excludedTaskTags: Set<string>;
 }): SourceBlockNode {
@@ -285,37 +267,12 @@ function createSourceNode({
 		return createRawNode(rawLine, rowIndex);
 	}
 
-	if (!isTrackedTaskString(
-		rawLine,
-		parseContext.ignoredStatusMarkers,
-		parseContext.replaceArchiveTagWithStatus,
-		parseContext.archiveStatusMarkers,
-	)) {
-		return {
-			kind: "task",
-			taskVisibility: "ignored",
-			rowIndex,
-			rawLine,
-			indentation: parsedTaskLine.indentation,
-			status: parsedTaskLine.status || " ",
-			content: parsedTaskLine.content,
-			sourceChildren: [],
-		};
-	}
-
-	const task = new Task(
-		rawLine,
-		fileHandle,
-		rowIndex,
-		parseContext,
-	);
-	const hasExcludedTag = Array.from(task.tags).some((tag) =>
-		excludedTaskTags.has(tag.trim().toLowerCase())
-	);
+	const visible = !isStatusMatch(parsedTaskLine.status, parseContext.ignoredStatusMarkers)
+		&& !Array.from(getTagsFromContent(parsedTaskLine.content)).some(tag => excludedTaskTags.has(tag.toLowerCase()));
 
 	return {
 		kind: "task",
-		taskVisibility: hasExcludedTag ? "ignored" : "visible",
+		taskVisibility: !visible ? "ignored" : isArchivedTaskString(rawLine, parseContext.replaceArchiveTagWithStatus, parseContext.archiveStatusMarkers) ? "archived" : "visible",
 		rowIndex,
 		rawLine,
 		indentation: parsedTaskLine.indentation,
@@ -339,13 +296,13 @@ function isSourceDescendant(indentation: string, ancestorIndentation: string): b
 	return indentation.length > ancestorIndentation.length && indentation.startsWith(ancestorIndentation);
 }
 
-function hasVisibleTaskAncestor(
+function hasOwningTaskAncestor(
 	node: SourceTaskNode,
 	parentByRowIndex: Map<number, SourceBlockNode>,
 ): boolean {
 	let parent = parentByRowIndex.get(node.rowIndex);
 	while (parent) {
-		if (parent.kind === "task" && parent.taskVisibility === "visible") {
+		if (parent.kind === "task" && parent.taskVisibility !== "ignored") {
 			return true;
 		}
 		parent = parentByRowIndex.get(parent.rowIndex);

@@ -2,7 +2,7 @@ export type SourceBlockNode = SourceTaskNode | SourceRawNode;
 
 export type SourceTaskNode = {
 	kind: "task";
-	taskVisibility: "visible" | "ignored";
+	taskVisibility: "visible" | "ignored" | "archived";
 	rowIndex: number;
 	rawLine: string;
 	indentation: string;

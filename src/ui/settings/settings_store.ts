@@ -37,6 +37,7 @@ export interface SavedView {
 	};
 	flowDirection?: FlowDirection;
 	columnWidth?: number;
+	showArchivedColumn?: boolean;
 }
 
 export type SavedViewProperties = Omit<SavedView, "id" | "name">;
@@ -188,6 +189,7 @@ const savedViewSchema = z.object({
 	}).optional(),
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
+	showArchivedColumn: z.boolean().optional(),
 });
 
 const savedViewPropertiesSchema = savedViewSchema.omit({ id: true, name: true });
@@ -265,6 +267,7 @@ const settingsObject = z.object({
 	// unknown keys, so old frontmatter still validates, and dropping them
 	// here keeps them out of every future write.
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
+	showArchivedColumn: z.boolean().optional(),
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).default([]).optional(),
 	collapsedGroups: z.array(z.string()).default([]).optional(),
@@ -321,6 +324,7 @@ export interface SettingValues {
 	lastFileFilter?: string[];
 	lastDateFilter?: DateFilterCondition[];
 	columnWidth?: number;
+	showArchivedColumn?: boolean;
 	flowDirection?: FlowDirection;
 	collapsedColumns?: string[];
 	collapsedGroups?: string[];

@@ -47,6 +47,8 @@
 
 	export let flowDirection: FlowDirection = FlowDirection.LeftToRight;
 	export let columnWidth = 300;
+	export let showArchivedColumn = false;
+	export let onSetShowArchivedColumn: (show: boolean) => void = () => {};
 	export let onSetFlowDirection: (flowDirection: FlowDirection) => void;
 	export let onSetColumnWidth: (columnWidth: number) => void;
 	export let savedViews: SavedViewListEntry[] = [];
@@ -284,6 +286,12 @@
 			</div>
 		</div>
 	</div>
+
+	<label class="view-editor-toggle-row">
+		<input type="checkbox" checked={showArchivedColumn}
+			on:change={(e) => onSetShowArchivedColumn(e.currentTarget.checked)} />
+		<span>Show archived column</span>
+	</label>
 
 	<div class="view-editor-row">
 		<div class="view-editor-label">

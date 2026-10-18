@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ColumnOrderMode } from "../../../parsing/properties/comparators";
 import {
 	defaultSettings,
+	parseSavedViewProperties,
 	FlowDirection,
 	type SavedView,
 	type SettingValues,
@@ -16,6 +17,19 @@ import {
 } from "../saved_views";
 
 describe("saved view helpers", () => {
+	it("captures and applies archive visibility including explicit false, leaving omissions unchanged", () => {
+		for (const showArchivedColumn of [true, false]) {
+			const settings = { ...defaultSettings, showArchivedColumn };
+			const view = captureSavedViewProperties(settings, { showArchivedColumn });
+			expect(view).toEqual({ showArchivedColumn });
+			expect(parseSavedViewProperties(view)).toEqual(view);
+			expect(applySavedViewProperties(defaultSettings, view).showArchivedColumn).toBe(showArchivedColumn);
+			expect(applySavedViewProperties(settings, {}).showArchivedColumn).toBe(showArchivedColumn);
+			expect(savedViewIsQueryOnly({ ...view, query: "task" })).toBe(false);
+			expect(savedViewPropertyLabels(view)).toEqual(["Archive"]);
+		}
+	});
+
 	it("captures nothing when no view settings are overrides", () => {
 		const captured = captureSavedViewProperties(defaultSettings, {});
 

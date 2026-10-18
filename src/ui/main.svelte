@@ -15,6 +15,8 @@
 		createCollapsedColumnsStore,
 	} from "./columns/columns";
 	import type { Task } from "./tasks/task";
+	import ArchiveColumn from "./board/archive_column.svelte";
+	import type { ArchivePageReader } from "./tasks/archive_reader";
 	import BoardMatrixDesktop from "./board/board_matrix_desktop.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
 	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
@@ -115,6 +117,7 @@
 
 	export let app: App;
 	export let tasksStore: Writable<Task[]>;
+	export let archiveReader: ArchivePageReader | undefined = undefined;
 	export let taskActions: TaskActions;
 	export let openSettings: () => Promise<void>;
 	export let columnTagTableStore: Readable<ColumnTagTable>;
@@ -178,6 +181,7 @@
 		(typeof window !== "undefined" && window.innerWidth <= 760);
 	const isMobileBoardLayout = shouldUseMobileBoardLayout(Platform.isMobile);
 	let columnsClientWidth = 0;
+	let boardSummaryHeight = 0;
 	// Dock side is a plugin setting (default left); top turns the content
 	// row into a column with the rail strip on top, and the dashboard
 	// slides down out of it instead of out from the left.
@@ -983,6 +987,7 @@
 				? writeBoardFilterState(next, view.query)
 				: next;
 		});
+		if (view.showArchivedColumn !== undefined) settingsStore.pinOverrides(["showArchivedColumn"]);
 		if (view.group?.source.kind === "tag-prefix") {
 			tagGroupInputMode = tagGroupInputModeForSource(view.group.source);
 		}
@@ -1076,9 +1081,9 @@
 
 	$: totalTaskCount = getBoardTaskCount($tasksStore);
 	$: filteredTaskCount = getBoardTaskCount(filteredTasks);
-	$: boardTaskCountLabel = isFiltered
+	$: boardTaskCountLabel = (isFiltered
 		? `${filteredTaskCount} of ${totalTaskCount} tasks`
-		: `Total: ${totalTaskCount} tasks`;
+		: `Total: ${totalTaskCount} tasks`) + ($settingsStore.showArchivedColumn ? " (active)" : "");
 
 	$: ({
 		showFilepath = true,
@@ -1303,6 +1308,18 @@
 		requestSave();
 	}
 
+	function setShowArchivedColumn(show: boolean) {
+		$settingsStore.showArchivedColumn = show;
+		settingsStore.pinOverrides(["showArchivedColumn"]);
+		requestSave();
+	}
+	$: archiveResetKey = JSON.stringify([$currentPathStore, $todayStore, appliedQueryText,
+		$settingsStore.columns, $settingsStore.consolidateTags, $settingsStore.doneStatusMarkers,
+		$settingsStore.cancelledStatusMarkers, $settingsStore.ignoredStatusMarkers,
+		$settingsStore.replaceArchiveTagWithStatus, $settingsStore.archiveStatusMarkers,
+		$settingsStore.excludedTaskTags, $settingsStore.treatNestedTasksAsSubtasks, $settingsStore.propertySchema]);
+	$: archiveMatches = (task: Task) => taskMatchesFilterQuery(task, appliedQuery, $todayStore);
+
 	async function handleOpenSettings() {
 		openSettings();
 	}
@@ -1396,6 +1413,8 @@
 								{columnWidth}
 								onSetFlowDirection={setFlowDirection}
 								onSetColumnWidth={setColumnWidth}
+								showArchivedColumn={$settingsStore.showArchivedColumn ?? false}
+								onSetShowArchivedColumn={setShowArchivedColumn}
 								savedViews={mergedSavedViews}
 								{savedViewListExpanded}
 								canSaveView={canSaveCurrentView}
@@ -1601,6 +1620,7 @@
 		{/if}
 			<div class="board-main">
 				<MobileCreationHost session={mobileCreation} />
+				<div class="board-panes" class:with-archive={$settingsStore.showArchivedColumn}>
 				<div
 					class="columns"
 					class:vertical-flow={isVerticalFlow}
@@ -1667,6 +1687,8 @@
 							workflowColumns={columns}
 							columnWidth={responsiveColumnWidth}
 							viewportWidth={columnsClientWidth}
+							fillViewport={!$settingsStore.showArchivedColumn}
+							bind:summaryHeight={boardSummaryHeight}
 							{propertyDisplay}
 							{propertySchemaOption}
 							{isManualOrder}
@@ -1682,6 +1704,12 @@
 							</svelte:fragment>
 						</BoardMatrixDesktop>
 					{/if}
+				</div>
+				{#if $settingsStore.showArchivedColumn && archiveReader}
+					<ArchiveColumn {app} reader={archiveReader} width={columnWidth} headerSpacing={boardSummaryHeight}
+						title={$settingsStore.columns.some(column => column.label === "Archived") ? "Archived tasks" : "Archived"}
+						resetKey={archiveResetKey} matches={archiveMatches} boardPath={$currentPathStore} />
+				{/if}
 				</div>
 			</div>
 			{#if $dashboardOpenStore}
@@ -1965,6 +1993,19 @@
 			flex: 1 1 0;
 			min-width: 0;
 			min-height: 0;
+		}
+
+		.board-panes {
+			display: flex;
+			flex: 1 1 0;
+			min-width: 0;
+			min-height: 0;
+			overflow-x: auto;
+		}
+		.board-panes.with-archive > .columns {
+			flex: 0 1 auto;
+			width: max-content;
+			min-width: 200px;
 		}
 
 		.columns {

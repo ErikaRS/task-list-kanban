@@ -15,6 +15,9 @@ import { get, writable, type Readable, type Writable } from "svelte/store";
 import type { BoardIndexEntry } from "./boards/board_index";
 import type { BoardListSettings, BoardRailSettings } from "./settings/global_settings";
 import type { BoardTaskCounts } from "./dashboard/board_stats";
+import { ArchivePageReader } from "./tasks/archive_reader";
+import { getMarkerSettings } from "./tasks/tasks";
+import { shouldIncludeFilePath } from "./tasks/scope";
 import { createTasksStore } from "./tasks/store";
 import type { Task } from "./tasks/task";
 import type { TaskActions } from "./tasks/actions";
@@ -54,6 +57,7 @@ type MainComponent = Main & {
 };
 
 export class KanbanView extends TextFileView {
+	private archiveReader: ArchivePageReader;
 	private readonly settingsStore: BoardSettingsStore;
 	private readonly destroySettingsStore: () => void;
 
@@ -124,6 +128,17 @@ export class KanbanView extends TextFileView {
 		this.columnMatchTagTableStore = columnMatchTagTable;
 		this.columnSubtitleTableStore = columnSubtitleTable;
 
+		this.archiveReader = new ArchivePageReader(this.app.vault, () => {
+			const markers = getMarkerSettings(get(this.settingsStore));
+			return {
+				context: { ...markers, columnDefinitions: get(this.columnDefinitionsStore),
+					columnPlacementTagTable: get(this.columnPlacementTagTableStore) },
+				excludedTaskTags: markers.excludedTaskTags,
+				nested: markers.treatNestedTasksAsSubtasks,
+				includes: path => shouldIncludeFilePath(path, this.filenameFilter, this.excludeFilter, this.scopeBoardFolderPath),
+			};
+		}, (file, content) => this.prepareTaskWriteContent(file, content));
+
 		const { tasksStore, taskActions, initialise } = createTasksStore(
 			this.app.vault,
 			this.app.workspace,
@@ -135,7 +150,8 @@ export class KanbanView extends TextFileView {
 			() => this.scopeBoardFolderPath,
 			this.settingsStore,
 			() => this.requestSave(),
-			(fileHandle, nextContent) => this.prepareTaskWriteContent(fileHandle, nextContent)
+			(fileHandle, nextContent) => this.prepareTaskWriteContent(fileHandle, nextContent),
+			path => this.archiveReader.invalidate(path),
 		);
 
 		this.tasksStore = tasksStore;
@@ -144,6 +160,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	private updateScopeFilters(settings: SettingValues) {
+		const previousScope = JSON.stringify([this.filenameFilter, this.excludeFilter, this.scopeBoardFolderPath]);
 		this.boardFolderPath = this.file?.parent?.path ?? null;
 		this.filenameFilter = resolveScopeFilter(
 			settings.scope,
@@ -158,6 +175,8 @@ export class KanbanView extends TextFileView {
 
 		const excludePaths = settings.excludePaths ?? [];
 		this.excludeFilter = excludePaths.length > 0 ? excludePaths : null;
+		if (previousScope !== JSON.stringify([this.filenameFilter, this.excludeFilter, this.scopeBoardFolderPath]))
+			this.archiveReader?.invalidate();
 	}
 
 	private async onLocalSettingsChange(
@@ -398,6 +417,7 @@ export class KanbanView extends TextFileView {
 			props: {
 				app: this.app,
 				tasksStore: this.tasksStore,
+				archiveReader: this.archiveReader,
 				taskActions: this.taskActions,
 				columnTagTableStore: this.columnTagTableStore,
 				columnColourTableStore: this.columnColourTableStore,
@@ -427,6 +447,7 @@ export class KanbanView extends TextFileView {
 	}
 
 	async onClose() {
+		this.archiveReader.close();
 		if (this.scopeRefreshTimer !== undefined) {
 			window.clearTimeout(this.scopeRefreshTimer);
 		}

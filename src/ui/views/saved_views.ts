@@ -21,6 +21,7 @@ const SAVED_VIEW_PROPERTIES = [
 	{ key: "group", label: "Group" },
 	{ key: "flowDirection", label: "Flow" },
 	{ key: "columnWidth", label: "Width" },
+	{ key: "showArchivedColumn", label: "Archive" },
 ] as const satisfies ReadonlyArray<{ key: keyof SavedViewProperties; label: string }>;
 
 function hasOwn<T extends object, K extends PropertyKey>(
@@ -69,6 +70,9 @@ export function captureSavedViewProperties(
 		properties.columnWidth = settings.columnWidth ?? 300;
 	}
 
+	if (hasOwn(overrides, "showArchivedColumn")) {
+		properties.showArchivedColumn = settings.showArchivedColumn ?? false;
+	}
 	return properties;
 }
 
@@ -115,6 +119,9 @@ export function applySavedViewProperties(
 	}
 	if (view.columnWidth !== undefined) {
 		next.columnWidth = view.columnWidth;
+	}
+	if (view.showArchivedColumn !== undefined) {
+		next.showArchivedColumn = view.showArchivedColumn;
 	}
 	return next;
 }

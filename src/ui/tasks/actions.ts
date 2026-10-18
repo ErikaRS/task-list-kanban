@@ -164,6 +164,7 @@ export function createTaskActions({
 	getCurrentDate,
 	getManualOrder,
 	setManualOrder,
+	onArchiveWrite,
 	prepareFileContentsForWrite,
 }: {
 	tasksByTaskId: Map<string, Task>;
@@ -185,6 +186,7 @@ export function createTaskActions({
 	getManualOrder: () => ManualOrderStore;
 	setManualOrder: (next: ManualOrderStore) => void;
 	prepareFileContentsForWrite?: PrepareFileContentsForWrite;
+	onArchiveWrite?: (path: string) => void;
 }): TaskActions {
 	function resolveFileIfValid(filePath: string | null): TFile | null {
 		if (!filePath) return null;
@@ -688,6 +690,7 @@ export function createTaskActions({
 		},
 
 		async archiveTasks(ids) {
+			const files = [...collectTaskEntriesByFile(ids).keys()];
 			await editTasks(ids, (task, row) => archiveTransform(row, {
 				fromColumn: getSourceColumn(task),
 				columnDefinitions: getColumnDefinitions(),
@@ -696,6 +699,7 @@ export function createTaskActions({
 				archiveStatusMarker: task.archiveStatusMarker,
 				keepColumnTag: getKeepColumnTagOnCompletion(),
 			}));
+			files.forEach(file => onArchiveWrite?.(file.path));
 		},
 
 		async cancelTasks(ids) {

@@ -23,6 +23,12 @@ describe("updateMapsFromFile", () => {
 		vi.restoreAllMocks();
 	});
 
+	it("does not promote children owned by an archived root into active cards", async () => {
+		const { tasks } = await parseFileTasks("- [x] Archived #archived\n  note\n    - [ ] Child\n- [ ] Active\n  - [x] Nested #archived", { treatNestedTasksAsSubtasks: true });
+		expect(tasks.map(task => task.content)).toEqual(["Active"]);
+		expect(tasks[0]?.sourceBlockLineCount).toBe(2);
+	});
+
 	it("logs file-specific read or parse failures", async () => {
 		const error = new Error("read failed");
 		const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);

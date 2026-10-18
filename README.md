@@ -239,6 +239,14 @@ Cancel and restore only change checkbox markers. If a cancelled marker is also c
   workspace.
 - **Add card**: run **Add card** from the command palette to create a card on a visible board without first opening that board.
 
+### Archived Tasks
+
+Enable **Show archived column** in **View** to browse archived tasks beside the board. This view option is saved per board and can be included in saved views. The separate pane stays on the right in every layout, with its own scrolling and controls at the top.
+
+Archived tasks appear in file order, 50 per page, using the board's scope, filter, and tag or status archive settings. **Previous**, **Next**, and **Refresh** browse one page at a time without loading the whole archive. Collapsing or hiding the pane stops archive scans. Active task counts exclude the archive.
+
+Archive changes refresh the first page; newly archived tasks may sort onto later pages. **Open source file** opens the original note. **Restore to Done** verifies the source row before editing it and preserves existing completion dates and nested content. On status-based boards, restoring preserves any `#archived` tag, so tag-based boards may still treat that task as archived.
+
 ### Sorting
 
 Use the **Sort** dropdown in the board header to order tasks within each column:
