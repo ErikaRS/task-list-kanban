@@ -1,12 +1,21 @@
-Status: IN_PROGRESS (implementation merged; manual validation and benchmark pending)
+Status: COMPLETE
 
 Implemented: 2026-09
+Completed: 2026-10-17
 
 # Filter negation and limited OR
 
+## Acceptance disposition
+
+On 2026-10-17, the owner requested completion and explicitly waived all
+remaining acceptance checks, including manual/device validation, compatibility
+comparisons, benchmarks, and measurements where specified. These checks are
+waived, not verified or claimed as passed. Historical implementation and
+validation notes below describe the evidence available before this waiver.
+
 ## Feature Request Summary
 
-[Issue #169](https://github.com/ErikaRS/task-list-kanban/issues/169) asks for exclusions such as finding tasks mentioning Paul Krugman while omitting those mentioning Keynes. This spec proposes atom-level negation and a deliberately narrow form of OR. It builds on the unified query and structured editor in [SPEC 0029](complete/SPEC_0029__COMPLETE__UNIFIED_FILTER_SEARCH_BAR.md).
+[Issue #169](https://github.com/ErikaRS/task-list-kanban/issues/169) asks for exclusions such as finding tasks mentioning Paul Krugman while omitting those mentioning Keynes. This spec proposes atom-level negation and a deliberately narrow form of OR. It builds on the unified query and structured editor in [SPEC 0029](SPEC_0029__COMPLETE__UNIFIED_FILTER_SEARCH_BAR.md).
 
 ## User Requirements
 
@@ -104,10 +113,10 @@ Implementation merged in [66ef73c](https://github.com/ErikaRS/task-list-kanban/c
 **Goal:** Exclusions work from both the bar and expanded editor.
 
 1. ✅ Add signed atoms to the query model, parser, serializer, matcher, and empty-query checks.
-   - [ ] Record an explicit old/new matcher comparison on the compatibility matrix above.
+   - **WAIVED (owner, 2026-10-17):** Record an explicit old/new matcher comparison on the compatibility matrix above.
 2. ✅ Add exclude controls for content, single tags, and individual file paths; keep bar/editor round trips intact. Date rows stay positive-only.
-3. [ ] Validate on Search/Enter, show no error while editing, and leave the applied filter unchanged for malformed negation. Prevent saving malformed drafts. Verify that an error clears on the next edit and the dropdown stays open after a failed Search.
-4. [ ] Test parsing, matching, nested-card exclusions, invalid negated dates, persistence, saved views, and suggestion replacement. Manually verify bar ↔ editor edits and a large board.
+3. **WAIVED (owner, 2026-10-17):** Validate on Search/Enter, show no error while editing, and leave the applied filter unchanged for malformed negation. Prevent saving malformed drafts. Verify that an error clears on the next edit and the dropdown stays open after a failed Search.
+4. **WAIVED (owner, 2026-10-17):** Test parsing, matching, nested-card exclusions, invalid negated dates, persistence, saved views, and suggestion replacement. Manually verify bar ↔ editor edits and a large board.
 
 **Deliverable:** `"Paul Krugman" -Keynes` and the other single-atom exclusions work end to end.
 
@@ -118,9 +127,9 @@ Implementation merged in [66ef73c](https://github.com/ErikaRS/task-list-kanban/c
 1. ✅ Add flat parenthesized OR groups to parsing, serialization, validation, and direct short-circuit evaluation. Preserve comma OR lists, repeated-tag AND, and legacy positive-file merging.
 2. ✅ Refactor the editor into clause rows with typed atom controls and an OR-row affordance, including per-atom exclusion.
 3. ✅ Make suggestions and caret replacement work inside a group; show syntax errors only on Search/Enter and leave the applied filter unchanged.
-4. [ ] Test multiple groups, mixed atom types, AND precedence, quotes, malformed/nested groups, saved-view round trips, and editor equivalence. Verify that malformed drafts show no error while typed, an invalid Search changes nothing applied or persisted, and a correction can then be submitted. Manually compare filtering and editor state after typing, saving, reopening, and editing a group.
+4. **WAIVED (owner, 2026-10-17):** Test multiple groups, mixed atom types, AND precedence, quotes, malformed/nested groups, saved-view round trips, and editor equivalence. Verify that malformed drafts show no error while typed, an invalid Search changes nothing applied or persisted, and a correction can then be submitted. Manually compare filtering and editor state after typing, saving, reopening, and editing a group.
 5. ✅ Update README filter syntax.
-6. [ ] Benchmark a representative large board with multiple OR groups and record the fixture, query, and timings.
+6. **WAIVED (owner, 2026-10-17):** Benchmark a representative large board with multiple OR groups and record the fixture, query, and timings.
 
 **Deliverable:** `(Krugman OR tag:reading) -Keynes` works end to end, with a matching structured editor and measured linear-cost behavior.
 

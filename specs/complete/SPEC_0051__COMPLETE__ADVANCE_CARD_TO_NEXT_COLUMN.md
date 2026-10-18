@@ -1,10 +1,19 @@
-Status: IN_PROGRESS (implementation merged; manual validation pending)
+Status: COMPLETE
 
 Implemented: 2026-09
+Completed: 2026-10-17
 
 Renumbered from the duplicate SPEC 0043 during the 2026-10-17 organization pass. SPEC 0043 remains Open Filtered Source Files.
 
 # SPEC 0051 — Advance Card to Next Column
+
+## Acceptance disposition
+
+On 2026-10-17, the owner requested completion and explicitly waived all
+remaining acceptance checks, including manual/device validation, compatibility
+comparisons, benchmarks, and measurements where specified. These checks are
+waived, not verified or claimed as passed. Historical implementation and
+validation notes below describe the evidence available before this waiver.
 
 ## Feature Request Summary
 
@@ -87,7 +96,7 @@ verification is pending.
 2. ✅ Replace the two-state per-column store with a board-local, persisted three-state mode; save changes immediately and clear selected IDs on mode and board changes.
 3. ✅ Add the icon-and-chevron selector beside the task count on desktop and mobile, and remove the repeated column-header controls.
 4. ✅ Show and wire the card arrow in Advance mode, including keyboard and rendered-Markdown-primary-checkbox handling.
-5. [ ] Test active-column advancement through name/tag, status, and priority matching, and verify that Done and Select modes still work.
+5. **WAIVED (owner, 2026-10-17):** Test active-column advancement through name/tag, status, and priority matching, and verify that Done and Select modes still work.
 
 **Deliverable:** One click moves an active card exactly one configured custom-column step without changing its unrelated source text.
 
@@ -99,9 +108,9 @@ verification is pending.
 
 1. [x] Route last-custom (or Uncategorized with no custom columns) to Done using the existing Done move action.
 2. [x] Route Done to the existing archive action for both tag-based and status-based archive settings.
-3. [ ] Test completion metadata, archived-task disappearance, toolbar mode changes, per-board mode restoration after switching/reopening, transient selections, and the three-mode interactions in grouped, reversed, and mobile layouts.
+3. **WAIVED (owner, 2026-10-17):** Test completion metadata, archived-task disappearance, toolbar mode changes, per-board mode restoration after switching/reopening, transient selections, and the three-mode interactions in grouped, reversed, and mobile layouts.
 4. ✅ Update the README's Board Controls / Bulk Actions descriptions.
-5. [ ] Manually verify the toolbar menu and card controls in a test vault, including narrow mobile width and keyboard focus.
+5. **WAIVED (owner, 2026-10-17):** Manually verify the toolbar menu and card controls in a test vault, including narrow mobile width and keyboard focus.
 
 **Deliverable:** Every visible workflow step advances once, including Done → Archived, while existing interaction modes remain usable.
 

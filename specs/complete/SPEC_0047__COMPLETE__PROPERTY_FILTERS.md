@@ -10,7 +10,7 @@ The filter bar handles content, tags, file paths and date comparisons. It cannot
 - **Built-in properties:** `priority` and `status`. `status` is the checkbox marker, and every schema provides it.
 - **Custom Dataview fields:** any inline field the user invents, such as `[project:: website]`, `(owner:: sam)` or `[estimate:: 3]`. These fields are already parsed and available for sorting (see [SPEC 0020](SPEC_0020__COMPLETE__TASK_PROPERTIES_DESIGN.md)).
 
-This work builds on the unified query from [SPEC 0029](SPEC_0029__COMPLETE__UNIFIED_FILTER_SEARCH_BAR.md) and the signed atoms and OR clauses from [SPEC 0044](../SPEC_0044__IN_PROGRESS__FILTER_NEGATION_AND_LIMITED_OR.md). It was requested as a follow-up in [#65](https://github.com/ErikaRS/task-list-kanban/issues/65) and [#86](https://github.com/ErikaRS/task-list-kanban/issues/86).
+This work builds on the unified query from [SPEC 0029](SPEC_0029__COMPLETE__UNIFIED_FILTER_SEARCH_BAR.md) and the signed atoms and OR clauses from [SPEC 0044](SPEC_0044__COMPLETE__FILTER_NEGATION_AND_LIMITED_OR.md). It was requested as a follow-up in [#65](https://github.com/ErikaRS/task-list-kanban/issues/65) and [#86](https://github.com/ErikaRS/task-list-kanban/issues/86).
 
 ## User Requirements
 

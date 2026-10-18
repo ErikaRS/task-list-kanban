@@ -1,8 +1,17 @@
-Status: IN_PROGRESS (implementation merged; device validation pending)
+Status: COMPLETE
 
 Implemented: 2026-09
+Completed: 2026-10-17
 
 # Mobile task lists and shared editing
+
+## Acceptance disposition
+
+On 2026-10-17, the owner requested completion and explicitly waived all
+remaining acceptance checks, including manual/device validation, compatibility
+comparisons, benchmarks, and measurements where specified. These checks are
+waived, not verified or claimed as passed. Historical implementation and
+validation notes below describe the evidence available before this waiver.
 
 ## Feature Request Summary
 
@@ -45,7 +54,7 @@ Below it, category headers hold collapse, title, one count, and Done/Select. Gro
 - Use approximately 12–16px horizontal content insets, 8–10px vertical content padding, and a 1px theme-derived divider. Keep existing status hit areas and readable text. Variable-height content wraps naturally; no truncation of tasks, notes, or subtasks for density.
 - Align secondary metadata under task text; omit empty metadata containers. Retain configured source paths, dates, tags, nested content, and actions. Hiding the creation-destination row is unrelated to task-card source-path preferences.
 - Column/group headers have about a 44px minimum interactive row, small vertical padding, and no large decorative stripe or surrounding card frame. A thin category accent and hierarchy typography distinguish sections. Long titles and larger accessibility text may wrap.
-- Card interaction controls now follow [SPEC 0051](SPEC_0051__IN_PROGRESS__ADVANCE_CARD_TO_NEXT_COLUMN.md): a board-wide Done / Advance / Select selector beside the total task count supersedes this design's original per-column Done/Select controls. Creation remains section-local.
+- Card interaction controls now follow [SPEC 0051](SPEC_0051__COMPLETE__ADVANCE_CARD_TO_NEXT_COLUMN.md): a board-wide Done / Advance / Select selector beside the total task count supersedes this design's original per-column Done/Select controls. Creation remains section-local.
 - Keep sticky hierarchy headers and measured offsets. Selection can use a subtle row fill and existing markers without reintroducing spaced cards.
 
 ### Section-local floating creation
@@ -81,7 +90,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 2. ✅ Tighten mobile headers and section spacing while preserving counts, selection, rule subtitles, and sticky offsets.
 3. ✅ Hide the creation-destination row on mobile with no preference.
 4. ✅ Implement the icon toolbar, expandable search with visible active filters, and viewport-safe labeled control surfaces in main.svelte.
-5. [ ] Verify long tasks, metadata, nested rows, large text, theme overrides, filter/menu behavior, and desktop regressions.
+5. **WAIVED (owner, 2026-10-17):** Verify long tasks, metadata, nested rows, large text, theme overrides, filter/menu behavior, and desktop regressions.
 
 **Deliverable:** Full-width adjoining task rows with compact board chrome.
 
@@ -93,7 +102,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 
 1. ✅ Extract the shell/lifecycle from MobileTaskEditor.svelte and NewTaskControls.svelte; centralize viewport handling with mobile_editor_layout.ts.
 2. ✅ Connect existing persistence adapters; add context/file choice for creation and explicit submit/cancel behavior.
-3. [ ] Verify date-field focus, multiline text, error retention, duplicate-submit protection, focus restoration, and listener cleanup.
+3. **WAIVED (owner, 2026-10-17):** Verify date-field focus, multiline text, error retention, duplicate-submit protection, focus restoration, and listener cleanup.
 
 **Deliverable:** Matching keyboard-safe editing flows, initially invoked from existing creation triggers.
 
@@ -107,7 +116,7 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 2. ✅ Let board_mobile_list.svelte assign each eligible cell a bounded overlay trigger. Prefer section-constrained sticky placement; prototype and verify clipping/scroll behavior before choosing a small measured overlay fallback.
 3. ✅ If measurement is needed, use board-local section rectangles, ResizeObserver and coalesced scroll updates, not window-fixed buttons with guessed offsets. Derive placement from section/viewport intersections.
 4. ✅ Reuse deriveCellCreationMetadata and file resolution; remove duplicate mobile Add controls.
-5. [ ] Test grouped/ungrouped flow directions, two visible sections, short/empty/collapsed lists, last-row access, section removal/filtering, file choice, and correct tags/destination on save.
+5. **WAIVED (owner, 2026-10-17):** Test grouped/ungrouped flow directions, two visible sections, short/empty/collapsed lists, last-row access, section removal/filtering, file choice, and correct tags/destination on save.
 
 **Deliverable:** Section-specific thumb-accessible creation without repeated full-width control rows.
 
@@ -116,9 +125,9 @@ Use a compact bottom sheet anchored to the bottom of the visual viewport, above 
 ### Validation for every code phase
 
 1. ✅ Run npm run build and npm test. Add focused behavioral tests for changed interactions/context routing and floating geometry; avoid tests that merely duplicate CSS declarations.
-2. [ ] Inspect 320–430 CSS-pixel widths, larger text, light/dark themes and another theme configuration. Verify all controls remain touchable without overlap.
-3. [ ] Validate actual Android Obsidian keyboard open/resize/close, portrait/landscape, and stable background scroll. Check iOS where available and document any untested device behavior.
-4. [ ] Compare visible complete tasks and toolbar/section heights using the same board, query, and scroll position. Report measured gains, not a promised five-task increase.
+2. **WAIVED (owner, 2026-10-17):** Inspect 320–430 CSS-pixel widths, larger text, light/dark themes and another theme configuration. Verify all controls remain touchable without overlap.
+3. **WAIVED (owner, 2026-10-17):** Validate actual Android Obsidian keyboard open/resize/close, portrait/landscape, and stable background scroll. Check iOS where available and document any untested device behavior.
+4. **WAIVED (owner, 2026-10-17):** Compare visible complete tasks and toolbar/section heights using the same board, query, and scroll position. Report measured gains, not a promised five-task increase.
 
 ### Selected View icon and scope
 

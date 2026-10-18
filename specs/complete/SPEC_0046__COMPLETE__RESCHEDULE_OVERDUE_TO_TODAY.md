@@ -1,8 +1,17 @@
-Status: IN_PROGRESS (implementation merged; manual validation pending)
+Status: COMPLETE
 
 Implemented: 2026-09
+Completed: 2026-10-17
 
 # SPEC 0046 — Reschedule Overdue Tasks to Today
+
+## Acceptance disposition
+
+On 2026-10-17, the owner requested completion and explicitly waived all
+remaining acceptance checks, including manual/device validation, compatibility
+comparisons, benchmarks, and measurements where specified. These checks are
+waived, not verified or claimed as passed. Historical implementation and
+validation notes below describe the evidence available before this waiver.
 
 ## Feature Request Summary
 
@@ -78,26 +87,26 @@ The task list is recomputed when the user confirms, so a task that stopped being
 
 ## Implementation Plan
 
-### Phase 1: Command-palette reschedule 🚧 IN PROGRESS
+### Phase 1: Command-palette reschedule ✅ COMPLETE (remaining acceptance checks waived)
 
 **Goal:** The user can reschedule all visible overdue tasks on a date-grouped board from the command palette.
 
 1. ✅ Export `isOverdueValue` and add `getReschedulableOverdueTasks` with unit tests for due/scheduled/start, non-editable date keys, non-date groups, done and cancelled tasks, Dataview datetimes, and the `collapsePastDates` on/off cases.
 2. ✅ Add `hasReschedulableOverdueTasks()` / `rescheduleOverdueTasks()` on `KanbanView`, wired to the board component's visible task list.
 3. ✅ Register the **Reschedule overdue tasks to today** command with confirmation and a completion notice.
-4. [ ] Test in a vault under the Tasks and Dataview schemas: only the grouped date changes, filtered-out tasks are untouched, and rescheduled cards move to today's swimlane.
+4. **WAIVED (owner, 2026-10-17):** Test in a vault under the Tasks and Dataview schemas: only the grouped date changes, filtered-out tasks are untouched, and rescheduled cards move to today's swimlane.
 
 **Deliverable:** A working command that reschedules only visible, open, overdue tasks by the grouped date.
 
 **Implemented by:** [098dbd6](https://github.com/ErikaRS/task-list-kanban/commit/098dbd6).
 
-### Phase 2: Overdue swimlane header button 🚧 IN PROGRESS
+### Phase 2: Overdue swimlane header button ✅ COMPLETE (remaining acceptance checks waived)
 
 **Goal:** The same action is one click away on the combined Overdue swimlane.
 
 1. ✅ Add the **Reschedule to today** button to the Overdue group header on desktop and mobile, hidden when no tasks are eligible.
 2. ✅ Route it through the same confirmation and write path as the command.
-3. [ ] Test keyboard and touch activation, the accessible name, both flow directions, and a collapsed Overdue swimlane.
+3. **WAIVED (owner, 2026-10-17):** Test keyboard and touch activation, the accessible name, both flow directions, and a collapsed Overdue swimlane.
 4. ✅ Update the README's grouping section to describe the command and button.
 
 **Deliverable:** The Overdue swimlane header offers a one-click reschedule that behaves exactly like the command.

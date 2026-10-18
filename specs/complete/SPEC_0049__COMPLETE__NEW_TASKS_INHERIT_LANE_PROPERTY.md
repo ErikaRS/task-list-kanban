@@ -1,8 +1,17 @@
-Status: IN_PROGRESS (implementation merged; remaining manual validation pending)
+Status: COMPLETE
 
 Implemented: 2026-09
+Completed: 2026-10-17
 
 # New Tasks Inherit Their Swimlane Property
+
+## Acceptance disposition
+
+On 2026-10-17, the owner requested completion and explicitly waived all
+remaining acceptance checks, including manual/device validation, compatibility
+comparisons, benchmarks, and measurements where specified. These checks are
+waived, not verified or claimed as passed. Historical implementation and
+validation notes below describe the evidence available before this waiver.
 
 ## Feature Request Summary
 
@@ -49,7 +58,7 @@ the typed dates, so a typed date for the same key replaces it.
 
 ## Implementation Plan
 
-### Phase 1: Inherit the lane property on creation 🚧 IN PROGRESS
+### Phase 1: Inherit the lane property on creation ✅ COMPLETE (remaining acceptance checks waived)
 **Goal:** Tasks added in a property lane stay in that lane.
 
 1. ✅ Return the lane's property from `deriveCellCreationMetadata`
@@ -59,10 +68,10 @@ the typed dates, so a typed date for the same key replaces it.
    override, priority lane, unwritable lanes) and mobile sessions
 5. ✅ Test: Erika added a task in a dated lane on a status-by-scheduled board and
    it stayed in that lane (2026-09-26)
-6. [ ] Test: in a vault, group by scheduled date with status columns and add a task
+6. **WAIVED (owner, 2026-10-17):** Test: in a vault, group by scheduled date with status columns and add a task
    in a dated lane; it appears in that lane and column (Tasks and Dataview)
-7. [ ] Test: add a task in the Unassigned lane; it gets no scheduled date
-8. [ ] Test: repeat step 6 from the mobile layout
+7. **WAIVED (owner, 2026-10-17):** Test: add a task in the Unassigned lane; it gets no scheduled date
+8. **WAIVED (owner, 2026-10-17):** Test: repeat step 6 from the mobile layout
 
 **Deliverable:** New tasks land in the lane where they were added.
 
