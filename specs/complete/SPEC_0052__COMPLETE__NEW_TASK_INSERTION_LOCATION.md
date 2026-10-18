@@ -1,4 +1,7 @@
-Status: IN_PROGRESS (implementation and automated checks complete; manual acceptance pending)
+Status: COMPLETE
+Implemented: 2026-10
+
+Remaining manual acceptance checks waived by the owner on 2026-10-17.
 
 # New Task Insertion Location
 
@@ -162,7 +165,7 @@ preferences.
 
 **Implemented by:** Codex; included in the feature commit for Refs #189.
 
-### Phase 2: Place tasks under the shared heading 🚧 IN PROGRESS
+### Phase 2: Place tasks under the shared heading ✅ COMPLETE
 
 **Goal:** The heading and position controls work together across all files,
 including files that need the heading created.
@@ -178,9 +181,9 @@ including files that need the heading created.
    shared pair of settings applies and unrelated content stays intact.
 5. ✅ Update README Add Tasks and board configuration documentation.
 6. ✅ Run `npm run build` and `npm test` successfully.
-7. [ ] Manually validate desktop Add new, Add card, and mobile creation in
+7. Waived by the owner on 2026-10-17: Manually validate desktop Add new, Add card, and mobile creation in
    Obsidian; inspect the resulting Markdown in at least two destination files.
-8. [ ] Manually check settings save/cancel, pin/reset, keyboard navigation,
+8. Waived by the owner on 2026-10-17: Manually check settings save/cancel, pin/reset, keyboard navigation,
    narrow layouts, and rendering in the test vault and another theme/vault.
 
 **Deliverable:** New root tasks consistently use the configured heading and
@@ -205,6 +208,6 @@ Automated verification:
   four destination selection paths, and desktop failed-write draft/date retry.
 - Existing mobile creation and shared mobile editor failure/retry tests pass.
 
-Manual Obsidian desktop/mobile, Add card, settings interaction, and theme/vault
-checks remain open above. The spec stays in progress until those are verified
-or explicitly waived.
+The owner requested marking this spec complete on 2026-10-17, waiving the
+remaining manual Obsidian desktop/mobile, Add card, settings interaction, and
+theme/vault acceptance checks. These checks are waived, not recorded as passed.

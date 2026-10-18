@@ -6,9 +6,7 @@ Active specs stay here until their required implementation is complete and accep
 
 ## Active work and remaining validation
 
-| Spec | Issue | State | Remaining work |
-| --- | --- | --- | --- |
-| [0052 — New task insertion location](SPEC_0052__IN_PROGRESS__NEW_TASK_INSERTION_LOCATION.md) | [#189](https://github.com/ErikaRS/task-list-kanban/issues/189) | Implementation and automated checks complete | Manual Obsidian creation, settings, and theme/vault acceptance checks. |
+No active specs or remaining required validation.
 
 ## Completed and historical specs
 
@@ -65,6 +63,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 - [0049 — Inherit swimlane properties](complete/SPEC_0049__COMPLETE__NEW_TASKS_INHERIT_LANE_PROPERTY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
 - [0050 — Archived Task Column](complete/SPEC_0050__COMPLETE__ARCHIVED_TASK_COLUMN.md) — Remaining manual acceptance checks waived by the owner on 2026-10-17.
 - [0051 — Advance card action](complete/SPEC_0051__COMPLETE__ADVANCE_CARD_TO_NEXT_COLUMN.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
+- [0052 — New task insertion location](complete/SPEC_0052__COMPLETE__NEW_TASK_INSERTION_LOCATION.md) — Remaining manual acceptance checks waived by the owner on 2026-10-17.
 
 ## Numbering and maintenance
 
