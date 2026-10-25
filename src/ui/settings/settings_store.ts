@@ -228,6 +228,9 @@ const manualOrderSchema = z.preprocess((value) => {
 	return value;
 }, z.record(z.string(), manualOrderCellSchema));
 
+// Defaults are resolved by resolveSettings, not by this sparse schema. Zod 4
+// applies defaults inside optional fields, which would promote absent settings
+// into board overrides and prevent them from inheriting global defaults.
 // Fields with strict validation (enums, ranges) use .catch() so that a single
 // invalid value degrades gracefully instead of failing the entire settings parse.
 // Without .catch(), an unrecognized scope like "file" would cause ALL settings
@@ -235,8 +238,8 @@ const manualOrderSchema = z.preprocess((value) => {
 const settingsObject = z.object({
 	columns: z.array(z.union([z.string(), columnDefinitionSchema])),
 	scope: z.nativeEnum(ScopeOption).catch(ScopeOption.Folder),
-	showFilepath: z.boolean().default(true).optional(),
-	consolidateTags: z.boolean().default(false).optional(),
+	showFilepath: z.boolean().optional(),
+	consolidateTags: z.boolean().optional(),
 	uncategorizedVisibility: z
 		.nativeEnum(VisibilityOption)
 		.catch(VisibilityOption.Auto)
@@ -245,16 +248,16 @@ const settingsObject = z.object({
 		.nativeEnum(VisibilityOption)
 		.catch(VisibilityOption.AlwaysShow)
 		.optional(),
-	doneStatusMarkers: z.string().default(DEFAULT_DONE_STATUS_MARKERS).optional(),
-	cancelledStatusMarkers: z.string().default(DEFAULT_CANCELLED_STATUS_MARKERS).optional(),
-	ignoredStatusMarkers: z.string().default(DEFAULT_IGNORED_STATUS_MARKERS).optional(),
-	replaceArchiveTagWithStatus: z.boolean().default(false).optional(),
-	archiveStatusMarkers: z.string().default("").optional(),
-	keepColumnTagOnCompletion: z.boolean().default(false).optional(),
-	statusMarkerOrder: z.string().default("").optional(),
-	savedFilters: z.array(savedFilterSchema).default([]).optional(),
-	savedGroupings: z.array(savedGroupingSchema).default([]).optional(),
-	savedViews: z.array(savedViewSchema).default([]).optional(),
+	doneStatusMarkers: z.string().optional(),
+	cancelledStatusMarkers: z.string().optional(),
+	ignoredStatusMarkers: z.string().optional(),
+	replaceArchiveTagWithStatus: z.boolean().optional(),
+	archiveStatusMarkers: z.string().optional(),
+	keepColumnTagOnCompletion: z.boolean().optional(),
+	statusMarkerOrder: z.string().optional(),
+	savedFilters: z.array(savedFilterSchema).optional(),
+	savedGroupings: z.array(savedGroupingSchema).optional(),
+	savedViews: z.array(savedViewSchema).optional(),
 	// The unified filter query string (SPEC 0029). The four last*Filter
 	// fields below are its legacy predecessors: still parsed so old
 	// frontmatter validates (and migrates at read time), never written.
@@ -270,24 +273,24 @@ const settingsObject = z.object({
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
 	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
-	collapsedColumns: z.array(z.string()).default([]).optional(),
-	collapsedGroups: z.array(z.string()).default([]).optional(),
-	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").default("").optional(),
-	newTaskPosition: z.enum(["top", "bottom"]).catch("bottom").default("bottom").optional(),
-	defaultTaskFile: z.string().default("").optional(),
-	lastUsedTaskFile: z.string().default("").optional(),
-	scopeFolders: z.array(z.string()).default([]).optional(),
-	excludePaths: z.array(z.string()).default([]).optional(),
-	excludedTags: z.array(z.string()).default([]).optional(),
-	excludedTaskTags: z.array(z.string()).default([]).optional(),
-	uncategorizedColumnName: z.string().default("Uncategorized").optional(),
-	doneColumnName: z.string().default("Done").optional(),
-	groupSource: groupSourceSchema.default({ kind: "none" }).optional(),
+	collapsedColumns: z.array(z.string()).optional(),
+	collapsedGroups: z.array(z.string()).optional(),
+	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").optional(),
+	newTaskPosition: z.enum(["top", "bottom"]).catch("bottom").optional(),
+	defaultTaskFile: z.string().optional(),
+	lastUsedTaskFile: z.string().optional(),
+	scopeFolders: z.array(z.string()).optional(),
+	excludePaths: z.array(z.string()).optional(),
+	excludedTags: z.array(z.string()).optional(),
+	excludedTaskTags: z.array(z.string()).optional(),
+	uncategorizedColumnName: z.string().optional(),
+	doneColumnName: z.string().optional(),
+	groupSource: groupSourceSchema.optional(),
 	propertySchema: z.nativeEnum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
 	propertyDisplay: z.nativeEnum(PropertyDisplayMode).catch(PropertyDisplayMode.None).optional(),
-	treatNestedTasksAsSubtasks: z.boolean().default(false).optional(),
+	treatNestedTasksAsSubtasks: z.boolean().optional(),
 	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
-	sortProperty: z.string().nullable().default(null).optional(),
+	sortProperty: z.string().nullable().optional(),
 	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
 	groupDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
 	// Cell-local manual ordering: group bucket id -> column id -> `path::blockLink`.
@@ -295,7 +298,7 @@ const settingsObject = z.object({
 	// no separate data file), but kept as its own field so it is never conflated
 	// with display configuration. Legacy column-local records are migrated under
 	// the default group bucket id at parse time.
-	manualOrder: manualOrderSchema.default({}).optional(),
+	manualOrder: manualOrderSchema.optional(),
 	// Board-local toolbar state. These deliberately have no global default:
 	// an absent selection means new paths begin checked, and an absent mode
 	// means the historical "always create a tab" behaviour.
