@@ -2,7 +2,7 @@ import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from "node:module";
 import esbuildSvelte from "esbuild-svelte";
-import sveltePreprocess from "svelte-preprocess";
+import svelteConfig from "./svelte.config.js";
 import { sassPlugin } from "esbuild-sass-plugin";
 import { createRequire } from "module";
 
@@ -16,7 +16,7 @@ const prod = process.argv[2] === "production";
 const require = createRequire(import.meta.url);
 const svelteVersion = require("svelte/package.json").version;
 const svelteMajorVersion = Number.parseInt(svelteVersion.split(".")[0] ?? "4", 10);
-const compilerOptions = { css: "injected" };
+const compilerOptions = { ...svelteConfig.compilerOptions, css: "injected" };
 const ignoredSvelteWarnings = new Set([
 	"a11y_no_static_element_interactions",
 	"element_invalid_self_closing_tag",
@@ -65,7 +65,7 @@ const context = await esbuild.context({
 					warning.filename?.includes("node_modules/svelte-select/Select.svelte") &&
 					ignoredSvelteWarnings.has(warning.code)
 				),
-			preprocess: sveltePreprocess(),
+			preprocess: svelteConfig.preprocess,
 		}),
 	],
 });

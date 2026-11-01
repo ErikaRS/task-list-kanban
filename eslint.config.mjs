@@ -15,7 +15,7 @@ export default defineConfig([
 			"eslint.scanner.mjs",
 			"svelte.config.js",
 			"version-bump.mjs",
-			"vite.config.ts",
+			"vite.config.mjs",
 		],
 	},
 	...obsidianmd.configs.recommended,
