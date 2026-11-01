@@ -68,10 +68,10 @@
                 "state": {
                   "type": "kanban-view",
                   "state": {
-                    "file": "periodic/Kanban-None.md"
+                    "file": "periodic/Kanban-Legacy-Selected-Folders.md"
                   },
                   "icon": "kanban-square",
-                  "title": "Kanban-None"
+                  "title": "Kanban-Legacy-Selected-Folders"
                 }
               }
             ],
@@ -256,13 +256,16 @@
   "active": "edb014cec5cbad69",
   "lastOpenFiles": [
     "periodic/2025-05-01.md",
+    "periodic/Kanban-Legacy-Selected-Folders.md",
     "periodic/Kanban-None.md",
+    "text-matching/Tasks.md",
+    "text-matching/Kanban-Text.md",
+    "text-matching",
     "2026-09-19.md",
     "periodic/subfolder/2025-05-02.md",
     "periodic/2025-05-21.md",
     "periodic/subfolder/2025-05-01.md",
     "periodic/2025-10-21.md",
-    "periodic/Kanban-Legacy-Selected-Folders.md",
     "Kanban-Dataview.md",
     "periodic/Kanban-Tasks.md",
     "styles.css",
@@ -282,8 +285,6 @@
     "Kanban-Whee.md",
     "Kanban-1783614999866.md",
     "Kanban-1783614950220.md",
-    "Kanban-1781896482430.md",
-    "Kanban-1781896508887.md",
     "Untitled.base",
     "periodic/@",
     "tasks"

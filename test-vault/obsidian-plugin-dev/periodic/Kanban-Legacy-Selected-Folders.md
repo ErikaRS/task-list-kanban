@@ -1,5 +1,7 @@
 ---
-kanban_plugin: '{"scope":"selectedFolders","scopeFolders":["tasks","snippets"],"columns":[],"showArchivedColumn":false}'
+kanban_plugin: '{"scope":"selectedFolders","showArchivedColumn":false,"newTaskPosition":"top","lastUsedTaskFile":"periodic/2025-05-01.md","scopeFolders":["tasks","snippets"],"groupSource":{"kind":"text","literals":["[[Project
+  B]]"]},"columns":[{"id":"column-new-column","label":"@home","matchMode":"text","matchTags":[]},{"id":"column-new-column-2","label":"Office","matchMode":"text","matchTags":[]},{"id":"column-new-column-3","label":"[[Project
+  A]]","matchMode":"text","matchTags":[]}]}'
 ---
 
 # Legacy Selected Folders
