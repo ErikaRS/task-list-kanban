@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { type App, TFile } from "obsidian";
+	import type { NewTaskTarget } from "../tasks/actions";
 	import type { AxisBucket, BoardCell, SecondaryBucketId } from "./board_matrix";
 	import type { ColumnTag, ColumnTagTable } from "../columns/columns";
 	import { deriveCellCreationMetadata } from "./cell_creation";
@@ -37,7 +38,7 @@
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
 	export let isVerticalFlow: boolean = false;
-	export let targetTaskFile: TFile | null = null;
+	export let targetTaskFile: NewTaskTarget | null = null;
 	export let targetFileIsDefault: boolean = false;
 	export let doneColumnName: string | undefined = undefined;
 	export let cardActionMode: CardActionMode = "done";

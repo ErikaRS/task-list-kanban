@@ -7,6 +7,7 @@ import { NoneSchema } from "../../../parsing/properties/none_schema";
 import { TasksPluginSchema } from "../../../parsing/properties/tasks_schema";
 import { createColumnData, type ColumnDefinition, type ColumnTag } from "../../columns/columns";
 import { createTaskActions, type TaskActions } from "../actions";
+import type { DailyNoteSource } from "../daily_note";
 import { updateMapsFromFile, type Metadata } from "../tasks";
 import {
 	DEFAULT_CANCELLED_STATUS_MARKERS,
@@ -1155,12 +1156,20 @@ describe("task actions", () => {
 		});
 	});
 
-	describe("Today's daily note in the file picker", () => {
+	describe("Today's daily note destination", () => {
 		const mockEvent = {
 			target: {
 				getBoundingClientRect: () => ({ top: 10, height: 20, left: 10, width: 20 }),
 			},
 		};
+
+		/** A target captured when the draft started; createTask re-resolves it. */
+		const dailyNoteDraft = (path: string) => ({
+			kind: "dailyNote" as const,
+			path,
+			file: null,
+			source: { kind: "unconfigured" as const },
+		});
 
 		function setup({
 			existing = [] as string[],
@@ -1168,14 +1177,27 @@ describe("task actions", () => {
 			filenameFilter = null as string[] | null,
 			defaultTaskFile = null as string | null,
 			lastUsedTaskFile = null as string | null,
+			source = { kind: "override", pattern: "daily/{{YYYY-MM-DD}}", dateFormat: "YYYY-MM-DD", templatePath: null } as DailyNoteSource,
+			contents = {} as Record<string, string>,
+			newTaskHeading = "",
+			create = undefined as ((path: string, data: string) => Promise<TFile>) | undefined,
 		} = {}) {
+			const makeFile = (path: string) => {
+				const file = new TFile();
+				(file as any).path = path;
+				return file;
+			};
 			const filesByPath = new Map<string, TFile>(
-				existing.map((path) => {
-					const file = new TFile();
-					(file as any).path = path;
-					return [path, file];
-				}),
+				[...existing, ...Object.keys(contents)].map((path) => [path, makeFile(path)]),
 			);
+			const folders = new Set<string>();
+			const fileContents = new Map(Object.entries(contents));
+			const defaultCreate = async (path: string, data: string) => {
+				const file = makeFile(path);
+				filesByPath.set(path, file);
+				fileContents.set(path, data);
+				return file;
+			};
 			let currentDate = now;
 			let lastUsed = lastUsedTaskFile;
 			const actions = createTaskActions({
@@ -1183,9 +1205,19 @@ describe("task actions", () => {
 				metadataByTaskId: new Map() as never,
 				vault: {
 					getMarkdownFiles: () => [...filesByPath.values()],
-					getAbstractFileByPath: (path: string) => filesByPath.get(path) ?? null,
+					getAbstractFileByPath: (path: string) =>
+						filesByPath.get(path) ?? (folders.has(path) ? { path } : null),
+					createFolder: async (path: string) => {
+						folders.add(path);
+					},
+					create: (path: string, data: string) => (create ?? defaultCreate)(path, data),
+					read: async (file: TFile) => fileContents.get(file.path) ?? "",
+					modify: async (file: TFile, data: string) => {
+						fileContents.set(file.path, data);
+					},
 				} as never,
 				workspace: {} as never,
+				getTaskInsertionSettings: () => ({ newTaskHeading }),
 				getFilenameFilter: () => filenameFilter,
 				getExcludeFilter: () => null,
 				getBoardFolderPath: () => null,
@@ -1196,7 +1228,7 @@ describe("task actions", () => {
 				setLastUsedTaskFile: (path) => {
 					lastUsed = path;
 				},
-				getDailyNoteSource: () => ({ kind: "override", pattern: "daily/{{YYYY-MM-DD}}" }),
+				getDailyNoteSource: () => source,
 				getPropertySchemaOption: () => PropertySchemaOption.None,
 				getStatusMarkerOrder: () => "",
 				getCurrentDate: () => currentDate,
@@ -1211,6 +1243,8 @@ describe("task actions", () => {
 			return {
 				actions,
 				filesByPath,
+				folders,
+				fileContents,
 				pinnedEntries,
 				getLastUsed: () => lastUsed,
 				setDate: (date: Date) => {
@@ -1227,13 +1261,17 @@ describe("task actions", () => {
 				expect.objectContaining({ title: "📅 Today's daily note — daily/2026-11-01.md" }),
 			]);
 			entries[0]!.onSelect!();
-			expect(onFileSelected).toHaveBeenCalledWith(filesByPath.get("daily/2026-11-01.md"));
+			expect(onFileSelected).toHaveBeenCalledWith(expect.objectContaining({
+				kind: "dailyNote",
+				path: "daily/2026-11-01.md",
+				file: filesByPath.get("daily/2026-11-01.md"),
+			}));
 			expect(getLastUsed()).toBe("$DAILY_NOTE");
 		});
 
-		it("shows a missing note as not yet created and an out-of-scope note as unavailable", () => {
+		it("offers a missing note as new and shows an out-of-scope note as unavailable", () => {
 			expect(setup().pinnedEntries()).toEqual([
-				{ title: "📅 Today's daily note — daily/2026-11-01.md (not created yet)" },
+				{ title: "📅 Today's daily note — daily/2026-11-01.md (new)", onSelect: expect.any(Function) },
 			]);
 			expect(
 				setup({ existing: ["daily/2026-11-01.md"], filenameFilter: ["projects"] }).pinnedEntries(),
@@ -1255,11 +1293,92 @@ describe("task actions", () => {
 				existing: ["daily/2026-11-01.md", "daily/2026-11-02.md"],
 				lastUsedTaskFile: "$DAILY_NOTE",
 			});
-			expect(actions.getTargetFile()?.path).toBe("daily/2026-11-01.md");
+			expect(actions.getTargetDestination()?.target.path).toBe("daily/2026-11-01.md");
 			setDate(new Date(2026, 10, 2, 0, 1));
-			expect(actions.getTargetFile()?.path).toBe("daily/2026-11-02.md");
+			expect(actions.getTargetDestination()?.target.path).toBe("daily/2026-11-02.md");
 			setDate(new Date(2026, 10, 3, 9));
-			expect(actions.getTargetFile()).toBeNull();
+			expect(actions.getTargetDestination()).toEqual({
+				target: expect.objectContaining({ kind: "dailyNote", path: "daily/2026-11-03.md", file: null }),
+				isDefault: false,
+			});
+		});
+
+		it("labels templated and daily-note defaults as the default, and last-used as not", () => {
+			expect(setup({
+				existing: ["notes/2026-11-01.md"],
+				defaultTaskFile: "notes/{{YYYY-MM-DD}}.md",
+			}).actions.getTargetDestination()).toEqual({
+				target: expect.objectContaining({ path: "notes/2026-11-01.md" }),
+				isDefault: true,
+			});
+			expect(setup({ defaultTaskFile: "$DAILY_NOTE" }).actions.getTargetDestination()?.isDefault).toBe(true);
+			expect(setup({
+				existing: ["projects/a.md"],
+				defaultTaskFile: "$DAILY_NOTE",
+				filenameFilter: ["projects"],
+				lastUsedTaskFile: "projects/a.md",
+			}).actions.getTargetDestination()).toEqual({
+				target: expect.objectContaining({ path: "projects/a.md" }),
+				isDefault: false,
+			});
+		});
+
+		it("applies the core template to a note at an overridden location", async () => {
+			const { actions, fileContents } = setup({
+				source: { kind: "override", pattern: "daily/{{YYYY-MM-DD}}", dateFormat: "YYYY-MM-DD", templatePath: "templates/Day.md" },
+				contents: { "templates/Day.md": "# {{date}}\n" },
+			});
+			await actions.createTask(dailyNoteDraft("daily/2026-11-01.md"), "Task", "uncategorised");
+			expect(fileContents.get("daily/2026-11-01.md")).toBe("# 2026-11-01\n- [ ] Task\n");
+		});
+
+		it("creates a missing note with its folders, applying the core template and heading in one write", async () => {
+			const { actions, folders, fileContents, filesByPath } = setup({
+				source: { kind: "core", pattern: "Journal/{{YYYY/MM/YYYY-MM-DD}}.md", dateFormat: "YYYY/MM/YYYY-MM-DD", templatePath: "Templates/Daily.md" },
+				contents: { "Templates/Daily.md": "# {{title}}\n\n## Tasks\n\n## Notes\n" },
+				newTaskHeading: "Tasks",
+			});
+			await actions.createTask(dailyNoteDraft("Journal/2026/11/2026-11-01.md"), "Call Sam", "uncategorised");
+			expect([...folders]).toEqual(["Journal", "Journal/2026", "Journal/2026/11"]);
+			expect(filesByPath.has("Journal/2026/11/2026-11-01.md")).toBe(true);
+			expect(fileContents.get("Journal/2026/11/2026-11-01.md")).toBe(
+				"# 2026-11-01\n\n## Tasks\n- [ ] Call Sam\n\n## Notes\n",
+			);
+		});
+
+		it("re-resolves a daily note draft at write time, so it lands in the new day's note", async () => {
+			const { actions, setDate, fileContents } = setup({ contents: { "daily/2026-11-02.md": "" } });
+			const draftTarget = dailyNoteDraft("daily/2026-11-01.md");
+			setDate(new Date(2026, 10, 2, 0, 5));
+			await actions.createTask(draftTarget, "Late task", "uncategorised");
+			expect(fileContents.get("daily/2026-11-02.md")).toBe("- [ ] Late task");
+			expect(fileContents.has("daily/2026-11-01.md")).toBe(false);
+		});
+
+		it("inserts into the note when another writer created it first", async () => {
+			const { actions, fileContents, filesByPath } = setup({
+				create: async (path) => {
+					const file = new TFile();
+					(file as any).path = path;
+					filesByPath.set(path, file);
+					fileContents.set(path, "Other board's note");
+					throw new Error("File already exists.");
+				},
+			});
+			await actions.createTask(dailyNoteDraft("daily/2026-11-01.md"), "Mine", "uncategorised");
+			expect(fileContents.get("daily/2026-11-01.md")).toBe("Other board's note\n- [ ] Mine");
+		});
+
+		it("rejects with the path when creation fails, and never creates out-of-scope notes", async () => {
+			const failing = setup({ create: async () => { throw new Error("Disk full"); } });
+			await expect(
+				failing.actions.createTask(dailyNoteDraft("daily/2026-11-01.md"), "Task", "uncategorised"),
+			).rejects.toThrow("Could not create daily/2026-11-01.md: Disk full");
+
+			const outside = setup({ filenameFilter: ["projects"] });
+			await expect(outside.actions.createTask(dailyNoteDraft("daily/2026-11-01.md"), "Task", "uncategorised"))
+				.rejects.toThrow("outside the board's scope");
+			expect(outside.filesByPath.size).toBe(0);
 		});
 	});
 });

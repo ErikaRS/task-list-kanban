@@ -37,7 +37,14 @@ import {
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 import { getColumnValidationError } from "./column_validation";
 import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest, TaskSourcePathSuggest } from "./suggest";
-import { dailyNoteSourceFrom, getDailyNotePathIssue, readCoreDailyNoteOptions } from "../tasks/daily_note";
+import {
+	DAILY_NOTE_TARGET,
+	dailyNoteSourceFrom,
+	getDailyNotePathIssue,
+	getDailyNoteSource,
+	readCoreDailyNoteOptions,
+	resolveDailyNotePath,
+} from "../tasks/daily_note";
 import {
 	createPathScope,
 	hasDateTemplate,
@@ -1536,9 +1543,21 @@ export class SettingsModal extends Modal {
 		}
 	}
 
-	private setDefaultTaskFileError(message: string) {
+	/**
+	 * Shows a Default task file problem. A `note` is informational (e.g. the
+	 * daily note will be created on first add) and doesn't mark the field.
+	 */
+	private setDefaultTaskFileError(message: string, level: "error" | "note" = "error") {
 		if (!this.defaultTaskFileInputEl) return;
-		if (message) {
+		this.defaultTaskFileErrorEl?.setCssStyles({
+			color: level === "note" ? "var(--text-muted)" : "var(--text-error)",
+		});
+		if (message && level === "note") {
+			this.defaultTaskFileInputEl.setCssStyles({ outline: "", outlineOffset: "" });
+			this.defaultTaskFileInputEl.title = "";
+			this.defaultTaskFileErrorEl?.setText(message);
+			this.defaultTaskFileErrorEl?.setCssStyles({ visibility: "visible" });
+		} else if (message) {
 			this.defaultTaskFileInputEl.setCssStyles({
 				outline: "2px solid var(--text-error)",
 				outlineOffset: "-1px",
@@ -1569,6 +1588,10 @@ export class SettingsModal extends Modal {
 			this.setDefaultTaskFileError("");
 			return;
 		}
+		if (rawValue === DAILY_NOTE_TARGET) {
+			this.validateDailyNoteDefault();
+			return;
+		}
 		const value = resolveDateTemplate(rawValue);
 		if (!value) {
 			this.setDefaultTaskFileError("Invalid vault-relative path template");
@@ -1580,24 +1603,49 @@ export class SettingsModal extends Modal {
 			this.setDefaultTaskFileError("File not found");
 			return;
 		}
+		const scopeError = this.getDefaultTaskFileScopeError(value);
+		this.setDefaultTaskFileError(scopeError ?? "");
+	}
+
+	private validateDailyNoteDefault() {
+		const source = getDailyNoteSource(this.app, this.settings.dailyNotePath ?? "");
+		const path = resolveDailyNotePath(source);
+		if (!path) {
+			this.setDefaultTaskFileError(
+				source.kind === "unconfigured"
+					? "Set a Daily note path or turn on the Daily notes core plugin"
+					: "Invalid Daily note path",
+			);
+			return;
+		}
+		const scopeError = this.getDefaultTaskFileScopeError(path);
+		if (scopeError) {
+			this.setDefaultTaskFileError(`${scopeError} (${path})`);
+			return;
+		}
+		if (!(this.app.vault.getAbstractFileByPath(path) instanceof TFile)) {
+			this.setDefaultTaskFileError("Today's note doesn't exist yet; it will be created on first add.", "note");
+			return;
+		}
+		this.setDefaultTaskFileError("");
+	}
+
+	private getDefaultTaskFileScopeError(path: string): string | null {
 		const scopeFilter = this.getScopeFilter();
 		const scopeBoardFolder = getProtectedBoardFolderPath(
 			this.settings.scope,
 			this.boardFolderPath,
 		);
-		if (!shouldIncludeFilePath(value, scopeFilter, this.settings.excludePaths ?? [], scopeBoardFolder)) {
-			const excludePaths = this.settings.excludePaths ?? [];
-			const isExcludedByPath = excludePaths.length > 0 &&
-				shouldIncludeFilePath(value, scopeFilter) &&
-				!shouldIncludeFilePath(value, scopeFilter, excludePaths, scopeBoardFolder);
-			this.setDefaultTaskFileError(
-				isExcludedByPath
-					? "File is excluded from the board's scope"
-					: "File is outside the board's folder scope"
-			);
-			return;
+		if (shouldIncludeFilePath(path, scopeFilter, this.settings.excludePaths ?? [], scopeBoardFolder)) {
+			return null;
 		}
-		this.setDefaultTaskFileError("");
+		const excludePaths = this.settings.excludePaths ?? [];
+		const isExcludedByPath = excludePaths.length > 0 &&
+			shouldIncludeFilePath(path, scopeFilter) &&
+			!shouldIncludeFilePath(path, scopeFilter, excludePaths, scopeBoardFolder);
+		return isExcludedByPath
+			? "File is excluded from the board's scope"
+			: "File is outside the board's folder scope";
 	}
 
 	private renderTaskPropertiesSection(container: HTMLDivElement) {
@@ -1653,16 +1701,34 @@ export class SettingsModal extends Modal {
 
 	private renderNewTasksSection(container: HTMLDivElement) {
 		if (!this.isGlobalDefaultsMode()) {
+			// Switching to Today's daily note and back restores the typed path.
+			let specificFile = this.settings.defaultTaskFile === DAILY_NOTE_TARGET
+				? ""
+				: this.settings.defaultTaskFile ?? "";
 			const defaultTaskFileSetting = new Setting(container)
 				.setName("Default task file")
 				.setDesc(
-					"New tasks from 'Add new' will be created in this file by default. Use the vault-relative path (e.g., 'folder/tasks.md'). Leave empty to always show the full file picker."
+					"New tasks from 'Add new' will be created here by default: a specific file (vault-relative path, e.g., 'folder/tasks.md') or today's daily note. Leave the path empty to always show the full file picker."
 				)
+				.addDropdown((dropdown) => {
+					dropdown
+						.addOption("file", "Specific file")
+						.addOption("dailyNote", "Today's daily note")
+						.setValue(this.settings.defaultTaskFile === DAILY_NOTE_TARGET ? "dailyNote" : "file")
+						.onChange((value) => {
+							this.settings.defaultTaskFile = value === "dailyNote" ? DAILY_NOTE_TARGET : specificFile;
+							this.defaultTaskFileInputEl?.toggle(value !== "dailyNote");
+							this.validateDefaultTaskFile();
+							this.updateDirtyBanner();
+						});
+				})
 				.addText((text) => {
 					this.defaultTaskFileInputEl = text.inputEl;
 					text.setPlaceholder("e.g., notes/tasks.md");
-					text.setValue(this.settings.defaultTaskFile ?? "");
+					text.setValue(specificFile);
+					text.inputEl.toggle(this.settings.defaultTaskFile !== DAILY_NOTE_TARGET);
 					text.onChange((value) => {
+						specificFile = value;
 						this.settings.defaultTaskFile = value;
 						this.validateDefaultTaskFile();
 						this.updateDirtyBanner();
@@ -1698,6 +1764,7 @@ export class SettingsModal extends Modal {
 						"aria-invalid",
 						getDailyNotePathIssue(value)?.level === "error",
 					);
+					this.validateDefaultTaskFile();
 					this.touchSettings();
 				});
 			});

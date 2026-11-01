@@ -13,7 +13,7 @@ import type { Metadata } from "./tasks";
 import type { ColumnDefinition, ColumnTag, DefaultColumns } from "../columns/columns";
 import { shouldIncludeFilePath } from "./scope";
 import { resolveDateTemplate } from "./path_scope";
-import { DAILY_NOTE_TARGET, resolveDailyNotePath, type DailyNoteSource } from "./daily_note";
+import { createDailyNote, DAILY_NOTE_TARGET, resolveDailyNotePath, type DailyNoteSource } from "./daily_note";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
 import {
@@ -47,6 +47,28 @@ import {
 	replaceStatusMarker,
 	type ColumnChangeOptions,
 } from "./column_change";
+
+/**
+ * Today's daily note as a new-task destination. `file` is null until the
+ * note exists; the path is re-resolved when the task is written, so a draft
+ * started before midnight lands in the new day's note.
+ */
+export type DailyNoteDestination = {
+	kind: "dailyNote";
+	path: string;
+	file: TFile | null;
+	source: DailyNoteSource;
+};
+
+/** Where a new task goes: a specific file, or Today's daily note. */
+export type NewTaskTarget = TFile | DailyNoteDestination;
+
+export function isDailyNoteDestination(target: NewTaskTarget): target is DailyNoteDestination {
+	return (target as Partial<DailyNoteDestination>).kind === "dailyNote";
+}
+
+/** The resolved target plus whether it came from the Default task file. */
+export type TaskDestination = { target: NewTaskTarget; isDefault: boolean };
 
 type DailyNoteState =
 	| { status: "ready"; path: string; file: TFile }
@@ -122,11 +144,15 @@ export type TaskActions = {
 	pickFileForNewTask: (
 		column: NewTaskColumn,
 		e: MouseEvent | KeyboardEvent,
-		onFileSelected: (file: TFile) => void,
+		onTargetSelected: (target: NewTaskTarget) => void,
 		forceShowPicker?: boolean,
 	) => void;
+	/**
+	 * Creates Today's daily note first when the target is a daily note that
+	 * doesn't exist yet.
+	 */
 	createTask: (
-		file: TFile,
+		target: NewTaskTarget,
 		content: string,
 		column: NewTaskColumn,
 		additionalTags?: string[],
@@ -134,7 +160,7 @@ export type TaskActions = {
 		groupProperty?: GroupProperty | null,
 		additionalText?: string[],
 	) => Promise<void>;
-	getTargetFile: () => TFile | null;
+	getTargetDestination: () => TaskDestination | null;
 	/**
 	 * Pins a manual reorder: drops `draggedId` at `targetIndex` within a column's
 	 * current `displayOrderIds`, assigning block links to the new prefix as needed.
@@ -219,18 +245,54 @@ export function createTaskActions({
 			: { status: "missing", path };
 	}
 
-	function resolveFileIfValid(filePath: string | null): TFile | null {
-		if (!filePath) return null;
-		if (filePath === DAILY_NOTE_TARGET) {
+	function dailyNoteDestination(path: string, file: TFile | null): DailyNoteDestination {
+		return { kind: "dailyNote", path, file, source: getDailyNoteSource() };
+	}
+
+	/** A stored default / last-used value as a target; null when unusable. */
+	function resolveTarget(value: string | null): NewTaskTarget | null {
+		if (!value) return null;
+		if (value === DAILY_NOTE_TARGET) {
 			const dailyNote = getDailyNoteState();
-			return dailyNote?.status === "ready" ? dailyNote.file : null;
+			if (dailyNote?.status === "ready") return dailyNoteDestination(dailyNote.path, dailyNote.file);
+			if (dailyNote?.status === "missing") return dailyNoteDestination(dailyNote.path, null);
+			return null;
 		}
-		const resolvedPath = resolveDateTemplate(filePath, getCurrentDate?.());
+		const resolvedPath = resolveDateTemplate(value, getCurrentDate?.());
 		if (!resolvedPath) return null;
 		const abstractFile = vault.getAbstractFileByPath(resolvedPath);
 		if (!(abstractFile instanceof TFile)) return null;
 		if (!isInScope(resolvedPath)) return null;
 		return abstractFile;
+	}
+
+	function getTargetDestination(): TaskDestination | null {
+		const fromDefault = resolveTarget(getDefaultTaskFile());
+		if (fromDefault) return { target: fromDefault, isDefault: true };
+		const fromLastUsed = resolveTarget(getLastUsedTaskFile());
+		return fromLastUsed ? { target: fromLastUsed, isDefault: false } : null;
+	}
+
+	/** The file to write into, creating Today's daily note when needed. */
+	async function prepareTarget(
+		target: NewTaskTarget,
+		buildNewNoteContents: (initialContents: string) => string,
+	): Promise<{ file: TFile; written: boolean }> {
+		if (!isDailyNoteDestination(target)) return { file: target, written: false };
+		const dailyNote = getDailyNoteState();
+		if (!dailyNote) throw new Error("Today's daily note isn't configured.");
+		if (dailyNote.status === "outsideScope") {
+			throw new Error(`Today's daily note (${dailyNote.path}) is outside the board's scope.`);
+		}
+		if (dailyNote.status === "ready") return { file: dailyNote.file, written: false };
+		const { file, created } = await createDailyNote(
+			vault,
+			dailyNote.path,
+			getDailyNoteSource(),
+			getCurrentDate?.() ?? new Date(),
+			buildNewNoteContents,
+		);
+		return { file, written: created };
 	}
 
 	function defaultFilePickerEntry(
@@ -248,7 +310,7 @@ export function createTaskActions({
 	function dailyNotePickerEntry(
 		dailyNote: DailyNoteState | null,
 		isDefault: boolean,
-		onSelected: (file: TFile) => void,
+		onSelected: (target: DailyNoteDestination) => void,
 	): PinnedPickerEntry {
 		const label = `${isDefault ? "★" : "📅"} Today's daily note`;
 		switch (dailyNote?.status) {
@@ -256,17 +318,15 @@ export function createTaskActions({
 				return { title: `${label} (not configured)` };
 			case "outsideScope":
 				return { title: `${label} (outside scope)` };
-			case "missing":
-				return { title: `${label} — ${dailyNote.path} (not created yet)` };
+			case "missing": {
+				const target = dailyNoteDestination(dailyNote.path, null);
+				return { title: `${label} — ${dailyNote.path} (new)`, onSelect: () => onSelected(target) };
+			}
 			case "ready": {
-				const { file } = dailyNote;
-				return { title: `${label} — ${dailyNote.path}`, onSelect: () => onSelected(file) };
+				const target = dailyNoteDestination(dailyNote.path, dailyNote.file);
+				return { title: `${label} — ${dailyNote.path}`, onSelect: () => onSelected(target) };
 			}
 		}
-	}
-
-	function getTargetFile(): TFile | null {
-		return resolveFileIfValid(getDefaultTaskFile()) ?? resolveFileIfValid(getLastUsedTaskFile());
 	}
 
 	function collectTaskEntriesByFile(
@@ -900,21 +960,21 @@ export function createTaskActions({
 			editorView?.editor.setCursor(rowIndex);
 		},
 
-		getTargetFile,
+		getTargetDestination,
 
-		pickFileForNewTask(column, e, onFileSelected, forceShowPicker = false) {
+		pickFileForNewTask(column, e, onTargetSelected, forceShowPicker = false) {
 			if (!forceShowPicker) {
-				const targetFile = getTargetFile();
-				if (targetFile) {
-					onFileSelected(targetFile);
+				const destination = getTargetDestination();
+				if (destination) {
+					onTargetSelected(destination.target);
 					return;
 				}
 			}
 
-			// Wrap onFileSelected to persist last-used file when picking through the menu
+			// Wrap onTargetSelected to persist last-used file when picking through the menu
 			const onFileSelectedWithPersist = (file: TFile) => {
 				setLastUsedTaskFile(file.path);
-				onFileSelected(file);
+				onTargetSelected(file);
 			};
 
 			const files = vault
@@ -936,9 +996,9 @@ export function createTaskActions({
 			const defaultTaskFilePath = getDefaultTaskFile();
 			const defaultIsDailyNote = defaultTaskFilePath === DAILY_NOTE_TARGET;
 			const dailyNote = getDailyNoteState();
-			const onDailyNoteSelected = (file: TFile) => {
+			const onDailyNoteSelected = (target: DailyNoteDestination) => {
 				setLastUsedTaskFile(DAILY_NOTE_TARGET);
-				onFileSelected(file);
+				onTargetSelected(target);
 			};
 			const pinnedEntries: PinnedPickerEntry[] = [];
 			if (defaultTaskFilePath && !defaultIsDailyNote) {
@@ -956,7 +1016,7 @@ export function createTaskActions({
 			});
 		},
 
-		async createTask(file, content, column, additionalTags = [], dateProperties = {}, groupProperty = null, additionalText = []) {
+		async createTask(target, content, column, additionalTags = [], dateProperties = {}, groupProperty = null, additionalText = []) {
 			const taskLine = buildNewTaskLine({
 				content,
 				column,
@@ -968,9 +1028,15 @@ export function createTaskActions({
 				groupProperty,
 				additionalText,
 			});
+			const insert = (contents: string) =>
+				insertNewTask(contents, taskLine, getTaskInsertionSettings());
+
+			// A new daily note is written once, with the task already in it.
+			const { file, written } = await prepareTarget(target, insert);
+			if (written) return;
 
 			const contents = await vault.read(file);
-			const nextContents = insertNewTask(contents, taskLine, getTaskInsertionSettings());
+			const nextContents = insert(contents);
 			await vault.modify(file, prepareFileContentsForWrite
 				? prepareFileContentsForWrite(file, nextContents)
 				: nextContents);

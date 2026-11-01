@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { App, TFile } from "obsidian";
+	import type { App } from "obsidian";
+	import type { NewTaskTarget } from "../tasks/actions";
 	import type { Readable } from "svelte/store";
 	import type { BoardMatrix, PrimaryBucketId } from "./board_matrix";
 	import type {
@@ -34,7 +35,7 @@
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let consolidateTags: boolean;
 	export let excludedTags: string[] = [];
-	export let targetTaskFile: TFile | null = null;
+	export let targetTaskFile: NewTaskTarget | null = null;
 	export let targetFileIsDefault = false;
 	export let onToggleCollapse: (columnId: PrimaryBucketId) => void;
 	export let onToggleGroupCollapse: (groupId: string) => void;

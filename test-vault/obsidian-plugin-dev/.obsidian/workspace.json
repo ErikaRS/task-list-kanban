@@ -32,12 +32,12 @@
                 "state": {
                   "type": "markdown",
                   "state": {
-                    "file": "periodic/2025-05-01.md",
+                    "file": "2026-11-01.md",
                     "mode": "source",
                     "source": false
                   },
                   "icon": "lucide-file",
-                  "title": "2025-05-01"
+                  "title": "2026-11-01"
                 }
               }
             ],
@@ -253,10 +253,14 @@
       "bases:Create new base": false
     }
   },
-  "active": "edb014cec5cbad69",
+  "active": "0b31da340fd79598",
   "lastOpenFiles": [
-    "periodic/2025-05-01.md",
     "periodic/Kanban-Legacy-Selected-Folders.md",
+    "2026-11-01.md",
+    "periodic/2025-05-01.md",
+    "templates/DayTemplate 1.md",
+    "templates/DayTemplate.md",
+    "periodic/2026-11-01.md",
     "periodic/Kanban-None.md",
     "text-matching/Tasks.md",
     "text-matching/Kanban-Text.md",
@@ -281,10 +285,6 @@
     "Kanban-1783820449763.md",
     "Kanban-1783820428336.md",
     "periodic/Kanban-1783820379565.md",
-    "tasks/Kanban-1783820357273.md",
-    "Kanban-Whee.md",
-    "Kanban-1783614999866.md",
-    "Kanban-1783614950220.md",
     "Untitled.base",
     "periodic/@",
     "tasks"

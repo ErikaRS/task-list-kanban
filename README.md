@@ -63,8 +63,8 @@ With the default name-matched columns, tasks without a column tag appear in **Un
 
 Click **Add new** at the bottom of a column to create a task from the board. If a default or recently used task file is available, the input opens immediately; otherwise, choose a file first.
 
-In board settings, **New tasks** groups the **Default task file**, optional
-**Heading**, and **Insert at top** controls. Turn **Insert at top** on to insert
+In board settings, **New tasks** groups the **Default task file**, **Daily
+note path**, optional **Heading**, and **Insert at top** controls. Turn **Insert at top** on to insert
 at the top of that heading's section, or leave it off to insert at the bottom.
 Heading defaults to blank; “E.g., tasks” is only an example placeholder.
 Leave Heading blank to use the whole file. The same heading and position apply to every file you create tasks in, including file
@@ -78,6 +78,25 @@ the whole file means after YAML frontmatter. Existing boards continue to append
 to the file until you change these settings: Heading is blank and Insert at top
 is off by default. These preferences affect new tasks;
 duplicates, subtasks, and moved tasks keep their existing placement behavior.
+
+#### Today's Daily Note
+
+The file picker offers **Today's daily note** above the folder list, and
+**Default task file** can be set to **Today's daily note** instead of a
+specific file. Either way, each new task goes to the note for the day you add
+it, so a board left open overnight moves on to the next day's note by itself.
+If today's note doesn't exist yet, adding a task creates it (with any missing
+folders) and puts the task in it.
+
+By default, the note's location comes from Obsidian's core **Daily notes**
+plugin. New notes use the core plugin's template when one is set. To use a
+different location, set
+**Daily note path** in **New tasks** to a path with the date in double braces,
+such as `daily/{{YYYY-MM-DD}}.md` or `Journal/{{YYYY}}/{{YYYY-MM-DD}}.md`.
+Dates use [Moment.js format tokens](https://momentjs.com/docs/#/displaying/format/).
+The core template still applies at that location. Like the heading and
+position, Daily note path can be set once in the plugin-wide board defaults.
+A daily note outside the board's scope is never offered or created.
 
 ## Board Configuration
 
@@ -94,7 +113,7 @@ tidy.
 Plugin settings include:
 - **Board rail**: choose whether the board rail docks left or top.
 - **Board defaults**: set default columns, status markers, scope, tag display,
-  property behavior, new task placement, and nested subtask behavior for boards that do not
+  property behavior, new task placement and daily note path, and nested subtask behavior for boards that do not
   override those fields.
 - **Default view**: set plugin-wide defaults for flow direction and card width.
 - **Global saved views**: create reusable views available from every board.

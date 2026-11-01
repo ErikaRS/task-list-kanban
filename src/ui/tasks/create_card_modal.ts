@@ -21,7 +21,14 @@ import {
 	shouldIncludeFilePath,
 } from "./scope";
 import { resolveDateTemplate, type PathScopeV2 } from "./path_scope";
-import { updateRow } from "./source_line_editor";
+import {
+	createDailyNote,
+	DAILY_NOTE_TARGET,
+	getDailyNoteSource,
+	resolveDailyNotePath,
+	type DailyNoteSource,
+} from "./daily_note";
+import { insertNewTask } from "./task_insertion";
 import { buildNewTaskLine, type NewTaskColumn } from "./task_line_builder";
 import { PropertySchemaOption } from "../../parsing/properties";
 
@@ -33,6 +40,8 @@ interface BoardOption {
 	boardContents: string;
 	fileOptions: TFile[];
 	pathScope?: PathScopeV2;
+	dailyNoteSource: DailyNoteSource;
+	isInScope: (path: string, now?: Date) => boolean;
 }
 
 interface ColumnOption {
@@ -77,28 +86,26 @@ async function loadBoardOptions(
 			settings = { ...settings, scope: ScopeOption.SelectedPaths };
 		}
 		const boardFolderPath = file.parent?.path ?? null;
-		const filenameFilter = resolveScopeFilter(
-			settings.scope,
-			settings.scopeFolders,
-			boardFolderPath,
-			pathScope,
-		);
 		const excludeFilter = (settings.excludePaths ?? []).length > 0
 			? settings.excludePaths ?? []
 			: null;
+		// Dated Selected paths must resolve for the same day as the destination.
+		const isInScope = (path: string, now = new Date()) =>
+			shouldIncludeFilePath(
+				path,
+				resolveScopeFilter(settings.scope, settings.scopeFolders, boardFolderPath, pathScope, now),
+				excludeFilter,
+				getProtectedBoardFolderPath(settings.scope, boardFolderPath),
+			);
 		const fileOptions = app.vault
 			.getMarkdownFiles()
-			.filter((candidate) =>
-				shouldIncludeFilePath(
-					candidate.path,
-					filenameFilter,
-					excludeFilter,
-					getProtectedBoardFolderPath(settings.scope, boardFolderPath),
-				),
-			)
+			.filter((candidate) => isInScope(candidate.path))
 			.sort((a, b) => a.path.localeCompare(b.path));
+		const dailyNoteSource = getDailyNoteSource(app, settings.dailyNotePath ?? "");
 
-		options.push({ entry, file, settings, overrides, boardContents, fileOptions, pathScope });
+		options.push({
+			entry, file, settings, overrides, boardContents, fileOptions, pathScope, dailyNoteSource, isInScope,
+		});
 	}
 	return options;
 }
@@ -123,7 +130,7 @@ class CreateCardModal extends Modal {
 		this.selectedBoardIndex = preferredIndex >= 0 ? preferredIndex : 0;
 		const initialBoard = this.boardOptions[this.selectedBoardIndex]!;
 		this.selectedColumn = defaultColumnFor(initialBoard.settings);
-		this.selectedFilePath = defaultFileFor(initialBoard)?.path ?? "";
+		this.selectedFilePath = defaultFileFor(initialBoard);
 	}
 
 	onOpen() {
@@ -172,7 +179,7 @@ class CreateCardModal extends Modal {
 				this.selectedBoardIndex = Number(value);
 				const board = this.currentBoard();
 				this.selectedColumn = defaultColumnFor(board.settings);
-				this.selectedFilePath = defaultFileFor(board)?.path ?? "";
+				this.selectedFilePath = defaultFileFor(board);
 				this.render();
 			},
 		});
@@ -191,10 +198,7 @@ class CreateCardModal extends Modal {
 
 		this.createSelectField({
 			label: "File",
-			options: this.currentBoard().fileOptions.map((file) => ({
-				value: file.path,
-				label: file.path,
-			})),
+			options: fileSelectOptionsFor(this.app, this.currentBoard()),
 			value: this.selectedFilePath,
 			onChange: (value) => {
 				this.selectedFilePath = value;
@@ -251,7 +255,7 @@ class CreateCardModal extends Modal {
 		this.submitButtonEl.disabled =
 			(this.textAreaEl?.value.trim() ?? "") === "" ||
 			!this.selectedFilePath ||
-			this.currentBoard().fileOptions.length === 0;
+			fileSelectOptionsFor(this.app, this.currentBoard()).length === 0;
 	}
 
 	private async submit() {
@@ -260,10 +264,14 @@ class CreateCardModal extends Modal {
 			return;
 		}
 		const board = this.currentBoard();
+		const now = new Date();
+		const dailyNotePath = this.selectedFilePath === DAILY_NOTE_TARGET
+			? todaysDailyNotePath(board, now)
+			: null;
 		const targetFile = board.fileOptions.find(
 			(file) => file.path === this.selectedFilePath,
 		);
-		if (!targetFile) {
+		if (!targetFile && !dailyNotePath) {
 			new Notice("Choose a file for the new card.");
 			return;
 		}
@@ -279,24 +287,33 @@ class CreateCardModal extends Modal {
 		});
 		const nextOverrides = {
 			...board.overrides,
-			lastUsedTaskFile: targetFile.path,
+			lastUsedTaskFile: dailyNotePath ? DAILY_NOTE_TARGET : targetFile!.path,
 		};
 
 		if (this.submitButtonEl) {
 			this.submitButtonEl.disabled = true;
 		}
 		try {
-			await updateRow(
-				this.app.vault,
-				targetFile,
-				undefined,
-				taskLine,
-				(file, nextContents) =>
+			const { file, created } = dailyNotePath
+				? await createDailyNote(
+					this.app.vault,
+					dailyNotePath,
+					board.dailyNoteSource,
+					now,
+					(initialContents) => insertNewTask(initialContents, taskLine, board.settings),
+				)
+				: { file: targetFile!, created: false };
+			if (!created) {
+				const contents = await this.app.vault.read(file);
+				const nextContents = insertNewTask(contents, taskLine, board.settings);
+				await this.app.vault.modify(
+					file,
 					file.path === board.file.path
 						? writeKanbanSettingsToViewData(nextContents, nextOverrides, board.pathScope)
 						: nextContents,
-			);
-			if (targetFile.path !== board.file.path) {
+				);
+			}
+			if (file.path !== board.file.path) {
 				await this.app.vault.modify(
 					board.file,
 					writeKanbanSettingsToViewData(board.boardContents, nextOverrides, board.pathScope),
@@ -326,17 +343,41 @@ function defaultColumnFor(settings: SettingValues): NewTaskColumn {
 	return settings.columns[0]?.id ?? "uncategorised";
 }
 
-function defaultFileFor(board: BoardOption): TFile | null {
+/** Today's in-scope daily note path for a board, or null. */
+function todaysDailyNotePath(board: BoardOption, now = new Date()): string | null {
+	const path = resolveDailyNotePath(board.dailyNoteSource, now);
+	return path && board.isInScope(path, now) ? path : null;
+}
+
+function fileSelectOptionsFor(app: App, board: BoardOption): Array<{ value: string; label: string }> {
+	const options = board.fileOptions.map((file) => ({ value: file.path, label: file.path }));
+	const dailyNotePath = todaysDailyNotePath(board);
+	if (dailyNotePath) {
+		const exists = app.vault.getAbstractFileByPath(dailyNotePath) instanceof TFile;
+		options.unshift({
+			value: DAILY_NOTE_TARGET,
+			label: `Today's daily note — ${dailyNotePath}${exists ? "" : " (new)"}`,
+		});
+	}
+	return options;
+}
+
+/** The File select's initial value: default, then last used, then the first file. */
+function defaultFileFor(board: BoardOption): string {
 	const preferredPaths = [
 		board.settings.defaultTaskFile,
 		board.settings.lastUsedTaskFile,
 	].filter((path): path is string => !!path);
 	for (const path of preferredPaths) {
+		if (path === DAILY_NOTE_TARGET) {
+			if (todaysDailyNotePath(board)) return DAILY_NOTE_TARGET;
+			continue;
+		}
 		const resolvedPath = resolveDateTemplate(path);
 		const file = board.fileOptions.find((candidate) => candidate.path === resolvedPath);
 		if (file) {
-			return file;
+			return file.path;
 		}
 	}
-	return board.fileOptions[0] ?? null;
+	return board.fileOptions[0]?.path ?? "";
 }

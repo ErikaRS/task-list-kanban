@@ -4,7 +4,7 @@
 	import type { Readable } from "svelte/store";
 	import { type ColumnTagTable, isColumnTag } from "../columns/columns";
 	import type { PrimaryBucketId } from "./board_matrix";
-	import type { TaskActions } from "../tasks/actions";
+	import { isDailyNoteDestination, type NewTaskTarget, type TaskActions } from "../tasks/actions";
 	import type { GroupProperty } from "../tasks/task_line_builder";
 	import DateInputFields, { type DateFieldValues } from "../components/DateInputFields.svelte";
 	import IconButton from "../components/icon_button.svelte";
@@ -27,8 +27,8 @@
 	export let groupProperty: GroupProperty | null = null;
 	/** The file a file-group lane creates tasks in; skips the picker menu. */
 	export let fileGroupTargetFile: TFile | null = null;
-	/** The file shown in the "→ file" indicator. */
-	export let targetTaskFile: TFile | null = null;
+	/** The target shown in the "→ file" indicator. */
+	export let targetTaskFile: NewTaskTarget | null = null;
 	export let targetFileIsDefault: boolean = false;
 	export let propertySchemaOption: PropertySchemaOption = PropertySchemaOption.None;
 	export let isVerticalFlow: boolean = false;
@@ -37,10 +37,10 @@
 	export let groupTitle = "";
 	const mobileCreation = getContext<MobileCreationStore>(MOBILE_CREATION);
 	function openMobileCreation() {
-		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, additionalText, groupProperty, propertySchemaOption, taskActions }));
+		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetDestination()?.target ?? null, fixedFile: !!fileGroupTargetFile, additionalTags, additionalText, groupProperty, propertySchemaOption, taskActions }));
 	}
 
-	let pendingNewTask: TFile | null = null;
+	let pendingNewTask: NewTaskTarget | null = null;
 	let pendingCancelled = false;
 	let savingNewTask = false;
 	let newTaskError = "";
@@ -50,6 +50,7 @@
 	let newTaskDateValues: DateFieldValues = { ...emptyDateValues };
 	$: canEditNewTaskDates = getPropertyWriteAdapter(propertySchemaOption) !== null;
 	$: isColTag = isColumnTag(column, columnTagTableStore);
+	$: targetFileName = targetTaskFile ? targetTaskFile.path.split("/").pop() : "";
 
 	async function handleNewTaskSave(event?: FocusEvent) {
 		if (savingNewTask) return;
@@ -124,9 +125,9 @@
 			return;
 		}
 
-		taskActions.pickFileForNewTask(targetColumn, e, (file) => {
+		taskActions.pickFileForNewTask(targetColumn, e, (target) => {
 			newTaskDateValues = { ...emptyDateValues };
-			pendingNewTask = file;
+			pendingNewTask = target;
 		});
 	}
 
@@ -140,9 +141,9 @@
 		taskActions.pickFileForNewTask(
 			targetColumn,
 			e,
-			(file) => {
+			(target) => {
 				newTaskDateValues = { ...emptyDateValues };
-				pendingNewTask = file;
+				pendingNewTask = target;
 			},
 			true,
 		);
@@ -195,7 +196,10 @@
 	{#if targetTaskFile}
 		<div class="file-indicator" class:vertical-flow={isVerticalFlow}>
 			<span class="file-indicator-arrow">→</span>
-			<span class="file-indicator-name" title={targetTaskFile.path}>{targetTaskFile.name}</span>
+			<span class="file-indicator-name" title={targetTaskFile.path}>{targetFileName}</span>
+			{#if isDailyNoteDestination(targetTaskFile)}
+				<span class="file-indicator-label">(daily note)</span>
+			{/if}
 			{#if targetFileIsDefault}
 				<span class="file-indicator-label">(default)</span>
 			{/if}

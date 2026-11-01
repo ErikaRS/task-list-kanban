@@ -1102,10 +1102,12 @@
 		: `${columnWidth}px`;
 
 	// Re-evaluate the target when settings change and at midnight (dated targets roll over)
-	$: void $settingsStore, void $todayStore, targetTaskFile = taskActions.getTargetFile();
-	let targetTaskFile: import("obsidian").TFile | null = null;
-	// Target is from an explicit default when the default file is valid and matches the resolved target
-	$: targetFileIsDefault = !!targetTaskFile && !!$settingsStore.defaultTaskFile && targetTaskFile.path === $settingsStore.defaultTaskFile;
+	$: void $settingsStore, void $todayStore, targetDestination = taskActions.getTargetDestination();
+	let targetDestination: import("./tasks/actions").TaskDestination | null = null;
+	$: targetTaskFile = targetDestination?.target ?? null;
+	// Resolution reports whether the target came from the default, so templated
+	// and daily-note defaults are labeled too
+	$: targetFileIsDefault = targetDestination?.isDefault ?? false;
 
 	$: showUncategorizedColumn =
 		uncategorizedVisibility === VisibilityOption.AlwaysShow ||

@@ -30,8 +30,8 @@ store daily notes at different paths and in different formats.
 4. When Daily note path is blank, the folder and date format come from
    Obsidian's core **Daily notes** plugin.
 5. When today's note doesn't exist, adding a task to it creates the note and
-   then inserts the task. Notes created from core settings use the core Daily
-   notes template.
+   then inserts the task. New notes use the core Daily notes template when one
+   is set, whether the location comes from core or from Daily note path.
 6. A Default task file containing a `{{...}}` date pattern keeps resolving as
    it does now. This behavior is not documented; Today's daily note is the
    supported way to target a dated note.
@@ -47,8 +47,9 @@ date into a target path:
 
 ```ts
 type DailyNoteSource =
-	| { kind: "override"; pattern: string }          // board/global setting
-	| { kind: "core"; pattern: string; templatePath: string | null }
+	// "override": pattern from the board/global setting; "core": from core options.
+	// dateFormat and templatePath come from core options in both cases.
+	| { kind: "override" | "core"; pattern: string; dateFormat: string; templatePath: string | null }
 	| { kind: "unconfigured" };
 
 function getDailyNoteSource(app: App, dailyNotePath: string): DailyNoteSource;
@@ -66,6 +67,9 @@ function resolveDailyNotePath(source: DailyNoteSource, now: Date): string | null
   single defensive accessor returns `unconfigured` if the plugin is disabled or
   missing, or if its options don't have the expected shape.
 - **Unconfigured.** The core plugin is off and there is no override.
+
+Daily note path only moves the note. The core template (and the core date
+format used for a bare `{{date}}` in it) applies to either source.
 
 Core formats can contain `/` for nested folders (for example
 `YYYY/MM/YYYY-MM-DD`). Wrapping the whole format in one `{{...}}` handles
@@ -131,26 +135,33 @@ folder tree…
   appears as its own row below the ★ default.
 - Choosing it sets `lastUsedTaskFile` to `$DAILY_NOTE`. Choosing the same dated
   file from the folder tree saves that file's path.
-- The picker returns a destination rather than a `TFile`, so it can offer a
-  daily note that doesn't exist yet.
+- The picker hands back a new-task target (below) rather than a `TFile`, so it
+  can offer a daily note that doesn't exist yet.
 
-### Destinations and note creation
+### New-task targets and note creation
 
-Target resolution returns a destination that can describe a note that doesn't
-exist yet:
+A new task's target is either an existing file or Today's daily note, which
+may not exist yet. Specific files stay plain `TFile`s, so file swimlanes,
+mobile creation, and the board components keep passing files through
+unchanged; only the daily note needs its own shape. Both carry a `path`, which
+is all the indicator and the mobile file button display.
 
 ```ts
-type TaskDestination =
-	| { kind: "file"; file: TFile }
-	| { kind: "dailyNote"; path: string; file: TFile | null; source: DailyNoteSource };
+type DailyNoteDestination =
+	{ kind: "dailyNote"; path: string; file: TFile | null; source: DailyNoteSource };
+type NewTaskTarget = TFile | DailyNoteDestination;
+type TaskDestination = { target: NewTaskTarget; isDefault: boolean };
 ```
 
-- `getTargetDestination()` replaces `getTargetFile()`. It resolves
-  `$DAILY_NOTE` through the daily note source and resolves other values with
-  `resolveFileIfValid`. Destinations outside scope resolve to `null`.
-- `createTask` takes a destination. For a daily note with `file: null`, it
-  creates the note and any missing parent folders, then inserts the task using
-  the board's heading and position settings.
+- `getTargetDestination()` replaces `getTargetFile()`. It resolves the Default
+  task file, then the last-used file: `$DAILY_NOTE` through the daily note
+  source, other values as files (date templates included). Targets outside
+  scope resolve to `null`. A missing daily note still resolves, with
+  `file: null`, so one-click add can create it.
+- `createTask` takes a `NewTaskTarget`. A daily note target is re-resolved at
+  write time. When the note doesn't exist, it creates any missing parent
+  folders and writes the note once, with the task already inserted using the
+  board's heading and position settings.
 - The new-task indicator shows `→ 2026-11-01.md (daily note)`, plus `(default)`
   when the destination came from the default setting. "Is default" comes from
   the resolution step rather than comparing strings, so templated defaults and
@@ -158,14 +169,14 @@ type TaskDestination =
 
 A newly created note's initial content:
 
-- **Core source with a template file:** the template, with core's tokens
+- **Core Daily notes template set:** the template, with core's tokens
   (`{{date}}`, `{{time}}`, `{{title}}`, and their `:FORMAT` variants)
-  substituted as the core plugin does.
-- **Core source without a template, or override source:** an empty file.
+  substituted as the core plugin does. This applies to both sources.
+- **No core template (or the core plugin is off):** an empty file.
 
 The plugin does not run Templater or Periodic Notes logic itself. If Templater
 has "Trigger on new file creation" enabled, it processes the new file after
-creation.
+creation; see Risks.
 
 ## Detailed Behavior
 
@@ -175,10 +186,14 @@ creation.
 - If the note already exists when creation is attempted (for example, two
   boards adding at the same moment), `vault.create` fails for the second
   attempt. In that case the file is re-read and the task is inserted.
-- Any other creation failure keeps the draft and shows a Notice with the path
-  and the error.
+- Any other creation failure keeps the draft and shows the path and the error
+  in the new-task input's error line (Add card shows a Notice).
 - One-click add, Add card, and mobile creation all use destination resolution.
   File swimlanes always use their lane's file.
+- Add card applies the same heading and position settings to existing files
+  and new daily notes. A new daily note includes the task in its initial
+  creation write. At submission, its daily-note path, dated Selected paths
+  scope, and template tokens use the same current timestamp.
 - Saved views do not capture `dailyNotePath` or `defaultTaskFile`.
 
 ### Risks
@@ -188,9 +203,10 @@ creation.
   of upstream changes. The community package `obsidian-daily-notes-interface`
   wraps the same internals and also reads Periodic Notes. It is an alternative
   if a dependency is acceptable.
-- **Templater timing.** Inserting immediately after creation can interleave
-  with Templater's on-create processing. If that happens, insertion waits for
-  the first `modify` event or a short delay.
+- **Templater timing.** A separate insert right after creation could
+  interleave with Templater's on-create processing, so a new note is written
+  once with the task already in it. If Templater still rewrites the new file,
+  insertion should wait for the first `modify` event or a short delay.
 
 ## Implementation Plan
 
@@ -215,21 +231,21 @@ pick **Today's daily note** in the file picker when today's note exists.
 **Deliverable:** Picking today's existing daily note from the picker works and
 follows the date on later days.
 
-**Implemented by:**
+**Implemented by:** 3b5556f
 
-### Phase 2: Today's daily note as the default task file
+### Phase 2: Today's daily note as the default task file ✅ COMPLETE
 
 **Goal:** The Default task file can be set to Today's daily note, and the
 toolbar indicator labels it correctly.
 
-1. Add the Specific file / Today's daily note dropdown; store and parse
+1. ✅ Add the Specific file / Today's daily note dropdown; store and parse
    `$DAILY_NOTE`.
-2. Introduce `TaskDestination` and `getTargetDestination()`. Move the toolbar,
+2. ✅ Introduce `NewTaskTarget`, `TaskDestination`, and `getTargetDestination()`. Move the toolbar,
    one-click add, Add card, and mobile creation onto it.
-3. Derive the `(default)` label from resolution for templated and
+3. ✅ Derive the `(default)` label from resolution for templated and
    `$DAILY_NOTE` defaults.
-3. Add Default task file validation for `$DAILY_NOTE`.
-4. Unit tests: default resolution, out-of-scope handling, templated default
+4. ✅ Add Default task file validation for `$DAILY_NOTE`.
+5. ✅ Unit tests: default resolution, out-of-scope handling, templated default
    compatibility, `(default)` labeling, midnight rollover via the date tick.
 
 **Deliverable:** A board whose default is Today's daily note sends one-click
@@ -242,17 +258,18 @@ adds to today's note with no per-day configuration.
 **Goal:** Adding a task when today's note doesn't exist creates it (with the
 core template when applicable) and inserts the task.
 
-1. Enable the "(new)" picker entry and the not-yet-created default state.
-2. Create the note and missing parent folders. Apply the core template with
+1. ✅ Enable the "(new)" picker entry and the not-yet-created default state.
+2. ✅ Create the note and missing parent folders. Apply the core template with
    token substitution, recover from "already exists", and keep the draft on
    failure.
 3. Verify Templater on-create behavior in the test vault; add a wait if
    needed.
-4. Unit tests: empty-file creation, template token substitution, heading and
+4. ✅ Unit tests: empty-file creation, template token substitution (core and
+   overridden locations), heading and
    position in the new file, concurrent-create recovery, failure draft
    retention.
-5. Update the README Add Tasks and board configuration docs.
-6. Run `npm run build` and `npm test`.
+5. ✅ Update the README Add Tasks and board configuration docs.
+6. ✅ Run `npm run build` and `npm test`.
 
 **Deliverable:** Opening a board and clicking add creates today's daily note
 if needed and places the task in it.
@@ -274,3 +291,18 @@ if needed and places the task in it.
 - [ ] Existing board with a `daily/{{YYYY-MM-DD}}.md` Default task file keeps
       working and shows `(default)`.
 - [ ] Mobile creation and Add card use the same destination.
+
+### Review fixes verified (2026-11-01)
+
+Add card regression tests cover insertion settings for new and existing daily
+notes, task inclusion in the initial creation write without a second task
+write, concurrent-create recovery, board-file settings preservation, failed
+creation draft retention, and scope resolution after midnight. Dated Selected
+paths follow the new day; a literal path for the previous day remains outside
+scope.
+
+- `npm run build`: passed, including TypeScript and Svelte checks.
+- `npm test`: passed, 1,105 tests in 73 files.
+- ESLint for `src/ui/tasks/create_card_modal.ts`: passed.
+
+The manual Templater acceptance check remains pending.
