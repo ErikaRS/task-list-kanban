@@ -184,7 +184,7 @@ const savedViewSchema = z.object({
 	name: z.string(),
 	query: z.string().optional(),
 	sort: z.object({
-		mode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder),
+		mode: z.enum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder),
 		property: z.string().nullable().optional(),
 		direction: z.enum(["asc", "desc"]).catch("asc"),
 	}).optional(),
@@ -192,7 +192,7 @@ const savedViewSchema = z.object({
 		source: groupSourceSchema,
 		direction: z.enum(["asc", "desc"]).catch("asc"),
 	}).optional(),
-	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	flowDirection: z.enum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
 });
@@ -241,15 +241,15 @@ const manualOrderSchema = z.preprocess((value) => {
 // (columns, colors, etc.) to be silently replaced with defaults.
 const settingsObject = z.object({
 	columns: z.array(z.union([z.string(), columnDefinitionSchema])),
-	scope: z.nativeEnum(ScopeOption).catch(ScopeOption.Folder),
+	scope: z.enum(ScopeOption).catch(ScopeOption.Folder),
 	showFilepath: z.boolean().optional(),
 	consolidateTags: z.boolean().optional(),
 	uncategorizedVisibility: z
-		.nativeEnum(VisibilityOption)
+		.enum(VisibilityOption)
 		.catch(VisibilityOption.Auto)
 		.optional(),
 	doneVisibility: z
-		.nativeEnum(VisibilityOption)
+		.enum(VisibilityOption)
 		.catch(VisibilityOption.AlwaysShow)
 		.optional(),
 	doneStatusMarkers: z.string().optional(),
@@ -276,7 +276,7 @@ const settingsObject = z.object({
 	// here keeps them out of every future write.
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
-	flowDirection: z.nativeEnum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	flowDirection: z.enum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
 	collapsedColumns: z.array(z.string()).optional(),
 	collapsedGroups: z.array(z.string()).optional(),
 	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").optional(),
@@ -290,10 +290,10 @@ const settingsObject = z.object({
 	uncategorizedColumnName: z.string().optional(),
 	doneColumnName: z.string().optional(),
 	groupSource: groupSourceSchema.optional(),
-	propertySchema: z.nativeEnum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
-	propertyDisplay: z.nativeEnum(PropertyDisplayMode).catch(PropertyDisplayMode.None).optional(),
+	propertySchema: z.enum(PropertySchemaOption).catch(PropertySchemaOption.None).optional(),
+	propertyDisplay: z.enum(PropertyDisplayMode).catch(PropertyDisplayMode.None).optional(),
 	treatNestedTasksAsSubtasks: z.boolean().optional(),
-	columnOrderMode: z.nativeEnum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
+	columnOrderMode: z.enum(ColumnOrderMode).catch(ColumnOrderMode.FileOrder).optional(),
 	sortProperty: z.string().nullable().optional(),
 	sortDirection: z.enum(["asc", "desc"]).catch("asc").optional(),
 	groupDirection: z.enum(["asc", "desc"]).catch("asc").optional(),

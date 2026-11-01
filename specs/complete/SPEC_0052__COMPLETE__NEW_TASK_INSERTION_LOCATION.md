@@ -38,7 +38,7 @@ file control into it and add the two placement controls:
 ```text
 New tasks
   Default task file   [notes/tasks.md             ]
-  Heading            [e.g., Tasks                ]
+  Heading            [E.g., tasks                ]
     Optional heading text, without # marks. Leave blank to use the whole file.
   Insert at top      [off]
     When off, insert at the bottom. Applies to the heading's section,
@@ -48,7 +48,7 @@ New tasks
 
 Use a native toggle labeled **Insert at top**, on for `top` and off for
 `bottom` (the default). Keep the stored position values unchanged. The heading
-placeholder is an example, **e.g., Tasks**; the actual default is blank.
+placeholder is an example, **E.g., tasks**; the actual default is blank.
 
 These are board settings, consistent with the issue's request. Support normal
 plugin-wide board defaults and board overrides for the two new fields; the

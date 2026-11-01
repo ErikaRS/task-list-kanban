@@ -66,7 +66,7 @@ Click **Add new** at the bottom of a column to create a task from the board. If 
 In board settings, **New tasks** groups the **Default task file**, optional
 **Heading**, and **Insert at top** controls. Turn **Insert at top** on to insert
 at the top of that heading's section, or leave it off to insert at the bottom.
-Heading defaults to blank; “e.g., Tasks” is only an example placeholder.
+Heading defaults to blank; “E.g., tasks” is only an example placeholder.
 Leave Heading blank to use the whole file. The same heading and position apply to every file you create tasks in, including file
 swimlanes, mobile creation, and **Add card**. Plugin-wide board defaults can
 supply the heading and position, with normal board overrides.

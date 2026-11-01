@@ -45,8 +45,8 @@ import {
 	type PathScopeV2,
 } from "../tasks/path_scope";
 
-const VisibilityOptionSchema = z.nativeEnum(VisibilityOption);
-const ScopeOptionSchema = z.nativeEnum(ScopeOption);
+const VisibilityOptionSchema = z.enum(VisibilityOption);
+const ScopeOptionSchema = z.enum(ScopeOption);
 
 function normalizePathInput(raw: string): string {
 	return raw.trim().replace(/^\//, "").replace(/\/$/, "");
@@ -1684,7 +1684,7 @@ export class SettingsModal extends Modal {
 			.setDesc("Optional heading text, without # marks. Leave blank to use the whole file.")
 			.addText((text) => {
 				text.setValue(this.settings.newTaskHeading ?? "");
-				text.setPlaceholder("e.g., Tasks");
+				text.setPlaceholder("E.g., tasks");
 				text.onChange((value) => {
 					this.settings.newTaskHeading = getNewTaskHeadingError(value) ? value : value.trim();
 					text.inputEl.toggleAttribute("aria-invalid", !!getNewTaskHeadingError(value));
@@ -1697,7 +1697,7 @@ export class SettingsModal extends Modal {
 		this.createOverrideChip(headingSetting.nameEl, ["newTaskHeading"]);
 		new Setting(container)
 			.setName("Insert at top")
-			.setDesc("When off, insert at the bottom. Applies to the heading's section, or the whole file if Heading is blank. If the heading is missing, create it at the selected end of the file.")
+			.setDesc("When off, insert at the bottom. Applies to the heading's section, or the whole file if heading is blank. If the heading is missing, create it at the selected end of the file.")
 			.addToggle((toggle) => {
 				toggle.setValue(this.settings.newTaskPosition === "top")
 					.onChange((value) => {
