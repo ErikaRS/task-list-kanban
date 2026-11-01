@@ -13,6 +13,7 @@ import type { Metadata } from "./tasks";
 import type { ColumnDefinition, ColumnTag, DefaultColumns } from "../columns/columns";
 import { shouldIncludeFilePath } from "./scope";
 import { resolveDateTemplate } from "./path_scope";
+import { DAILY_NOTE_TARGET, resolveDailyNotePath, type DailyNoteSource } from "./daily_note";
 import { createDuplicateLine } from "./duplicate";
 import { getTaskTagGroupValue } from "./task_grouping";
 import {
@@ -22,7 +23,7 @@ import {
 	type EditableDatePropertyKey,
 } from "../../parsing/properties";
 import { createSwimlanePropertyTransform } from "./swimlane_property";
-import { showFilePickerMenu, type DefaultFileEntry } from "../components/file_picker_menu";
+import { showFilePickerMenu, type PinnedPickerEntry } from "../components/file_picker_menu";
 import {
 	buildOrderEntries,
 	computeDropPlan,
@@ -46,6 +47,11 @@ import {
 	replaceStatusMarker,
 	type ColumnChangeOptions,
 } from "./column_change";
+
+type DailyNoteState =
+	| { status: "ready"; path: string; file: TFile }
+	| { status: "missing"; path: string }
+	| { status: "outsideScope"; path: string };
 
 export type TaskActions = {
 	changeColumn: (id: string, column: ColumnTag | DefaultColumns) => Promise<void>;
@@ -163,6 +169,7 @@ export function createTaskActions({
 	getTaskInsertionSettings = () => ({}),
 	getLastUsedTaskFile,
 	setLastUsedTaskFile,
+	getDailyNoteSource = () => ({ kind: "unconfigured" }),
 	getPropertySchemaOption,
 	getStatusMarkerOrder,
 	getKeepColumnTagOnCompletion = () => false,
@@ -185,6 +192,7 @@ export function createTaskActions({
 	getTaskInsertionSettings?: () => TaskInsertionSettings;
 	getLastUsedTaskFile: () => string | null;
 	setLastUsedTaskFile: (path: string) => void;
+	getDailyNoteSource?: () => DailyNoteSource;
 	getPropertySchemaOption: () => PropertySchemaOption;
 	getStatusMarkerOrder: () => string;
 	getKeepColumnTagOnCompletion?: () => boolean;
@@ -194,14 +202,67 @@ export function createTaskActions({
 	prepareFileContentsForWrite?: PrepareFileContentsForWrite;
 	onArchiveWrite?: (path: string) => void;
 }): TaskActions {
+	function isInScope(path: string): boolean {
+		return shouldIncludeFilePath(path, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath());
+	}
+
+	/** Today's daily note, resolved now; null when no source is configured. */
+	function getDailyNoteState(): DailyNoteState | null {
+		const path = resolveDailyNotePath(getDailyNoteSource(), getCurrentDate?.());
+		if (!path) return null;
+		// Scope is checked first: an out-of-scope note is never offered,
+		// whether or not it exists.
+		if (!isInScope(path)) return { status: "outsideScope", path };
+		const abstractFile = vault.getAbstractFileByPath(path);
+		return abstractFile instanceof TFile
+			? { status: "ready", path, file: abstractFile }
+			: { status: "missing", path };
+	}
+
 	function resolveFileIfValid(filePath: string | null): TFile | null {
 		if (!filePath) return null;
+		if (filePath === DAILY_NOTE_TARGET) {
+			const dailyNote = getDailyNoteState();
+			return dailyNote?.status === "ready" ? dailyNote.file : null;
+		}
 		const resolvedPath = resolveDateTemplate(filePath, getCurrentDate?.());
 		if (!resolvedPath) return null;
 		const abstractFile = vault.getAbstractFileByPath(resolvedPath);
 		if (!(abstractFile instanceof TFile)) return null;
-		if (!shouldIncludeFilePath(resolvedPath, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath())) return null;
+		if (!isInScope(resolvedPath)) return null;
 		return abstractFile;
+	}
+
+	function defaultFilePickerEntry(
+		defaultTaskFilePath: string,
+		onFileSelected: (file: TFile) => void,
+	): PinnedPickerEntry {
+		const resolvedPath = resolveDateTemplate(defaultTaskFilePath, getCurrentDate?.());
+		if (!resolvedPath) return { title: `★ ${defaultTaskFilePath} (not found)` };
+		const abstractFile = vault.getAbstractFileByPath(resolvedPath);
+		if (!(abstractFile instanceof TFile)) return { title: `★ ${resolvedPath} (not found)` };
+		if (!isInScope(resolvedPath)) return { title: `★ ${resolvedPath} (outside scope)` };
+		return { title: `★ ${abstractFile.path}`, onSelect: () => onFileSelected(abstractFile) };
+	}
+
+	function dailyNotePickerEntry(
+		dailyNote: DailyNoteState | null,
+		isDefault: boolean,
+		onSelected: (file: TFile) => void,
+	): PinnedPickerEntry {
+		const label = `${isDefault ? "★" : "📅"} Today's daily note`;
+		switch (dailyNote?.status) {
+			case undefined:
+				return { title: `${label} (not configured)` };
+			case "outsideScope":
+				return { title: `${label} (outside scope)` };
+			case "missing":
+				return { title: `${label} — ${dailyNote.path} (not created yet)` };
+			case "ready": {
+				const { file } = dailyNote;
+				return { title: `${label} — ${dailyNote.path}`, onSelect: () => onSelected(file) };
+			}
+		}
 	}
 
 	function getTargetFile(): TFile | null {
@@ -858,9 +919,7 @@ export function createTaskActions({
 
 			const files = vault
 				.getMarkdownFiles()
-				.filter((file) =>
-					shouldIncludeFilePath(file.path, getFilenameFilter(), getExcludeFilter(), getBoardFolderPath())
-				)
+				.filter((file) => isInScope(file.path))
 				.sort((a, b) => a.path.localeCompare(b.path));
 
 			const target = e.target as HTMLButtonElement | undefined;
@@ -872,43 +931,27 @@ export function createTaskActions({
 			const y = boundingRect.top + boundingRect.height / 2;
 			const x = boundingRect.left + boundingRect.width / 2;
 
-			// Resolve the default task file if configured
+			// Pinned rows: the default (★) first, then Today's daily note
+			// when it isn't already the default.
 			const defaultTaskFilePath = getDefaultTaskFile();
-			let defaultFileEntry: DefaultFileEntry | null = null;
-			if (defaultTaskFilePath) {
-				const resolvedDefaultPath = resolveDateTemplate(defaultTaskFilePath, getCurrentDate?.());
-				if (!resolvedDefaultPath) {
-					defaultFileEntry = {
-						error: `★ ${defaultTaskFilePath} (not found)`,
-					};
-				} else {
-					const abstractFile =
-						vault.getAbstractFileByPath(resolvedDefaultPath);
-					if (!(abstractFile instanceof TFile)) {
-						defaultFileEntry = {
-							error: `★ ${resolvedDefaultPath} (not found)`,
-						};
-					} else if (
-						!shouldIncludeFilePath(
-							resolvedDefaultPath,
-							getFilenameFilter(),
-							getExcludeFilter(),
-							getBoardFolderPath()
-						)
-					) {
-						defaultFileEntry = {
-							error: `★ ${resolvedDefaultPath} (outside scope)`,
-						};
-					} else {
-						defaultFileEntry = { file: abstractFile };
-					}
-				}
+			const defaultIsDailyNote = defaultTaskFilePath === DAILY_NOTE_TARGET;
+			const dailyNote = getDailyNoteState();
+			const onDailyNoteSelected = (file: TFile) => {
+				setLastUsedTaskFile(DAILY_NOTE_TARGET);
+				onFileSelected(file);
+			};
+			const pinnedEntries: PinnedPickerEntry[] = [];
+			if (defaultTaskFilePath && !defaultIsDailyNote) {
+				pinnedEntries.push(defaultFilePickerEntry(defaultTaskFilePath, onFileSelectedWithPersist));
+			}
+			if (dailyNote || defaultIsDailyNote) {
+				pinnedEntries.push(dailyNotePickerEntry(dailyNote, defaultIsDailyNote, onDailyNoteSelected));
 			}
 
 			showFilePickerMenu({
 				files,
 				position: { x, y },
-				defaultFileEntry,
+				pinnedEntries,
 				onFileSelected: onFileSelectedWithPersist,
 			});
 		},

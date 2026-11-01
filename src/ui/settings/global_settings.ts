@@ -66,6 +66,7 @@ export interface GlobalSettingsStore extends Writable<GlobalSettings> {
 export const BOARD_DEFAULT_SETTING_KEYS = [
 	"newTaskHeading",
 	"newTaskPosition",
+	"dailyNotePath",
 	"columns",
 	"uncategorizedColumnName",
 	"doneColumnName",

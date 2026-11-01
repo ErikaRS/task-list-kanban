@@ -1101,8 +1101,8 @@
 		? `${Math.max(200, Math.min(columnWidth, columnsClientWidth - 2))}px`
 		: `${columnWidth}px`;
 
-	// Re-evaluate target file whenever settings change (defaultTaskFile or lastUsedTaskFile)
-	$: void $settingsStore, targetTaskFile = taskActions.getTargetFile();
+	// Re-evaluate the target when settings change and at midnight (dated targets roll over)
+	$: void $settingsStore, void $todayStore, targetTaskFile = taskActions.getTargetFile();
 	let targetTaskFile: import("obsidian").TFile | null = null;
 	// Target is from an explicit default when the default file is valid and matches the resolved target
 	$: targetFileIsDefault = !!targetTaskFile && !!$settingsStore.defaultTaskFile && targetTaskFile.path === $settingsStore.defaultTaskFile;

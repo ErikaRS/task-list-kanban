@@ -8,6 +8,7 @@ import type { SettingValues } from "../settings/settings_store";
 import { shouldIncludeFilePath } from "./scope";
 import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import type { PrepareFileContentsForWrite } from "./source_line_editor";
+import type { DailyNoteSource } from "./daily_note";
 
 export function createTasksStore(
 	vault: Vault,
@@ -22,6 +23,7 @@ export function createTasksStore(
 	requestSave: () => void,
 	prepareFileContentsForWrite?: PrepareFileContentsForWrite,
 	onArchiveWrite?: (path: string) => void,
+	getDailyNoteSource?: () => DailyNoteSource,
 ): {
 	tasksStore: Writable<Task[]>;
 	taskActions: TaskActions;
@@ -160,6 +162,7 @@ export function createTasksStore(
 			settingsStore.update((s) => ({ ...s, lastUsedTaskFile: path }));
 			requestSave();
 		},
+		getDailyNoteSource,
 		getPropertySchemaOption: () => get(settingsStore).propertySchema ?? PropertySchemaOption.None,
 		getStatusMarkerOrder: () => get(settingsStore).statusMarkerOrder ?? "",
 		getKeepColumnTagOnCompletion: () => get(settingsStore).keepColumnTagOnCompletion ?? false,

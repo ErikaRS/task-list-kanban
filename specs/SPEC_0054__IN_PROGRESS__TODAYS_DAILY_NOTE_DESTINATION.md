@@ -24,18 +24,18 @@ store daily notes at different paths and in different formats.
    default, the last-used file, or the picker. The destination moves to each
    new day's note without settings changes, including on a board left open
    overnight.
-4. A **Daily note path** board setting takes a Moment path such as
+3. A **Daily note path** board setting takes a Moment path such as
    `daily/{{YYYY-MM-DD}}.md`. It can be inherited, so it can be set once in the
    plugin-wide board defaults and overridden per board.
-5. When Daily note path is blank, the folder and date format come from
+4. When Daily note path is blank, the folder and date format come from
    Obsidian's core **Daily notes** plugin.
-6. When today's note doesn't exist, adding a task to it creates the note and
+5. When today's note doesn't exist, adding a task to it creates the note and
    then inserts the task. Notes created from core settings use the core Daily
    notes template.
-7. A Default task file containing a `{{...}}` date pattern keeps resolving as
+6. A Default task file containing a `{{...}}` date pattern keeps resolving as
    it does now. This behavior is not documented; Today's daily note is the
    supported way to target a dated note.
-8. Scope rules apply. A daily note outside the board's scope is shown as
+7. Scope rules apply. A daily note outside the board's scope is shown as
    unavailable and is never created.
 
 ## High-Level Design
@@ -56,8 +56,9 @@ function resolveDailyNotePath(source: DailyNoteSource, now: Date): string | null
 ```
 
 - **Override.** A non-blank `dailyNotePath` is resolved with
-  `resolveDateTemplate`. If the resolved path has no extension, `.md` is
-  appended.
+  `resolveDateTemplate`. If the resolved path doesn't end in `.md`, `.md` is
+  appended (an "any extension" check would misread dotted dates such as
+  `2026.11.01`).
 - **Core.** When the override is blank, the core Daily notes options (`folder`,
   `format`, `template`) build the pattern `{folder}/{{format}}.md`. An empty
   `format` means `YYYY-MM-DD`, matching core's default. These options are read
@@ -90,7 +91,7 @@ New tasks
                         Specific file
                         Today's daily note
   Daily note path     [daily/{{YYYY-MM-DD}}.md   ]   (override chip)
-    Moment path for today's daily note. Leave blank to use Obsidian's
+    Path to today's daily note. Leave blank to use Obsidian's
     Daily notes settings (currently: Journal/{{YYYY-MM-DD}}.md).
   Heading             [ ... ]
   Insert at top       [ ... ]
@@ -193,21 +194,21 @@ creation.
 
 ## Implementation Plan
 
-### Phase 1: Daily note path setting and picker entry (existing notes)
+### Phase 1: Daily note path setting and picker entry (existing notes) ✅ COMPLETE
 
 **Goal:** A user can configure (or inherit from core) the daily note path and
 pick **Today's daily note** in the file picker when today's note exists.
 
-1. Add `dailyNotePath` to settings parsing, defaults, serialization, and
+1. ✅ Add `dailyNotePath` to settings parsing, defaults, serialization, and
    `BOARD_DEFAULT_SETTING_KEYS`, with override chip, pin, and reset.
-2. Implement `daily_note.ts`: core options accessor, override, `.md` suffix,
+2. ✅ Implement `daily_note.ts`: core options accessor, override, `.md` suffix,
    and the unconfigured case.
-3. Render Daily note path in the New tasks section (board and global), with
+3. ✅ Render Daily note path in the New tasks section (board and global), with
    the resolved core preview and validation.
-4. Add the 📅 picker entry. When the note is missing, show it disabled as
+4. ✅ Add the 📅 picker entry. When the note is missing, show it disabled as
    "(not created yet)"; Phase 3 makes it creatable. Choosing it saves
    `$DAILY_NOTE` as last used.
-5. Unit tests: source selection, nested core formats, missing core plugin,
+5. ✅ Unit tests: source selection, nested core formats, missing core plugin,
    override precedence, inheritance/reset round trip, last-used `$DAILY_NOTE`
    resolution across a date change.
 

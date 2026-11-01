@@ -1106,7 +1106,7 @@ describe("task actions", () => {
 
 			expect(showFilePickerMenu).toHaveBeenCalledWith(
 				expect.objectContaining({
-					defaultFileEntry: { error: "★ daily/2026-06-15.md (not found)" },
+					pinnedEntries: [{ title: "★ daily/2026-06-15.md (not found)" }],
 				}),
 			);
 		});
@@ -1149,9 +1149,117 @@ describe("task actions", () => {
 
 			expect(showFilePickerMenu).toHaveBeenCalledWith(
 				expect.objectContaining({
-					defaultFileEntry: { error: "★ daily/2026-06-15.md (outside scope)" },
+					pinnedEntries: [{ title: "★ daily/2026-06-15.md (outside scope)" }],
 				}),
 			);
+		});
+	});
+
+	describe("Today's daily note in the file picker", () => {
+		const mockEvent = {
+			target: {
+				getBoundingClientRect: () => ({ top: 10, height: 20, left: 10, width: 20 }),
+			},
+		};
+
+		function setup({
+			existing = [] as string[],
+			now = new Date(2026, 10, 1, 12),
+			filenameFilter = null as string[] | null,
+			defaultTaskFile = null as string | null,
+			lastUsedTaskFile = null as string | null,
+		} = {}) {
+			const filesByPath = new Map<string, TFile>(
+				existing.map((path) => {
+					const file = new TFile();
+					(file as any).path = path;
+					return [path, file];
+				}),
+			);
+			let currentDate = now;
+			let lastUsed = lastUsedTaskFile;
+			const actions = createTaskActions({
+				tasksByTaskId: new Map() as never,
+				metadataByTaskId: new Map() as never,
+				vault: {
+					getMarkdownFiles: () => [...filesByPath.values()],
+					getAbstractFileByPath: (path: string) => filesByPath.get(path) ?? null,
+				} as never,
+				workspace: {} as never,
+				getFilenameFilter: () => filenameFilter,
+				getExcludeFilter: () => null,
+				getBoardFolderPath: () => null,
+				getPlacementTagsForColumn: (c) => [c],
+				getColumnDefinitions: () => [],
+				getDefaultTaskFile: () => defaultTaskFile,
+				getLastUsedTaskFile: () => lastUsed,
+				setLastUsedTaskFile: (path) => {
+					lastUsed = path;
+				},
+				getDailyNoteSource: () => ({ kind: "override", pattern: "daily/{{YYYY-MM-DD}}" }),
+				getPropertySchemaOption: () => PropertySchemaOption.None,
+				getStatusMarkerOrder: () => "",
+				getCurrentDate: () => currentDate,
+				getManualOrder: () => ({}),
+				setManualOrder: () => undefined,
+			});
+			const pinnedEntries = (onFileSelected = vi.fn()) => {
+				vi.mocked(showFilePickerMenu).mockClear();
+				actions.pickFileForNewTask("uncategorised", mockEvent as never, onFileSelected, true);
+				return vi.mocked(showFilePickerMenu).mock.calls[0]![0].pinnedEntries;
+			};
+			return {
+				actions,
+				filesByPath,
+				pinnedEntries,
+				getLastUsed: () => lastUsed,
+				setDate: (date: Date) => {
+					currentDate = date;
+				},
+			};
+		}
+
+		it("offers today's existing note and saves the destination, not the dated path", () => {
+			const { pinnedEntries, filesByPath, getLastUsed } = setup({ existing: ["daily/2026-11-01.md"] });
+			const onFileSelected = vi.fn();
+			const entries = pinnedEntries(onFileSelected);
+			expect(entries).toEqual([
+				expect.objectContaining({ title: "📅 Today's daily note — daily/2026-11-01.md" }),
+			]);
+			entries[0]!.onSelect!();
+			expect(onFileSelected).toHaveBeenCalledWith(filesByPath.get("daily/2026-11-01.md"));
+			expect(getLastUsed()).toBe("$DAILY_NOTE");
+		});
+
+		it("shows a missing note as not yet created and an out-of-scope note as unavailable", () => {
+			expect(setup().pinnedEntries()).toEqual([
+				{ title: "📅 Today's daily note — daily/2026-11-01.md (not created yet)" },
+			]);
+			expect(
+				setup({ existing: ["daily/2026-11-01.md"], filenameFilter: ["projects"] }).pinnedEntries(),
+			).toEqual([{ title: "📅 Today's daily note (outside scope)" }]);
+		});
+
+		it("shows the daily note as the starred default instead of a separate row", () => {
+			const { pinnedEntries } = setup({
+				existing: ["daily/2026-11-01.md", "projects/alpha.md"],
+				defaultTaskFile: "$DAILY_NOTE",
+			});
+			expect(pinnedEntries()).toEqual([
+				expect.objectContaining({ title: "★ Today's daily note — daily/2026-11-01.md" }),
+			]);
+		});
+
+		it("resolves a last-used daily note to each day's note as the date changes", () => {
+			const { actions, setDate } = setup({
+				existing: ["daily/2026-11-01.md", "daily/2026-11-02.md"],
+				lastUsedTaskFile: "$DAILY_NOTE",
+			});
+			expect(actions.getTargetFile()?.path).toBe("daily/2026-11-01.md");
+			setDate(new Date(2026, 10, 2, 0, 1));
+			expect(actions.getTargetFile()?.path).toBe("daily/2026-11-02.md");
+			setDate(new Date(2026, 10, 3, 9));
+			expect(actions.getTargetFile()).toBeNull();
 		});
 	});
 });

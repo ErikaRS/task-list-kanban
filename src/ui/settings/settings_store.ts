@@ -283,6 +283,7 @@ const settingsObject = z.object({
 	newTaskPosition: z.enum(["top", "bottom"]).catch("bottom").optional(),
 	defaultTaskFile: z.string().optional(),
 	lastUsedTaskFile: z.string().optional(),
+	dailyNotePath: z.string().optional(),
 	scopeFolders: z.array(z.string()).optional(),
 	excludePaths: z.array(z.string()).optional(),
 	excludedTags: z.array(z.string()).optional(),
@@ -342,6 +343,8 @@ export interface SettingValues {
 	newTaskPosition?: "top" | "bottom";
 	defaultTaskFile?: string;
 	lastUsedTaskFile?: string;
+	/** Moment path for Today's daily note; blank uses core Daily notes. */
+	dailyNotePath?: string;
 	scopeFolders?: string[];
 	excludePaths?: string[];
 	excludedTags?: string[];
@@ -386,6 +389,7 @@ export const defaultSettings: SettingValues = {
 	newTaskPosition: "bottom",
 	defaultTaskFile: "",
 	lastUsedTaskFile: "",
+	dailyNotePath: "",
 	scopeFolders: [],
 	excludePaths: [],
 	excludedTags: [],

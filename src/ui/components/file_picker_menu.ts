@@ -1,10 +1,14 @@
 import { Menu, TFile } from "obsidian";
 
 /**
- * State of the configured default task file shown at the top of the picker:
- * resolved, or a disabled explanation line when it is missing / out of scope.
+ * A row pinned above the folder tree: the default task file, Today's daily
+ * note, or a disabled line explaining why one is unavailable.
  */
-export type DefaultFileEntry = { file: TFile } | { error: string };
+export interface PinnedPickerEntry {
+	title: string;
+	/** Absent for disabled explanation rows. */
+	onSelect?: () => void;
+}
 
 /**
  * Shows a cascading folder menu for choosing a markdown file. Files are
@@ -14,12 +18,12 @@ export type DefaultFileEntry = { file: TFile } | { error: string };
 export function showFilePickerMenu({
 	files,
 	position,
-	defaultFileEntry,
+	pinnedEntries,
 	onFileSelected,
 }: {
 	files: TFile[];
 	position: { x: number; y: number };
-	defaultFileEntry: DefaultFileEntry | null;
+	pinnedEntries: PinnedPickerEntry[];
 	onFileSelected: (file: TFile) => void;
 }): void {
 	interface Folder {
@@ -55,18 +59,15 @@ export function showFilePickerMenu({
 				});
 		});
 
-		// Show default file as first item in root menu
-		if (!parentMenu && defaultFileEntry) {
-			if ("file" in defaultFileEntry) {
-				const df = defaultFileEntry.file;
+		if (!parentMenu && pinnedEntries.length > 0) {
+			for (const entry of pinnedEntries) {
 				menu.addItem((i) => {
-					i.setTitle(`★ ${df.path}`).onClick(() => {
-						onFileSelected(df);
-					});
-				});
-			} else {
-				menu.addItem((i) => {
-					i.setTitle(defaultFileEntry.error).setDisabled(true);
+					i.setTitle(entry.title);
+					if (entry.onSelect) {
+						i.onClick(entry.onSelect);
+					} else {
+						i.setDisabled(true);
+					}
 				});
 			}
 			menu.addSeparator();

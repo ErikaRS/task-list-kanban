@@ -37,6 +37,7 @@ import {
 import { moveColumnRelativeTo, type DropPosition } from "./column_reorder";
 import { getColumnValidationError } from "./column_validation";
 import { FolderSuggest, PathSuggest, FileSuggest, TagSuggest, TaskSourcePathSuggest } from "./suggest";
+import { dailyNoteSourceFrom, getDailyNotePathIssue, readCoreDailyNoteOptions } from "../tasks/daily_note";
 import {
 	createPathScope,
 	hasDateTemplate,
@@ -99,6 +100,7 @@ export class SettingsModal extends Modal {
 	private readonly originalSettings: SettingValues;
 	private scrollWrapper!: HTMLDivElement;
 	private newTaskHeadingErrorEl: HTMLElement | null = null;
+	private dailyNotePathMessageEl: HTMLElement | null = null;
 	private validationError: string | null = null;
 	private pathScopeErrorEl: HTMLElement | null = null;
 	private saveBtn: HTMLButtonElement | null = null;
@@ -415,7 +417,13 @@ export class SettingsModal extends Modal {
 				: null;
 		const headingError = getNewTaskHeadingError(this.settings.newTaskHeading ?? "");
 		this.newTaskHeadingErrorEl?.setText(headingError ?? "");
-		this.validationError = columnError ?? pathScopeError ?? headingError;
+		const dailyNotePathIssue = getDailyNotePathIssue(this.settings.dailyNotePath ?? "");
+		const dailyNotePathError = dailyNotePathIssue?.level === "error" ? dailyNotePathIssue.message : null;
+		if (this.dailyNotePathMessageEl) {
+			this.dailyNotePathMessageEl.setText(dailyNotePathIssue?.message ?? "");
+			this.dailyNotePathMessageEl.toggleClass("is-warning", dailyNotePathIssue?.level === "warning");
+		}
+		this.validationError = columnError ?? pathScopeError ?? headingError ?? dailyNotePathError;
 		if (this.pathScopeErrorEl) {
 			this.pathScopeErrorEl.setText(pathScopeError ?? "");
 			this.pathScopeErrorEl.style.visibility = pathScopeError ? "visible" : "hidden";
@@ -1478,7 +1486,7 @@ export class SettingsModal extends Modal {
 		const newTasksSection = createSection(
 			"new-tasks", "New tasks",
 			"Choose where new tasks are inserted in every destination file.",
-			["newTaskHeading", "newTaskPosition"],
+			["newTaskHeading", "newTaskPosition", "dailyNotePath"],
 		);
 		const scopeSection = createSection(
 			"scope",
@@ -1679,6 +1687,28 @@ export class SettingsModal extends Modal {
 			this.defaultTaskFileErrorEl = errorEl;
 			this.validateDefaultTaskFile();
 		}
+		const dailyNotePathSetting = new Setting(container)
+			.setName("Daily note path")
+			.addText((text) => {
+				text.setPlaceholder("E.g., daily/{{YYYY-MM-DD}}.md");
+				text.setValue(this.settings.dailyNotePath ?? "");
+				text.onChange((value) => {
+					this.settings.dailyNotePath = value;
+					text.inputEl.toggleAttribute(
+						"aria-invalid",
+						getDailyNotePathIssue(value)?.level === "error",
+					);
+					this.touchSettings();
+				});
+			});
+		dailyNotePathSetting.descEl.appendText(
+			"Path to today's daily note. Leave blank to use Obsidian's Daily notes settings ",
+		);
+		dailyNotePathSetting.descEl.appendText(this.describeCoreDailyNotes());
+		this.dailyNotePathMessageEl = dailyNotePathSetting.descEl.createDiv({ cls: "setting-error-message" });
+		this.dailyNotePathMessageEl.addClass("daily-note-path-message");
+		this.dailyNotePathMessageEl.setAttribute("aria-live", "polite");
+		this.createOverrideChip(dailyNotePathSetting.nameEl, ["dailyNotePath"]);
 		const headingSetting = new Setting(container)
 			.setName("Heading")
 			.setDesc("Optional heading text, without # marks. Leave blank to use the whole file.")
@@ -1706,6 +1736,14 @@ export class SettingsModal extends Modal {
 					});
 			})
 			.then((setting) => this.createOverrideChip(setting.nameEl, ["newTaskPosition"]));
+	}
+
+	/** The parenthetical after the Daily note path description. */
+	private describeCoreDailyNotes(): string {
+		const core = dailyNoteSourceFrom("", readCoreDailyNoteOptions(this.app));
+		return core.kind === "core"
+			? `(currently: ${core.pattern}).`
+			: "(the Daily notes core plugin is off).";
 	}
 
 	private renderScopeSection(scopeSection: HTMLDivElement) {

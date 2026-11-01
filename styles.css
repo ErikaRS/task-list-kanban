@@ -2231,6 +2231,16 @@ body.tlk-mobile-editor-open .task-list-kanban-view .mobile-create-task {
 	color: var(--text-error);
 }
 
+.task-list-kanban-settings-modal .daily-note-path-message,
+.task-list-kanban-settings-inline .daily-note-path-message {
+	color: var(--text-error);
+}
+
+.task-list-kanban-settings-modal .daily-note-path-message.is-warning,
+.task-list-kanban-settings-inline .daily-note-path-message.is-warning {
+	color: var(--text-warning);
+}
+
 .task-list-kanban-view .text-literal-input {
 	position: static;
 	box-sizing: border-box;

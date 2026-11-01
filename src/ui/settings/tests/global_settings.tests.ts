@@ -76,7 +76,9 @@ describe("global settings parsing", () => {
 				propertySchema: PropertySchemaOption.TasksPlugin,
 				newTaskHeading: "Tasks",
 				newTaskPosition: "top",
+				dailyNotePath: "journal/{{YYYY-MM-DD}}.md",
 				defaultTaskFile: "board-local.md",
+				lastUsedTaskFile: "$DAILY_NOTE",
 				columnWidth: 480,
 				lastFilter: "tag:work",
 				savedViews: [{ id: "local", name: "Local", query: "x" }],
@@ -89,6 +91,7 @@ describe("global settings parsing", () => {
 			propertySchema: PropertySchemaOption.TasksPlugin,
 			newTaskHeading: "Tasks",
 			newTaskPosition: "top",
+			dailyNotePath: "journal/{{YYYY-MM-DD}}.md",
 		});
 	});
 
