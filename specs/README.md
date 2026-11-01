@@ -6,7 +6,7 @@ Active specs stay here until their required implementation is complete and accep
 
 ## Active work and remaining validation
 
-No active specs.
+- [0054 — Today's daily note as a new task destination](SPEC_0054__IN_PROGRESS__TODAYS_DAILY_NOTE_DESTINATION.md) — Design drafted; not started. Refs [#208](https://github.com/ErikaRS/task-list-kanban/issues/208).
 
 ## Completed and historical specs
 
@@ -69,7 +69,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 
 ## Numbering and maintenance
 
-- Numbers are global across active and completed specs. The next unused number is **0054**.
+- Numbers are global across active and completed specs. The next unused number is **0055**.
 - Advance Card was originally also numbered 0043. It is now **0051**; **0043** remains Open Filtered Source Files. Historical commits retain the old filename.
 - Keep implementation links current and label waived checks explicitly without claiming they passed. Move a spec into `complete/` and change its status after required checks are verified or explicitly waived by the owner.
 - Follow [the planning guide](../README.planning.md) for new specs.
