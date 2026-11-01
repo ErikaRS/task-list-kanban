@@ -704,3 +704,16 @@ describe("Collapsed groups configuration", () => {
 		expect(parseSettingsString(JSON.stringify({ collapsedGroups: ids })).collapsedGroups).toEqual(ids);
 	});
 });
+
+it("roundtrips text columns and ordered text grouping in board and saved views", () => {
+	const source = { kind: "text" as const, literals: ["[[Project A]]", "@office"] };
+	const parsed = roundtripSettings({
+		columns: migrateColumnDefinitions([{ id: "office", label: "@Office", matchMode: "text" } as never]),
+		groupSource: source,
+		savedViews: [{ id: "text", name: "Text lanes", group: { source, direction: "desc" } }],
+	});
+	expect(parsed.columns[0]?.matchMode).toBe("text");
+	expect(parsed.columns[0]?.label).toBe("@Office");
+	expect(parsed.groupSource).toEqual(source);
+	expect(parsed.savedViews?.[0]?.group).toEqual({ source, direction: "desc" });
+});

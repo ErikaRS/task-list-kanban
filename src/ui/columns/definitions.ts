@@ -1,3 +1,4 @@
+import { findTextLiteralMatches } from "../../parsing/text_literals/text_literals";
 import type { Brand } from "src/brand";
 import { kebab } from "src/parsing/kebab/kebab";
 import { formatPriorityColumnLabel } from "src/parsing/properties/display";
@@ -5,7 +6,7 @@ import { PropertySchemaOption } from "src/parsing/properties/property_schema";
 import { getTasksPriorityOption } from "src/parsing/properties/tasks_schema";
 
 export type ColumnTag = Brand<string, "ColumnTag">;
-export type ColumnMatchMode = "name" | "tags" | "status" | "priority";
+export type ColumnMatchMode = "name" | "tags" | "status" | "priority" | "text";
 export type PriorityColumnSchema = PropertySchemaOption.TasksPlugin | PropertySchemaOption.Dataview;
 
 export interface ParsedColumn {
@@ -26,6 +27,7 @@ export interface ColumnDefinition {
 }
 
 export type ColumnHeaderSubtitle =
+	| { kind: "text"; value: string; label: string }
 	| { kind: "status"; value: string; label: string }
 	| { kind: "priority"; value: string; label: string; icon?: string };
 
@@ -93,8 +95,17 @@ export function usesPriorityMatching(column: ColumnDefinition): boolean {
 	return column.matchMode === "priority";
 }
 
+export function usesTextMatching(column: ColumnDefinition): boolean {
+	return column.matchMode === "text";
+}
+
+/** Text placement uses the column title verbatim, without tag normalization. */
+export function getColumnText(column: ColumnDefinition | undefined): string | undefined {
+	return column && usesTextMatching(column) ? column.label.trim() : undefined;
+}
+
 export function getColumnWriteTags(column: ColumnDefinition): string[] {
-	return usesStatusMatching(column) || usesPriorityMatching(column)
+	return usesStatusMatching(column) || usesPriorityMatching(column) || usesTextMatching(column)
 		? []
 		: usesTagMatching(column)
 		? column.matchTags
@@ -102,7 +113,9 @@ export function getColumnWriteTags(column: ColumnDefinition): string[] {
 }
 
 export function columnRuleSignature(column: ColumnDefinition): string {
-	return usesStatusMatching(column)
+	return usesTextMatching(column)
+		? `text:${getColumnText(column) ?? ""}`
+		: usesStatusMatching(column)
 		? `status:${column.matchStatus ?? ""}`
 		: usesPriorityMatching(column)
 		? `priority:${getColumnPrioritySchema(column) ?? ""}:${normalizePriorityMatchValue(column.matchPriority, getColumnPrioritySchema(column)) ?? ""}`
@@ -113,6 +126,7 @@ export function columnRuleSignature(column: ColumnDefinition): string {
 
 export interface ColumnMatchContext {
 	tags: Set<string>;
+	content?: string;
 	status?: string;
 	priority?: string;
 	prioritySchema?: PriorityColumnSchema;
@@ -157,7 +171,11 @@ export function normalizePriorityMatchValue(
 }
 
 export function matchesColumnDefinition(column: ColumnDefinition, context: Set<string> | ColumnMatchContext): boolean {
-	const { tags: taskTags, status, priority, prioritySchema, priorities } = normalizeColumnMatchContext(context);
+	const { tags: taskTags, content, status, priority, prioritySchema, priorities } = normalizeColumnMatchContext(context);
+
+	if (usesTextMatching(column)) {
+		return findTextLiteralMatches(content ?? "", getColumnText(column) ?? "").length > 0;
+	}
 
 	if (usesStatusMatching(column)) {
 		return !!column.matchStatus && status === column.matchStatus;
@@ -195,7 +213,7 @@ export function getColumnMatchSpecificity(column: ColumnDefinition): number {
 }
 
 function usesTagBasedPlacement(column: ColumnDefinition): boolean {
-	return !usesStatusMatching(column) && !usesPriorityMatching(column);
+	return !usesStatusMatching(column) && !usesPriorityMatching(column) && !usesTextMatching(column);
 }
 
 export function resolveMatchedColumnDefinition(
@@ -227,7 +245,7 @@ export function resolveMatchedColumnDefinition(
 }
 
 export function isPlacementTag(column: ColumnDefinition, tag: string): boolean {
-	if (usesStatusMatching(column) || usesPriorityMatching(column)) {
+	if (usesStatusMatching(column) || usesPriorityMatching(column) || usesTextMatching(column)) {
 		return false;
 	}
 	if (usesTagMatching(column)) {
@@ -241,6 +259,12 @@ export function getColumnHeaderTags(column: ColumnDefinition): string[] {
 }
 
 export function getColumnHeaderSubtitle(column: ColumnDefinition): ColumnHeaderSubtitle | undefined {
+	if (usesTextMatching(column)) {
+		const literal = getColumnText(column);
+		return literal
+			? { kind: "text", value: literal, label: `Text: ${literal}` }
+			: undefined;
+	}
 	if (usesStatusMatching(column)) {
 		return column.matchStatus
 			? { kind: "status", value: column.matchStatus, label: getStatusColumnLabel(column.matchStatus) }
@@ -265,7 +289,7 @@ export function migrateColumnDefinitions(
 ): ColumnDefinition[] {
 	const usedIds = new Set<string>();
 
-	return columns.flatMap((column) => {
+	return columns.flatMap<ColumnDefinition>((column) => {
 		if (typeof column === "string") {
 			const parsed = parseColumnSpec(column);
 			return [
@@ -294,7 +318,7 @@ export function migrateColumnDefinitions(
 				: createColumnId(label, usedIds);
 
 		const matchMode: ColumnMatchMode =
-			column.matchMode === "tags" || column.matchMode === "status" || column.matchMode === "priority"
+			column.matchMode === "tags" || column.matchMode === "status" || column.matchMode === "priority" || column.matchMode === "text"
 				? column.matchMode
 				: "name";
 		const matchStatus = typeof column.matchStatus === "string" ? column.matchStatus : undefined;

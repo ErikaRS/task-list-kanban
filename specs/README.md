@@ -1,14 +1,12 @@
 # Specification index
 
-Reviewed: 2026-10-17
+Reviewed: 2026-11-01
 
 Active specs stay here until their required implementation is complete and acceptance checks are verified or explicitly waived by the owner. A shipped feature can remain `IN_PROGRESS` when manual acceptance checks are still open. `Implemented` dates record when code landed, not when every acceptance check passed.
 
 ## Active work and remaining validation
 
-| Spec | Issue | State | Remaining work |
-| --- | --- | --- | --- |
-| [0053 — Text matching for columns and swimlanes](SPEC_0053__IN_PROGRESS__TEXT_MATCHING_COLUMNS_AND_SWIMLANES.md) | [#177](https://github.com/ErikaRS/task-list-kanban/issues/177) | Design agreed; not started | Phases 1–4: text columns, column moves, rule edits, text swimlanes. |
+No active specs.
 
 ## Completed and historical specs
 
@@ -66,6 +64,8 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 - [0050 — Archived Task Column](complete/SPEC_0050__COMPLETE__ARCHIVED_TASK_COLUMN.md) — Remaining manual acceptance checks waived by the owner on 2026-10-17.
 - [0051 — Advance card action](complete/SPEC_0051__COMPLETE__ADVANCE_CARD_TO_NEXT_COLUMN.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
 - [0052 — New task insertion location](complete/SPEC_0052__COMPLETE__NEW_TASK_INSERTION_LOCATION.md) — Remaining manual acceptance checks waived by the owner on 2026-10-17.
+
+- [0053 — Text matching for columns and swimlanes](complete/SPEC_0053__COMPLETE__TEXT_MATCHING_COLUMNS_AND_SWIMLANES.md) — Owner confirmed testing complete on 2026-11-01; Refs [#177](https://github.com/ErikaRS/task-list-kanban/issues/177).
 
 ## Numbering and maintenance
 

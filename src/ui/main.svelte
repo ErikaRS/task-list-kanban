@@ -1199,6 +1199,8 @@
 			$settingsStore.groupSource = { kind: "file" };
 		} else if (value === "folder") {
 			$settingsStore.groupSource = { kind: "folder" };
+		} else if (value === "text") {
+			$settingsStore.groupSource = $settingsStore.groupSource?.kind === "text" ? $settingsStore.groupSource : { kind: "text", literals: [] };
 		} else if (value === "tag-prefix") {
 			const nextGroupSource: GroupSource = $settingsStore.groupSource?.kind === "tag-prefix"
 				? {
@@ -1401,6 +1403,9 @@
 								{showCollapsePastDatesToggle}
 								collapsePastDates={propertyGroupSource?.collapsePastDates ?? false}
 								onSetCollapsePastDates={setCollapsePastDates}
+								textLiterals={$settingsStore.groupSource?.kind === "text" ? $settingsStore.groupSource.literals : []}
+								textColumnLiterals={$settingsStore.columns.filter((column) => column.matchMode === "text").map((column) => column.label.trim())}
+								onUpdateTextLiterals={(literals) => { $settingsStore.groupSource = { kind: "text", literals }; requestSave(); }}
 								{isTagPrefixGrouping}
 								{tagGroupInputMode}
 								{availableTags}

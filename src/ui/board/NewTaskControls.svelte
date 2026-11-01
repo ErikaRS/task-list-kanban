@@ -22,6 +22,7 @@
 	export let columnTagTableStore: Readable<ColumnTagTable>;
 	export let columnTitle: string;
 	export let additionalTags: string[] = [];
+	export let additionalText: string[] = [];
 	/** The property a property lane writes so new tasks stay in that lane. */
 	export let groupProperty: GroupProperty | null = null;
 	/** The file a file-group lane creates tasks in; skips the picker menu. */
@@ -36,7 +37,7 @@
 	export let groupTitle = "";
 	const mobileCreation = getContext<MobileCreationStore>(MOBILE_CREATION);
 	function openMobileCreation() {
-		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, groupProperty, propertySchemaOption, taskActions }));
+		mobileCreation.set(captureMobileCreation({ column, context: [columnTitle, groupTitle].filter(Boolean).join(" / "), file: fileGroupTargetFile ?? targetTaskFile ?? taskActions.getTargetFile(), fixedFile: !!fileGroupTargetFile, additionalTags, additionalText, groupProperty, propertySchemaOption, taskActions }));
 	}
 
 	let pendingNewTask: TFile | null = null;
@@ -77,7 +78,7 @@
 		savingNewTask = true;
 		newTaskError = "";
 		try {
-			await taskActions.createTask(file, content, targetColumn, additionalTags, newTaskDateValues, groupProperty);
+			await taskActions.createTask(file, content, targetColumn, additionalTags, newTaskDateValues, groupProperty, additionalText);
 			pendingNewTask = null;
 			newTaskDateValues = { ...emptyDateValues };
 		} catch (error) {

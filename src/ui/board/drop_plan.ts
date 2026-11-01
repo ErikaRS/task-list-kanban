@@ -15,6 +15,7 @@ import type { TFile } from "obsidian";
  * pure lane move touches nothing but the swimlane metadata.
  */
 export type DropPlan =
+	| { kind: "set-text"; literal: string | null; literals: string[]; changeColumn: boolean }
 	| { kind: "column-only"; changeColumn: true }
 	| { kind: "move-to-file"; targetFilePath: string; changeColumn: boolean }
 	| {
@@ -80,6 +81,15 @@ export function deriveDropPlan({
 				// move a cross-lane drop into. Only ever change the column; the
 				// task keeps living in its current file and folder.
 				return changeColumn ? { kind: "column-only", changeColumn: true } : null;
+			}
+			case "text": {
+				if (!crossLane) break;
+				return {
+					kind: "set-text",
+					literal: typeof bucketMeta?.value === "string" ? bucketMeta.value : null,
+					literals: source.literals,
+					changeColumn,
+				};
 			}
 			case "tag-prefix": {
 				if (!crossLane) break;
@@ -180,6 +190,10 @@ export async function executeDropPlan({
 			}
 			return;
 		}
+		case "set-text":
+			await taskActions.updateSwimlaneText(taskIds, plan.literal, plan.literals);
+			if (plan.changeColumn) await taskActions.moveTasksToColumn(taskIds, column);
+			return;
 		case "set-tag":
 			await taskActions.updateSwimlaneTag(
 				taskIds, plan.tag, plan.prefix, excludedTags, plan.includeTags,

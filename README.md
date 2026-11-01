@@ -4,12 +4,12 @@ Task List Kanban is a free, open source Obsidian plugin that turns Markdown task
 
 Use it to:
 - collect tasks from one folder, selected folders, or the whole vault
-- move tasks between columns with tags
+- move tasks between columns matched by tags, text, status, or priority
 - manage multiple boards from a dashboard and board rail
 - edit, complete, cancel, archive, duplicate, and bulk-update tasks
 - filter by content, tag, file, or date with a single search query
 - save reusable views that combine filters, sorting, grouping, layout, and width
-- group tasks into swimlanes by folder, file, tag, or property, then flip group order to put the lanes you need first
+- group tasks into swimlanes by folder, file, tag, text, or property, then flip group order to put the lanes you need first
 - sort tasks by file order, parsed task properties, or manual pinned order
 - display, sort, group, and edit Tasks Plugin or Dataview date metadata
 - keep nested Markdown blocks attached to their parent cards when you want subtasks
@@ -59,7 +59,7 @@ Create Markdown tasks in any included file:
 
 Task List Kanban supports the standard Markdown task bullets `-`, `*`, and `+`.
 
-Tasks without a column tag appear in **Uncategorized**. To place a task in a column, either add the column tag in Markdown or drag the task to that column on the board. Placement tags are hidden from task cards so the board stays clean.
+With the default name-matched columns, tasks without a column tag appear in **Uncategorized**. Add the column tag in Markdown or drag the task to that column on the board. You can also configure columns to match text, status markers, or priority. Placement tags are hidden from task cards; matching text stays visible.
 
 Click **Add new** at the bottom of a column to create a task from the board. If a default or recently used task file is available, the input opens immediately; otherwise, choose a file first.
 
@@ -130,16 +130,17 @@ Use the **Columns** section to rename, color, remove, and reorder custom columns
 Column matching options:
 - **Name matching**: a column named `In Progress` matches tags such as `#InProgress`, `#in-progress`, and `#In-Progress`.
 - **Explicit tag matching**: configure one or more required tags for a column. A column with `status/active` and `project/alpha` matches only tasks with both tags.
+- **Text matching**: choose Text and enter the literal once as the column title, such as `@office` or `[[Project A]]`. Matching is case-sensitive and uses the trimmed title directly, without tag conversion or a separate matching-text field. A Text column titled `office` matches `office`, not `#office`. It must be a standalone token: `@home` does not match an email address, `@homework`, or `@home-office`. Moving a card adds, removes, or replaces the literal in its source line. The matching text stays visible in the task description, including in its own column, so intentionally inline context and links remain readable.
 - **Status marker matching**: configure a column to match an active checkbox marker such as unchecked `[ ]`, in-progress `[/]`, or blocked `[!]`. Moving a task into that column updates the checkbox marker.
 - **Priority matching**: configure a column to match Tasks Plugin or Dataview priority metadata when a property schema is enabled. Moving a task into that column writes the matching priority value.
-- **Updating changed match rules**: settings can optionally update existing tasks when a name-matched column is renamed, an explicit tag mapping changes, a status marker mapping changes, or a priority mapping changes.
+- **Updating changed match rules**: settings can optionally update existing tasks when a name-matched column is renamed, an explicit tag mapping changes, a status marker mapping changes, a priority mapping changes, or a Text column is renamed. The **Update existing tasks** checkbox appears beneath the edited column. Leave it unchecked to change the matching rule without rewriting task text; affected cards may leave that column. Updates skip done tasks.
 
 Column display options:
 - **Colors**: add a hex color like `#FF5733` to show a color bar on the column and its cards.
 - **Width**: set all columns between 200px and 600px.
 - **Visibility**: show **Uncategorized** and **Done** always, never, or only when non-empty.
 
-**Keep column tag when completing**, below **Add column**: leave a task's column tag in place when it is completed or archived, for example `- [x] Write report #doing`. Done and Archived still take priority over the tag, so the task shows in Done or stays hidden. Unchecking the task returns it to that column, and dragging it to another column swaps the tag as usual. Status-based columns cannot be kept, because completing a task changes its status. Off by default.
+**Keep column metadata when completing**, below **Add column**: leave a task's column tag in place when it is completed or archived, and its text column literal when archived, for example `- [x] Write report #doing`. Done and Archived still take priority over the kept metadata, so the task shows in Done or stays hidden. Unchecking the task returns it to that column, and dragging it to another column swaps the tag or literal as usual. Completing or moving to Done always preserves text literals and priority, regardless of this setting. Status-based columns cannot be kept, because completing a task changes its status. Off by default.
 
 ### Tag Display
 
@@ -359,6 +360,32 @@ vault root appear in a **Root** swimlane.
 Tasks are grouped by tag, optionally limited to a configured prefix.
 
 - Use the include list in the grouping controls to show only specific tag swimlanes. Included swimlanes keep the configured order, and tasks without an included grouping tag appear in **Unassigned**.
+
+#### Group By Text
+
+Choose **Text** in **Group tasks**, then add literals such as `[[Project A]]`
+and `[[Project B]]`. Reorder the list with its arrow buttons. Each listed
+literal gets a lane, including when empty, plus **Unassigned**. The first
+matching literal in list order decides a task's lane; reversing the displayed
+group direction does not change that decision.
+
+Dragging between text lanes replaces the source literal in place; dragging to
+Unassigned removes it. A task with another listed literal then belongs to that
+lane. New cards inherit both their lane's literal and their column metadata.
+Column and lane literals both remain visible in task descriptions. The editor warns when a column and lane share a
+literal because lane moves can change column placement.
+
+Text matching is literal and case-sensitive, with no regex or wildcards.
+For example, `@office` does not match `@Office`; differently cased column
+titles and lane literals are distinct. Case-only column renames also offer
+**Update existing tasks**, which skips done tasks.
+Literals cannot be blank, span lines, begin with `#` (use Tags instead), or
+repeat within the same list. A literal matches at the start of task content
+or after whitespace, `(`, `[`, or a quote, and ends before whitespace,
+punctuation, or the end of content. Letters, digits, `_`, `-`, `/`, and `@`
+continue a token. Only the task's own line is searched. Renaming a linked note
+updates its task links in Obsidian; edit the corresponding column title or lane
+literal to follow the new name. Changing a lane list never rewrites tasks.
 
 #### Group By Property
 

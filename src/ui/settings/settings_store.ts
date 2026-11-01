@@ -162,6 +162,10 @@ const groupSourceSchema = z
 			includeTags: z.array(z.string()).optional(),
 		}),
 		z.object({
+			kind: z.literal("text"),
+			literals: z.array(z.string().trim()),
+		}),
+		z.object({
 			kind: z.literal("property"),
 			key: z.string(),
 			collapsePastDates: z.boolean().optional(),
@@ -199,7 +203,7 @@ const columnDefinitionSchema = z.object({
 	id: z.string(),
 	label: z.string(),
 	color: z.string().optional(),
-	matchMode: z.enum(["name", "tags", "status", "priority"]).default("name"),
+	matchMode: z.enum(["name", "tags", "status", "priority", "text"]).default("name"),
 	matchTags: z.array(z.string()).default([]),
 	matchStatus: z.string().optional(),
 	matchPriority: z.string().optional(),

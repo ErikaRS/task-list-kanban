@@ -4,6 +4,7 @@ import type { GroupProperty } from "../tasks/task_line_builder";
 export interface CellCreationMetadata {
 	targetFilePath: string | null;
 	additionalTags: string[];
+	additionalText?: string[];
 	/** The property a property lane's new tasks need to stay in that lane. */
 	groupProperty: GroupProperty | null;
 }
@@ -19,6 +20,13 @@ export function deriveCellCreationMetadata(
 			return {
 				targetFilePath: typeof value === "string" ? value : null,
 				additionalTags: [],
+				groupProperty: null,
+			};
+		case "text":
+			return {
+				targetFilePath: null,
+				additionalTags: [],
+				additionalText: typeof value === "string" ? [value] : [],
 				groupProperty: null,
 			};
 		case "tag-prefix":

@@ -88,6 +88,7 @@
 	$: displayTaskCount = isCollapsed ? `${displayedTaskCount}` : taskCountLabel;
 	$: showColumnMatchTags = columnMatchTags.length > 0 && !isCollapsed;
 	$: showColumnStatus = columnStatusMarker !== undefined && !isCollapsed;
+	$: showColumnText = columnSubtitle?.kind === "text" && !isCollapsed;
 	$: showColumnPriority = columnSubtitle?.kind === "priority" && !isCollapsed;
 
 	// Selection state
@@ -219,9 +220,12 @@
 			{/if}
 		</div>
 	</div>
-	{#if !isCollapsed && (!compactMobileHeader || showColumnMatchTags || showColumnStatus || showColumnPriority)}
+	{#if !isCollapsed && (!compactMobileHeader || showColumnMatchTags || showColumnStatus || showColumnPriority || showColumnText)}
 		<div class="column-meta">
 			<div class="column-meta-line">
+				{#if showColumnText}
+					<div class="column-match-tags" title={columnSubtitle?.label}>{columnSubtitle?.label}</div>
+				{/if}
 				{#if showColumnMatchTags}
 					<div class="column-match-tags" title={columnMatchTags.map((tag) => `#${tag}`).join(" ")}>
 						{columnMatchTags.map((tag) => `#${tag}`).join(" ")}

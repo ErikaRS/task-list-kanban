@@ -53,7 +53,7 @@ describe("mobile creation host", () => {
 		expect(date.value).toBe("2026-09-26");
 		(document.querySelector(".tlk-editor-actions button") as HTMLButtonElement).click();
 		await tick();
-		expect(createTask).toHaveBeenCalledWith({ path: "other.md" }, "A draft", "this-week", ["home"], expect.objectContaining({ due: "2026-09-26" }), null);
+		expect(createTask).toHaveBeenCalledWith({ path: "other.md" }, "A draft", "this-week", ["home"], expect.objectContaining({ due: "2026-09-26" }), null, []);
 		await vi.waitFor(() => expect(document.querySelector(".tlk-mobile-editor-root")).toBeNull());
 	});
 	it("ignores old picker callbacks after a new session starts", async () => {

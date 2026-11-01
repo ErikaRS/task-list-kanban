@@ -31,3 +31,11 @@ describe("renderTaskMarkdownSource", () => {
 		).toBe("- [/] Something");
 	});
 });
+
+it("keeps inline context and wiki-link literals visible in task descriptions", () => {
+	const content = "Call Bob @Office [[Project A]]";
+	expect(renderTaskMarkdownSource({ content, displayStatus: " " }))
+		.toBe("- [ ] Call Bob @Office [[Project A]]");
+	expect(renderTaskMarkdownSource({ content, displayStatus: "x" })).toBe("- [x] Call Bob @Office [[Project A]]");
+	expect(content).toBe("Call Bob @Office [[Project A]]");
+});

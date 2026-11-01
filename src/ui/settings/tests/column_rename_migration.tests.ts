@@ -414,3 +414,25 @@ describe("applyChangedColumnTagUpdates", () => {
 		expect(contents).toBe("- [x] Task A ⏫");
 	});
 });
+
+describe("text column rule migrations", () => {
+	it.each([
+		{ update: true, label: "@work" }, { update: false, label: "@work" },
+		{ update: true, label: "@Office" }, { update: false, label: "@Office" },
+	])("renames to $label with update=$update, preserving done and differently cased rows", async ({ update, label }) => {
+		const oldColumns: ColumnDefinition[] = [{ id: "office" as ColumnTag, label: "@office", matchMode: "text", matchTags: [] }];
+		const newColumns: ColumnDefinition[] = [{ ...oldColumns[0]!, label }];
+		const original = "* [ ] Print @office forms ^abc123\n- [ ] Wrong case @Office\n- [x] Print @office forms\n- [X] Print @office forms\n- [ ] Email bob@office.com\n- [ ] Unrelated @home";
+		let contents = original;
+		expect(getChangedColumnMatchRules(
+			{ ...defaultSettings, columns: oldColumns },
+			{ ...defaultSettings, columns: newColumns },
+		)).toHaveLength(1);
+		await applyChangedColumnTagUpdates({
+			vault: { getMarkdownFiles: () => [{ path: "projects/tasks.md" }], read: async () => contents, modify: async (_file: unknown, next: string) => { contents = next; } } as never,
+			oldSettings: { ...defaultSettings, columns: oldColumns }, newSettings: { ...defaultSettings, columns: newColumns },
+			boardFolderPath: "projects", updateChoices: { office: update },
+		});
+		expect(contents).toBe(update ? original.replace("Print @office", `Print ${label}`) : original);
+	});
+});

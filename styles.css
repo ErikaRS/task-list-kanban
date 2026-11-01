@@ -2189,3 +2189,98 @@ body.tlk-mobile-editor-open .task-list-kanban-view .mobile-create-task {
 	background: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
+
+.task-list-kanban-view .text-literal-list {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	min-width: 0;
+	width: 100%;
+}
+
+.task-list-kanban-view .text-literal-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	min-width: 0;
+}
+
+.task-list-kanban-view .text-literal-input,
+.task-list-kanban-view .text-literal-value {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.task-list-kanban-view .text-literal-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	position: static;
+	box-sizing: border-box;
+	flex: 0 0 auto;
+	margin: 0;
+	padding: var(--size-2-1) var(--size-4-1);
+	height: auto;
+	min-height: var(--input-height);
+}
+
+.task-list-kanban-settings-modal .new-task-heading-error,
+.task-list-kanban-settings-inline .new-task-heading-error {
+	color: var(--text-error);
+}
+
+.task-list-kanban-view .text-literal-input {
+	position: static;
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 100%;
+	margin: 0;
+	padding: var(--size-2-1) var(--size-4-1);
+	min-height: var(--input-height);
+}
+
+.task-list-kanban-view .text-literal-error {
+	margin: 0;
+	color: var(--text-error);
+	overflow-wrap: anywhere;
+}
+
+.task-list-kanban-view .view-editor-group-details {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	gap: var(--size-4-2);
+	width: 100%;
+	min-width: 0;
+	margin: var(--size-4-2) 0 var(--size-4-1);
+	padding-block: 0;
+	padding-inline: var(--size-4-3) 0;
+	border: 0;
+	border-inline-start: 2px solid var(--background-modifier-border);
+}
+
+.task-list-kanban-view .view-editor-group-details-label {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: 500;
+	line-height: 1.4;
+}
+
+.task-list-kanban-view .text-literal-hint,
+.task-list-kanban-view .view-editor-group-details-hint {
+	margin: var(--size-4-1) 0 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.task-list-kanban-settings-modal .column-editor-row-content > .column-editor-rename-option,
+.task-list-kanban-settings-inline .column-editor-row-content > .column-editor-rename-option {
+	margin-top: var(--size-4-1);
+	white-space: normal;
+}

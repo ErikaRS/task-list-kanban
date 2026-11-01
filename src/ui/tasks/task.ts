@@ -12,6 +12,7 @@ import {
 	resolveMatchedColumnDefinition,
 	usesPriorityMatching,
 	usesStatusMatching,
+	usesTextMatching,
 } from "../columns/definitions";
 import { PropertySchemaOption, type PropertySchema, type TaskPropertyMap } from "../../parsing/properties/property_schema";
 import { getTasksPriorityValueFromWeight } from "../../parsing/properties/tasks_schema";
@@ -305,6 +306,7 @@ export class Task {
 
 		this._id = createTaskId(content + fileHandle.path + rowIndex);
 		this.content = content;
+		this.rawTextContent = content;
 		this._displayStatus = status || " ";
 		this._path = fileHandle.path;
 		this._indentation = indentation || "";
@@ -313,6 +315,7 @@ export class Task {
 		const priorityMatches = getTaskPriorityMatchValues(rawContent);
 		const matchedColumn = resolveMatchedColumnDefinition(context.columnDefinitions, {
 			tags,
+			content,
 			status: this._displayStatus,
 			priority: getTaskPriorityMatchValue(this.propertySchemaOption, this.properties),
 			prioritySchema: this.propertySchemaOption === PropertySchemaOption.TasksPlugin
@@ -324,7 +327,7 @@ export class Task {
 		});
 
 		this._done = isStatusMatch(this._displayStatus, context.doneStatusMarkers);
-		this.taggedColumn = matchedColumn && Array.from(tags).some((tag) => isPlacementTag(matchedColumn, tag))
+		this.taggedColumn = matchedColumn && (usesTextMatching(matchedColumn) || Array.from(tags).some((tag) => isPlacementTag(matchedColumn, tag)))
 			? matchedColumn.id
 			: undefined;
 
@@ -366,7 +369,7 @@ export class Task {
 		if (matchedColumn && usesStatusMatching(matchedColumn) && !this._column) {
 			this._column = matchedColumn.id;
 		}
-		if (matchedColumn && usesPriorityMatching(matchedColumn) && !this._column) {
+		if (matchedColumn && (usesPriorityMatching(matchedColumn) || usesTextMatching(matchedColumn)) && !this._column) {
 			this._column = matchedColumn.id;
 		}
 
@@ -391,6 +394,11 @@ export class Task {
 		return this._id;
 	}
 
+	/** Original task-line content, before placement-tag display cleanup. */
+	get textMatchContent(): string {
+		return this.rawTextContent;
+	}
+	private readonly rawTextContent: string;
 	content: string;
 	private consolidateTags: boolean;
 	private columnDefinitions: ColumnDefinition[];
@@ -450,9 +458,9 @@ export class Task {
 		return this._column;
 	}
 	/**
-	 * The tag-based column this task's tags point to. Unlike `column`, this is
+	 * The column identified by this task's placement tags or text literal. Unlike `column`, this is
 	 * set for done tasks too, so moving a done task out of Done follows the
-	 * normal column-change rules for the column its kept tag names.
+	 * normal column-change rules for the column its kept metadata identifies.
 	 */
 	readonly taggedColumn: ColumnTag | undefined;
 
@@ -518,6 +526,7 @@ export class Task {
 		);
 		const usesStatusPlacement = !!currentColumnDefinition && usesStatusMatching(currentColumnDefinition);
 		const usesPriorityPlacement = !!currentColumnDefinition && usesPriorityMatching(currentColumnDefinition);
+		const usesTextPlacement = !!currentColumnDefinition && usesTextMatching(currentColumnDefinition);
 		const serialisedContent = placementTags.length > 0
 			? this.stripPlacementTags(this.content.trim(), placementTags)
 			: this.content.trim();
@@ -537,7 +546,7 @@ export class Task {
 			this.column
 				? this.column === "archived"
 					? ` #${this.column}`
-					: usesStatusPlacement || usesPriorityPlacement
+					: usesStatusPlacement || usesPriorityPlacement || usesTextPlacement
 						? ""
 						: placementTags.length > 0
 						? ` ${placementTags.map((tag) => `#${tag}`).join(" ")}`

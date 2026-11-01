@@ -14,7 +14,7 @@
 		propertyOptionValue,
 	} from "./views/view_editor_options";
 	import type { SortDirection } from "../parsing/properties/comparators";
-	import type { GroupSource } from "./tasks/task_grouping";
+	import TextLiteralList from "./components/TextLiteralList.svelte";
 
 	type SortKey = { key: string; label: string };
 	type TagGroupInputMode = "prefix" | "include";
@@ -35,6 +35,10 @@
 	export let showCollapsePastDatesToggle = false;
 	export let collapsePastDates = false;
 	export let onSetCollapsePastDates: (collapse: boolean) => void;
+
+	export let textLiterals: string[] = [];
+	export let textColumnLiterals: string[] = [];
+	export let onUpdateTextLiterals: (literals: string[]) => void = () => {};
 
 	export let isTagPrefixGrouping = false;
 	export let tagGroupInputMode: TagGroupInputMode = "prefix";
@@ -160,6 +164,7 @@
 					<option value="file">File</option>
 					<option value="folder">Folder</option>
 					<option value="tag-prefix">Tag</option>
+					<option value="text">Text</option>
 					{#if availableGroupKeys.length > 0}
 						<optgroup label="Properties">
 							{#each availableGroupKeys as groupKey (groupKey.key)}
@@ -185,6 +190,15 @@
 					</button>
 				{/if}
 			</div>
+			{#if groupSelectValue === "text"}
+				<div class="view-editor-group-details" role="group" aria-label="Text swimlanes">
+					<span class="view-editor-group-details-label">Text lanes</span>
+					<TextLiteralList value={textLiterals} onChange={onUpdateTextLiterals} />
+					{#if textLiterals.some((literal) => textColumnLiterals.some((column) => column === literal))}
+						<p class="view-editor-group-details-hint" role="status">A text literal is also used by a column. Moving between lanes may change column placement.</p>
+					{/if}
+				</div>
+			{/if}
 			{#if showCollapsePastDatesToggle}
 				<label class="view-editor-toggle-row">
 					<input

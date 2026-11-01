@@ -641,8 +641,8 @@ export class SettingsModal extends Modal {
 		addButton.addEventListener("click", () => this.addColumn());
 
 		new Setting(section)
-			.setName("Keep column tag when completing")
-			.setDesc("Leave a task's column tag in place when it is completed or archived. Status-based columns cannot be kept, because completing a task changes its status.")
+			.setName("Keep column metadata when completing")
+			.setDesc("Keep column tags when completing or archiving, and matching text when archiving. Completing always preserves matching text and priority. Status-based columns cannot be kept.")
 			.addToggle((toggle) => {
 				toggle.setValue(this.settings.keepColumnTagOnCompletion ?? false);
 				toggle.onChange((value) => {
@@ -720,6 +720,7 @@ export class SettingsModal extends Modal {
 	}
 
 	private getColumnMatchSummary(column: ColumnDefinition): string {
+		if (column.matchMode === "text") return "Matches title text";
 		if (usesStatusMatching(column)) {
 			return column.matchStatus ? `Status: ${getStatusColumnLabel(column.matchStatus)}` : "Needs status";
 		}
@@ -1046,10 +1047,10 @@ export class SettingsModal extends Modal {
 		}
 		updateSummarySwatch();
 
-		const updateRenameOption =
-			activePopover === "match"
-				? this.renderColumnMatchPopover(column, matchAnchor, matchSummary)
-				: () => undefined;
+		const updateRenameOption = this.renderColumnRenameOption(column, content);
+		if (activePopover === "match") {
+			this.renderColumnMatchPopover(column, matchAnchor, matchSummary, updateRenameOption);
+		}
 
 		labelInput.addEventListener("input", () => {
 			column.label = labelInput.value;
@@ -1123,16 +1124,38 @@ export class SettingsModal extends Modal {
 		this.mountColumnPopoverDismiss(popover, summaryButton);
 	}
 
-	/**
-	 * Renders the match-rule popover and returns the refresher for its
-	 * "Update existing tasks" row, which the label input also triggers.
-	 */
+	/** Keep the task-update choice visible beside the column being edited. */
+	private renderColumnRenameOption(column: ColumnDefinition, container: HTMLDivElement): () => void {
+		const renameOption = container.createDiv({ cls: "column-editor-rename-option" });
+		renameOption.addEventListener("click", (event) => event.stopPropagation());
+		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
+		const renameCheckboxId = `column-editor-update-${column.id}`;
+		renameCheckbox.id = renameCheckboxId;
+		const renameLabel = renameOption.createEl("label", {
+			text: "Update existing tasks",
+		});
+		renameLabel.htmlFor = renameCheckboxId;
+		const updateRenameOption = () => {
+			const show = this.shouldShowRetagOption(column);
+			renameOption.style.display = show ? "flex" : "none";
+			renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
+			renameCheckbox.setAttribute("aria-label", `Update existing tasks for ${column.label || "column"}`);
+		};
+		updateRenameOption();
+		renameCheckbox.addEventListener("change", () => {
+			this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
+			this.touchSettings();
+		});
+		return updateRenameOption;
+	}
+
+	/** Match-rule controls refresh the same task-update choice as title edits. */
 	private renderColumnMatchPopover(
 		column: ColumnDefinition,
 		anchor: HTMLDivElement,
 		summaryButton: HTMLButtonElement,
-	): () => void {
-		let updateRenameOption: () => void = () => undefined;
+		updateRenameOption: () => void,
+	): void {
 		const matchPopover = anchor.createDiv({
 			cls: "column-editor-popover column-editor-match-popover",
 			attr: { role: "dialog", "aria-label": `${column.label || "Column"} match settings` },
@@ -1161,16 +1184,18 @@ export class SettingsModal extends Modal {
 				text: "Priority",
 			});
 		}
+		matchModeSelect.createEl("option", { value: "text", text: "Text" });
 		matchModeSelect.value = column.matchMode;
 		matchModeSelect.addEventListener("change", () => {
 			const activePrioritySchema = this.getActivePrioritySchema();
 			column.matchMode =
 				matchModeSelect.value === "tags" ||
+				matchModeSelect.value === "text" ||
 				matchModeSelect.value === "status" ||
 				(matchModeSelect.value === "priority" && activePrioritySchema)
 					? matchModeSelect.value
 					: "name";
-			if (column.matchMode === "name") {
+			if (column.matchMode === "name" || column.matchMode === "text") {
 				column.matchTags = [];
 				column.matchStatus = undefined;
 				column.matchPriority = undefined;
@@ -1195,6 +1220,13 @@ export class SettingsModal extends Modal {
 			this.renderColumnsEditor();
 			this.touchSettings();
 		});
+
+		if (column.matchMode === "text") {
+			matchPopover.createDiv({
+				cls: "setting-item-description",
+				text: "Uses the column title as literal text, e.g. @office or [[Project A]]. Matches whole tokens with exact case, not tags.",
+			});
+		}
 
 		if (usesTagMatching(column)) {
 			const tagsField = matchPopover.createDiv({ cls: "column-editor-popover-field column-editor-field-tag" });
@@ -1330,28 +1362,7 @@ export class SettingsModal extends Modal {
 				});
 			}
 		}
-
-		const renameOption = matchPopover.createDiv({ cls: "column-editor-rename-option" });
-		const renameCheckbox = renameOption.createEl("input", { type: "checkbox" });
-		const renameCheckboxId = `column-editor-update-${column.id}`;
-		renameCheckbox.id = renameCheckboxId;
-		const renameLabel = renameOption.createEl("label", {
-			text: "Update existing tasks",
-		});
-		renameLabel.htmlFor = renameCheckboxId;
-		updateRenameOption = () => {
-			const show = this.shouldShowRetagOption(column);
-			renameOption.style.display = show ? "flex" : "none";
-			renameCheckbox.checked = this.shouldUpdateExistingTaskTags(column.id);
-			renameCheckbox.setAttribute("aria-label", `Update existing tasks for ${column.label || "column"}`);
-		};
-		updateRenameOption();
-		renameCheckbox.addEventListener("change", () => {
-			this.updateExistingTaskTagsByColumnId.set(column.id, renameCheckbox.checked);
-			this.touchSettings();
-		});
 		this.mountColumnPopoverDismiss(matchPopover, summaryButton);
-		return updateRenameOption;
 	}
 
 	private updateValidationBanner() {
@@ -1681,7 +1692,7 @@ export class SettingsModal extends Modal {
 				});
 			});
 		this.newTaskHeadingErrorEl = headingSetting.descEl.createDiv({ cls: "setting-error-message" });
-		this.newTaskHeadingErrorEl.style.color = "var(--text-error)";
+		this.newTaskHeadingErrorEl.addClass("new-task-heading-error");
 		this.newTaskHeadingErrorEl.setAttribute("aria-live", "polite");
 		this.createOverrideChip(headingSetting.nameEl, ["newTaskHeading"]);
 		new Setting(container)

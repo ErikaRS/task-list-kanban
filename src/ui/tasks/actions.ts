@@ -1,3 +1,4 @@
+import { addTextLiteral, findTextLiteralMatches, replaceTextLiteral } from "../../parsing/text_literals/text_literals";
 import { insertNewTask, type TaskInsertionSettings } from "./task_insertion";
 import {
 	Keymap,
@@ -94,6 +95,7 @@ export type TaskActions = {
 		destinationFile: TFile,
 		destinationColumn: ColumnTag | DefaultColumns,
 	) => Promise<void>;
+	updateSwimlaneText: (ids: string[], literal: string | null, literals: string[]) => Promise<void>;
 	updateSwimlaneTag: (
 		ids: string[],
 		newTag: string | null,
@@ -124,6 +126,7 @@ export type TaskActions = {
 		additionalTags?: string[],
 		dateProperties?: Partial<Record<EditableDatePropertyKey, string>>,
 		groupProperty?: GroupProperty | null,
+		additionalText?: string[],
 	) => Promise<void>;
 	getTargetFile: () => TFile | null;
 	/**
@@ -324,7 +327,7 @@ export function createTaskActions({
 
 	/**
 	 * The custom column a task is leaving. A done task leaves the column its
-	 * kept tag names, so the normal column-change rules still apply to it.
+	 * kept metadata identifies, so the normal column-change rules still apply to it.
 	 */
 	function getSourceColumn(task: Task): ColumnTag | undefined {
 		if (task.done) return task.taggedColumn;
@@ -728,6 +731,14 @@ export function createTaskActions({
 			], prepareFileContentsForWrite);
 		},
 
+		async updateSwimlaneText(ids, literal, literals) {
+			await editTaskSourceRows(ids, (row) => {
+				const content = row.replace(/^\s*[-*+]\s+\[[^[\]]*\]\s/u, "");
+				const old = literals.find((value) => findTextLiteralMatches(content, value).length > 0);
+				return old ? replaceTextLiteral(row, old, literal) : literal ? addTextLiteral(row, literal) : row;
+			});
+		},
+
 		async updateSwimlaneTag(ids, newTag, prefix, excludedTags, includeTags) {
 			await rewriteTaskRows(ids, (task) => {
 				const oldTag = getTaskTagGroupValue(
@@ -902,7 +913,7 @@ export function createTaskActions({
 			});
 		},
 
-		async createTask(file, content, column, additionalTags = [], dateProperties = {}, groupProperty = null) {
+		async createTask(file, content, column, additionalTags = [], dateProperties = {}, groupProperty = null, additionalText = []) {
 			const taskLine = buildNewTaskLine({
 				content,
 				column,
@@ -912,6 +923,7 @@ export function createTaskActions({
 				additionalTags,
 				dateProperties,
 				groupProperty,
+				additionalText,
 			});
 
 			const contents = await vault.read(file);

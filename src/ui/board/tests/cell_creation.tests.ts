@@ -89,3 +89,9 @@ describe("cell creation metadata", () => {
 		}
 	});
 });
+
+it("carries a text lane's literal without tags, with nothing for Unassigned", () => {
+	const source = { kind: "text" as const, literals: ["[[Project A]]"] };
+	expect(deriveCellCreationMetadata(bucket({ source, value: "[[Project A]]" })).additionalText).toEqual(["[[Project A]]"]);
+	expect(deriveCellCreationMetadata(bucket({ source, value: null })).additionalText).toEqual([]);
+});

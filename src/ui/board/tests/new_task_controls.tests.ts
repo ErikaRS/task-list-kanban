@@ -45,5 +45,5 @@ it("retains desktop text and dates after a failed write and prevents duplicate s
 	input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 	await vi.waitFor(() => expect(host.querySelector("textarea")).toBeNull());
 	expect(createTask).toHaveBeenCalledTimes(2);
-	expect(createTask.mock.calls[1]).toEqual([file, "Keep my draft", "doing", [], expect.objectContaining({ due: "2026-10-20" }), null]);
+	expect(createTask.mock.calls[1]).toEqual([file, "Keep my draft", "doing", [], expect.objectContaining({ due: "2026-10-20" }), null, []]);
 });

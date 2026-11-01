@@ -1,9 +1,11 @@
+import { addTextLiteral } from "../../parsing/text_literals/text_literals";
 import {
 	type ColumnDefinition,
 	type ColumnTag,
 	type DefaultColumns,
 } from "../columns/columns";
 import {
+	getColumnText,
 	getColumnPriority,
 	getColumnPrioritySchema,
 	getColumnStatus,
@@ -33,6 +35,7 @@ export interface NewTaskLineOptions {
 	additionalTags?: string[];
 	dateProperties?: Partial<Record<EditableDatePropertyKey, string>>;
 	groupProperty?: GroupProperty | null;
+	additionalText?: string[];
 }
 
 export function buildNewTaskLine({
@@ -44,6 +47,7 @@ export function buildNewTaskLine({
 	additionalTags = [],
 	dateProperties = {},
 	groupProperty = null,
+	additionalText = [],
 }: NewTaskLineOptions): string {
 	const columnDefinition =
 		column === "uncategorised" || column === "done"
@@ -84,5 +88,12 @@ export function buildNewTaskLine({
 		}
 	}
 
+	for (const literal of additionalText) {
+		taskLine = addTextLiteral(taskLine, literal);
+	}
+	const columnText = getColumnText(columnDefinition);
+	if (columnText) {
+		taskLine = addTextLiteral(taskLine, columnText);
+	}
 	return taskLine;
 }

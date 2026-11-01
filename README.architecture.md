@@ -38,6 +38,7 @@ This plugin follows a modular architecture with clear separation between parsing
 - `actions.ts`: Task manipulation operations (move, done, cancel/restore, archive, delete)
 
 **Parsing Layer** (`src/parsing/`)
+- `text_literals/`: Shared case-sensitive token matching, validation, and surgical text edits for column placement and swimlanes. Task parsing retains original content for lane matching; card rendering keeps matched text literals visible in task descriptions.
 - `kebab/`: String normalization utilities for consistent naming
 - `tags/`: Tag extraction and processing from task content
 
@@ -63,8 +64,8 @@ Obsidian Files → File System Events → Task Parsing → Reactive Stores → S
 **Bidirectional Sync**: Changes made in the kanban UI are serialized back to the original markdown files, maintaining consistency between the kanban view and file content.
 
 **Write Paths**: Actions modify a task's source line through one of two paths in `src/ui/tasks/actions.ts`, with different fidelity guarantees:
-- *Rewrite* (`rewriteTaskRows`): re-serializes the whole line from the Task model. Normalizes formatting the user may not have touched (tag placement, spacing). Used when the change inherently goes through the model — column, status, content.
-- *Edit* (`editTaskSourceRows`): applies a targeted string transform to the raw line, preserving everything else byte-for-byte. Used for metadata tweaks (dates, priorities, swimlane values).
+- *Rewrite* (`rewriteTaskRows`): re-serializes the whole line from the Task model. Normalizes formatting the user may not have touched (tag placement, spacing). Used for content edits and tag swimlane changes.
+- *Edit* (`editTaskSourceRows`): applies a targeted string transform to the raw line, preserving unrelated formatting. Used for column and status changes, dates, priorities, and text swimlane values.
 
 Prefer the edit path for new actions; only rewrite when the model requires it. Both paths batch by file: one read and at most one write per affected file, skipping the write when nothing changed.
 

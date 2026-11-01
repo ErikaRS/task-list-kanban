@@ -1,9 +1,12 @@
+import { addTextLiteral, removeTextLiteral, replaceTextLiteral } from "../../parsing/text_literals/text_literals";
 import {
+	getColumnText,
 	getColumnPriority,
 	getColumnPrioritySchema,
 	getColumnWriteTags,
 	usesPriorityMatching,
 	usesStatusMatching,
+	usesTextMatching,
 	type ColumnDefinition,
 } from "../columns/definitions";
 import type { ColumnTag, DefaultColumns } from "../columns/columns";
@@ -20,7 +23,7 @@ export type ColumnChangeOptions = {
 	doneStatusMarker: string;
 	wasDone?: boolean;
 	addCompletionDate?: string;
-	/** Leave the source column's placement tags in place when completing. */
+	/** Leave the source column's placement tags in place when completing. Text is always preserved. */
 	keepColumnTag?: boolean;
 	/** Definitions that encoded `fromColumn`, when they differ from the destination's (column rule edits). */
 	sourceColumnDefinitions?: ColumnDefinition[];
@@ -61,6 +64,18 @@ export function changeColumnTransform(rawLine: string, options: ColumnChangeOpti
 
 	if (source && usesStatusMatching(source)) {
 		next = replaceStatusMarker(next, " ");
+	}
+
+	if (options.toColumn === "uncategorised") {
+		for (const column of options.columnDefinitions) {
+			if (usesTextMatching(column)) next = removeTextLiteral(next, getColumnText(column) ?? "");
+		}
+	} else if (options.toColumn !== "done" && source && usesTextMatching(source)) {
+		// Text may be part of the task's meaning, so completion never removes it.
+		next = replaceTextLiteral(next, getColumnText(source) ?? "", getColumnText(destination) ?? null);
+	}
+	if (destination && usesTextMatching(destination)) {
+		next = addTextLiteral(next, getColumnText(destination) ?? "");
 	}
 
 	const sourceTags = options.toColumn === "uncategorised"
@@ -110,6 +125,7 @@ export function archiveTransform(rawLine: string, options: ArchiveOptions): stri
 	let next = rawLine;
 	if (source && !options.keepColumnTag) {
 		next = replacePlacementTags(next, getColumnWriteTags(source), []);
+		if (usesTextMatching(source)) next = removeTextLiteral(next, getColumnText(source) ?? "");
 	}
 
 	if (options.archiveStatusMarker) {

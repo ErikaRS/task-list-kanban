@@ -128,6 +128,7 @@ async function updateFileForChangedColumns(
 		const oldProperties = oldPropertySchema.parseProperties(row);
 		const matchedColumn = resolveMatchedColumnDefinition(oldColumnDefinitions, {
 			tags: getTagsFromContent(row),
+			content: row.replace(/^\s*[-*+]\s+\[[^[\]]*\]\s/u, ""),
 			status,
 			priority: getPriorityMatchValue(oldPropertySchemaOption, oldProperties),
 			prioritySchema: getPriorityColumnContextSchema(oldPropertySchemaOption),

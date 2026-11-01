@@ -244,3 +244,25 @@ describe("deriveCollapsedGroupDropPlan", () => {
 		expect(taskActions.moveTasksToColumn).not.toHaveBeenCalled();
 	});
 });
+
+describe("text lane drops", () => {
+	const source = { kind: "text" as const, literals: ["[[Project A]]", "[[Project B]]"] };
+	it("plans lane replacements, unassignment, and collapsed header drops", () => {
+		const meta = { source, value: "[[Project B]]" };
+		expect(derive({ bucketMeta: meta })).toEqual({ kind: "set-text", literal: "[[Project B]]", literals: source.literals, changeColumn: false });
+		expect(derive({ column: OTHER_COLUMN, bucketMeta: { source, value: null } })).toEqual({ kind: "set-text", literal: null, literals: source.literals, changeColumn: true });
+		expect(deriveCollapsedGroupDropPlan({ dragging: dragging(), secondaryId: "lane-b", bucketMeta: meta, fileGroupTargetFilePath: null, canWriteProperties: false })?.kind).toBe("set-text");
+	});
+	it("edits the lane before moving the column, and skips column writes on lane-only moves", async () => {
+		const events: string[] = [];
+		const updateSwimlaneText = vi.fn(async () => { events.push("lane"); });
+		const moveTasksToColumn = vi.fn(async () => { events.push("column"); });
+		const args = { taskActions: { updateSwimlaneText, moveTasksToColumn } as never, taskIds: ["task-1"], taskSecondaryIds: {}, targetFile: null, column: COLUMN, excludedTags: [] };
+		await executeDropPlan({ ...args, plan: { kind: "set-text", literal: "[[Project B]]", literals: source.literals, changeColumn: true } });
+		expect(updateSwimlaneText).toHaveBeenCalledWith(["task-1"], "[[Project B]]", source.literals);
+		expect(events).toEqual(["lane", "column"]);
+		events.length = 0;
+		await executeDropPlan({ ...args, plan: { kind: "set-text", literal: null, literals: source.literals, changeColumn: false } });
+		expect(events).toEqual(["lane"]);
+	});
+});

@@ -28,7 +28,7 @@ describe("mobile creation sessions", () => {
 		await saveMobileCreation(captured, "  Task text  ", { due: "2026-09-25" });
 		expect(createTask).toHaveBeenCalledWith(
 			{ path: "Project A.md" }, "Task text", "this-week", ["project/a"], { due: "2026-09-25" },
-			{ key: "scheduled", value: "2026-09-30" },
+			{ key: "scheduled", value: "2026-09-30" }, [],
 		);
 	});
 	it("never submits without a file or with blank content", async () => {
@@ -40,7 +40,7 @@ describe("mobile creation sessions", () => {
 	it("creates an untagged task in the built-in Uncategorized section", async () => {
 		const { source, createTask } = fixture();
 		await saveMobileCreation({ ...source, column: "uncategorised", additionalTags: [], groupProperty: null }, "New task", {});
-		expect(createTask).toHaveBeenCalledWith(source.file, "New task", "uncategorised", [], {}, null);
+		expect(createTask).toHaveBeenCalledWith(source.file, "New task", "uncategorised", [], {}, null, []);
 	});
 	it("propagates failures without discarding the session, permitting a retry", async () => {
 		const { source, createTask } = fixture();
@@ -51,4 +51,13 @@ describe("mobile creation sessions", () => {
 		expect(createTask).toHaveBeenCalledTimes(2);
 		expect(createTask.mock.calls[1]?.[1]).toBe("First line<br />Second line");
 	});
+});
+
+it("captures text lane literals independently of later list edits", async () => {
+	const { source, createTask } = fixture();
+	source.additionalText = ["[[Project A]]"];
+	const captured = captureMobileCreation(source);
+	source.additionalText[0] = "[[Project B]]";
+	await saveMobileCreation(captured, "Draft", {});
+	expect(createTask.mock.calls[0]?.[6]).toEqual(["[[Project A]]"]);
 });

@@ -252,6 +252,7 @@ describe("task actions", () => {
 	describe("keeping the column tag on completion", () => {
 		const columns = [
 			...createNameModeColumns(["Todo", "Doing"]),
+			{ id: "office" as ColumnTag, label: "@office", matchMode: "text" as const, matchTags: [] },
 			...createPriorityModeColumns([{ id: "high", label: "High", matchPriority: "high" }]),
 		];
 
@@ -320,6 +321,25 @@ describe("task actions", () => {
 			await complete(actions, taskId);
 
 			expect(contents()).toContain("⏫");
+		});
+
+		it.each([
+			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
+			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
+			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
+		])("always preserves inline Text column content via %s", async (_name, complete) => {
+			for (const keepColumnTagOnCompletion of [false, true]) {
+				const { actions, taskId, contents } = setupColumnActions("  * [ ] Call  Bob @office about invoices #note ^abc", { keepColumnTagOnCompletion });
+				await complete(actions, taskId);
+				expect(contents()).toBe("  * [x] Call  Bob @office about invoices #note ✅ 2026-06-15 ^abc");
+			}
+		});
+
+		it("reopens a completed task into its Text column using the preserved literal", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [x] Call Bob @office ✅ 2026-06-01");
+			await actions.toggleDone(taskId);
+			expect(contents()).toBe("- [ ] Call Bob @office ✅ 2026-06-01");
+			expect(parseTask(contents(), { columns, propertySchema: new TasksPluginSchema() }).column).toBe("office");
 		});
 
 		it("does not rebuild the line when the checkbox completes a task", async () => {
@@ -1382,3 +1402,19 @@ function setupActionsWithFileMap({
 
 	return { actions, writeCount: () => writeCount };
 }
+
+describe("surgical text swimlane actions", () => {
+	it.each([
+		["- [ ] Draft plan [[Project A]]", "[[Project B]]", "- [ ] Draft plan [[Project B]]"],
+		["- [ ] Buy milk", "[[Project A]]", "- [ ] Buy milk [[Project A]]"],
+		["- [ ] Draft plan [[Project A]]", null, "- [ ] Draft plan"],
+		["* [x] Draft [[Project A]]  📅 2026-11-01 ^abc123", "[[Project B]]", "* [x] Draft [[Project B]]  📅 2026-11-01 ^abc123"],
+		["- [ ] Draft [[Project A]] [[Project B]]", null, "- [ ] Draft [[Project B]]"],
+	])("moves %s to %s", async (line, literal, expected) => {
+		const file = { path: "tasks.md" };
+		const task = parseTask(line);
+		const { actions, contents } = setupActions(line, PropertySchemaOption.None, new Map([[task.id, task]]), new Map([[task.id, { fileHandle: file, rowIndex: 0 }]]), file);
+		await actions.updateSwimlaneText([task.id], literal, ["[[Project A]]", "[[Project B]]"]);
+		expect(contents()).toBe(expected);
+	});
+});

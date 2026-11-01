@@ -1,3 +1,4 @@
+import { validateTextLiteral } from "../../parsing/text_literals/text_literals";
 import { kebab } from "src/parsing/kebab/kebab";
 import { isValidTag } from "src/parsing/tags/tags";
 import { PropertySchemaOption } from "src/parsing/properties/property_schema";
@@ -44,6 +45,13 @@ export function getColumnValidationError(
 			continue;
 		}
 
+		if (column.matchMode === "text") {
+			const error = validateTextLiteral(column.label);
+			if (error) {
+				errors.push(`Column "${label}": ${error}`);
+				continue;
+			}
+		}
 		const derivedTag = kebab(label);
 		if (RESERVED_COLUMN_KEYS.has(derivedTag)) {
 			errors.push(`Column name "${label}" conflicts with a built-in column.`);
@@ -125,6 +133,8 @@ export function getColumnValidationError(
 				? "status marker"
 				: usesPriorityMatching(column)
 				? `priority "${getPriorityColumnLabel(normalizePriorityMatchValue(column.matchPriority, getColumnPrioritySchema(column)))}"`
+				: column.matchMode === "text"
+				? "text"
 				: "tag";
 			errors.push(`Columns "${existingLabel}" and "${label}" match the same ${criterion}.`);
 		} else {

@@ -226,6 +226,7 @@
 		{columnTitle}
 		additionalTags={creationMetadata.additionalTags}
 		groupProperty={creationMetadata.groupProperty}
+		additionalText={creationMetadata.additionalText ?? []}
 		{fileGroupTargetFile}
 		targetTaskFile={effectiveTargetTaskFile}
 		targetFileIsDefault={effectiveTargetFileIsDefault}

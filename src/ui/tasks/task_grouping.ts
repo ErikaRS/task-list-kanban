@@ -1,3 +1,4 @@
+import { createTextLiteralMatcher, findTextLiteralMatches } from "../../parsing/text_literals/text_literals";
 import type { Task } from "./task";
 import {
 	compareStatusMarkerValues,
@@ -11,6 +12,7 @@ import { getToday, toCalendarDay } from "../filters/date_filter";
 export const DEFAULT_GROUP_BUCKET_ID = "__default__";
 
 export type GroupSource =
+	| { kind: "text"; literals: string[] }
 	| { kind: "none" }
 	| { kind: "file" }
 	| { kind: "folder" }
@@ -34,6 +36,17 @@ export function deriveGroupBuckets(
 	groupDirection: SortDirection = "asc",
 	today: Date = getToday(),
 ): GroupBucket[] {
+	if (source.kind === "text") {
+		const buckets: GroupBucket[] = source.literals.map((literal) => ({
+			id: `text:${literal.trim()}`,
+			label: literal,
+			value: literal,
+			source,
+			isDefault: false,
+		}));
+		buckets.push({ id: "text-unassigned", label: "Unassigned", value: null, source, isDefault: true });
+		return applyGroupDirection(buckets, groupDirection);
+	}
 	if (source.kind === "file") {
 		const paths = [...new Set(tasks.map((task) => task.path))].sort((a, b) =>
 			a.localeCompare(b),
@@ -268,6 +281,10 @@ export function taskBelongsToGroup(
 	today: Date = getToday(),
 ): boolean {
 	switch (bucket.source.kind) {
+		case "text": {
+			const literal = bucket.source.literals.find((value) => findTextLiteralMatches(task.textMatchContent, value).length > 0) ?? null;
+			return bucket.isDefault ? literal === null : literal === bucket.value;
+		}
 		case "file":
 			return bucket.value !== null && task.path === bucket.value;
 		case "folder": {
@@ -350,6 +367,13 @@ export function createGroupAssigner(
 	today: Date = getToday(),
 ): (task: Task) => string | undefined {
 	const defaultBucketId = buckets.find((bucket) => bucket.isDefault)?.id;
+	if (source.kind === "text") {
+		const matchers = source.literals.map((literal) => ({
+			id: `text:${literal.trim()}`,
+			match: createTextLiteralMatcher(literal),
+		}));
+		return (task) => matchers.find(({ match }) => match(task.textMatchContent).length > 0)?.id ?? defaultBucketId;
+	}
 
 	if (source.kind === "tag-prefix") {
 		const prefix = normalizeTagPrefix(source.prefix);
