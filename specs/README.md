@@ -6,7 +6,7 @@ Active specs stay here until their required implementation is complete and accep
 
 ## Active work and remaining validation
 
-- [0054 — Today's daily note as a new task destination](SPEC_0054__IN_PROGRESS__TODAYS_DAILY_NOTE_DESTINATION.md) — Design drafted; not started. Refs [#208](https://github.com/ErikaRS/task-list-kanban/issues/208).
+No active specs or remaining acceptance checks.
 
 ## Completed and historical specs
 
@@ -66,6 +66,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 - [0052 — New task insertion location](complete/SPEC_0052__COMPLETE__NEW_TASK_INSERTION_LOCATION.md) — Remaining manual acceptance checks waived by the owner on 2026-10-17.
 
 - [0053 — Text matching for columns and swimlanes](complete/SPEC_0053__COMPLETE__TEXT_MATCHING_COLUMNS_AND_SWIMLANES.md) — Owner confirmed testing complete on 2026-11-01; Refs [#177](https://github.com/ErikaRS/task-list-kanban/issues/177).
+- [0054 — Today's daily note as a new task destination](complete/SPEC_0054__COMPLETE__TODAYS_DAILY_NOTE_DESTINATION.md) — Owner confirmed all remaining manual checks, including Templater, midnight rollover, and mobile/Add card, complete on 2026-11-01; Refs [#208](https://github.com/ErikaRS/task-list-kanban/issues/208).
 
 ## Numbering and maintenance
 

@@ -1,4 +1,5 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+Implemented: 2026-11
 
 # Today's Daily Note as a New Task Destination
 
@@ -231,7 +232,7 @@ pick **Today's daily note** in the file picker when today's note exists.
 **Deliverable:** Picking today's existing daily note from the picker works and
 follows the date on later days.
 
-**Implemented by:** 3b5556f
+**Implemented by:** [3b5556f](https://github.com/ErikaRS/task-list-kanban/commit/3b5556f5ad138560f21463ebd7c092f80d3edf2c)
 
 ### Phase 2: Today's daily note as the default task file ✅ COMPLETE
 
@@ -251,9 +252,9 @@ toolbar indicator labels it correctly.
 **Deliverable:** A board whose default is Today's daily note sends one-click
 adds to today's note with no per-day configuration.
 
-**Implemented by:**
+**Implemented by:** [1371e00](https://github.com/ErikaRS/task-list-kanban/commit/1371e00f8db3b80f1a148dd750b1be8cd4d381f3)
 
-### Phase 3: Create today's note on first add
+### Phase 3: Create today's note on first add ✅ COMPLETE
 
 **Goal:** Adding a task when today's note doesn't exist creates it (with the
 core template when applicable) and inserts the task.
@@ -262,7 +263,7 @@ core template when applicable) and inserts the task.
 2. ✅ Create the note and missing parent folders. Apply the core template with
    token substitution, recover from "already exists", and keep the draft on
    failure.
-3. Verify Templater on-create behavior in the test vault; add a wait if
+3. ✅ Verify Templater on-create behavior in the test vault; add a wait if
    needed.
 4. ✅ Unit tests: empty-file creation, template token substitution (core and
    overridden locations), heading and
@@ -274,23 +275,23 @@ core template when applicable) and inserts the task.
 **Deliverable:** Opening a board and clicking add creates today's daily note
 if needed and places the task in it.
 
-**Implemented by:**
+**Implemented by:** [1371e00](https://github.com/ErikaRS/task-list-kanban/commit/1371e00f8db3b80f1a148dd750b1be8cd4d381f3)
 
 ### Manual acceptance checks
 
-- [ ] Core Daily notes on with a custom folder and nested format: the picker
+- [x] Core Daily notes on with a custom folder and nested format: the picker
       shows the correct dated path with no plugin configuration.
-- [ ] Global default Daily note path set and one board overriding it: both
+- [x] Global default Daily note path set and one board overriding it: both
       resolve correctly; reset restores inheritance.
-- [ ] Default set to Today's daily note: one-click add creates the note from
+- [x] Default set to Today's daily note: one-click add creates the note from
       the core template and inserts the task under the configured heading.
-- [ ] Daily note outside scope: shown disabled in the picker, error in
+- [x] Daily note outside scope: shown disabled in the picker, error in
       settings, nothing created.
-- [ ] Board left open across midnight: the indicator and the next add move to
+- [x] Board left open across midnight: the indicator and the next add move to
       the new day's note.
-- [ ] Existing board with a `daily/{{YYYY-MM-DD}}.md` Default task file keeps
+- [x] Existing board with a `daily/{{YYYY-MM-DD}}.md` Default task file keeps
       working and shows `(default)`.
-- [ ] Mobile creation and Add card use the same destination.
+- [x] Mobile creation and Add card use the same destination.
 
 ### Review fixes verified (2026-11-01)
 
@@ -305,4 +306,6 @@ scope.
 - `npm test`: passed, 1,105 tests in 73 files.
 - ESLint for `src/ui/tasks/create_card_modal.ts`: passed.
 
-The manual Templater acceptance check remains pending.
+The owner confirmed all remaining manual acceptance checks complete on
+2026-11-01, including Templater on-create behavior, midnight rollover, and
+mobile creation/Add card.
