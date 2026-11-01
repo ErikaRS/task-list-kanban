@@ -6,7 +6,9 @@ Active specs stay here until their required implementation is complete and accep
 
 ## Active work and remaining validation
 
-No active specs or remaining required validation.
+| Spec | Issue | State | Remaining work |
+| --- | --- | --- | --- |
+| [0053 — Text matching for columns and swimlanes](SPEC_0053__IN_PROGRESS__TEXT_MATCHING_COLUMNS_AND_SWIMLANES.md) | [#177](https://github.com/ErikaRS/task-list-kanban/issues/177) | Design agreed; not started | Phases 1–4: text columns, column moves, rule edits, text swimlanes. |
 
 ## Completed and historical specs
 
@@ -67,7 +69,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 
 ## Numbering and maintenance
 
-- Numbers are global across active and completed specs. The next unused number is **0053**.
+- Numbers are global across active and completed specs. The next unused number is **0054**.
 - Advance Card was originally also numbered 0043. It is now **0051**; **0043** remains Open Filtered Source Files. Historical commits retain the old filename.
 - Keep implementation links current and label waived checks explicitly without claiming they passed. Move a spec into `complete/` and change its status after required checks are verified or explicitly waived by the owner.
 - Follow [the planning guide](../README.planning.md) for new specs.
