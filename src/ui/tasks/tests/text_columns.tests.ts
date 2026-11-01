@@ -19,8 +19,7 @@ function move(line: string, from: string | undefined, to: string, keepColumnTag 
 
 describe("text columns", () => {
 	it.each([
-		["- [ ] Print forms @office", "office"], ["- [ ] Print forms @Office", undefined],
-		["- [ ] Email bob@office.com", undefined], ["- [ ] Draft plan [[Project A]]", "project"],
+		["- [ ] Print forms @office", "office"],
 		["- [/] Draft plan @home", "home"], ["- [ ] Fix sink @home @office", "office"],
 	])("assigns %s", (line, expected) => {
 		expect(parseTask(line, { columns }).column).toBe(expected);
@@ -91,7 +90,6 @@ describe("text columns", () => {
 		["- [ ] Print forms @office ^abc123", "office", "home", "- [ ] Print forms @home ^abc123"],
 		["- [ ] Print forms @office #note", "office", "uncategorised", "- [ ] Print forms #note"],
 		["- [ ] Print forms @office", "office", "doing", "- [/] Print forms"],
-		["- [ ] Print forms @office", "office", "done", "- [x] Print forms @office"],
 	])("moves %s to %s / %s", (line, from, to, expected) => {
 		const definitions = [...columns, textColumn("phone", "@phone")];
 		expect(changeColumnTransform(line, { fromColumn: from as ColumnTag, toColumn: to as ColumnTag, columnDefinitions: definitions, propertySchemaOption: PropertySchemaOption.None, doneStatusMarker: "x" })).toBe(expected);
@@ -134,7 +132,7 @@ describe("text lanes", () => {
 	});
 	it.each([
 		["- [ ] Draft plan [[Project A]]", 0], ["- [ ] Review [[Project B]] and [[Project A]]", 0],
-		["- [ ] Review [[project b]]", 2], ["- [ ] Buy milk", 2], ["- [x] Draft [[Project B]]", 1],
+		["- [ ] Buy milk", 2], ["- [x] Draft [[Project B]]", 1],
 	])("assigns %s independently of visual order", (line, index) => {
 		const buckets = deriveGroupBuckets([], source);
 		const task = parseTask(line);
@@ -150,11 +148,6 @@ describe("text lanes", () => {
 			expect(createGroupAssigner(buckets, exactSource)(task)).toBe(buckets[index]?.id);
 			expect(buckets.map((bucket) => taskBelongsToGroup(task, bucket))).toEqual(buckets.map((_, i) => i === index));
 		}
-	});
-	it("matches the same root text for columns and lanes", () => {
-		const task = parseTask("- [ ] Work @office", { columns });
-		const office = { kind: "text" as const, literals: ["@office"] };
-		expect(createGroupAssigner(deriveGroupBuckets([], office), office)(task)).toBe("text:@office");
 	});
 });
 

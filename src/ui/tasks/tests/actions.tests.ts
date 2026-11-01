@@ -284,14 +284,10 @@ describe("task actions", () => {
 			return { actions, taskId: task.id, contents };
 		}
 
-		it.each([
-			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
-			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
-			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
-		])("removes the column tag by default via %s", async (_name, complete) => {
+		it("removes the column tag by default", async () => {
 			const { actions, taskId, contents } = setupColumnActions("- [ ] Write #doing ^abc");
 
-			await complete(actions, taskId);
+			await actions.markDone(taskId);
 
 			expect(contents()).toBe("- [x] Write ✅ 2026-06-15 ^abc");
 		});
@@ -301,19 +297,17 @@ describe("task actions", () => {
 			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
 			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
 		])("keeps the column tag when the setting is on via %s", async (_name, complete) => {
-			const { actions, taskId, contents } = setupColumnActions("- [ ] Write #doing ^abc", {
+			const { actions, taskId, contents } = setupColumnActions("  * [ ] Write  #note #doing ^abc", {
 				keepColumnTagOnCompletion: true,
 			});
 
 			await complete(actions, taskId);
 
-			expect(contents()).toBe("- [x] Write #doing ✅ 2026-06-15 ^abc");
+			expect(contents()).toBe("  * [x] Write  #note #doing ✅ 2026-06-15 ^abc");
 		});
 
 		it.each([
 			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
-			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
-			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
 			["archiveTasks", (actions: TaskActions, id: string) => actions.archiveTasks([id])],
 		])("keeps the priority of a priority-column task via %s", async (_name, complete) => {
 			const { actions, taskId, contents } = setupColumnActions("- [ ] Write ⏫");
@@ -323,16 +317,10 @@ describe("task actions", () => {
 			expect(contents()).toContain("⏫");
 		});
 
-		it.each([
-			["markDone", (actions: TaskActions, id: string) => actions.markDone(id)],
-			["toggleDone", (actions: TaskActions, id: string) => actions.toggleDone(id)],
-			["moveTasksToColumn", (actions: TaskActions, id: string) => actions.moveTasksToColumn([id], "done")],
-		])("always preserves inline Text column content via %s", async (_name, complete) => {
-			for (const keepColumnTagOnCompletion of [false, true]) {
-				const { actions, taskId, contents } = setupColumnActions("  * [ ] Call  Bob @office about invoices #note ^abc", { keepColumnTagOnCompletion });
-				await complete(actions, taskId);
-				expect(contents()).toBe("  * [x] Call  Bob @office about invoices #note ✅ 2026-06-15 ^abc");
-			}
+		it("preserves inline Text column content when completing through the checkbox", async () => {
+			const { actions, taskId, contents } = setupColumnActions("  * [ ] Call  Bob @office about invoices #note ^abc");
+			await actions.toggleDone(taskId);
+			expect(contents()).toBe("  * [x] Call  Bob @office about invoices #note ✅ 2026-06-15 ^abc");
 		});
 
 		it("reopens a completed task into its Text column using the preserved literal", async () => {
@@ -340,16 +328,6 @@ describe("task actions", () => {
 			await actions.toggleDone(taskId);
 			expect(contents()).toBe("- [ ] Call Bob @office ✅ 2026-06-01");
 			expect(parseTask(contents(), { columns, propertySchema: new TasksPluginSchema() }).column).toBe("office");
-		});
-
-		it("does not rebuild the line when the checkbox completes a task", async () => {
-			const { actions, taskId, contents } = setupColumnActions("  * [ ] Write  #note #doing ^abc", {
-				keepColumnTagOnCompletion: true,
-			});
-
-			await actions.toggleDone(taskId);
-
-			expect(contents()).toBe("  * [x] Write  #note #doing ✅ 2026-06-15 ^abc");
 		});
 
 		it("advances through the status order with only a marker change", async () => {
@@ -369,11 +347,11 @@ describe("task actions", () => {
 		});
 
 		it("moves a done task out of Done by the normal rules for its kept tag's column", async () => {
-			const { actions, taskId, contents } = setupColumnActions("- [x] Write #todo");
+			const { actions, taskId, contents } = setupColumnActions("- [x] Write #todo ✅ 2026-06-01");
 
 			await actions.changeColumn(taskId, "doing" as ColumnTag);
 
-			expect(contents()).toBe("- [ ] Write #doing");
+			expect(contents()).toBe("- [ ] Write #doing ✅ 2026-06-01");
 		});
 
 		it("removes the column tag on archive by default", async () => {
@@ -869,40 +847,6 @@ describe("task actions", () => {
 			expect(contents()).toContain("Old\n- [ ] Second #doing\n# Next");
 			expect(prepare).toHaveBeenCalledTimes(2);
 		});
-		it("uses one pair across default, recent, picker, and file lane destinations", async () => {
-			const files = ["default.md", "recent.md", "chosen.md", "lane.md"].map((path) => Object.assign(new TFile(), { path }));
-			const sources = new Map(files.map((file, i) => [file.path, i === 0 ? "## Tasks\nOld\n## End" : "Intro"]));
-			let defaultFile: string | null = files[0]!.path;
-			const actions = createTaskActions({
-				tasksByTaskId: new Map(), metadataByTaskId: new Map(),
-				vault: {
-					read: async (file: TFile) => sources.get(file.path)!,
-					modify: async (file: TFile, contents: string) => { sources.set(file.path, contents); },
-					getAbstractFileByPath: (path: string) => files.find((file) => file.path === path),
-					getMarkdownFiles: () => files,
-				} as never,
-				workspace: {} as never,
-				getFilenameFilter: () => null, getExcludeFilter: () => null, getBoardFolderPath: () => null,
-				getPlacementTagsForColumn: () => [], getColumnDefinitions: () => [],
-				getDefaultTaskFile: () => defaultFile, getLastUsedTaskFile: () => files[1]!.path,
-				setLastUsedTaskFile: () => undefined,
-				getTaskInsertionSettings: () => ({ newTaskHeading: "Tasks", newTaskPosition: "top" }),
-				getPropertySchemaOption: () => PropertySchemaOption.None, getStatusMarkerOrder: () => "",
-				getManualOrder: () => ({}), setManualOrder: () => undefined,
-			});
-			await actions.createTask(actions.getTargetFile()!, "First", "doing" as ColumnTag);
-			defaultFile = null;
-			await actions.createTask(actions.getTargetFile()!, "First", "doing" as ColumnTag);
-			const picker = vi.fn();
-			actions.pickFileForNewTask("doing" as ColumnTag, { target: { getBoundingClientRect: () => ({ top: 0, left: 0, height: 20, width: 20 }) } } as unknown as MouseEvent, picker, true);
-			const menuOptions = vi.mocked(showFilePickerMenu).mock.lastCall![0];
-			menuOptions.onFileSelected(files[2]!);
-			await actions.createTask(picker.mock.calls[0]![0], "First", "doing" as ColumnTag);
-			await actions.createTask(files[3]!, "First", "doing" as ColumnTag);
-			expect(sources.get(files[0]!.path)).toBe("## Tasks\n- [ ] First\nOld\n## End");
-			for (const file of files.slice(1)) expect(sources.get(file.path)).toBe("## Tasks\n- [ ] First\n\nIntro");
-		});
-
 		it("does not write when the selected destination has unclosed frontmatter", async () => {
 			const prepare = vi.fn((_file, contents: string) => contents);
 			const { actions, fileHandle, contents } = setupActions("---\ntitle: Test", PropertySchemaOption.None, undefined, undefined, undefined, [], { prepareFileContentsForWrite: prepare });

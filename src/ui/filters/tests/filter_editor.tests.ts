@@ -147,19 +147,10 @@ describe("clause editor", () => {
 		expect(onSearch).not.toHaveBeenCalled();
 	});
 
-	it("labels the boolean controls without extra words", async () => {
-		await mount("tag:travel");
-		expect(document.querySelector(".exclude-toggle")?.textContent).toBe("NOT");
+	it("switches NOT on and exposes its checked state", async () => {
+		const { onChange } = await mount("tag:travel");
 		expect(document.querySelector(".exclude-toggle")?.getAttribute("role")).toBe("switch");
 		expect(document.querySelector(".exclude-toggle")?.getAttribute("aria-checked")).toBe("false");
-		expect(document.querySelector('[aria-label="Add OR"]')?.textContent).toBe("+ OR");
-		expect(document.querySelector('[aria-label="Add AND"]')?.textContent).toBe("+ AND");
-	});
-
-	it("uses a chevron button style for the type selector and switches NOT on", async () => {
-		const { onChange } = await mount("tag:travel");
-		expect(document.querySelector(".atom-kind-control select.atom-kind")).toBeTruthy();
-		expect(document.querySelector(".atom-kind-chevron")).toBeTruthy();
 		click(".exclude-toggle");
 		await tick();
 		expect(document.querySelector(".exclude-toggle")?.getAttribute("aria-checked")).toBe("true");

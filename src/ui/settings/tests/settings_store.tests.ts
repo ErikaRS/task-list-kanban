@@ -260,6 +260,26 @@ describe("Override lifecycle: pin, clear, prune (SPEC 0030 Phase 4)", () => {
 });
 
 describe("Invalid field resilience", () => {
+	it("parses saved card action modes and recovers an unrecognized mode", () => {
+		for (const cardActionMode of ["advance", "select"] as const) {
+			expect(parseSettingsOverrides(JSON.stringify({ cardActionMode }))).toEqual({ cardActionMode });
+		}
+		expect(parseSettingsOverrides('{"cardActionMode":"unknown"}')).toEqual({ cardActionMode: "done" });
+		expect(parseSettingsOverrides("{}").cardActionMode).toBeUndefined();
+	});
+
+	it("trims new task headings and round trips the placement settings", () => {
+		const settings = parseSettingsOverrides('{"newTaskHeading":" Tasks ","newTaskPosition":"top"}');
+		expect(parseSettingsOverrides(toSettingsString(settings))).toEqual({ newTaskHeading: "Tasks", newTaskPosition: "top" });
+		expect(parseSettingsOverrides('{"newTaskHeading":"  "}')).toEqual({ newTaskHeading: "" });
+	});
+
+	it("rejects invalid placement fields without discarding other settings", () => {
+		expect(parseSettingsOverrides(JSON.stringify({ newTaskHeading: "# Tasks", newTaskPosition: "middle", defaultTaskFile: "tasks.md" })))
+			.toEqual({ newTaskHeading: "", newTaskPosition: "bottom", defaultTaskFile: "tasks.md" });
+		expect(parseSettingsOverrides(JSON.stringify({ newTaskHeading: "A\nB" })).newTaskHeading).toBe("");
+	});
+
 	it("recovers from unrecognized scope value without losing columns", () => {
 		const parsed = parseSettings({
 			columns: ["ProjectA", "ProjectB"],

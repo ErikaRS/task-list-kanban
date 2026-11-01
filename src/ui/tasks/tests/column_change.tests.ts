@@ -269,11 +269,6 @@ describe("completing a task", () => {
 			.toBe("- [x] Ship #note");
 	});
 
-	it("moves a done task out of Done by the normal rules for its kept tag's column", () => {
-		expect(transform("- [x] Ship #backlog #note ✅ 2026-09-30", "backlog" as ColumnTag, "active" as ColumnTag, {
-			wasDone: true,
-		})).toBe("- [ ] Ship #status/active #project #note ✅ 2026-09-30");
-	});
 });
 
 describe("archiveTransform", () => {

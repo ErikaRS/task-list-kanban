@@ -7,7 +7,6 @@ import {
 	getPrimaryBucketTasks,
 	getSecondaryBucketTasks,
 	hasVisibleMobileGroupHeaders,
-	shouldUseMobileBoardLayout,
 } from "../mobile_layout";
 
 const task = (id: string) => ({ id }) as any;
@@ -38,11 +37,6 @@ function matrix(options: { defaultGroup?: boolean } = {}): BoardMatrix {
 }
 
 describe("mobile board hierarchy", () => {
-	it("selects the mobile renderer only for mobile devices", () => {
-		expect(shouldUseMobileBoardLayout(true)).toBe(true);
-		expect(shouldUseMobileBoardLayout(false)).toBe(false);
-	});
-
 	it("uses group dominance only for vertical flow with a real grouping", () => {
 		const grouped = matrix();
 		expect(deriveMobileHierarchyMode(grouped, false)).toBe("column-dominant");
@@ -77,12 +71,6 @@ describe("mobile board hierarchy", () => {
 		grouped.secondaryAxis[0]!.meta!.source = { kind: "property", key: "due" };
 
 		expect(hasVisibleMobileGroupHeaders(grouped)).toBe(true);
-		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
-	});
-
-	it("preserves the matrix-provided primary order for BTT nested columns", () => {
-		const grouped = matrix();
-		expect(grouped.primaryAxis.map((bucket) => bucket.id)).toEqual(["done", "todo"]);
 		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
 	});
 

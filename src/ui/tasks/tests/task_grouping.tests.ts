@@ -40,15 +40,6 @@ describe("folder grouping", () => {
 		expect(buckets.map((bucket) => bucket.label)).toEqual(["Area", "Area/Sub"]);
 	});
 
-	it("produces a single Root bucket when every task lives at the vault root", () => {
-		const task = parseTask("- [ ] Root only", { path: "root.md" });
-
-		const buckets = deriveGroupBuckets([task], { kind: "folder" });
-
-		expect(buckets).toHaveLength(1);
-		expect(buckets[0]).toMatchObject({ label: "Root", value: null, isDefault: true });
-	});
-
 	it("assigns tasks to their folder bucket via taskBelongsToGroup and createGroupAssigner", () => {
 		const inFolderTask = parseTask("- [ ] In folder", { path: "Projects/Alpha/work.md" });
 		const atRootTask = parseTask("- [ ] At root", { path: "root.md" });

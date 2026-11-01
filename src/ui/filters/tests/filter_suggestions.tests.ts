@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
 	applyFilterSuggestion,
+	collectPropertySuggestions,
 	getFilterSuggestions,
 	getListSuggestions,
 	stepSuggestionIndex,
 	type FilterSuggestion,
 	type FilterSuggestionContext,
 } from "../filter_suggestions";
+
+import { DataviewSchema } from "../../../parsing/properties";
 
 const CONTEXT: FilterSuggestionContext = {
 	tags: ["errand", "home", "homework"],
@@ -264,5 +267,44 @@ describe("stepSuggestionIndex", () => {
 		expect(stepSuggestionIndex(3, -1, -1)).toBe(2);
 		expect(stepSuggestionIndex(3, 0, -1)).toBe(2);
 		expect(stepSuggestionIndex(0, -1, 1)).toBe(-1);
+	});
+});
+
+describe("property suggestions", () => {
+	const dataview = new DataviewSchema();
+	const tasks = [
+		"- [ ] a [project:: website] [estimate:: 3] [due:: 2026-01-01]",
+		"- [/] b [project:: blog] [priority:: high]",
+	].map(line => ({ properties: dataview.parseProperties(line) }));
+	const collected = collectPropertySuggestions(tasks, dataview.knownKeys());
+	const context: FilterSuggestionContext = {
+		tags: [],
+		filePaths: [],
+		dateKeys: [{ key: "due", label: "Due" }],
+		savedFilterNames: [],
+		propertyKeys: collected.keys,
+		propertyValues: collected.values,
+	};
+
+	it("collects non-date keys and their values", () => {
+		const keys = collected.keys.map((key) => key.key);
+		expect(keys).toContain("project");
+		expect(keys).toContain("estimate");
+		expect(keys).toContain("status");
+		expect(keys).not.toContain("due");
+		expect(collected.values.get("project")).toEqual(["blog", "website"]);
+		expect(collected.values.get("status")).toEqual(["/", "todo"]);
+		expect(collected.values.get("priority")).toEqual(["highest", "high", "medium", "none", "low", "lowest"]);
+	});
+
+	it("offers key:: prefixes for bare words", () => {
+		expect(suggest("proj|", context).map((s) => s.insert)).toContain("project::");
+	});
+
+	it("offers values after key::", () => {
+		expect(suggest("project::w|", context).map((s) => s.insert)).toEqual(["website"]);
+		expect(suggest("-project::|", context).map((s) => s.insert)).toEqual(["blog", "website"]);
+		expect(suggest("project::blog,|", context).map((s) => s.insert)).toEqual(["website"]);
+		expect(suggest("estimate::<|", context)).toEqual([]);
 	});
 });

@@ -74,6 +74,9 @@ describe("global settings parsing", () => {
 				columns,
 				scope: ScopeOption.Everywhere,
 				propertySchema: PropertySchemaOption.TasksPlugin,
+				newTaskHeading: "Tasks",
+				newTaskPosition: "top",
+				defaultTaskFile: "board-local.md",
 				columnWidth: 480,
 				lastFilter: "tag:work",
 				savedViews: [{ id: "local", name: "Local", query: "x" }],
@@ -84,6 +87,8 @@ describe("global settings parsing", () => {
 			columns,
 			scope: ScopeOption.Everywhere,
 			propertySchema: PropertySchemaOption.TasksPlugin,
+			newTaskHeading: "Tasks",
+			newTaskPosition: "top",
 		});
 	});
 

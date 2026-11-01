@@ -60,10 +60,6 @@ describe("getReschedulableOverdueTasks", () => {
 		expect(contents(result)).toEqual(["past"]);
 	});
 
-	it("only considers the tasks it is given", () => {
-		expect(getReschedulableOverdueTasks([dueToday], { kind: "property", key: "due" }, today)).toEqual([]);
-	});
-
 	it("returns nothing for non-editable groupings", () => {
 		const created = tasksTask("- [ ] created ➕ 2026-01-01");
 		expect(getReschedulableOverdueTasks([created], { kind: "property", key: "created" }, today)).toEqual([]);

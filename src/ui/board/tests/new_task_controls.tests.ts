@@ -10,9 +10,10 @@ import { PropertySchemaOption } from "../../../parsing/properties";
 
 vi.mock("obsidian", () => ({ setIcon: vi.fn() }));
 let component: NewTaskControls;
-afterEach(() => { component?.$destroy(); document.body.innerHTML = ""; });
+afterEach(() => { component?.$destroy(); document.body.innerHTML = ""; vi.useRealTimers(); });
 
 it("retains desktop text and dates after a failed write and prevents duplicate saves", async () => {
+	vi.useFakeTimers();
 	let rejectWrite!: (error: Error) => void;
 	const createTask = vi.fn()
 		.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectWrite = reject; }))
@@ -39,11 +40,13 @@ it("retains desktop text and dates after a failed write and prevents duplicate s
 	input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 	expect(createTask).toHaveBeenCalledTimes(1);
 	rejectWrite(new Error("Disk unavailable"));
-	await vi.waitFor(() => expect(host.querySelector('[role="alert"]')?.textContent).toBe("Disk unavailable"));
+	await vi.runAllTimersAsync();
+	expect(host.querySelector('[role="alert"]')?.textContent).toBe("Disk unavailable");
 	expect(textarea.value).toBe("Keep my draft");
 	expect(date.value).toBe("2026-10-20");
 	input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-	await vi.waitFor(() => expect(host.querySelector("textarea")).toBeNull());
+	await vi.runAllTimersAsync();
+	expect(host.querySelector("textarea")).toBeNull();
 	expect(createTask).toHaveBeenCalledTimes(2);
 	expect(createTask.mock.calls[1]).toEqual([file, "Keep my draft", "doing", [], expect.objectContaining({ due: "2026-10-20" }), null, []]);
 });

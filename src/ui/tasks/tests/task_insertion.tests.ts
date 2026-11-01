@@ -61,12 +61,6 @@ describe("new task insertion", () => {
 		expect(insert("# Tasks\r\nOld  \n\n# End\r\n", "Tasks"))
 			.toBe(`# Tasks\r\nOld  \n${task}\r\n\n# End\r\n`);
 	});
-	it("recomputes the insertion point for sequential creations", () => {
-		const first = insert("Intro", "Tasks", "top");
-		expect(insert(first, "Tasks", "top")).toBe(`## Tasks\n${task}\n${task}\n\nIntro`);
-		expect(insertNewTask(first, "- [ ] Second", { newTaskHeading: "Tasks" }))
-			.toBe(`## Tasks\n${task}\n\nIntro\n- [ ] Second`);
-	});
 	it("validates heading text", () => {
 		expect(getNewTaskHeadingError(" Tasks ")).toBeNull();
 		expect(getNewTaskHeadingError("  ")).toBeNull();

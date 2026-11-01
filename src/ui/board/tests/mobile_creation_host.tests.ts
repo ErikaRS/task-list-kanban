@@ -12,12 +12,13 @@ import { captureMobileCreation, type MobileCreationSession } from "../mobile_cre
 let component: MobileCreationHost;
 let board: HTMLDivElement;
 beforeEach(() => {
+	vi.useFakeTimers();
 	board = document.createElement("div");
 	board.className = "board-content";
 	board.innerHTML = '<div class="board-main"></div>';
 	document.body.append(board);
 });
-afterEach(() => { component?.$destroy(); document.body.innerHTML = ""; });
+afterEach(() => { component?.$destroy(); document.body.innerHTML = ""; vi.useRealTimers(); });
 function context() {
 	const pickFileForNewTask = vi.fn();
 	const createTask = vi.fn().mockResolvedValue(undefined);
@@ -54,7 +55,8 @@ describe("mobile creation host", () => {
 		(document.querySelector(".tlk-editor-actions button") as HTMLButtonElement).click();
 		await tick();
 		expect(createTask).toHaveBeenCalledWith({ path: "other.md" }, "A draft", "this-week", ["home"], expect.objectContaining({ due: "2026-09-26" }), null, []);
-		await vi.waitFor(() => expect(document.querySelector(".tlk-mobile-editor-root")).toBeNull());
+		await vi.runAllTimersAsync();
+		expect(document.querySelector(".tlk-mobile-editor-root")).toBeNull();
 	});
 	it("ignores old picker callbacks after a new session starts", async () => {
 		const { session, pickFileForNewTask } = context();

@@ -1,9 +1,8 @@
-import { svelte } from "@sveltejs/vite-plugin-svelte";
-import sveltePreprocess from "svelte-preprocess";
+import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-	plugins: [svelte({ preprocess: sveltePreprocess(), compilerOptions: { compatibility: { componentApi: 4 } } })],
+	plugins: [svelte({ preprocess: vitePreprocess({ script: true }), compilerOptions: { compatibility: { componentApi: 4 } } })],
 	resolve: {
 		conditions: ["browser"],
 		alias: {
@@ -18,6 +17,8 @@ export default defineConfig({
 		},
 	},
 	test: {
+		// Threads reduce worker startup overhead while retaining per-file isolation.
+		pool: "threads",
 		include: ["**/*.tests.ts"],
 		exclude: ["**/node_modules/**", "**/dist/**", "**/build/**", "**/worktrees/**"],
 		setupFiles: ["./src/tests/support/setup.ts"],
