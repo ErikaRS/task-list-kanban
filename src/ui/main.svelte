@@ -19,7 +19,7 @@
 	import type { ArchivePageReader } from "./tasks/archive_reader";
 	import BoardMatrixDesktop from "./board/board_matrix_desktop.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
-	import { shouldUseMobileBoardLayout } from "./board/mobile_layout";
+	import { shouldUseListRenderer, shouldUseMobileBoardLayout } from "./board/mobile_layout";
 	import { mobileKeyboardBoardLayout } from "./mobile_editor_layout";
 	import { mobileVisibleBottom } from "./mobile_visible_area";
 	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
@@ -180,6 +180,9 @@
 	let isMobileViewport = Platform.isMobile ||
 		(typeof window !== "undefined" && window.innerWidth <= 760);
 	const isMobileBoardLayout = shouldUseMobileBoardLayout(Platform.isMobile);
+	// Platform mobile (above) drives the rail, toolbar, sheets and editors;
+	// the list renderer only decides how the matrix is drawn (SPEC 0055).
+	$: listRenderer = shouldUseListRenderer(Platform.isMobile, $settingsStore.layout);
 	let columnsClientWidth = 0;
 	let boardSummaryHeight = 0;
 	// Dock side is a plugin setting (default left); top turns the content
@@ -1630,11 +1633,13 @@
 				<div class="board-panes" class:with-archive={$settingsStore.showArchivedColumn}>
 				<div
 					class="columns"
-					class:vertical-flow={isVerticalFlow}
+					class:vertical-flow={isVerticalFlow && !listRenderer}
+					class:list-layout={listRenderer}
+					class:desktop-list-layout={listRenderer && !isMobileBoardLayout}
 					style="--column-width: {columnWidth}px;"
 					bind:clientWidth={columnsClientWidth}
 				>
-					{#if isMobileBoardLayout}
+					{#if listRenderer}
 						<BoardMobileList
 							{app}
 							{overdueRescheduleCount}
@@ -1664,6 +1669,7 @@
 							{treatNestedTasksAsSubtasks}
 							taskCountLabel={boardTaskCountLabel}
 							{isVerticalFlow}
+							mobileCreation={isMobileBoardLayout}
 						>
 							<svelte:fragment slot="summary-action">
 								<CardActionModeSelector mode={cardActionMode} disabled={$dashboardOpenStore}
@@ -1713,7 +1719,7 @@
 					{/if}
 				</div>
 				{#if $settingsStore.showArchivedColumn && archiveReader}
-					<ArchiveColumn {app} reader={archiveReader} width={columnWidth} headerSpacing={boardSummaryHeight}
+					<ArchiveColumn {app} reader={archiveReader} width={columnWidth} headerSpacing={listRenderer ? 0 : boardSummaryHeight}
 						title={$settingsStore.columns.some(column => column.label === "Archived") ? "Archived tasks" : "Archived"}
 						resetKey={archiveResetKey} matches={archiveMatches} boardPath={$currentPathStore} />
 				{/if}
@@ -2030,6 +2036,24 @@
 				overflow-x: auto;
 				overflow-y: scroll;
 			}
+
+			// The stacked list fills the pane and scrolls only vertically; it
+			// must not shrink to max-content beside the archived pane.
+			&.list-layout {
+				overflow-x: hidden;
+				overflow-y: auto;
+			}
+
+			// Desktop List keeps a readable line length on wide panes instead
+			// of stretching cards edge to edge (SPEC 0055). Mobile fills.
+			&.desktop-list-layout > :global(.mobile-board-list) {
+				max-width: var(--tlk-list-max-width, 800px);
+				margin-inline: auto;
+			}
+		}
+		.board-panes.with-archive > .columns.list-layout {
+			flex: 1 1 0;
+			width: auto;
 		}
 	}
 </style>

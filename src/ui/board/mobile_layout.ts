@@ -1,10 +1,19 @@
 import { getBoardCell, type BoardMatrix, type PrimaryBucketId, type SecondaryBucketId } from "./board_matrix";
 import type { Task } from "../tasks/task";
+import type { BoardLayout } from "../settings/settings_store";
 
 export type MobileHierarchyMode = "column-dominant" | "group-dominant";
 
 export function shouldUseMobileBoardLayout(isMobile: boolean): boolean {
 	return isMobile;
+}
+
+/**
+ * Whether the matrix renders as the stacked list (SPEC 0055). Mobile always
+ * lists and ignores the stored layout; desktop lists only when asked to.
+ */
+export function shouldUseListRenderer(isMobile: boolean, layout: BoardLayout | undefined): boolean {
+	return isMobile || layout === "list";
 }
 
 /** A default bucket represents an ungrouped board, not a visible group. */

@@ -15,7 +15,7 @@ This spec adds a **Layout** view property with two values, **Table** (today's de
 ## User Requirements
 
 1. On desktop, a board can be switched between **Table** (the current matrix) and **List** (the stacked mobile hierarchy).
-2. List layout fills the board pane's width, as the mobile list does.
+2. List layout is centered in the board pane with a maximum width (800px) so lines stay readable on wide screens. Narrower panes fill their width, as the mobile list does.
 3. The **Card width** control appears only when Table is in effect. A stored width is preserved while List is active and applies again when the user returns to Table.
 4. On mobile, List is always in effect. The Layout control and the Card width control are not shown there.
 5. Layout is a normal view property. It follows the existing view mechanics: per-board setting, included in saved views, and settable in the plugin-wide default view.
@@ -80,7 +80,9 @@ The archived column pane keeps rendering beside the list exactly as it does besi
 
 ### Width and layout of the list
 
-The list takes the full width of the board pane. No maximum line length is introduced; the mobile list's padding and header bleed carry over. A very wide pane produces very wide cards, which is the behavior the issue asks for ("take the full screen") and is acceptable for a first version. See Open Questions.
+On desktop the list is capped at 800px and centered in the board pane, in the manner of single-column task apps such as Todoist's Upcoming view. Panes narrower than the cap fill their width. The mobile list's padding and header bleed carry over. Mobile is not capped: it always fills the screen.
+
+The cap is a fixed reading width, not tied to Card width, which stays a Table-only setting. It lives in one CSS variable (`--tlk-list-max-width`) so it can be tuned or themed without code changes.
 
 ## Detailed Behavior
 
@@ -104,23 +106,29 @@ The list takes the full width of the board pane. No maximum line length is intro
 
 ## Open Questions
 
-1. **Maximum list width on wide screens.** Full width matches the issue. If it reads poorly on ultra-wide panes, a cap can be added later.
+1. ~~**Maximum list width on wide screens.**~~ Resolved: desktop List is capped at 800px and centered rather than filling the pane.
 2. **Card width on mobile.** Today the mobile list ignores width, yet the control is still visible there. This spec hides it on mobile to match the rule "no width option in List". Confirm this is wanted.
 3. **Segmented control versus dropdown** for Layout. The view editor currently uses a dropdown for Flow; a two-value toggle seems better but is a styling choice.
 
 ## Implementation Plan
 
-### Phase 1: List renderer on desktop (hard-coded switch)
+### Phase 1: List renderer on desktop (hard-coded switch) 🚧 IN PROGRESS
 
 **Goal:** With a Layout value in board settings, a desktop board renders the stacked list and behaves correctly. Selection is by editing the setting, with no UI yet.
 
-1. Add `layout` to the board settings schema and `shouldUseListRenderer` to `mobile_layout.ts`, with unit tests for the mobile/desktop and table/list combinations.
-2. Split `main.svelte` into the platform flag and the renderer flag; move only the renderer selection to the new flag.
-3. Replace the floating-action and mobile-composer creation path with the desktop inline composer when the list renders on desktop; keep the mobile path for `Platform.isMobile`.
+1. ✅ Add `layout` to the board settings schema and `shouldUseListRenderer` to `mobile_layout.ts`, with unit tests for the mobile/desktop and table/list combinations.
+2. ✅ Split `main.svelte` into the platform flag and the renderer flag; move only the renderer selection to the new flag.
+3. ✅ Replace the floating-action and mobile-composer creation path with the desktop inline composer when the list renders on desktop; keep the mobile path for `Platform.isMobile`.
 4. Verify sticky outer/inner headers against the desktop scroll container, with and without the archived pane.
-5. Test: a component test for renderer selection, plus a test that desktop List does not use the mobile creation path.
+5. ✅ Test: a unit test for renderer selection (`shouldUseListRenderer`), plus a component test that desktop List does not use the mobile creation path.
 
 **Deliverable:** Setting `layout: list` in the board's frontmatter makes the desktop board stack as a list.
+
+**Implementation notes:**
+- `BoardCell` gained a `mobileCreation` flag separate from `isCompactEmpty`; `BoardMobileList` receives it from `main.svelte` as `Platform.isMobile`. Compact empty cells still compact on desktop but render the inline `+ Task` control.
+- `.columns` gets a `list-layout` class while the list renders: vertical scroll only, and beside the archived pane it flexes to fill instead of sizing to `max-content` (this also applies on mobile).
+- Desktop List caps the list at `--tlk-list-max-width` (800px) and centers it; mobile is unaffected.
+- The archived pane's header spacing is 0 under the list renderer, because only the desktop matrix reports a summary height.
 
 **Implemented by:** *pending*
 

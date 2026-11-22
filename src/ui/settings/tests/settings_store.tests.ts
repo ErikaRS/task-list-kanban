@@ -679,6 +679,19 @@ describe("Flow direction configuration", () => {
 	});
 });
 
+describe("Board layout configuration (SPEC 0055)", () => {
+	it("defaults to table and parses list", () => {
+		expect(parseSettings({}).layout).toBe("table");
+		expect(parseSettings({ layout: "list" }).layout).toBe("list");
+	});
+
+	it("falls back to table for an invalid layout without losing other settings", () => {
+		const parsed = parseSettings({ layout: "grid", flowDirection: "btt" });
+		expect(parsed.layout).toBe("table");
+		expect(parsed.flowDirection).toBe(FlowDirection.BottomToTop);
+	});
+});
+
 describe("Default task file configuration", () => {
 	it("parses defaultTaskFile", () => {
 		expect(parseSettings({ defaultTaskFile: "notes/tasks.md" }).defaultTaskFile).toBe("notes/tasks.md");

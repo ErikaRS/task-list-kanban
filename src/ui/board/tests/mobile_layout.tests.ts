@@ -7,6 +7,7 @@ import {
 	getPrimaryBucketTasks,
 	getSecondaryBucketTasks,
 	hasVisibleMobileGroupHeaders,
+	shouldUseListRenderer,
 } from "../mobile_layout";
 
 const task = (id: string) => ({ id }) as any;
@@ -35,6 +36,16 @@ function matrix(options: { defaultGroup?: boolean } = {}): BoardMatrix {
 		},
 	};
 }
+
+describe("list renderer selection (SPEC 0055)", () => {
+	it("always lists on mobile and lists on desktop only for the list layout", () => {
+		expect(shouldUseListRenderer(true, "table")).toBe(true);
+		expect(shouldUseListRenderer(true, undefined)).toBe(true);
+		expect(shouldUseListRenderer(false, "list")).toBe(true);
+		expect(shouldUseListRenderer(false, "table")).toBe(false);
+		expect(shouldUseListRenderer(false, undefined)).toBe(false);
+	});
+});
 
 describe("mobile board hierarchy", () => {
 	it("uses group dominance only for vertical flow with a real grouping", () => {

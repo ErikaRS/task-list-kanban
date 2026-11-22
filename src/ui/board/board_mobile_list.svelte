@@ -55,6 +55,8 @@
 	export let treatNestedTasksAsSubtasks = false;
 	export let taskCountLabel = "";
 	export let isVerticalFlow = false;
+	/** Platform mobile uses the floating add action; desktop List uses the inline composer (SPEC 0055). */
+	export let mobileCreation = true;
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [bucket.id, getPrimaryBucketTasks(matrix, bucket.id)]),
@@ -154,6 +156,7 @@
 							manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 							{reorderEnabled}
 							isCompactEmpty={true}
+								{mobileCreation}
 							/>
 						{/if}
 					</div>
@@ -230,6 +233,7 @@
 								manualOrderEntries={manualOrder[sBucket.id]?.[pBucket.id]}
 								{reorderEnabled}
 								isCompactEmpty={true}
+								{mobileCreation}
 							/>
 						{/if}
 					</div>

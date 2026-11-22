@@ -68,6 +68,10 @@ export function isFlowDirection(value: string): value is FlowDirection {
 	return (Object.values(FlowDirection) as string[]).includes(value);
 }
 
+/** How the board matrix is drawn on desktop (SPEC 0055). Mobile always lists. */
+export const BOARD_LAYOUTS = ["table", "list"] as const;
+export type BoardLayout = typeof BOARD_LAYOUTS[number];
+
 export enum PropertyDisplayMode {
 	None = "none",
 	Pretty = "pretty",
@@ -277,6 +281,7 @@ const settingsObject = z.object({
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
 	flowDirection: z.enum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	layout: z.enum(BOARD_LAYOUTS).catch("table").optional(),
 	collapsedColumns: z.array(z.string()).optional(),
 	collapsedGroups: z.array(z.string()).optional(),
 	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").optional(),
@@ -337,6 +342,7 @@ export interface SettingValues {
 	columnWidth?: number;
 	showArchivedColumn?: boolean;
 	flowDirection?: FlowDirection;
+	layout?: BoardLayout;
 	collapsedColumns?: string[];
 	collapsedGroups?: string[];
 	newTaskHeading?: string;
@@ -383,6 +389,7 @@ export const defaultSettings: SettingValues = {
 	savedViews: [],
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
+	layout: "table",
 	collapsedColumns: [],
 	collapsedGroups: [],
 	newTaskHeading: "",
