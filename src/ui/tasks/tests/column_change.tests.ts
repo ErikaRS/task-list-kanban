@@ -123,7 +123,7 @@ describe("changeColumnTransform", () => {
 		}
 	});
 
-	it("uses the Dataview writer for priority moves and preserves completion metadata", () => {
+	it("uses the Dataview writer for priority moves and clears completion when leaving Done", () => {
 		const dataviewPriority: ColumnDefinition = {
 			id: "urgent" as ColumnTag,
 			label: "Urgent",
@@ -139,7 +139,7 @@ describe("changeColumnTransform", () => {
 			propertySchemaOption: PropertySchemaOption.Dataview,
 			doneStatusMarker: "x",
 			wasDone: true,
-		})).toBe("- [ ] Keep  #note [completion:: 2026-06-01] [priority:: urgent] ^block");
+		})).toBe("- [ ] Keep  #note [priority:: urgent] ^block");
 	});
 
 	it("fails safely for legacy priority columns without a writable schema", () => {
@@ -276,11 +276,45 @@ describe("archiveTransform", () => {
 		return archiveTransform(rawLine, {
 			fromColumn: undefined,
 			columnDefinitions: columns,
+			propertySchemaOption: PropertySchemaOption.None,
 			doneStatusMarker: "x",
 			wasDone: false,
 			...overrides,
 		});
 	}
+
+	it.each([
+		{ schema: PropertySchemaOption.TasksPlugin, marker: undefined, expected: "  + [x] Ship  #note #archived ✅ 2026-09-07 ^abc" },
+		{ schema: PropertySchemaOption.Dataview, marker: "d", expected: "  + [d] Ship  #note [completion:: 2026-09-07] ^abc" },
+		{ schema: PropertySchemaOption.None, marker: undefined, expected: "  + [x] Ship  #note #archived ^abc" },
+	])("adds archive completion metadata for $schema with marker $marker", ({ schema, marker, expected }) => {
+		expect(archive("  + [ ] Ship  #note ^abc", {
+			propertySchemaOption: schema,
+			archiveStatusMarker: marker,
+			addCompletionDate: "2026-09-07",
+		})).toBe(expected);
+	});
+
+	it("preserves an existing completion date when archiving an already-done task", () => {
+		expect(archive("- [X] Ship ✅ 2026-06-01 ^abc", {
+			wasDone: true,
+			propertySchemaOption: PropertySchemaOption.TasksPlugin,
+			addCompletionDate: "2026-09-07",
+		})).toBe("- [X] Ship ✅ 2026-06-01 #archived ^abc");
+	});
+
+	it.each([
+		{ schema: PropertySchemaOption.TasksPlugin, marker: undefined, rawLine: "  * [X] Ship  #backlog ⏫  ^abc  ", archived: "  * [X] Ship  #backlog ⏫ #archived  ^abc  " },
+		{ schema: PropertySchemaOption.Dataview, marker: "d", rawLine: "  * [X] Ship  #backlog [priority:: high] ^abc", archived: "  * [d] Ship  #backlog [priority:: high] ^abc" },
+	])("changes only archive metadata on an already-done $schema task", ({ schema, marker, rawLine, archived }) => {
+		expect(archive(rawLine, {
+			fromColumn: "backlog" as ColumnTag,
+			wasDone: true,
+			propertySchemaOption: schema,
+			archiveStatusMarker: marker,
+			addCompletionDate: "2026-09-07",
+		})).toBe(archived);
+	});
 
 	it.each([
 		["- [X] Already done #note", true, "- [X] Already done #note #archived"],

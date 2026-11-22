@@ -96,6 +96,30 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [x] Send invoice ✅ 2026-06-01");
 		});
 
+		it("adds a missing date when moving an already-done task to Done", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"- [X] Send invoice ^abc123",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			await actions.changeColumn(taskId, "done");
+
+			expect(contents()).toBe("- [x] Send invoice ✅ 2026-06-15 ^abc123");
+		});
+
+		it("adds Dataview completion metadata when archiving without changing nested content", async () => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"  * [ ] Send  invoice [due:: 2026-06-20] ^abc123\n    - [ ] Child",
+				PropertySchemaOption.Dataview,
+				new DataviewSchema(),
+			);
+
+			await actions.archiveTasks([taskId]);
+
+			expect(contents()).toBe("  * [x] Send  invoice [due:: 2026-06-20] #archived [completion:: 2026-06-15] ^abc123\n    - [ ] Child");
+		});
+
 		it("adds Dataview completion metadata when toggling an open task done", async () => {
 			const { actions, taskId, contents } = setupActionsForLine(
 				"- [ ] Send invoice [due:: 2026-06-20]",
@@ -108,7 +132,7 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [x] Send invoice [due:: 2026-06-20] [completion:: 2026-06-15]");
 		});
 
-		it("does not rewrite completion metadata when toggling a done task open", async () => {
+		it("removes completion metadata when toggling a done task open", async () => {
 			const { actions, taskId, contents } = setupActionsForLine(
 				"- [x] Send invoice [completion:: 2026-06-01]",
 				PropertySchemaOption.Dataview,
@@ -117,7 +141,22 @@ describe("task actions", () => {
 
 			await actions.toggleDone(taskId);
 
-			expect(contents()).toBe("- [ ] Send invoice [completion:: 2026-06-01]");
+			expect(contents()).toBe("- [ ] Send invoice");
+		});
+
+		it.each([
+			["cancel", (actions: TaskActions, id: string) => actions.cancelTasks([id]), "-"],
+			["restore", (actions: TaskActions, id: string) => actions.restoreTasks([id]), " "],
+		] as const)("removes the done date through %s", async (_name, changeStatus, marker) => {
+			const { actions, taskId, contents } = setupActionsForLine(
+				"  * [X] Send  invoice ✅ 2026-06-01 📅 2026-06-20 ^abc",
+				PropertySchemaOption.TasksPlugin,
+				new TasksPluginSchema(),
+			);
+
+			await changeStatus(actions, taskId);
+
+			expect(contents()).toBe(`  * [${marker}] Send  invoice 📅 2026-06-20 ^abc`);
 		});
 
 		it("cycles open tasks through the configured status marker order", async () => {
@@ -327,7 +366,7 @@ describe("task actions", () => {
 		it("reopens a completed task into its Text column using the preserved literal", async () => {
 			const { actions, taskId, contents } = setupColumnActions("- [x] Call Bob @office ✅ 2026-06-01");
 			await actions.toggleDone(taskId);
-			expect(contents()).toBe("- [ ] Call Bob @office ✅ 2026-06-01");
+			expect(contents()).toBe("- [ ] Call Bob @office");
 			expect(parseTask(contents(), { columns, propertySchema: new TasksPluginSchema() }).column).toBe("office");
 		});
 
@@ -344,7 +383,7 @@ describe("task actions", () => {
 
 			await actions.toggleDone(taskId);
 
-			expect(contents()).toBe("- [ ] Write #doing ✅ 2026-06-01");
+			expect(contents()).toBe("- [ ] Write #doing");
 		});
 
 		it("moves a done task out of Done by the normal rules for its kept tag's column", async () => {
@@ -352,7 +391,7 @@ describe("task actions", () => {
 
 			await actions.changeColumn(taskId, "doing" as ColumnTag);
 
-			expect(contents()).toBe("- [ ] Write #doing ✅ 2026-06-01");
+			expect(contents()).toBe("- [ ] Write #doing");
 		});
 
 		it("removes the column tag on archive by default", async () => {
@@ -360,15 +399,15 @@ describe("task actions", () => {
 
 			await actions.archiveTasks([taskId]);
 
-			expect(contents()).toBe("- [x] Write #archived");
+			expect(contents()).toBe("- [x] Write #archived ✅ 2026-06-15");
 		});
 
-		it("keeps the column tag on archive when the setting is on", async () => {
-			const { actions, taskId, contents } = setupColumnActions("- [x] Write #doing", { keepColumnTagOnCompletion: true });
+		it("preserves an already-done task's column metadata and missing date on archive", async () => {
+			const { actions, taskId, contents } = setupColumnActions("- [X] Write  #doing @office ⏫ ^abc");
 
 			await actions.archiveTasks([taskId]);
 
-			expect(contents()).toBe("- [x] Write #doing #archived");
+			expect(contents()).toBe("- [X] Write  #doing @office ⏫ #archived ^abc");
 		});
 
 		it("keeps the column tag when archiving by status with the setting on", async () => {
@@ -380,7 +419,7 @@ describe("task actions", () => {
 
 			await actions.archiveTasks([taskId]);
 
-			expect(contents()).toBe("- [d] Write #doing");
+			expect(contents()).toBe("- [d] Write #doing ✅ 2026-06-15");
 		});
 
 		it("cancels and restores with only a marker change", async () => {
@@ -447,6 +486,17 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [ ] Parent\n  - [/] Child\n  - [ ] Sibling");
 		});
 
+		it("adds a completion date only to the subtask completing with a custom Done marker", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  + [/] Child ^child\n  - [ ] Sibling",
+				{ doneStatusMarkers: "✓", propertySchemaOption: PropertySchemaOption.Dataview },
+			);
+
+			await actions.toggleSourceTaskStatus(taskId, 1);
+
+			expect(contents()).toBe("- [ ] Parent\n  + [✓] Child [completion:: 2026-06-15] ^child\n  - [ ] Sibling");
+		});
+
 		it("cycles a subtask into an ignored marker row-local", async () => {
 			const { actions, taskId, contents } = await setupNestedActions(
 				"- [ ] Parent\n  - [/] Child",
@@ -463,12 +513,24 @@ describe("task actions", () => {
 
 		it("reopens done subtasks without touching the parent", async () => {
 			const { actions, taskId, contents } = await setupNestedActions(
-				"- [ ] Parent\n  - [x] Child",
+				"- [ ] Parent\n  - [x] Child [done:: 2026-06-01] ^child",
+				{ propertySchemaOption: PropertySchemaOption.Dataview },
 			);
 
 			await actions.toggleSourceTaskStatus(taskId, 1);
 
-			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child");
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child ^child");
+		});
+
+		it("keeps a nested task's completion date while its archive tag still applies", async () => {
+			const { actions, taskId, contents } = await setupNestedActions(
+				"- [ ] Parent\n  - [x] Child #archived ✅ 2026-06-01",
+				{ propertySchemaOption: PropertySchemaOption.TasksPlugin },
+			);
+
+			await actions.toggleSourceTaskStatus(taskId, 1);
+
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child #archived ✅ 2026-06-01");
 		});
 
 		it("cycles a custom done subtask marker back to the start", async () => {
@@ -507,11 +569,11 @@ describe("task actions", () => {
 			);
 		});
 
-		it("moves full owned source blocks to another file and retags only the parent row", async () => {
+		it.each([" ", "X"])("moves a [%s] source block to Done in another file, completing only the parent row", async (marker) => {
 			const sourceFile = { path: "source.md" };
 			const destinationFile = { path: "done.md" };
 			const fileContents = new Map([
-				["source.md", "- [ ] Parent\n  - [ ] Child\n- [ ] Sibling"],
+				["source.md", `- [${marker}] Parent\n  - [ ] Child\n- [ ] Sibling`],
 				["done.md", "# Done"],
 			]);
 			const tasksByTaskId = new Map<string, Task>();
@@ -528,12 +590,13 @@ describe("task actions", () => {
 				fileContents,
 				tasksByTaskId,
 				metadataByTaskId,
+				propertySchemaOption: PropertySchemaOption.TasksPlugin,
 			});
 
 			await actions.moveTasksToFile([task.id], destinationFile as never, "done");
 
 			expect(fileContents.get("source.md")).toBe("- [ ] Sibling");
-			expect(fileContents.get("done.md")).toBe("# Done\n- [x] Parent\n  - [ ] Child");
+			expect(fileContents.get("done.md")).toBe("# Done\n- [x] Parent ✅ 2026-06-15\n  - [ ] Child");
 		});
 	});
 
@@ -710,9 +773,9 @@ describe("task actions", () => {
 			expect(writeCount()).toBe(1);
 		});
 
-		it("moves tasks to done in one write, adding completion dates only to open tasks", async () => {
+		it("moves tasks to done in one write, adding only missing completion dates", async () => {
 			const { fileContents, tasksByTaskId, metadataByTaskId } = await setupMultiFileTasks({
-				"a.md": "- [ ] One\n- [x] Two ✅ 2026-06-01",
+				"a.md": "- [ ] One\n- [x] Two ✅ 2026-06-01\n- [X] Three",
 			});
 			const { actions, writeCount } = setupActionsWithFileMap({
 				fileContents,
@@ -724,7 +787,7 @@ describe("task actions", () => {
 			await actions.moveTasksToColumn(Array.from(tasksByTaskId.keys()), "done");
 
 			expect(fileContents.get("a.md")).toBe(
-				"- [x] One ✅ 2026-06-15\n- [x] Two ✅ 2026-06-01",
+				"- [x] One ✅ 2026-06-15\n- [x] Two ✅ 2026-06-01\n- [x] Three ✅ 2026-06-15",
 			);
 			expect(writeCount()).toBe(1);
 		});
@@ -1412,7 +1475,7 @@ function setupActionsForLine(
 
 async function setupNestedActions(
 	initialContents: string,
-	options: { statusMarkerOrder?: string; doneStatusMarkers?: string; ignoredStatusMarkers?: string } = {},
+	options: { statusMarkerOrder?: string; doneStatusMarkers?: string; ignoredStatusMarkers?: string; propertySchemaOption?: PropertySchemaOption } = {},
 ) {
 	const fileHandle = { path: "tasks.md" };
 	const fileContents = new Map([[fileHandle.path, initialContents]]);
@@ -1430,7 +1493,7 @@ async function setupNestedActions(
 	const task = Array.from(tasksByTaskId.values())[0]!;
 	const { actions, contents } = setupActions(
 		initialContents,
-		PropertySchemaOption.None,
+		options.propertySchemaOption ?? PropertySchemaOption.None,
 		tasksByTaskId,
 		metadataByTaskId as never,
 		fileHandle,

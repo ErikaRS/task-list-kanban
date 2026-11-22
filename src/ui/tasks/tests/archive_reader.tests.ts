@@ -5,6 +5,7 @@ import { ArchivePageReader, ARCHIVE_CURSOR_LIMIT } from "../archive_reader";
 import { getMarkerSettings } from "../tasks";
 import { isTrackedTaskString } from "../task";
 import { defaultSettings, type SettingValues } from "../../settings/settings_store";
+import { PropertySchemaOption } from "../../../parsing/properties";
 
 function harness(source: Record<string, string>, settings: Partial<SettingValues> = {}) {
 	const contents = new Map(Object.entries(source));
@@ -109,7 +110,7 @@ describe("archive pages", () => {
 
 	it("restores only the verified row, preserving metadata, nested text and other archive-like tags", async () => {
 		const source = "- [ ] Same #archived #archived-old ✅ 2026-01-01\n  note\n- [ ] Same #archived";
-		const h = harness({ "scope/a.md": source });
+		const h = harness({ "scope/a.md": source }, { propertySchema: PropertySchemaOption.TasksPlugin });
 		h.reader.open(() => true); await settle();
 		const [first, second] = get(h.reader.state).cards;
 		h.contents.set("scope/a.md", "changed\n" + source);
@@ -127,7 +128,10 @@ describe("archive pages", () => {
 	});
 
 	it("restores archive statuses while preserving the tag and refuses an invalid Done marker", async () => {
-		const h = harness({ "scope/a.md": "- [D] Task #archived" }, { replaceArchiveTagWithStatus: true, archiveStatusMarkers: "dD" });
+		vi.setSystemTime(new Date(2026, 5, 15, 12));
+		const h = harness({ "scope/a.md": "- [D] Task #archived" }, {
+			replaceArchiveTagWithStatus: true, archiveStatusMarkers: "dD", propertySchema: PropertySchemaOption.Dataview,
+		});
 		h.reader.open(() => true); await settle();
 		const card = get(h.reader.state).cards[0]!;
 		h.config.context.doneStatusMarkers = "]";
@@ -135,7 +139,7 @@ describe("archive pages", () => {
 		expect(h.vault.modify).not.toHaveBeenCalled();
 		h.config.context.doneStatusMarkers = "xX";
 		await h.reader.restore(card);
-		expect(h.contents.get("scope/a.md")).toBe("- [x] Task #archived");
+		expect(h.contents.get("scope/a.md")).toBe("- [x] Task #archived [completion:: 2026-06-15]");
 		h.reader.close();
 	});
 

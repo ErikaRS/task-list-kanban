@@ -15,10 +15,12 @@ import { shouldIncludeFilePath } from "./scope";
 import { resolveDateTemplate } from "./path_scope";
 import { createDailyNote, DAILY_NOTE_TARGET, resolveDailyNotePath, type DailyNoteSource } from "./daily_note";
 import { createDuplicateLine } from "./duplicate";
+import { flattenSourceBlockNodes } from "./source_block";
 import { getTaskTagGroupValue } from "./task_grouping";
 import {
 	formatLocalDate,
 	getPropertyWriteAdapter,
+	updateCompletionDateForTransition,
 	PropertySchemaOption,
 	type EditableDatePropertyKey,
 } from "../../parsing/properties";
@@ -465,7 +467,7 @@ export function createTaskActions({
 			propertySchemaOption: getPropertySchemaOption(),
 			doneStatusMarker: task.doneStatusMarker,
 			wasDone: task.done,
-			addCompletionDate: column === "done" && !task.done
+			addCompletionDate: column === "done"
 				? formatLocalDate(getCurrentDate?.() ?? new Date())
 				: undefined,
 			keepColumnTag: getKeepColumnTagOnCompletion(),
@@ -478,6 +480,12 @@ export function createTaskActions({
 	 */
 	async function editTaskColumns(ids: string[], column: ColumnTag | DefaultColumns) {
 		await editTasks(ids, (task, row) => changeColumnTransform(row, getColumnChangeOptions(task, column)));
+	}
+
+	function changeTaskStatus(task: Task, row: string, status: string): string {
+		const next = replaceStatusMarker(row, status);
+		return updateCompletionDateForTransition(next, getPropertySchemaOption(),
+			task.isSourceTaskLineComplete(row), task.isSourceTaskLineComplete(next), formatLocalDate(getCurrentDate?.() ?? new Date()));
 	}
 
 	function getTaskWithMetadata(id: string): { task: Task; metadata: Metadata } | null {
@@ -668,7 +676,7 @@ export function createTaskActions({
 				await editTaskColumns([id], "done");
 				return;
 			}
-			await editTaskSourceRows([id], (row) => replaceStatusMarker(row, next.status));
+			await editTaskSourceRows([id], (row) => changeTaskStatus(task, row, next.status));
 		},
 
 		async updateContent(id, content) {
@@ -695,9 +703,15 @@ export function createTaskActions({
 				return;
 			}
 
-			const nextRow = entry.task.cycleSourceTaskRowStatus(rowIndex, getStatusMarkerOrder());
+			let nextRow = entry.task.cycleSourceTaskRowStatus(rowIndex, getStatusMarkerOrder());
 			if (nextRow == null) {
 				return;
+			}
+			const original = flattenSourceBlockNodes(entry.task.sourceChildren).find(node => node.rowIndex === rowIndex);
+			if (original?.kind === "task") {
+				nextRow = updateCompletionDateForTransition(nextRow, getPropertySchemaOption(),
+					entry.task.isSourceTaskLineComplete(original.rawLine), entry.task.isSourceTaskLineComplete(nextRow),
+					formatLocalDate(getCurrentDate?.() ?? new Date()));
 			}
 
 			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow, prepareFileContentsForWrite);
@@ -821,8 +835,10 @@ export function createTaskActions({
 			await editTasks(ids, (task, row) => archiveTransform(row, {
 				fromColumn: getSourceColumn(task),
 				columnDefinitions: getColumnDefinitions(),
+				propertySchemaOption: getPropertySchemaOption(),
 				doneStatusMarker: task.doneStatusMarker,
 				wasDone: task.done,
+				addCompletionDate: formatLocalDate(getCurrentDate?.() ?? new Date()),
 				archiveStatusMarker: task.archiveStatusMarker,
 				keepColumnTag: getKeepColumnTagOnCompletion(),
 			}));
@@ -830,11 +846,11 @@ export function createTaskActions({
 		},
 
 		async cancelTasks(ids) {
-			await editTasks(ids, (task, row) => replaceStatusMarker(row, task.cancelledStatusMarker));
+			await editTasks(ids, (task, row) => changeTaskStatus(task, row, task.cancelledStatusMarker));
 		},
 
 		async restoreTasks(ids) {
-			await editTaskSourceRows(ids, (row) => replaceStatusMarker(row, " "));
+			await editTasks(ids, (task, row) => changeTaskStatus(task, row, " "));
 		},
 
 		async deleteTask(id) {
@@ -921,7 +937,7 @@ export function createTaskActions({
 
 			const destinationRows = await readFileRows(vault, destinationFile);
 			for (const { task } of moves) {
-				const serializedParent = taskIsInColumn(task, destinationColumn)
+				const serializedParent = destinationColumn !== "done" && taskIsInColumn(task, destinationColumn)
 					? task.serialise()
 					: changeColumnTransform(task.serialise(), getColumnChangeOptions(task, destinationColumn));
 				destinationRows.push(...task.sourceBlockRows(serializedParent));

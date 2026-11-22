@@ -216,14 +216,21 @@ Date writes use the selected integration's native format:
 - [ ] Send invoice [due:: 2026-06-15] [scheduled:: 2026-06-16] [start:: 2026-06-17]
 ```
 
-Completing an open task from the board adds a completion date when the selected schema supports it and the task does not already have one:
+Completing a task, moving it to Done, or archiving an open task from the board
+adds a completion date when the selected schema supports it and the task does
+not already have one. Both tag-based and status-based archiving use this behavior:
 
 ```markdown
 - [x] Send invoice ✅ 2026-06-15
 - [x] Send invoice [completion:: 2026-06-15]
 ```
 
-Existing completion dates are preserved. Reopening, moving, cancelling, archiving, or editing a task does not remove or rewrite historical completion metadata.
+Moving between Done and Archived preserves the existing completion date.
+Archiving an already-done task changes only its archive tag or archive status:
+its other metadata stays unchanged, and a missing completion date stays missing.
+Reopening a task, moving it to an active column, or cancelling a done task
+removes its completion date. Completing it again adds the new completion date.
+Editing task text or moving between active columns leaves dates unchanged.
 
 ### Nested Tasks And Source Blocks
 
@@ -256,7 +263,9 @@ Examples:
 - `xX✓` also recognizes `[✓]`.
 - ignored marker `-` hides `[-]` tasks.
 
-Cancel and restore only change checkbox markers. If a cancelled marker is also configured as ignored or done, that marker setting determines whether the task is hidden or treated as complete.
+Cancel and restore change checkbox markers and remove the completion date when
+the task leaves Done. If a cancelled marker is also configured as ignored or
+done, that marker setting determines whether the task is hidden or treated as complete.
 
 ## Board Controls
 

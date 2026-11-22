@@ -101,7 +101,7 @@ describe("text columns", () => {
 	it("keeps text on archive according to the keep metadata setting", () => {
 		for (const keepColumnTag of [true, false]) {
 			for (const archiveStatusMarker of [undefined, "a"]) {
-				const result = archiveTransform("- [ ] Work @office", { fromColumn: "office" as ColumnTag, columnDefinitions: columns, doneStatusMarker: "x", wasDone: false, keepColumnTag, archiveStatusMarker });
+				const result = archiveTransform("- [ ] Work @office", { fromColumn: "office" as ColumnTag, columnDefinitions: columns, propertySchemaOption: PropertySchemaOption.None, doneStatusMarker: "x", wasDone: false, keepColumnTag, archiveStatusMarker });
 				expect(result.includes("@office")).toBe(keepColumnTag);
 				expect(result).toContain(archiveStatusMarker ? "[a]" : "#archived");
 			}

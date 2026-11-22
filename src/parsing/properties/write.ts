@@ -87,8 +87,8 @@ class TasksPluginWriteAdapter implements PropertyWriteAdapter {
 	}
 
 	removeDate(rawLine: string, key: WritableDatePropertyKey): string {
-		const propertyKey = key === "completion" ? "done" : key;
-		const property = this.propertySchema.parseProperties(rawLine).get(propertyKey);
+		if (key === "completion") return removeCompletionDates(rawLine, this.propertySchema);
+		const property = this.propertySchema.parseProperties(rawLine).get(key);
 		return property ? removeProperty(rawLine, property) : rawLine;
 	}
 
@@ -124,6 +124,7 @@ class DataviewWriteAdapter implements PropertyWriteAdapter {
 	}
 
 	removeDate(rawLine: string, key: WritableDatePropertyKey): string {
+		if (key === "completion") return removeCompletionDates(rawLine, this.propertySchema);
 		const property = this.propertySchema.parseProperties(rawLine).get(key);
 		return property ? removeProperty(rawLine, property) : rawLine;
 	}
@@ -162,6 +163,33 @@ export function formatLocalDate(date: Date = new Date()): string {
 	const month = `${date.getMonth() + 1}`.padStart(2, "0");
 	const day = `${date.getDate()}`.padStart(2, "0");
 	return `${year}-${month}-${day}`;
+}
+
+/** Done and Archived share a completion date until the task leaves both states. */
+export function updateCompletionDateForTransition(
+	rawLine: string,
+	schema: PropertySchemaOption,
+	wasComplete: boolean,
+	isComplete: boolean,
+	date?: string,
+): string {
+	const adapter = getPropertyWriteAdapter(schema);
+	if (!adapter) return rawLine;
+	if (isComplete) return date ? adapter.addCompletionDateIfMissing(rawLine, date) : rawLine;
+	return wasComplete ? adapter.removeDate(rawLine, "completion") : rawLine;
+}
+
+function removeCompletionDates(rawLine: string, schema: PropertySchema): string {
+	let next = rawLine;
+	while (true) {
+		// Bare Dataview fields extend to the end of the line. Keep the block
+		// link outside the parsed field so clearing a date cannot remove it.
+		const blockLink = next.match(/\s\^[a-zA-Z0-9-]+\s*$/);
+		const properties = schema.parseProperties(blockLink?.index ? next.slice(0, blockLink.index) : next);
+		const property = properties.get("completion") ?? properties.get("done");
+		if (!property) return next;
+		next = removeProperty(next, property);
+	}
 }
 
 function formatDataviewField(key: string, date: string): string {

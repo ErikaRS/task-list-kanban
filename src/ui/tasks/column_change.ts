@@ -12,6 +12,7 @@ import {
 import type { ColumnTag, DefaultColumns } from "../columns/columns";
 import {
 	getPropertyWriteAdapter,
+	updateCompletionDateForTransition,
 	type PropertySchemaOption,
 } from "../../parsing/properties";
 
@@ -32,8 +33,10 @@ export type ColumnChangeOptions = {
 export type ArchiveOptions = {
 	fromColumn: ColumnTag | undefined;
 	columnDefinitions: ColumnDefinition[];
+	propertySchemaOption: PropertySchemaOption;
 	doneStatusMarker: string;
 	wasDone: boolean;
+	addCompletionDate?: string;
 	/** Archive-status mode writes this marker instead of adding `#archived`. */
 	archiveStatusMarker?: string;
 	keepColumnTag?: boolean;
@@ -106,36 +109,39 @@ export function changeColumnTransform(rawLine: string, options: ColumnChangeOpti
 
 	if (options.toColumn === "done") {
 		next = replaceStatusMarker(next, options.doneStatusMarker);
-		if (options.addCompletionDate) {
-			next = getPropertyWriteAdapter(options.propertySchemaOption)
-				?.addCompletionDateIfMissing(next, options.addCompletionDate) ?? next;
-		}
 	}
 
-	return next;
+	return updateCompletionDateForTransition(next, options.propertySchemaOption,
+		options.wasDone ?? false, options.toColumn === "done", options.addCompletionDate);
 }
 
 /**
  * Archives a task by writing only its status marker and `#archived` tag (or
  * the archive status), leaving the rest of the line untouched. Like
- * completion, archiving never removes a priority.
+ * completion, archiving never removes a priority. An already-done task keeps
+ * all its metadata, including the absence of a completion date.
  */
 export function archiveTransform(rawLine: string, options: ArchiveOptions): string {
 	const source = findColumn(options.columnDefinitions, options.fromColumn);
 	let next = rawLine;
-	if (source && !options.keepColumnTag) {
+	if (source && !options.keepColumnTag && !options.wasDone) {
 		next = replacePlacementTags(next, getColumnWriteTags(source), []);
 		if (usesTextMatching(source)) next = removeTextLiteral(next, getColumnText(source) ?? "");
 	}
 
 	if (options.archiveStatusMarker) {
-		return replaceStatusMarker(next, options.archiveStatusMarker);
+		next = replaceStatusMarker(next, options.archiveStatusMarker);
+	} else {
+		if (!options.wasDone) {
+			next = replaceStatusMarker(next, options.doneStatusMarker);
+		}
+		if (!hasTag(next, "archived")) next = appendBeforeBlockLink(next, ["archived"]);
 	}
-
-	if (!options.wasDone) {
-		next = replaceStatusMarker(next, options.doneStatusMarker);
+	if (options.addCompletionDate && !options.wasDone) {
+		next = getPropertyWriteAdapter(options.propertySchemaOption)
+			?.addCompletionDateIfMissing(next, options.addCompletionDate) ?? next;
 	}
-	return hasTag(next, "archived") ? next : appendBeforeBlockLink(next, ["archived"]);
+	return next;
 }
 
 /** Replaces only the checkbox marker. */
@@ -202,9 +208,8 @@ function removeTagAt(rawLine: string, start: number, end: number): string {
 }
 
 function appendBeforeBlockLink(rawLine: string, tags: string[]): string {
-	const blockLink = rawLine.match(/(\s\^[a-zA-Z0-9-]+\s*)$/u);
-	if (!blockLink?.index) return `${rawLine.trimEnd()} ${formatTags(tags)}`;
-	return `${rawLine.slice(0, blockLink.index).trimEnd()} ${formatTags(tags)}${blockLink[0]}`;
+	const suffix = rawLine.match(/(?:\s+\^[a-zA-Z0-9-]+\s*|\s*)$/u)!;
+	return `${rawLine.slice(0, suffix.index)} ${formatTags(tags)}${suffix[0]}`;
 }
 
 function formatTags(tags: string[]): string {

@@ -5,6 +5,7 @@ import { Task, isArchivedTaskString, isStatusMatch, validateDoneStatusMarkers, t
 import { createSourceTree } from "./tasks";
 import { parseSourceTaskLine } from "./source_block";
 import { transformSourceRow, type PrepareFileContentsForWrite } from "./source_line_editor";
+import { formatLocalDate, getPropertyWriteAdapter, PropertySchemaOption } from "../../parsing/properties";
 
 export const ARCHIVE_PAGE_SIZE = 50;
 export const ARCHIVE_CURSOR_LIMIT = 64;
@@ -211,7 +212,8 @@ export class ArchivePageReader {
 			let next = raw.replace(/\[[^[\]]*\]/, `[${marker}]`);
 			if (!context.replaceArchiveTagWithStatus) next = next.replace(/#([-_/\p{L}\p{N}]+)/gu,
 				(token, tag: string) => tag === "archived" ? "" : token);
-			return next;
+			return getPropertyWriteAdapter(context.propertySchema?.id ?? PropertySchemaOption.None)
+				?.addCompletionDateIfMissing(next, formatLocalDate()) ?? next;
 		}, this.prepareWrite).catch(error => { this.invalidate(); throw error; });
 		this.invalidate(card.file.path);
 		if (!changed) throw new Error("Task changed; try again");

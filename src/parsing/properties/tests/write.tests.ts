@@ -1,9 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { PropertySchemaOption } from "../property_schema";
-import { formatLocalDate, getPropertyWriteAdapter, getWritablePropertyTarget } from "../write";
+import { formatLocalDate, getPropertyWriteAdapter, getWritablePropertyTarget, updateCompletionDateForTransition } from "../write";
 
 const tasksAdapter = getPropertyWriteAdapter(PropertySchemaOption.TasksPlugin)!;
 const dataviewAdapter = getPropertyWriteAdapter(PropertySchemaOption.Dataview)!;
+
+describe("completion date transitions", () => {
+	it.each([
+		["entering Done", false, true, "- [x] Task", "- [x] Task ✅ 2026-06-15"],
+		["moving between Done and Archived", true, true, "- [d] Task ✅ 2026-06-01", "- [d] Task ✅ 2026-06-01"],
+		["leaving Done or Archived", true, false, "  + [ ] Task  #note ✅ 2026-06-01 📅 2026-06-20 ^abc", "  + [ ] Task  #note 📅 2026-06-20 ^abc"],
+		["moving between active states", false, false, "- [/] Task ✅ 2026-06-01", "- [/] Task ✅ 2026-06-01"],
+	] as const)("updates completion dates when %s", (_name, wasComplete, isComplete, raw, expected) => {
+		expect(updateCompletionDateForTransition(raw, PropertySchemaOption.TasksPlugin, wasComplete, isComplete, "2026-06-15"))
+			.toBe(expected);
+	});
+
+	it("leaves metadata untouched when no schema is selected", () => {
+		expect(updateCompletionDateForTransition("- [ ] Task ✅ 2026-06-01", PropertySchemaOption.None, true, false))
+			.toBe("- [ ] Task ✅ 2026-06-01");
+	});
+});
 
 describe("formatLocalDate", () => {
 	it("formats local calendar dates as YYYY-MM-DD", () => {
@@ -73,6 +90,11 @@ describe("TasksPluginWriteAdapter", () => {
 		);
 	});
 
+	it("removes all completion dates and legacy aliases when reopening", () => {
+		expect(tasksAdapter.removeDate("- [ ] Task ✅ 2026-06-01 🏁 2026-06-02 ^abc", "completion"))
+			.toBe("- [ ] Task ^abc");
+	});
+
 	it("adds priority before a trailing block link", () => {
 		expect(tasksAdapter.upsertPriority("- [ ] Triage #today ^abc123", "high")).toBe(
 			"- [ ] Triage #today ⏫ ^abc123",
@@ -109,6 +131,16 @@ describe("DataviewWriteAdapter", () => {
 		expect(dataviewAdapter.addCompletionDateIfMissing("- [x] Done [done:: 2026-06-01]", "2026-06-15")).toBe(
 			"- [x] Done [done:: 2026-06-01]",
 		);
+	});
+
+	it.each([
+		"[completion:: 2026-06-01]",
+		"[done:: 2026-06-01]",
+		"[done:: 2026-06-01] [completion:: 2026-06-02]",
+		"done:: 2026-06-01",
+	])("removes completion metadata %s without touching other dates", (metadata) => {
+		expect(dataviewAdapter.removeDate(`  * [ ] Task  [due:: 2026-06-20] ${metadata} ^abc`, "completion"))
+			.toBe("  * [ ] Task  [due:: 2026-06-20] ^abc");
 	});
 
 	it("replaces enclosed date fields", () => {

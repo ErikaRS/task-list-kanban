@@ -621,6 +621,12 @@ export class Task {
 		return isStatusMatch(status, this.doneStatusMarkers);
 	}
 
+	isSourceTaskLineComplete(rawLine: string): boolean {
+		const parsed = parseSourceTaskLine(rawLine);
+		return !!parsed && (this.isSourceTaskStatusDone(parsed.status)
+			|| isArchivedTaskString(rawLine, this.replaceArchiveTagWithStatus, this.archiveStatusMarkers));
+	}
+
 	private findSourceBlockNode(rowIndex: number): SourceBlockNode | null {
 		return flattenSourceBlockNodes(this.sourceChildren).find((node) => node.rowIndex === rowIndex) ?? null;
 	}
