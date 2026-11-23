@@ -51,10 +51,15 @@ describe("global settings parsing", () => {
 			version: 1,
 			defaultView: {
 				flowDirection: FlowDirection.LeftToRight,
+				layout: "table",
 				columnWidth: defaultSettings.columnWidth,
 			},
 		});
 		expect(parsed.defaultView).toBeUndefined();
+
+		// An unknown layout falls back to Table, which is then not stored.
+		expect(parseGlobalSettings({ version: 1, defaultView: { layout: "grid" } }).defaultView)
+			.toBeUndefined();
 
 		const mixed = parseGlobalSettings({
 			version: 1,
@@ -113,6 +118,7 @@ describe("global settings parsing", () => {
 					direction: "asc",
 				},
 				flowDirection: FlowDirection.TopToBottom,
+				layout: "list",
 				columnWidth: 420,
 			},
 		});
@@ -120,11 +126,13 @@ describe("global settings parsing", () => {
 
 		expect(parsed.defaultView).toEqual({
 			flowDirection: FlowDirection.TopToBottom,
+			layout: "list",
 			columnWidth: 420,
 		});
 		expect(inherited).toEqual({
 			scope: ScopeOption.Everywhere,
 			flowDirection: FlowDirection.TopToBottom,
+			layout: "list",
 			columnWidth: 420,
 		});
 	});

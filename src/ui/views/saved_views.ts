@@ -20,6 +20,7 @@ const SAVED_VIEW_PROPERTIES = [
 	{ key: "sort", label: "Sort" },
 	{ key: "group", label: "Group" },
 	{ key: "flowDirection", label: "Flow" },
+	{ key: "layout", label: "Layout" },
 	{ key: "columnWidth", label: "Width" },
 	{ key: "showArchivedColumn", label: "Archive" },
 ] as const satisfies ReadonlyArray<{ key: keyof SavedViewProperties; label: string }>;
@@ -64,6 +65,10 @@ export function captureSavedViewProperties(
 
 	if (hasOwn(overrides, "flowDirection")) {
 		properties.flowDirection = settings.flowDirection ?? FlowDirection.LeftToRight;
+	}
+
+	if (hasOwn(overrides, "layout")) {
+		properties.layout = settings.layout ?? "table";
 	}
 
 	if (hasOwn(overrides, "columnWidth")) {
@@ -116,6 +121,9 @@ export function applySavedViewProperties(
 	}
 	if (view.flowDirection !== undefined) {
 		next.flowDirection = view.flowDirection;
+	}
+	if (view.layout !== undefined) {
+		next.layout = view.layout;
 	}
 	if (view.columnWidth !== undefined) {
 		next.columnWidth = view.columnWidth;

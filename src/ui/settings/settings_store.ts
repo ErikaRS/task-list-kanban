@@ -37,6 +37,7 @@ export interface SavedView {
 		direction: SortDirection;
 	};
 	flowDirection?: FlowDirection;
+	layout?: BoardLayout;
 	columnWidth?: number;
 	showArchivedColumn?: boolean;
 }
@@ -197,6 +198,7 @@ const savedViewSchema = z.object({
 		direction: z.enum(["asc", "desc"]).catch("asc"),
 	}).optional(),
 	flowDirection: z.enum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	layout: z.enum(BOARD_LAYOUTS).catch("table").optional(),
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
 });

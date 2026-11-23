@@ -991,6 +991,7 @@
 				: next;
 		});
 		if (view.showArchivedColumn !== undefined) settingsStore.pinOverrides(["showArchivedColumn"]);
+		if (view.layout !== undefined) settingsStore.pinOverrides(["layout"]);
 		if (view.group?.source.kind === "tag-prefix") {
 			tagGroupInputMode = tagGroupInputModeForSource(view.group.source);
 		}

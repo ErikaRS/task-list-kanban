@@ -194,18 +194,20 @@ Rules:
 
 **Implemented by:** *pending*
 
-### Phase 3: Saved views and plugin-wide default
+### Phase 3: Saved views and plugin-wide default ✅ COMPLETE
 
 **Goal:** Layout can be saved in views and set as the default for new boards.
 
-1. Add `layout` to `SAVED_VIEW_PROPERTIES` and the capture/apply handling in `saved_views.ts`.
-2. Add it to `GlobalDefaultViewProperties`, the default-view Layout dropdown, and the saved-view draft in `global_settings_tab.ts`, hiding Card width when the default is List.
-3. Omit Table from stored defaults, as with `columnWidth`.
-4. Test: saved view round trip, default view round trip and omission, invalid value falls back to Table.
+1. ✅ Add `layout` to `SAVED_VIEW_PROPERTIES` and the capture/apply handling in `saved_views.ts`.
+2. ✅ Add it to `GlobalDefaultViewProperties`, the default-view Layout dropdown, and the saved-view draft in `global_settings_tab.ts`, hiding Card width when the default is List.
+3. ✅ Omit Table from stored defaults, as with `columnWidth`.
+4. ✅ Test: saved view round trip, default view round trip and omission, invalid value falls back to Table.
 
 **Deliverable:** Layout participates in saved views and global defaults like Flow and Width.
 
-**Implemented by:** *pending*
+**Implementation notes:** Applying a saved view that carries a layout pins it as a board override, as choosing it in the view editor does.
+
+**Implemented by:** *this commit*
 
 ### Phase 4: Dense list cards
 
