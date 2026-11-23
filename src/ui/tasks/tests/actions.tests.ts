@@ -584,6 +584,15 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [ ] Parent\n  - [/] Child\n  - [ ] Sibling");
 		});
 
+		it("rejects with a reason instead of silently doing nothing when the task or row is gone", async () => {
+			const { actions, taskId, contents } = await setupNestedActions("- [ ] Parent\n  - [ ] Child\n  - note");
+
+			await expect(actions.toggleSourceTaskStatus("missing", 1)).rejects.toThrow("no longer on the board");
+			await expect(actions.toggleSourceTaskStatus(taskId, 2)).rejects.toThrow("not a subtask");
+			await expect(actions.moveSourceBlockRow("missing", 1, 2, "after", 1)).rejects.toThrow("no longer on the board");
+			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child\n  - note");
+		});
+
 		it("adds a completion date only to the subtask completing with a custom Done marker", async () => {
 			const { actions, taskId, contents } = await setupNestedActions(
 				"- [ ] Parent\n  + [/] Child ^child\n  - [ ] Sibling",

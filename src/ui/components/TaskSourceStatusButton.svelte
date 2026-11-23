@@ -14,7 +14,7 @@
 	$: isChecked = isDone || isIgnored;
 	$: displayStatusIsCustom = node.status !== " ";
 
-	// Advances status in every card-action mode, including Select (SPEC 0058).
+	// Advances status in every card-action mode, including Select (SPEC 0056).
 	// Failures (for example a stale source span) surface instead of vanishing.
 	function toggleStatus() {
 		taskActions.toggleSourceTaskStatus(task.id, node.rowIndex).catch((error: unknown) => {

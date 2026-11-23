@@ -11,7 +11,7 @@ vi.mock("obsidian", () => ({ setIcon: vi.fn(), Notice: class { constructor(messa
 let component: TaskSourceStatusButton | undefined;
 afterEach(() => { component?.$destroy(); component = undefined; document.body.innerHTML = ""; notices.length = 0; });
 
-// SPEC 0058: a failed subtask status write must be visible, not a silent no-op.
+// SPEC 0056: a failed subtask status write must be visible, not a silent no-op.
 it("cycles the subtask and reports a failed write", async () => {
 	const toggleSourceTaskStatus = vi.fn().mockRejectedValue(new Error("Task changed in the source file."));
 	const host = document.createElement("div");

@@ -670,27 +670,25 @@ export function createTaskActions({
 		},
 
 		async toggleSourceTaskStatus(id, rowIndex) {
+			// Every no-op path throws a reason so the caller's notice reports it (SPEC 0056).
 			const entry = getTaskWithMetadata(id);
-			if (!entry) {
-				return;
-			}
+			if (!entry) throw new Error("Task is no longer on the board; refresh the board and try again.");
 
 			let nextRow = entry.task.cycleSourceTaskRowStatus(rowIndex, getStatusMarkerOrder());
-			if (nextRow == null) {
-				return;
-			}
+			if (nextRow == null) throw new Error(`Row ${rowIndex + 1} is not a subtask of this task; refresh the board and try again.`);
 			const original = flattenSourceBlockNodes(entry.task.sourceChildren).find(node => node.rowIndex === rowIndex);
-			if (original?.kind === "task") {
+			if (!original) throw new Error(`Row ${rowIndex + 1} is not a subtask of this task; refresh the board and try again.`);
+			if (original.kind === "task") {
 				nextRow = updateCompletionDateForTransition(nextRow, getPropertySchemaOption(),
 					entry.task.isSourceTaskLineComplete(original.rawLine), entry.task.isSourceTaskLineComplete(nextRow),
 					formatLocalDate(getCurrentDate?.() ?? new Date()));
 			}
 
-			if (original?.source) {
+			if (original.source) {
 				const source = original.source;
 				await replaceSourceRanges(vault, entry.metadata.fileHandle, [{ start: source.start, end: source.end, expected: source.raw,
 					replacement: [nextRow, ...sourceLines(source.raw).slice(1)].join("\n") }], prepareFileContentsForWrite);
-			} else if (original) {
+			} else {
 				await transformSourceRows(vault, entry.metadata.fileHandle, [{ rowIndex, transform: row => {
 					if (row !== original.rawLine) throw new Error("Subtask changed; refresh the board before changing its status.");
 					return nextRow;
@@ -758,9 +756,7 @@ export function createTaskActions({
 
 		async moveSourceBlockRow(id, draggedRowIndex, targetRowIndex, position, targetDepth) {
 			const entry = getTaskWithMetadata(id);
-			if (!entry) {
-				return;
-			}
+			if (!entry) throw new Error("Task is no longer on the board; refresh the board and try again.");
 
 			const { fileHandle } = entry.metadata;
 			const rows = await readFileRows(vault, fileHandle);
@@ -768,9 +764,7 @@ export function createTaskActions({
 			checkedTaskBlock(entry.task, rows, entry.metadata.rowIndex);
 			const draggedBlock = getNodeBlock(rows, draggedRowIndex);
 			const parentCardRow = rows[entry.task.rowIndex];
-			if (parentCardRow == null) {
-				return;
-			}
+			if (parentCardRow == null) throw new Error("Task changed in the source file; refresh the board and try again.");
 			const parentCardIndentation = parentCardRow.match(/^\s*/)?.[0] ?? "";
 			const stepChar = detectIndentationStep(rows);
 
