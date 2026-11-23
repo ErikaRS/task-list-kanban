@@ -28,7 +28,8 @@ When creating commits with AI assistance, attribute the commit to the agent or
 agents that actually contributed to the change using the `Assisted-by:` git trailer.
 
 ## 🛑 Committing Changes
-DO NOT commit any changes until the user has explicitly had a chance to review them and given you permission to commit. Always stop and ask the user to test/review your work before running `git commit`.
+- **On `main`:** DO NOT commit until the user has had a chance to review the changes and has explicitly given permission. Stop and ask the user to test/review your work before running `git commit`.
+- **On a feature branch:** You may commit and push to that branch without asking each time, once the quality gates pass. Commit at logical checkpoints (for example, one commit per spec phase) and tell the user what you committed. Still ask before merging into `main`, force-pushing, or rewriting history.
 
 ## 🔗 Issue References
 Every commit should include `Refs #<issue-number>` whenever an applicable GitHub issue exists, including fixture, documentation, and follow-up commits. Include the same reference in the PR description. Do not use auto-closing keywords; issues are closed only as part of the release workflow.
