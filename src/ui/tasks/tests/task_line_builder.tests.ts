@@ -3,6 +3,13 @@ import { PropertySchemaOption } from "../../../parsing/properties";
 import { buildNewTaskLine } from "../task_line_builder";
 
 describe("buildNewTaskLine", () => {
+	it("writes multiline Markdown with placement and date metadata only on the header", () => {
+		expect(buildNewTaskLine({
+			content: "Title  \nnote  \nnext\n\n- [ ] Child\n  detail\n\n```md\n- [ ] example\n```",
+			column: "doing" as never, columnDefinitions: [], getPlacementTagsForColumn: () => ["doing"],
+			propertySchemaOption: PropertySchemaOption.TasksPlugin, dateProperties: { due: "2026-11-24" },
+		})).toBe("- [ ] Title #doing 📅 2026-11-24  \n  note  \n  next\n\n  - [ ] Child\n    detail\n\n  ```md\n  - [ ] example\n  ```");
+	});
 	it("creates an uncategorized task without placement tags", () => {
 		expect(
 			buildNewTaskLine({

@@ -1,3 +1,4 @@
+import { indentMarkdownBody, sourceLines, validateMarkdownBody } from "./markdown_source";
 import { addTextLiteral } from "../../parsing/text_literals/text_literals";
 import {
 	type ColumnDefinition,
@@ -49,6 +50,9 @@ export function buildNewTaskLine({
 	groupProperty = null,
 	additionalText = [],
 }: NewTaskLineOptions): string {
+	validateMarkdownBody(content);
+	const [header, ...continuation] = sourceLines(content);
+	const trailing = header!.match(/[ \t]+$/)?.[0] ?? "";
 	const columnDefinition =
 		column === "uncategorised" || column === "done"
 			? undefined
@@ -58,7 +62,7 @@ export function buildNewTaskLine({
 		getColumnPrioritySchema(columnDefinition) ?? propertySchemaOption,
 	);
 	let taskLine = createTaskLine(
-		content,
+		trailing ? header!.slice(0, -trailing.length) : header!,
 		column === "uncategorised" || column === "done"
 			? []
 			: getPlacementTagsForColumn(column),
@@ -95,5 +99,5 @@ export function buildNewTaskLine({
 	if (columnText) {
 		taskLine = addTextLiteral(taskLine, columnText);
 	}
-	return taskLine;
+	return indentMarkdownBody([taskLine + trailing, ...continuation].join("\n"), "  ");
 }

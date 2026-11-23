@@ -3,6 +3,7 @@ export interface TaskMarkdownSourceInput {
 	displayStatus: string;
 	blockLink?: string;
 	excludedTags?: readonly string[];
+	referenceDefinitions?: string;
 }
 
 export function renderTaskMarkdownSource({
@@ -10,16 +11,18 @@ export function renderTaskMarkdownSource({
 	displayStatus,
 	blockLink,
 	excludedTags = [],
+	referenceDefinitions = "",
 }: TaskMarkdownSourceInput): string {
-	let contentWithBlockLink = (content + (blockLink ? ` ^${blockLink}` : ""))
-		.replaceAll("<br />", "\n");
+	const [first = "", ...rest] = content.split("\n");
+	const trailing = first.match(/[ \t]+$/)?.[0] ?? "";
+	let contentWithBlockLink = blockLink ? (trailing ? first.slice(0, -trailing.length) : first) + ` ^${blockLink}` + trailing : first;
 
 	for (const tag of excludedTags) {
 		contentWithBlockLink = stripTagFromRenderedContent(contentWithBlockLink, tag);
 	}
 
-	const indentedContinuationLines = contentWithBlockLink.replaceAll("\n", "\n  ");
-	return `- [${displayStatus || " "}] ${indentedContinuationLines}`;
+	const indentedContinuationLines = [contentWithBlockLink, ...rest.map(line => line ? "  " + line : line)].join("\n");
+	return `- [${displayStatus || " "}] ${indentedContinuationLines}` + (referenceDefinitions ? "\n\n" + referenceDefinitions : "");
 }
 
 function stripTagFromRenderedContent(content: string, tag: string): string {
@@ -28,6 +31,6 @@ function stripTagFromRenderedContent(content: string, tag: string): string {
 
 	const escapedTag = normalizedTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	return content
-		.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_/\\p{L}\\p{N}])`, "giu"), "$1")
-		.trim();
+		.replace(new RegExp(`(^|\\s)#${escapedTag}(?=$|\\s|[^-_/\\p{L}\\p{N}])`, "giu"),
+			(match, leading: string, offset: number) => offset + match.length === content.length ? "" : leading);
 }

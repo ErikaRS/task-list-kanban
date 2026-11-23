@@ -70,6 +70,21 @@ describe("archive pages", () => {
 		expect(h.listeners.size).toBe(0);
 	});
 
+	it("pages past a multiline item with a code example and restores only its header", async () => {
+		const body = "\n  note\n\n  ```md\n  - [x] example #archived\n  ```\n\n  paragraph";
+		const source = rows(49) + "\n- [x] Multiline #archived" + body + "\n- [x] Last #archived";
+		const h = harness({ "scope/a.md": source }, { treatNestedTasksAsSubtasks: true });
+		h.reader.open(() => true); await settle();
+		expect(get(h.reader.state).cards).toHaveLength(50);
+		const card = get(h.reader.state).cards[49]!;
+		expect(card.task.source?.raw).toBe("- [x] Multiline #archived" + body);
+		h.reader.next(); await settle();
+		expect(get(h.reader.state).cards.map(card => card.task.content)).toEqual(["Last #archived"]);
+		await h.reader.restore(card);
+		expect(h.contents.get("scope/a.md")).toBe(source.replace("Multiline #archived", "Multiline "));
+		h.reader.close();
+	});
+
 	it("clears stale cards immediately and coalesces continuous mutations without starving refresh", async () => {
 		const h = harness({ "scope/a.md": rows(70) });
 		h.reader.open(() => true); await settle();

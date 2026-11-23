@@ -234,15 +234,54 @@ Editing task text or moving between active columns leaves dates unchanged.
 
 ### Nested Tasks And Source Blocks
 
+Task descriptions and notes are plain Markdown. Shift+Enter adds a line in the
+desktop editor; Enter adds a line in the mobile editor. Newlines are saved as
+physical source lines, with continuation text indented inside the list item:
+
+```markdown
+- [ ] Prepare release
+  First note line
+  Second note line
+
+  Another paragraph.
+
+  - [ ] Check package
+```
+
+Previews follow Obsidian's Markdown rendering: a soft line break can stay in
+the same paragraph. Use two trailing spaces or a backslash for a hard break.
+Paragraphs, lists, quotes, and code blocks keep their Markdown meaning.
+Checkbox examples inside code do not become tasks.
+
+Each rendered item has its own Markdown editor. Editing the parent changes
+its text and continuation lines; nested items stay visible and interactive.
+Click a nested bullet or task to edit that item, including its `-`, `- [ ]`,
+or other list marker as plain text. You can change the marker or remove it
+entirely. Descendants, siblings, and later Markdown blocks remain separate,
+so the same text does not appear in both parent and child editors.
+Failed or conflicting saves keep the draft so it can be retried or cancelled.
+An unchanged Markdown save preserves the original source.
+
+Older plugin versions stored line breaks as `<br />`. Existing files are left
+alone when loaded, displayed, or updated through status/date controls. Opening
+a text editor shows those legacy breaks as newlines; saving the text edit
+converts them to Markdown continuation lines. Cancelling leaves the file alone.
+Inline code, fenced code, and escaped text keep literal `<br />` text. Other
+HTML break spellings receive normal Markdown/HTML handling.
+
 Enable **Treat nested tasks as subtasks** to show only the root task as a card
-while keeping nested tasks and notes inside that card. Nested rows can be
-edited, status-cycled, added, deleted, and reordered from the card without
-turning each child task into its own board card.
+while keeping nested tasks and notes inside that card. Subtask checkboxes can
+cycle status directly; nested items can be edited, added, deleted, and reordered
+from the card. Nested Markdown stays visible and interactive in either mode;
+when this setting is off, nested tasks also have their own board cards.
 Cards with subtasks show a completion count, percentage, and progress bar.
 
-When this mode is on, source-block actions stay together: moving, duplicating,
-deleting, or archiving the parent card operates on the owned nested Markdown
-block instead of only the first task line.
+Notes stay attached in either mode. Moving, duplicating, or deleting a card
+operates on its complete Markdown list item, including nested content and
+paragraphs separated by blank lines. With nested-task mode off, nested tasks
+also have their own cards. Moving a selected parent and child together copies
+the item once. Status, column, property, and archive actions change only the
+selected task header and preserve the attached Markdown.
 
 ### Task Status Settings
 

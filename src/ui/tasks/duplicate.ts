@@ -1,4 +1,4 @@
-const blockLinkRegexp = /\s\^[a-zA-Z0-9-]+$/;
+const blockLinkRegexp = /[ \t]\^[a-zA-Z0-9-]+([ \t]*)$/;
 const checkboxRegexp = /^(\s*[-*+]\s)\[([^[\]]*)\]/;
 
 /**
@@ -7,6 +7,6 @@ const checkboxRegexp = /^(\s*[-*+]\s)\[([^[\]]*)\]/;
  */
 export function createDuplicateLine(rawLine: string): string {
 	return rawLine
-		.replace(blockLinkRegexp, "")
+		.replace(blockLinkRegexp, "$1")
 		.replace(checkboxRegexp, "$1[ ]");
 }

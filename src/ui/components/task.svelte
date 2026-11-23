@@ -4,6 +4,8 @@
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
 	import { getVisibleSourceTaskDescendants } from "../tasks/source_block";
+	import MarkdownBodyEditor from "./MarkdownBodyEditor.svelte";
+	import type { MarkdownSource } from "../tasks/markdown_source";
 	import TaskLineRow from "./TaskLineRow.svelte";
 	import TaskSourceRows from "./TaskSourceRows.svelte";
 	import TaskStatusMarker from "./TaskStatusMarker.svelte";
@@ -53,22 +55,7 @@
 	export let onUnpin: () => void = () => {};
 	export let treatNestedTasksAsSubtasks: boolean = false;
 
-	function handleContentBlur() {
-		isEditing = false;
-
-		const content = textAreaEl?.value;
-		if (!content) return;
-
-		const updatedContent = content.replaceAll("\n", "<br />");
-
-		taskActions.updateContent(task.id, updatedContent);
-	}
-
-	function handleKeypress(e: KeyboardEvent) {
-		if ((e.key === "Enter" && !e.shiftKey) || e.key === "Escape") {
-			textAreaEl?.blur();
-		}
-	}
+	let editTarget: { id: string; source?: MarkdownSource; content: string };
 
 	function handleOpenKeypress(e: KeyboardEvent) {
 		if (e.key === "Enter" || e.key === " ") {
@@ -108,7 +95,6 @@
 		// to this card. Do not interpret it as a task move.
 		if (!canStartTaskDrag({ isEditing, isMobileEditing })) return;
 
-		handleContentBlur();
 		isDragging = true;
 
 		// In selection mode with this task selected, drag all selected tasks
@@ -156,7 +142,6 @@
 		isDraggingStore.set(null);
 	}
 
-	let textAreaEl: HTMLTextAreaElement | undefined;
 	let previewContainerEl: HTMLDivElement | undefined;
 	let markdownComponent: Component | undefined;
 	let isEditingDates = false;
@@ -218,16 +203,18 @@
 			return;
 		}
 
+		startEditing();
+	}
+
+	function startEditing() {
+		if (isEditing || isMobileEditing) return;
 		if (Platform.isMobile) {
 			isMobileEditing = true;
 			return;
 		}
 
+		editTarget = { id: task.id, source: task.editableSource, content: task.editableContent };
 		isEditing = true;
-
-		window.setTimeout(() => {
-			textAreaEl?.focus();
-		}, 100);
 	}
 
 	function renderTaskMarkdown() {
@@ -243,11 +230,14 @@
 			}
 		}
 
+		const trailingSpaces = task.originalLine.match(/ {2,}$/)?.[0];
+		if (trailingSpaces) body = body.replace(/[ \t]*$/, trailingSpaces);
 		return renderTaskMarkdownSource({
-			content: body,
+			content: body + (task.previewContinuation ? "\n" + task.previewContinuation : ""),
 			displayStatus: task.displayStatus,
 			blockLink: task.blockLink,
 			excludedTags,
+			referenceDefinitions: task.source?.referenceDefinitions,
 		});
 	}
 
@@ -348,7 +338,8 @@
 		const checkboxes = Array.from(
 			previewContainerEl.querySelectorAll('input[type="checkbox"]')
 		) as HTMLInputElement[];
-		const [primaryCheckbox, ...nestedCheckboxes] = checkboxes;
+		const primaryCheckbox = previewContainerEl.querySelector<HTMLInputElement>(":scope > ul > li.task-list-item > input.task-list-item-checkbox, :scope > ul > li.task-list-item > p > input.task-list-item-checkbox");
+		const nestedCheckboxes = checkboxes.filter(checkbox => checkbox !== primaryCheckbox);
 
 		if (primaryCheckbox) {
 			primaryCheckbox.classList.add("task-primary-checkbox");
@@ -412,18 +403,6 @@
 			markdownComponent.unload();
 		}
 	});
-
-	$: {
-		if (textAreaEl) {
-			textAreaEl.style.height = `0px`;
-			textAreaEl.style.height = `${textAreaEl.scrollHeight}px`;
-		}
-	}
-
-	function onInput(e: Event & { currentTarget: HTMLTextAreaElement }) {
-		e.currentTarget.style.height = `0px`;
-		e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-	}
 
 	$: excludedTagNames = excludedTags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase());
 	$: visibleTags = Array.from(task.tags).filter(t => !excludedTagNames.includes(t.toLowerCase()));
@@ -502,14 +481,9 @@
 		</svelte:fragment>
 		<div class="task-row-content">
 			{#if isEditing}
-				<textarea
-					class:editing={isEditing}
-					bind:this={textAreaEl}
-					on:keypress={handleKeypress}
-					on:blur={handleContentBlur}
-					on:input={onInput}
-					value={task.content.replaceAll("<br />", "\n")}
-				></textarea>
+				<MarkdownBodyEditor initialContent={editTarget.content}
+					onSave={(content) => taskActions.updateContent(editTarget.id, content, [], editTarget.source)}
+					onClose={() => isEditing = false} />
 			{:else}
 				<div
 					role="button"
@@ -733,12 +707,6 @@
 
 		.task-row-content {
 			min-width: 0; // Allow text to wrap properly
-
-			textarea {
-				cursor: text;
-				background-color: var(--color-base-25);
-				width: 100%;
-			}
 
 			.content-preview {
 				min-height: var(--task-content-line-height);
@@ -1008,7 +976,8 @@
 		pointer-events: none;
 	}
 
-	:global(.task-row-content .content-preview .task-list-item > input[type="checkbox"].task-primary-checkbox) {
+	:global(.task-row-content .content-preview .task-list-item > input[type="checkbox"].task-primary-checkbox),
+	:global(.task-row-content .content-preview .task-list-item > p > input[type="checkbox"].task-primary-checkbox) {
 		display: none !important;
 	}
 

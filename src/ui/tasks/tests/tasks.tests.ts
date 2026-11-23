@@ -61,7 +61,16 @@ describe("updateMapsFromFile", () => {
 		const { tasks } = await parseFileTasks("- [ ] Parent #todo\n  - [ ] Child #todo");
 
 		expect(tasks.map((task) => task.content)).toEqual(["Parent", "Child"]);
-		expect(tasks.every((task) => task.sourceBlockLineCount === 1)).toBe(true);
+		expect(tasks.map(task => task.sourceBlockLineCount)).toEqual([2, 1]);
+	});
+
+	it.each([false, true])("retains real Markdown notes and excludes code examples with nested mode %s", async (nested) => {
+		const source = "- [ ] Parent\n  note<br />literal\n\n  ```md\n  - [ ] Example\n  ```\n\n  - [🟢] Child\n\nOutside";
+		const { tasks } = await parseFileTasks(source, { treatNestedTasksAsSubtasks: nested });
+		expect(tasks.map(task => task.content)).toEqual(nested ? ["Parent"] : ["Parent", "Child"]);
+		expect(tasks[0]?.previewContinuation).toBe("note<br />literal");
+		expect(tasks[0]?.source?.raw).toBe(source.slice(0, source.indexOf("\n\nOutside")));
+		expect(tasks[0]?.sourceChildren[0]?.rawLine).toBe("  ```md");
 	});
 
 	it("uses archive statuses instead of legacy archive tags when configured", async () => {
@@ -138,24 +147,24 @@ describe("updateMapsFromFile", () => {
 		expect(tasks.map((task) => task.content)).toEqual(["Child"]);
 	});
 
-	it("ends source block ownership at blank lines", async () => {
+	it("keeps Markdown list ownership across blank lines", async () => {
 		const { tasks } = await parseFileTasks(
 			"- [ ] Parent #todo\n  - [ ] Child #todo\n\n  - [ ] After blank #todo",
 			{ treatNestedTasksAsSubtasks: true },
 		);
 
-		expect(tasks.map((task) => task.content)).toEqual(["Parent", "After blank"]);
-		expect(tasks[0]?.sourceBlockLineCount).toBe(2);
-		expect(tasks[1]?.sourceBlockLineCount).toBe(1);
+		expect(tasks.map((task) => task.content)).toEqual(["Parent"]);
+		expect(tasks[0]?.sourceBlockLineCount).toBe(4);
 	});
 
-	it("breaks ancestry for mixed indentation without a shared prefix", async () => {
+	it("uses Markdown indentation columns for mixed tabs and spaces", async () => {
 		const { tasks } = await parseFileTasks(
 			"  - [ ] Space parent #todo\n \t- [ ] Mixed child #todo",
 			{ treatNestedTasksAsSubtasks: true },
 		);
 
-		expect(tasks.map((task) => task.content)).toEqual(["Space parent", "Mixed child"]);
+		expect(tasks.map((task) => task.content)).toEqual(["Space parent"]);
+		expect(tasks[0]?.sourceChildren[0]).toMatchObject({ content: "Mixed child #todo" });
 	});
 
 	it("correctly identifies visible source task descendants for completion percentage", async () => {

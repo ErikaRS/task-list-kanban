@@ -161,7 +161,7 @@ function getAllPlacementTags(columns: ColumnDefinition[]): string[] {
 	return [...new Set(columns.flatMap(getColumnWriteTags))];
 }
 
-function replacePlacementTags(rawLine: string, oldTags: string[], newTags: string[]): string {
+export function replacePlacementTags(rawLine: string, oldTags: string[], newTags: string[]): string {
 	const removableTags = oldTags.filter((tag) => !newTags.includes(tag));
 	const missingTags = newTags.filter((tag) => !hasTag(rawLine, tag));
 	if (removableTags.length === 0 && missingTags.length === 0) return rawLine;

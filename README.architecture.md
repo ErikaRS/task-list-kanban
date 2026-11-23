@@ -34,6 +34,7 @@ This plugin follows a modular architecture with clear separation between parsing
 
 **Task Management** (`src/ui/tasks/`)
 - `task.ts`: Core Task model with parsing and serialization
+- `markdown_source.ts`: Source-positioned Markdown item/block parsing, reversible container indentation, and legacy-break conversion limited to text-edit drafts
 - `store.ts`: Reactive task store with file system integration
 - `actions.ts`: Task manipulation operations (move, done, cancel/restore, archive, delete)
 
@@ -57,17 +58,30 @@ Obsidian Files → File System Events → Task Parsing → Reactive Stores → S
 
 **File Monitoring**: The plugin watches for file changes using Obsidian's vault events and automatically updates the task store when markdown files are modified.
 
-**Task Parsing**: Raw markdown content is parsed using regex patterns to identify task strings, extract metadata (tags, status, indentation), and create Task objects.
+**Task Parsing**: `mdast-util-from-markdown` supplies Markdown list-item and block positions. The existing task-header parser recognizes supported checkbox/status markers only within real list items; code, YAML, HTML blocks, and blockquotes do not create task cards. Source spans and continuation bodies are retained in both nested-task modes. The setting controls card extraction and descendant filter behavior. Tags, placement, and properties remain tied to the task's first source line.
 
 **State Management**: Svelte stores provide reactive state management, automatically updating the UI when tasks or settings change.
 
 **Bidirectional Sync**: Changes made in the kanban UI are serialized back to the original markdown files, maintaining consistency between the kanban view and file content.
 
-**Write Paths**: Actions modify a task's source line through one of two paths in `src/ui/tasks/actions.ts`, with different fidelity guarantees:
-- *Rewrite* (`rewriteTaskRows`): re-serializes the whole line from the Task model. Normalizes formatting the user may not have touched (tag placement, spacing). Used for content edits and tag swimlane changes.
-- *Edit* (`editTaskSourceRows`): applies a targeted string transform to the raw line, preserving unrelated formatting. Used for column and status changes, dates, priorities, and text swimlane values.
+**Write Paths**: Actions preserve raw Markdown rather than serializing the display model:
+- Header changes (`editTaskSourceRows` / `editTasks`) transform only the selected raw header. Columns, status, dates, priority, and tag/text/property swimlane changes preserve the continuation body.
+- Text edits use validated source-range replacements. An editor captures only its rendered block's editable span and exact source when opened; the write rejects stale content even when a body-only edit leaves the task ID unchanged. Replacements use `Vault.process` where available, preserve the file's line-ending convention, and skip unchanged saves. Mobile parent-text/date edits are combined in one replacement.
+- Structural actions use complete Markdown item/block spans, including blank-separated paragraphs and code. Moves coalesce selected ancestor/descendant spans, write the destination before deleting the source, and validate the source again before removal. Row-based structural helpers preserve BOM and line-ending conventions.
 
-Prefer the edit path for new actions; only rewrite when the model requires it. Both paths batch by file: one read and at most one write per affected file, skipping the write when nothing changed.
+The Markdown AST supplies positions only; it is never serialized back to the vault. Legacy `<br />` conversion occurs only in text-edit drafts and is persisted by saving that edit. Indexing, rendering, and header-only actions do not migrate files. Archive scans share the same source parsing and cache at most one file's syntax positions while retaining paginated Task objects.
+
+**Item Editing**: Preview and editing share `editableMarkdownSource`: a list
+item's leading paragraph/block is editable separately from its descendants
+and later blocks. The parent editor restores its managed task wrapper;
+nested item editors expose their own list/checkbox markers through
+`markdownBlock` and write them literally through `replaceMarkdownBlock`.
+Desktop fields share `MarkdownBodyEditor`; mobile fields share
+`MobileEditorSheet`, with the parent wrapper adding date controls.
+`TaskSourceRows` renders all nested nodes in either board mode. The nested-task
+setting controls independent card extraction, rather than removing rows from
+the parent's source preview. A generated outer list wrapper is unwrapped
+because the row supplies its own marker; inner Markdown retains its formatting.
 
 ### Key Design Patterns
 

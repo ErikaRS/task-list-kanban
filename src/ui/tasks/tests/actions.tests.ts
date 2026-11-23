@@ -442,16 +442,114 @@ describe("task actions", () => {
 	});
 
 	describe("nested source block actions", () => {
+		it.each(["duplicate", "delete"] as const)("%s retains complete paragraph and code boundaries", async (operation) => {
+			const body = "\n  note\n\n  ```md\n  - [ ] example\n  ```\n\n  paragraph";
+			const h = await setupNestedActions("* [x] Parent ^id  " + body + "\n- [ ] Sibling");
+			if (operation === "duplicate") {
+				await h.actions.duplicateTask(h.taskId);
+				expect(h.contents()).toBe("* [x] Parent ^id  " + body + "\n* [ ] Parent  " + body + "\n- [ ] Sibling");
+			} else {
+				await h.actions.deleteTask(h.taskId);
+				expect(h.contents()).toBe("- [ ] Sibling");
+			}
+		});
+
+		it("coalesces a selected parent and child during a file move while changing both selected headers", async () => {
+			const file = { path: "tasks.md" };
+			const source = "* [/] Parent\n  - [ ] Child\n\n  ```md\n  - [ ] Example\n  ```\n\n- [ ] Sibling";
+			const fileContents = new Map([[file.path, source], ["done.md", "# Done\n"]]);
+			const tasksByTaskId = new Map<string, Task>(); const metadataByTaskId = new Map<string, Metadata>();
+			await parseNestedFileIntoMaps({ fileHandle: file, fileContents, tasksByTaskId, metadataByTaskId, nested: false });
+			const [parent, child] = [...tasksByTaskId.values()];
+			const h = setupActionsWithFileMap({ fileContents, tasksByTaskId, metadataByTaskId });
+			await h.actions.moveTasksToFile([parent!.id, child!.id], { path: "done.md" } as never, "done");
+			expect(fileContents.get("done.md")).toBe("# Done\n* [x] Parent\n  - [x] Child\n\n  ```md\n  - [ ] Example\n  ```\n");
+			expect(fileContents.get(file.path)).toBe("\n- [ ] Sibling");
+			expect(h.writeCount()).toBe(2);
+		});
+
+		it("keeps the complete source item when the destination write fails", async () => {
+			const file = { path: "tasks.md" }; const source = "- [ ] Parent\n  note\n\n  paragraph";
+			const fileContents = new Map([[file.path, source], ["done.md", ""]]);
+			const tasksByTaskId = new Map<string, Task>(); const metadataByTaskId = new Map<string, Metadata>();
+			await parseNestedFileIntoMaps({ fileHandle: file, fileContents, tasksByTaskId, metadataByTaskId });
+			const h = setupActionsWithFileMap({ fileContents, tasksByTaskId, metadataByTaskId, writeFailurePath: "done.md" });
+			await expect(h.actions.moveTasksToFile([[...tasksByTaskId.keys()][0]!], { path: "done.md" } as never, "done")).rejects.toThrow("Disk full");
+			expect(fileContents.get(file.path)).toBe(source);
+			expect(fileContents.get("done.md")).toBe("");
+		});
+
+		it("reparents a note with a code block without changing relative indentation or blank lines", async () => {
+			const h = await setupNestedActions("- [ ] Parent\n  - note\n    first\n\n    ```md\n    - [ ] example\n    ```\n  - [ ] Target\n    child note");
+			await h.actions.moveSourceBlockRow(h.taskId, 1, 7, "after", 2);
+			expect(h.contents()).toBe("- [ ] Parent\n  - [ ] Target\n    child note\n    - note\n      first\n\n      ```md\n      - [ ] example\n      ```");
+		});
+		it("saves Markdown notes, reloads them, and edits again without losing siblings or children", async () => {
+			const h = await setupNestedActions("* [/] Parent  \n  old note\n\n  - [ ] Child\n\n- [ ] Sibling");
+			await h.actions.updateContent(h.taskId, "Parent  \nnew note\\\nnext\n\nParagraph");
+			expect(h.contents()).toBe("* [/] Parent  \n  new note\\\n  next\n\n  Paragraph\n\n  - [ ] Child\n\n- [ ] Sibling");
+			const reloaded = await h.reload();
+			expect(reloaded.editableContent).toBe("Parent  \nnew note\\\nnext");
+			const paragraph = reloaded.sourceChildren.find(node => node.rawLine.trim() === "Paragraph")!;
+			await h.actions.updateSourceBlockRow(reloaded.id, paragraph.rowIndex, "Changed");
+			expect(h.contents()).toContain("\n\n  Changed\n\n  - [ ] Child\n\n- [ ] Sibling");
+		});
+
+		it("leaves legacy breaks alone during indexing and status changes, then migrates on a saved text edit", async () => {
+			const h = await setupNestedActions("- [ ] Parent<br />note #project ^abc123\n- [ ] Sibling");
+			expect(h.contents()).toBe("- [ ] Parent<br />note #project ^abc123\n- [ ] Sibling");
+			await h.actions.toggleDone(h.taskId);
+			expect(h.contents()).toContain("Parent<br />note #project ^abc123");
+			const task = await h.reload();
+			expect(task.editableContent).toBe("Parent #project ^abc123\nnote");
+			await h.actions.updateContent(task.id, task.editableContent);
+			expect(h.contents()).toBe("- [x] Parent #project ^abc123\n  note\n- [ ] Sibling");
+		});
+
+		it("grows and shrinks a nested note as one Markdown item, preserving an adjacent item", async () => {
+			const h = await setupNestedActions("- [ ] Parent\n  - note\n  - [ ] Child");
+			await h.actions.updateSourceBlockRow(h.taskId, 1, "- note\n  second\n\n  ```md\n  - [ ] example\n  ```");
+			expect(h.contents()).toBe("- [ ] Parent\n  - note\n    second\n\n    ```md\n    - [ ] example\n    ```\n  - [ ] Child");
+			const task = await h.reload();
+			expect(task.sourceChildren[0]?.source?.endRowIndex).toBe(7);
+			await h.actions.updateSourceBlockRow(task.id, 1, "- short");
+			expect(h.contents()).toBe("- [ ] Parent\n  - short\n\n    ```md\n    - [ ] example\n    ```\n  - [ ] Child");
+		});
+
+		it("keeps a body snapshot stale after a source-only refresh and rejects the old editor", async () => {
+			const h = await setupNestedActions("- [ ] Parent\n  note");
+			const snapshot = h.task.source!;
+			await h.actions.updateContent(h.taskId, "Parent\nexternal");
+			const task = await h.reload();
+			expect(task.id).toBe(h.taskId);
+			await expect(h.actions.updateContent(task.id, "Parent\nstale", [], snapshot)).rejects.toThrow("Task changed");
+			expect(h.contents()).toBe("- [ ] Parent\n  external");
+		});
+
+		it("does not let a stale subtask checkbox overwrite a newly inserted note before the store refreshes", async () => {
+			const h = await setupNestedActions("- [ ] Parent\n  - [ ] Child");
+			await h.actions.updateContent(h.taskId, "Parent\nnew note");
+			await expect(h.actions.toggleSourceTaskStatus(h.taskId, 1)).rejects.toThrow("Task changed");
+			expect(h.contents()).toBe("- [ ] Parent\n  new note\n  - [ ] Child");
+		});
+
+		it("saves text and dates together with metadata on the task header", async () => {
+			const h = await setupNestedActions("- [ ] Parent\n  old", { propertySchemaOption: PropertySchemaOption.TasksPlugin });
+			await h.actions.updateContent(h.taskId, "Changed  \nnew note", [{ key: "due", value: "2026-11-24" }]);
+			expect(h.contents()).toBe("- [ ] Changed 📅 2026-11-24  \n  new note");
+		});
+
 		it("updates subtask and raw source rows without changing siblings", async () => {
 			const { actions, taskId, contents } = await setupNestedActions(
 				"- [ ] Parent\n  - [ ] Child\n  - raw note",
 			);
 
-			await actions.updateSourceBlockRow(taskId, 1, "Updated child #tag");
+			await actions.updateSourceBlockRow(taskId, 1, "- [ ] Updated child #tag");
 			expect(contents()).toBe("- [ ] Parent\n  - [ ] Updated child #tag\n  - raw note");
 
-			await actions.updateSourceBlockRow(taskId, 2, "- updated raw");
-			expect(contents()).toBe("- [ ] Parent\n  - [ ] Updated child #tag\n  - updated raw");
+			const raw = await setupNestedActions("- [ ] Parent\n  - [ ] Child\n  - raw note");
+			await raw.actions.updateSourceBlockRow(raw.taskId, 2, "- updated raw");
+			expect(raw.contents()).toBe("- [ ] Parent\n  - [ ] Child\n  - updated raw");
 		});
 
 		it("preserves raw list bullets when editing raw list item text", async () => {
@@ -459,7 +557,7 @@ describe("task actions", () => {
 				"- [ ] Parent\n  - raw note",
 			);
 
-			await actions.updateSourceBlockRow(taskId, 1, "updated raw");
+			await actions.updateSourceBlockRow(taskId, 1, "- updated raw");
 
 			expect(contents()).toBe("- [ ] Parent\n  - updated raw");
 		});
@@ -470,7 +568,7 @@ describe("task actions", () => {
 				{ ignoredStatusMarkers: "-" },
 			);
 
-			await actions.updateSourceBlockRow(taskId, 1, "Still ignored");
+			await actions.updateSourceBlockRow(taskId, 1, "- [-] Still ignored");
 
 			expect(contents()).toBe("- [ ] Parent\n  - [-] Still ignored");
 		});
@@ -602,7 +700,7 @@ describe("task actions", () => {
 
 	describe("subtask block operations", () => {
 		it("adds a subtask or raw note as sibling or child", async () => {
-			const { actions, taskId, contents } = await setupNestedActions(
+			const { actions, taskId, contents, reload } = await setupNestedActions(
 				"- [ ] Parent\n  - [ ] Child",
 			);
 
@@ -611,6 +709,7 @@ describe("task actions", () => {
 			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child\n  - [ ] New subtask");
 
 			// Add child raw note under Child (rowIndex = 1)
+			await reload();
 			await actions.addSourceBlockRow(taskId, 1, "child", "raw");
 			expect(contents()).toBe("- [ ] Parent\n  - [ ] Child\n    - New note\n  - [ ] New subtask");
 		});
@@ -657,8 +756,9 @@ describe("task actions", () => {
 			await actions.applyDateEdits(taskId, [{ key: "due", value: "2026-06-15" }]);
 			expect(contents()).toBe("- [ ] Send invoice 📅 2026-06-15 ^abc123");
 
-			await actions.applyDateEdits(taskId, [{ key: "due", value: "" }]);
-			expect(contents()).toBe("- [ ] Send invoice ^abc123");
+			const refreshed = setupActionsForLine(contents(), PropertySchemaOption.TasksPlugin, new TasksPluginSchema());
+			await refreshed.actions.applyDateEdits(refreshed.taskId, [{ key: "due", value: "" }]);
+			expect(refreshed.contents()).toBe("- [ ] Send invoice ^abc123");
 		});
 
 		it("sets and clears Dataview date properties", async () => {
@@ -671,8 +771,9 @@ describe("task actions", () => {
 			await actions.applyDateEdits(taskId, [{ key: "scheduled", value: "2026-06-15" }]);
 			expect(contents()).toBe("- [ ] Send invoice [scheduled:: 2026-06-15] ^abc123");
 
-			await actions.applyDateEdits(taskId, [{ key: "scheduled", value: "" }]);
-			expect(contents()).toBe("- [ ] Send invoice ^abc123");
+			const refreshed = setupActionsForLine(contents(), PropertySchemaOption.Dataview, new DataviewSchema());
+			await refreshed.actions.applyDateEdits(refreshed.taskId, [{ key: "scheduled", value: "" }]);
+			expect(refreshed.contents()).toBe("- [ ] Send invoice ^abc123");
 		});
 
 		it("applies several date edits in one write, treating empty values as clears", async () => {
@@ -1505,6 +1606,15 @@ async function setupNestedActions(
 		actions,
 		taskId: task.id,
 		contents,
+		task,
+		reload: async () => {
+			fileContents.set(fileHandle.path, contents());
+			tasksByTaskId.clear();
+			metadataByTaskId.clear();
+			await parseNestedFileIntoMaps({ fileHandle, fileContents, tasksByTaskId, metadataByTaskId,
+				doneStatusMarkers: options.doneStatusMarkers, ignoredStatusMarkers: options.ignoredStatusMarkers });
+			return Array.from(tasksByTaskId.values())[0]!;
+		},
 	};
 }
 
@@ -1566,6 +1676,7 @@ async function parseNestedFileIntoMaps({
 	metadataByTaskId,
 	doneStatusMarkers,
 	ignoredStatusMarkers,
+	nested = true,
 }: {
 	fileHandle: { path: string };
 	fileContents: Map<string, string>;
@@ -1573,6 +1684,7 @@ async function parseNestedFileIntoMaps({
 	metadataByTaskId: Map<string, Metadata>;
 	doneStatusMarkers?: string;
 	ignoredStatusMarkers?: string;
+	nested?: boolean;
 }) {
 	await updateMapsFromFile({
 		fileHandle: fileHandle as never,
@@ -1590,7 +1702,7 @@ async function parseNestedFileIntoMaps({
 		ignoredStatusMarkers: ignoredStatusMarkers ?? DEFAULT_IGNORED_STATUS_MARKERS,
 		excludedTaskTags: new Set(),
 		propertySchema: new NoneSchema(),
-		treatNestedTasksAsSubtasks: true,
+		treatNestedTasksAsSubtasks: nested,
 	});
 }
 
@@ -1600,12 +1712,14 @@ function setupActionsWithFileMap({
 	metadataByTaskId,
 	statusMarkerOrder = "",
 	propertySchemaOption = PropertySchemaOption.None,
+	writeFailurePath,
 }: {
 	fileContents: Map<string, string>;
 	tasksByTaskId: Map<string, Task>;
 	metadataByTaskId: Map<string, Metadata>;
 	statusMarkerOrder?: string;
 	propertySchemaOption?: PropertySchemaOption;
+	writeFailurePath?: string;
 }) {
 	let writeCount = 0;
 	const actions = createTaskActions({
@@ -1614,6 +1728,7 @@ function setupActionsWithFileMap({
 		vault: {
 			read: async (file: { path: string }) => fileContents.get(file.path) ?? "",
 			modify: async (file: { path: string }, nextContents: string) => {
+				if (file.path === writeFailurePath) throw new Error("Disk full");
 				writeCount += 1;
 				fileContents.set(file.path, nextContents);
 			},

@@ -3,16 +3,18 @@
 	import { Modal, Component, Keymap, MarkdownRenderer, Platform, type App } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import {
-		getSourceNodeText,
+		getSourceNodePreview,
 		getRawListItemText,
 		type SourceBlockNode,
 	} from "../tasks/source_block";
 	import type { Task } from "../tasks/task";
+	import MarkdownBodyEditor from "./MarkdownBodyEditor.svelte";
+	import MobileEditorSheet from "./MobileEditorSheet.svelte";
+	import { editableMarkdownSource, type MarkdownSource } from "../tasks/markdown_source";
 	import TaskLineRow from "./TaskLineRow.svelte";
 	import TaskSourceStatusButton from "./TaskSourceStatusButton.svelte";
 	import Icon from "./icon.svelte";
 	import { subtaskDraggingStore } from "../dnd/store";
-	import MobileTaskEditor from "./MobileTaskEditor.svelte";
 
 	export let app: App;
 	export let task: Task;
@@ -20,9 +22,14 @@
 	export let node: SourceBlockNode;
 	export let isSelectionMode = false;
 	export let depth = 0;
+	let editTarget: {
+		id: string;
+		row: number;
+		source?: MarkdownSource;
+		initialContent: string;
+	} | null = null;
+	let draftContent = "";
 
-	let isEditing = false;
-	let isMobileEditing = false;
 	let isDragging = false;
 	let isDraggedOver = false;
 	let dropBefore = false;
@@ -32,9 +39,8 @@
 	let previewContainerEl: HTMLDivElement | undefined;
 	let markdownComponent: Component | undefined;
 
-	$: rawListItemText = node.kind === "raw" ? getRawListItemText(node) : null;
-	$: editText = (rawListItemText ?? getSourceNodeText(node)).replaceAll("<br />", "\n");
-	$: previewText = (rawListItemText ?? editText).replaceAll("<br />", "\n");
+	$: isListItem = node.kind === "task" || (node.source ? !!node.source.listPrefix : getRawListItemText(node) !== null);
+	$: previewText = getSourceNodePreview(node);
 
 	$: if (!$subtaskDraggingStore) {
 		isDraggedOver = false;
@@ -87,12 +93,23 @@
 			return;
 		}
 
-		if (Platform.isMobile) {
-			isMobileEditing = true;
-			return;
-		}
-
 		startEditing();
+	}
+
+	function startEditing() {
+		if (editTarget) return;
+		draftContent = task.getSourceNodeEditContent(node);
+		editTarget = {
+			id: task.id,
+			row: node.rowIndex,
+			source: node.source ? editableMarkdownSource(node.source) : undefined,
+			initialContent: draftContent,
+		};
+	}
+
+	async function save(content: string) {
+		if (!editTarget) return;
+		await taskActions.updateSourceBlockRow(editTarget.id, editTarget.row, content, editTarget.source);
 	}
 
 	async function renderMarkdown() {
@@ -169,6 +186,24 @@
 			anchor.addEventListener('keypress', stopPropagation);
 		});
 
+		previewContainerEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(input => {
+			input.disabled = true;
+			input.tabIndex = -1;
+		});
+		if (node.kind === "task") {
+			previewContainerEl.querySelector(":scope > ul > li.task-list-item > input.task-list-item-checkbox, :scope > ul > li.task-list-item > p > input.task-list-item-checkbox")?.remove();
+		}
+		// The row owns its marker. Unwrap only this item's generated list container
+		// so host list/LI indentation cannot add a second gap before its text.
+		if (isListItem) {
+			const list = previewContainerEl.querySelector(":scope > ul, :scope > ol");
+			const item = list?.firstElementChild;
+			if (list?.children.length === 1 && item?.tagName === "LI") {
+				item.querySelectorAll(":scope > .list-bullet, :scope > p > .list-bullet").forEach(marker => marker.remove());
+				list.replaceWith(...Array.from(item.childNodes));
+			}
+		}
+
 		// Remove heavy/interactive embeds that don't work well in small cards
 		previewContainerEl.querySelectorAll('iframe, audio, video').forEach((el) => {
 			el.remove();
@@ -176,10 +211,8 @@
 	}
 
 	let lastRenderedMarkdownKey = "";
-	$: if (isEditing) {
-		lastRenderedMarkdownKey = "";
-	}
-	$: if (previewText && previewContainerEl && !isEditing) {
+	$: if (editTarget) lastRenderedMarkdownKey = "";
+	$: if (previewText && previewContainerEl && !editTarget) {
 		const markdownKey = JSON.stringify({
 			source: previewText,
 			path: task.path,
@@ -196,28 +229,6 @@
 		}
 	});
 
-	function startEditing() {
-		isEditing = true;
-	}
-
-	function finishEditing(e: FocusEvent & { currentTarget: HTMLTextAreaElement }) {
-		const next = e.currentTarget.value;
-		isEditing = false;
-		if (next !== editText) {
-			void taskActions.updateSourceBlockRow(task.id, node.rowIndex, next);
-		}
-	}
-
-	function handleTextareaKeydown(e: KeyboardEvent) {
-		if ((e.key === "Enter" && !e.shiftKey) || e.key === "Escape") {
-			e.preventDefault();
-			(e.currentTarget as HTMLTextAreaElement | null)?.blur();
-			if (e.key === "Escape") {
-				isEditing = false;
-			}
-		}
-	}
-
 	function handlePreviewKeydown(e: KeyboardEvent) {
 		if (e.key === "Enter" || e.key === " ") {
 			if (eventHasInteractiveTarget(e)) {
@@ -226,24 +237,6 @@
 			e.preventDefault();
 			startEditing();
 		}
-	}
-
-	function focusAndAutosize(node: HTMLTextAreaElement) {
-		function resize() {
-			node.style.height = "0px";
-			node.style.height = `${node.scrollHeight}px`;
-		}
-
-		const focusTimer = window.setTimeout(() => node.focus(), 0);
-		node.addEventListener("input", resize);
-		resize();
-
-		return {
-			destroy() {
-				window.clearTimeout(focusTimer);
-				node.removeEventListener("input", resize);
-			},
-		};
 	}
 
 	class ConfirmDeleteSubtaskModal extends Modal {
@@ -288,6 +281,10 @@
 
 	function handleDragStart(e: DragEvent) {
 		e.stopPropagation();
+		if (editTarget) {
+			e.preventDefault();
+			return;
+		}
 		isDragging = true;
 		subtaskDraggingStore.set({
 			taskId: task.id,
@@ -359,13 +356,13 @@
 <div
 	class="source-row"
 	class:is-ignored-task={node.kind === "task" && node.taskVisibility === "ignored"}
-	class:is-raw-list-item={rawListItemText !== null}
+	class:is-source-list-item={isListItem}
 	class:is-dragging={isDragging}
 	class:is-dragged-over={isDraggedOver}
 	class:drop-before={isDraggedOver && dropBefore}
 	class:drop-after={isDraggedOver && dropAfter}
 	style:--drag-indicator-depth={dragIndicatorDepth}
-	draggable={!isEditing && !isMobileEditing}
+	draggable={!editTarget}
 	on:dragstart={handleDragStart}
 	on:dragend={handleDragEnd}
 	on:dragover={handleDragOver}
@@ -374,24 +371,23 @@
 >
 	<TaskLineRow {depth} hasActions={true}>
 		<svelte:fragment slot="marker">
-			{#if node.kind === "task"}
+			{#if !editTarget && node.kind === "task"}
 				<TaskSourceStatusButton
 					{task}
 					{taskActions}
 					{node}
 					{isSelectionMode}
 				/>
-			{:else if rawListItemText !== null}
-				<span class="source-row-bullet" aria-hidden="true"></span>
+			{:else if !editTarget && isListItem}
+				<span class="source-row-list-marker" aria-hidden="true">{node.source?.listPrefix.trim().match(/^\d/) ? node.source.listPrefix.trim() : "•"}</span>
 			{/if}
 		</svelte:fragment>
-		{#if isEditing}
-			<textarea
-				use:focusAndAutosize
-				on:keydown={handleTextareaKeydown}
-				on:blur={finishEditing}
-				value={editText}
-			></textarea>
+		{#if editTarget && !Platform.isMobile}
+			<MarkdownBodyEditor
+				initialContent={editTarget.initialContent}
+				onSave={save}
+				onClose={() => editTarget = null}
+			/>
 		{:else}
 			<div
 				role="button"
@@ -403,7 +399,7 @@
 			></div>
 		{/if}
 		<svelte:fragment slot="actions">
-			{#if !isSelectionMode}
+			{#if !isSelectionMode && !editTarget}
 				<button
 					type="button"
 					class="delete-subtask-btn"
@@ -419,13 +415,13 @@
 	<slot />
 </div>
 
-{#if isMobileEditing}
-	<MobileTaskEditor
-		{task}
-		{taskActions}
-		sourceRowIndex={node.rowIndex}
-		initialContent={editText}
-		onClose={() => (isMobileEditing = false)}
+{#if editTarget && Platform.isMobile}
+	<MobileEditorSheet
+		title={node.kind === "task" ? "Edit subtask" : "Edit note"}
+		context={task.path}
+		bind:content={draftContent}
+		onSave={() => save(draftContent)}
+		onClose={() => editTarget = null}
 	/>
 {/if}
 
@@ -522,7 +518,7 @@
 		font: inherit;
 		line-height: var(--source-row-line-height);
 		text-align: left;
-		white-space: pre-wrap;
+		white-space: normal;
 		overflow-wrap: anywhere;
 		cursor: text;
 
@@ -536,26 +532,13 @@
 			outline: 2px solid var(--background-modifier-border-focus);
 			outline-offset: 2px;
 		}
-
-		:global(p) {
-			margin: 0;
-		}
 	}
 
-	textarea {
-		cursor: text;
-		background-color: var(--color-base-25);
-		width: 100%;
-		min-height: 1.6rem;
-		resize: none;
-	}
-
-	.source-row-bullet {
-		display: block;
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--text-muted);
+	.source-row-list-marker {
+		display: inline-block;
+		min-width: 20px;
+		text-align: center;
+		color: var(--text-muted);
 	}
 
 	.is-ignored-task .source-row-preview {

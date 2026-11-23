@@ -14,11 +14,11 @@ describe("renderTaskMarkdownSource", () => {
 	it("keeps continuation lines inside the rendered task item", () => {
 		expect(
 			renderTaskMarkdownSource({
-				content: "First<br />Second",
+				content: "First\nSecond",
 				displayStatus: " ",
 				blockLink: "abc123",
 			}),
-		).toBe("- [ ] First\n  Second ^abc123");
+		).toBe("- [ ] First ^abc123\n  Second");
 	});
 
 	it("strips excluded tags before rendering", () => {

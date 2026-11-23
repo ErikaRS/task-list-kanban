@@ -1,5 +1,6 @@
 import { addTextLiteral, findTextLiteralMatches, replaceTextLiteral } from "../../parsing/text_literals/text_literals";
 import { insertNewTask, type TaskInsertionSettings } from "./task_insertion";
+import { editableMarkdownSource, flattenMarkdownSource, markdownBlock, markdownBody, parseMarkdownSource, removeContainerPrefix, replaceMarkdownBlock, replaceMarkdownBody, sourceLines, type MarkdownSource } from "./markdown_source";
 import {
 	Keymap,
 	MarkdownView,
@@ -35,10 +36,10 @@ import {
 	type ManualOrderStore,
 } from "./manual_order";
 import {
-	deleteRowBlocks,
 	readFileRows,
+	replaceSourceRanges,
+	serializeFileRows,
 	transformSourceRows,
-	updateRow,
 	writeFileRows,
 	type PrepareFileContentsForWrite,
 } from "./source_line_editor";
@@ -47,6 +48,7 @@ import {
 	archiveTransform,
 	changeColumnTransform,
 	replaceStatusMarker,
+	replacePlacementTags,
 	type ColumnChangeOptions,
 } from "./column_change";
 
@@ -97,8 +99,8 @@ export type TaskActions = {
 		id: string,
 		edits: ReadonlyArray<{ key: EditableDatePropertyKey; value: string }>,
 	) => Promise<void>;
-	updateContent: (id: string, content: string) => Promise<void>;
-	updateSourceBlockRow: (id: string, rowIndex: number, content: string) => Promise<void>;
+	updateContent: (id: string, content: string, dateEdits?: ReadonlyArray<{ key: EditableDatePropertyKey; value: string }>, expectedSource?: MarkdownSource) => Promise<void>;
+	updateSourceBlockRow: (id: string, rowIndex: number, content: string, expectedSource?: MarkdownSource) => Promise<void>;
 	toggleSourceTaskStatus: (id: string, rowIndex: number) => Promise<void>;
 	addSourceBlockRow: (
 		id: string,
@@ -360,39 +362,6 @@ export function createTaskActions({
 		);
 	}
 
-	// There are two ways an action may modify a task's source line, with very
-	// different fidelity. `rewriteTaskRows` re-serialises the whole line from
-	// the Task model, which normalises formatting the user may not have
-	// touched (tag placement, spacing). `editTaskSourceRows` applies a
-	// targeted string transform and preserves the rest of the line
-	// byte-for-byte. Prefer the surgical path; rewrite only when the change
-	// inherently goes through the Task model (content, tags). Status and
-	// column changes, completion and archiving included, are all surgical.
-
-	/**
-	 * REWRITE path: applies `updater` to each task and replaces its source
-	 * line with the re-serialised result, reading and writing each affected
-	 * file exactly once.
-	 */
-	async function rewriteTaskRows(
-		ids: string[],
-		updater: (task: Task) => void,
-	) {
-		const entriesByFile = collectTaskEntriesByFile(ids);
-		notifyMissingTasks(
-			ids.length,
-			Array.from(entriesByFile.values()).reduce((sum, entries) => sum + entries.length, 0),
-		);
-		for (const [fileHandle, entries] of entriesByFile) {
-			const edits = entries.map(({ task, metadata }) => {
-				updater(task);
-				const newRow = task.serialise();
-				return { rowIndex: metadata.rowIndex, transform: () => newRow };
-			});
-			await transformSourceRows(vault, fileHandle, edits, prepareFileContentsForWrite);
-		}
-	}
-
 	/**
 	 * EDIT path: applies a surgical string transform to each task's raw
 	 * source row, reading and writing each affected file exactly once.
@@ -402,26 +371,7 @@ export function createTaskActions({
 		ids: string[],
 		transform: (row: string) => string,
 	) {
-		const byFile = new Map<TFile, Metadata[]>();
-		let foundCount = 0;
-		for (const id of ids) {
-			const metadata = metadataByTaskId.get(id);
-			if (!metadata) continue;
-			foundCount += 1;
-			const list = byFile.get(metadata.fileHandle) ?? [];
-			list.push(metadata);
-			byFile.set(metadata.fileHandle, list);
-		}
-		notifyMissingTasks(ids.length, foundCount);
-
-		for (const [fileHandle, fileMetadata] of byFile) {
-			await transformSourceRows(
-				vault,
-				fileHandle,
-				fileMetadata.map(({ rowIndex }) => ({ rowIndex, transform })),
-				prepareFileContentsForWrite,
-			);
-		}
+		await editTasks(ids, (_task, row) => transform(row));
 	}
 
 	/**
@@ -441,7 +391,10 @@ export function createTaskActions({
 				fileHandle,
 				entries.map(({ task, metadata }) => ({
 					rowIndex: metadata.rowIndex,
-					transform: (row: string) => transform(task, row),
+					transform: (row: string) => {
+						if (row !== task.originalLine) throw new Error("Task changed in the source file. Refresh the board before updating it.");
+						return transform(task, row);
+					},
 				})),
 				prepareFileContentsForWrite,
 			);
@@ -492,6 +445,16 @@ export function createTaskActions({
 		const metadata = metadataByTaskId.get(id);
 		const task = tasksByTaskId.get(id);
 		return task && metadata ? { task, metadata } : null;
+	}
+
+	async function editableSource(task: Task, metadata: Metadata, rowIndex = metadata.rowIndex): Promise<MarkdownSource> {
+		if (rowIndex === metadata.rowIndex && task.editableSource) return task.editableSource;
+		const contents = await vault.read(metadata.fileHandle);
+		const source = flattenMarkdownSource(parseMarkdownSource(contents)).find(source => source.rowIndex === rowIndex);
+		if (!source || (rowIndex === metadata.rowIndex && sourceLines(source.raw)[0] !== task.originalLine)) {
+			throw new Error("Task changed in the source file. Reopen the editor and try again.");
+		}
+		return editableMarkdownSource(source);
 	}
 
 	/**
@@ -679,22 +642,31 @@ export function createTaskActions({
 			await editTaskSourceRows([id], (row) => changeTaskStatus(task, row, next.status));
 		},
 
-		async updateContent(id, content) {
-			await rewriteTaskRows([id], (task) => (task.content = content));
+		async updateContent(id, content, dateEdits = [], expectedSource) {
+			const entry = getTaskWithMetadata(id);
+			if (!entry) throw new Error("Task changed. Reopen the editor and try again.");
+			const source = expectedSource ? editableMarkdownSource(expectedSource) : await editableSource(entry.task, entry.metadata);
+			let replacement = content === markdownBody(source) ? source.raw : replaceMarkdownBody(source, content);
+			if (dateEdits.length) {
+				const adapter = getPropertyWriteAdapter(getPropertySchemaOption());
+				const lines = sourceLines(replacement);
+				const trailing = lines[0]!.match(/[ \t]+$/)?.[0];
+				if (adapter) lines[0] = dateEdits.reduce((line, { key, value }) => value ? adapter.upsertDate(line, key, value) : adapter.removeDate(line, key), lines[0]!);
+				if (trailing) lines[0] = lines[0]!.replace(/[ \t]*$/, trailing);
+				replacement = lines.join("\n");
+			}
+			await replaceSourceRanges(vault, entry.metadata.fileHandle, [{ start: source.start, end: source.end, expected: source.raw, replacement }], prepareFileContentsForWrite);
 		},
 
-		async updateSourceBlockRow(id, rowIndex, content) {
+		async updateSourceBlockRow(id, rowIndex, content, expectedSource) {
 			const entry = getTaskWithMetadata(id);
-			if (!entry) {
-				return;
-			}
-
-			const nextRow = entry.task.updateSourceBlockRowContent(rowIndex, content);
-			if (nextRow == null) {
-				return;
-			}
-
-			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow, prepareFileContentsForWrite);
+			if (!entry) throw new Error("Task changed. Reopen the editor and try again.");
+			const node = flattenSourceBlockNodes(entry.task.sourceChildren).find(node => node.rowIndex === rowIndex);
+			if (!node) throw new Error("Note changed. Reopen the editor and try again.");
+			const source = editableMarkdownSource(expectedSource ?? node.source ?? await editableSource(entry.task, entry.metadata, rowIndex));
+			let replacement = source.raw;
+			if (content !== markdownBlock(source)) replacement = replaceMarkdownBlock(source, content);
+			await replaceSourceRanges(vault, entry.metadata.fileHandle, [{ start: source.start, end: source.end, expected: source.raw, replacement }], prepareFileContentsForWrite);
 		},
 
 		async toggleSourceTaskStatus(id, rowIndex) {
@@ -714,7 +686,16 @@ export function createTaskActions({
 					formatLocalDate(getCurrentDate?.() ?? new Date()));
 			}
 
-			await updateRow(vault, entry.metadata.fileHandle, rowIndex, nextRow, prepareFileContentsForWrite);
+			if (original?.source) {
+				const source = original.source;
+				await replaceSourceRanges(vault, entry.metadata.fileHandle, [{ start: source.start, end: source.end, expected: source.raw,
+					replacement: [nextRow, ...sourceLines(source.raw).slice(1)].join("\n") }], prepareFileContentsForWrite);
+			} else if (original) {
+				await transformSourceRows(vault, entry.metadata.fileHandle, [{ rowIndex, transform: row => {
+					if (row !== original.rawLine) throw new Error("Subtask changed; refresh the board before changing its status.");
+					return nextRow;
+				} }], prepareFileContentsForWrite);
+			}
 		},
 
 		async addSourceBlockRow(id, rowIndex, location, kind) {
@@ -730,6 +711,7 @@ export function createTaskActions({
 				return;
 			}
 
+			checkedTaskBlock(entry.task, rows, entry.metadata.rowIndex);
 			const block = getNodeBlock(rows, rowIndex);
 			let targetIndex = block.start;
 			let indentation = block.indentation;
@@ -737,7 +719,7 @@ export function createTaskActions({
 			if (location === "child") {
 				// We append as a child, so we insert at the end of the block
 				targetIndex = block.end;
-				indentation = block.indentation + detectIndentationStep(rows);
+				indentation = block.continuationPrefix;
 			} else {
 				// sibling: insert at the end of the block
 				targetIndex = block.end;
@@ -768,6 +750,7 @@ export function createTaskActions({
 			const { fileHandle } = entry.metadata;
 			const rows = await readFileRows(vault, fileHandle);
 
+			checkedTaskBlock(entry.task, rows, entry.metadata.rowIndex);
 			const block = getNodeBlock(rows, rowIndex);
 			rows.splice(block.start, block.end - block.start);
 			await writeFileRows(vault, fileHandle, rows, prepareFileContentsForWrite);
@@ -782,6 +765,7 @@ export function createTaskActions({
 			const { fileHandle } = entry.metadata;
 			const rows = await readFileRows(vault, fileHandle);
 
+			checkedTaskBlock(entry.task, rows, entry.metadata.rowIndex);
 			const draggedBlock = getNodeBlock(rows, draggedRowIndex);
 			const parentCardRow = rows[entry.task.rowIndex];
 			if (parentCardRow == null) {
@@ -793,14 +777,12 @@ export function createTaskActions({
 			const safeTargetDepth = Math.max(1, targetDepth);
 			const newRootIndentation = parentCardIndentation + stepChar.repeat(safeTargetDepth);
 			const blockRows = rows.slice(draggedBlock.start, draggedBlock.end).map((row) => {
-				if (row == null) return "";
-				const rowIndentation = row.match(/^\s*/)?.[0] ?? "";
-				const relativeIndentation = rowIndentation.slice(draggedBlock.indentation.length);
-				const nextIndentation = newRootIndentation + relativeIndentation;
-				return nextIndentation + row.slice(rowIndentation.length);
+				if (!row) return "";
+				return newRootIndentation + removeContainerPrefix(row, draggedBlock.indentation);
 			});
 
 			const targetBlock = getNodeBlock(rows, targetRowIndex);
+			if (targetBlock.start >= draggedBlock.start && targetBlock.start < draggedBlock.end) return;
 			let insertIndex = position === "before" ? targetBlock.start : targetBlock.end;
 
 			// Remove dragged block
@@ -860,12 +842,10 @@ export function createTaskActions({
 				return;
 			}
 
-			await deleteRowBlocks(vault, entry.metadata.fileHandle, [
-				{
-					rowIndex: entry.metadata.rowIndex,
-					lineCount: entry.task.sourceBlockLineCount,
-				},
-			], prepareFileContentsForWrite);
+			const rows = await readFileRows(vault, entry.metadata.fileHandle);
+			const block = checkedTaskBlock(entry.task, rows, entry.metadata.rowIndex);
+			rows.splice(block.start, block.end - block.start);
+			await writeFileRows(vault, entry.metadata.fileHandle, rows, prepareFileContentsForWrite);
 		},
 
 		async updateSwimlaneText(ids, literal, literals) {
@@ -877,13 +857,13 @@ export function createTaskActions({
 		},
 
 		async updateSwimlaneTag(ids, newTag, prefix, excludedTags, includeTags) {
-			await rewriteTaskRows(ids, (task) => {
+			await editTasks(ids, (task, row) => {
 				const oldTag = getTaskTagGroupValue(
 					task,
 					{ kind: "tag-prefix", prefix, includeTags },
 					excludedTags,
 				);
-				task.replaceTag(oldTag, newTag);
+				return replacePlacementTags(row, oldTag ? [oldTag] : [], newTag ? [newTag] : []);
 			});
 		},
 
@@ -909,7 +889,8 @@ export function createTaskActions({
 
 			if (rowIndex >= rows.length) return;
 
-			const sourceBlockRows = rows.slice(rowIndex, rowIndex + entry.task.sourceBlockLineCount);
+			const block = checkedTaskBlock(entry.task, rows, rowIndex);
+			const sourceBlockRows = rows.slice(block.start, block.end);
 			const originalLine = sourceBlockRows[0];
 			if (!originalLine) return;
 
@@ -922,40 +903,33 @@ export function createTaskActions({
 		},
 
 		async moveTasksToFile(ids, destinationFile, destinationColumn) {
-			const moves = ids
-				.map((id) => {
-					const task = tasksByTaskId.get(id);
-					const metadata = metadataByTaskId.get(id);
-					return task && metadata ? { task, metadata } : null;
-				})
-				.filter((move): move is { task: Task; metadata: Metadata } => !!move)
-				.filter((move) => move.metadata.fileHandle.path !== destinationFile.path);
-
-			if (moves.length === 0) {
-				return;
+			const requested = [...new Set(ids)].map(getTaskWithMetadata).filter((entry): entry is { task: Task; metadata: Metadata } => !!entry)
+				.filter(entry => entry.metadata.fileHandle.path !== destinationFile.path);
+			if (!requested.length) return;
+			const byFile = new Map<TFile, string[]>();
+			for (const { metadata } of requested) if (!byFile.has(metadata.fileHandle)) byFile.set(metadata.fileHandle, await readFileRows(vault, metadata.fileHandle));
+			const planned = requested.map(entry => ({ ...entry, block: checkedTaskBlock(entry.task, byFile.get(entry.metadata.fileHandle)!, entry.metadata.rowIndex) }));
+			const roots = planned.filter(entry => !planned.some(other => other !== entry
+				&& other.metadata.fileHandle === entry.metadata.fileHandle && other.block.start < entry.block.start && other.block.end >= entry.block.end));
+			const destinationContents = await vault.read(destinationFile);
+			let nextDestination = destinationContents;
+			for (const root of roots) {
+				const blockRows = byFile.get(root.metadata.fileHandle)!.slice(root.block.start, root.block.end);
+				for (const entry of planned.filter(entry => entry.metadata.fileHandle === root.metadata.fileHandle
+					&& entry.block.start >= root.block.start && entry.block.end <= root.block.end)) {
+					const index = entry.block.start - root.block.start;
+					blockRows[index] = changeColumnTransform(blockRows[index]!, getColumnChangeOptions(entry.task, destinationColumn));
+				}
+				nextDestination = insertNewTask(nextDestination, blockRows.map(row => removeContainerPrefix(row, root.block.indentation)).join("\n"));
 			}
-
-			const destinationRows = await readFileRows(vault, destinationFile);
-			for (const { task } of moves) {
-				const serializedParent = destinationColumn !== "done" && taskIsInColumn(task, destinationColumn)
-					? task.serialise()
-					: changeColumnTransform(task.serialise(), getColumnChangeOptions(task, destinationColumn));
-				destinationRows.push(...task.sourceBlockRows(serializedParent));
-			}
-			await writeFileRows(vault, destinationFile, destinationRows, prepareFileContentsForWrite);
-
-			const movesBySourceFile = new Map<TFile, Array<{ rowIndex: number; lineCount: number }>>();
-			for (const { task, metadata } of moves) {
-				const sourceMoves = movesBySourceFile.get(metadata.fileHandle) ?? [];
-				sourceMoves.push({
-					rowIndex: metadata.rowIndex,
-					lineCount: task.sourceBlockLineCount,
-				});
-				movesBySourceFile.set(metadata.fileHandle, sourceMoves);
-			}
-
-			for (const [sourceFile, sourceMoves] of movesBySourceFile) {
-				await deleteRowBlocks(vault, sourceFile, sourceMoves, prepareFileContentsForWrite);
+			await replaceSourceRanges(vault, destinationFile, [{ start: 0, end: destinationContents.length, expected: destinationContents, replacement: nextDestination }], prepareFileContentsForWrite);
+			for (const [file, rows] of byFile) {
+				const expected = serializeFileRows(rows);
+				for (const root of roots.filter(entry => entry.metadata.fileHandle === file).sort((a, b) => b.block.start - a.block.start)) {
+					rows.splice(root.block.start, root.block.end - root.block.start);
+				}
+				await replaceSourceRanges(vault, file, [{ start: 0, end: expected.length, expected, replacement: serializeFileRows(rows) }], prepareFileContentsForWrite)
+					.catch(() => { throw new Error("Source could not be removed after the move. The destination copy was kept; refresh before retrying."); });
 			}
 		},
 
@@ -1060,18 +1034,6 @@ export function createTaskActions({
 	};
 }
 
-function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean {
-	if (column === "done") {
-		return task.done || task.column === "done";
-	}
-
-	if (column === "uncategorised") {
-		return !task.done && !task.column;
-	}
-
-	return task.column === column;
-}
-
 /**
  * Detects the indentation step used in a file: a tab when the first indented
  * row uses tabs, otherwise two spaces.
@@ -1079,7 +1041,7 @@ function taskIsInColumn(task: Task, column: ColumnTag | DefaultColumns): boolean
 function detectIndentationStep(rows: string[]): string {
 	for (const row of rows) {
 		if (!row) continue;
-		const match = row.match(/^(\s+)/);
+		const match = row.match(/^([ \t]+)[-*+]\s/);
 		if (match?.[1]) {
 			return match[1].includes("\t") ? "\t" : "  ";
 		}
@@ -1087,23 +1049,20 @@ function detectIndentationStep(rows: string[]): string {
 	return "  ";
 }
 
-export function getNodeBlock(rows: string[], rowIndex: number): { start: number; end: number; indentation: string } {
+export function getNodeBlock(rows: string[], rowIndex: number): { start: number; end: number; indentation: string; continuationPrefix: string } {
 	const rootRow = rows[rowIndex];
-	if (rootRow == null) return { start: rowIndex, end: rowIndex, indentation: "" };
+	if (rootRow == null) return { start: rowIndex, end: rowIndex, indentation: "", continuationPrefix: "" };
 
-	const indentation = rootRow.match(/^\s*/)?.[0] ?? "";
+	const source = flattenMarkdownSource(parseMarkdownSource(rows.join("\n"))).find(source => source.rowIndex === rowIndex);
+	if (!source) throw new Error("Markdown block changed; refresh the board before moving it.");
+	return { start: source.rowIndex, end: source.endRowIndex, indentation: source.indentation, continuationPrefix: source.continuationPrefix };
+}
 
-	let end = rowIndex + 1;
-	while (end < rows.length) {
-		const row = rows[end];
-		if (row == null || row === "") {
-			break;
-		}
-		const rowIndentation = row.match(/^\s*/)?.[0] ?? "";
-		if (!rowIndentation.startsWith(indentation) || rowIndentation.length <= indentation.length) {
-			break;
-		}
-		end++;
+function checkedTaskBlock(task: Task, rows: string[], rowIndex: number) {
+	const block = getNodeBlock(rows, rowIndex);
+	const actual = rows.slice(block.start, block.end).join("\n");
+	if (rows[rowIndex] !== task.originalLine || (task.source && actual !== sourceLines(task.source.raw).join("\n"))) {
+		throw new Error("Task changed in the source file. Refresh the board before moving or deleting it.");
 	}
-	return { start: rowIndex, end, indentation };
+	return block;
 }

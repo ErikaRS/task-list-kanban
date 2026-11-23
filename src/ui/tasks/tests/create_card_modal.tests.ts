@@ -106,9 +106,10 @@ it("creates a daily note with the task at the configured position in its initial
 
 it("uses insertion settings when the daily note already exists", async () => {
 	const { vault, contents, modal } = await setup({ existingDailyNote: true });
+	modal.textAreaEl.value = "Review task  \nNotes\n\nParagraph";
 	await modal.submit();
 	expect(vault.create).not.toHaveBeenCalled();
-	expect(contents.get(TODAY_PATH)).toBe(INSERTED);
+	expect(contents.get(TODAY_PATH)).toBe(INSERTED.replace("- [ ] Review task\n", "- [ ] Review task  \n  Notes\n\n  Paragraph\n"));
 });
 
 it("inserts once into a note created by another writer", async () => {

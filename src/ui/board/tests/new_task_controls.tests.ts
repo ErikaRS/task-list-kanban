@@ -30,7 +30,7 @@ it("retains desktop text and dates after a failed write and prevents duplicate s
 	(host.querySelector('[aria-label="Add new task to Doing"]') as HTMLElement).click();
 	await tick();
 	const textarea = host.querySelector("textarea")!;
-	textarea.value = "Keep my draft";
+	textarea.value = "Keep my draft  \nnotes\n\nParagraph";
 	const date = host.querySelector<HTMLInputElement>('input[type="date"]')!;
 	date.value = "2026-10-20";
 	date.dispatchEvent(new Event("change", { bubbles: true }));
@@ -42,11 +42,11 @@ it("retains desktop text and dates after a failed write and prevents duplicate s
 	rejectWrite(new Error("Disk unavailable"));
 	await vi.runAllTimersAsync();
 	expect(host.querySelector('[role="alert"]')?.textContent).toBe("Disk unavailable");
-	expect(textarea.value).toBe("Keep my draft");
+	expect(textarea.value).toBe("Keep my draft  \nnotes\n\nParagraph");
 	expect(date.value).toBe("2026-10-20");
 	input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 	await vi.runAllTimersAsync();
 	expect(host.querySelector("textarea")).toBeNull();
 	expect(createTask).toHaveBeenCalledTimes(2);
-	expect(createTask.mock.calls[1]).toEqual([file, "Keep my draft", "doing", [], expect.objectContaining({ due: "2026-10-20" }), null, []]);
+	expect(createTask.mock.calls[1]).toEqual([file, "Keep my draft  \nnotes\n\nParagraph", "doing", [], expect.objectContaining({ due: "2026-10-20" }), null, []]);
 });

@@ -53,6 +53,7 @@ export function insertNewTask(contents: string, taskLine: string, settings: Task
 	if (fence) insideFence.add(lines.length);
 
 	let index = top ? body : lines.length;
+	taskLine = taskLine.replace(/\r\n|\n|\r/g, eol);
 	let block = taskLine;
 	let newSection = false;
 	if (heading) {

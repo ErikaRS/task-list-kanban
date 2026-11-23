@@ -2,7 +2,8 @@ import type { TFile, EventRef, Vault } from "obsidian";
 import { writable } from "svelte/store";
 import { getTagsFromContent } from "../../parsing/tags/tags";
 import { Task, isArchivedTaskString, isStatusMatch, validateDoneStatusMarkers, type TaskParseContext } from "./task";
-import { createSourceTree } from "./tasks";
+import { buildSourceTree, hasOwningTaskAncestor } from "./tasks";
+import { parseMarkdownSource, type MarkdownSource } from "./markdown_source";
 import { parseSourceTaskLine } from "./source_block";
 import { transformSourceRow, type PrepareFileContentsForWrite } from "./source_line_editor";
 import { formatLocalDate, getPropertyWriteAdapter, PropertySchemaOption } from "../../parsing/properties";
@@ -33,6 +34,8 @@ export class ArchivePageReader {
 	private events: EventRef[] = [];
 	private timer: number | undefined;
 	private matches: (task: Task) => boolean = () => true;
+	// One file only: paging reuses syntax positions without retaining vault-wide task objects.
+	private sourceCache: { contents: string; sources: MarkdownSource[] } | undefined;
 
 	constructor(private vault: Vault, private config: () => ArchiveConfig,
 		private prepareWrite?: PrepareFileContentsForWrite) {}
@@ -50,6 +53,7 @@ export class ArchivePageReader {
 	}
 
 	close() {
+		this.sourceCache = undefined;
 		this.active = false;
 		this.cancel();
 		this.events.forEach(event => this.vault.offref(event));
@@ -142,42 +146,20 @@ export class ArchivePageReader {
 			if (cursor && file.path.localeCompare(cursor.path) < 0) continue;
 			await checkpoint();
 			this.state.update(state => ({ ...state, progress: `Reading ${file.path}` }));
-			const rows = (await this.vault.read(file)).split("\n");
-			for (let row = cursor?.path === file.path ? cursor.row : 0; row < rows.length;) {
+			const contents = await this.vault.read(file);
+			const rows = contents.split("\n");
+			if (this.sourceCache?.contents !== contents) this.sourceCache = { contents, sources: parseMarkdownSource(contents) };
+			const tree = buildSourceTree({ rows, sources: this.sourceCache.sources, fileHandle: file, parseContext: config.context, excludedTaskTags: config.excludedTaskTags });
+			for (const node of tree.nodesByRowIndex.values()) {
 				if (++processed % 256 === 0) await checkpoint();
-				const raw = rows[row]!;
-				const parsed = parseSourceTaskLine(raw);
-				if (!parsed || isStatusMatch(parsed.status, config.context.ignoredStatusMarkers)
-					|| [...getTagsFromContent(parsed.content)].some(tag => config.excludedTaskTags.has(tag.toLowerCase()))) {
-					row++;
-					continue;
-				}
-				let end = row + 1;
-				if (config.nested) {
-					while (end < rows.length && rows[end] !== "") {
-						const indent = rows[end]!.match(/^\s*/)?.[0] ?? "";
-						if (indent.length <= parsed.indentation.length || !indent.startsWith(parsed.indentation)) break;
-						end++;
-						if (++processed % 256 === 0) await checkpoint();
-					}
-				}
-				if (isArchivedTaskString(raw, config.context.replaceArchiveTagWithStatus, config.context.archiveStatusMarkers)) {
-					const task = new Task(raw as ConstructorParameters<typeof Task>[0], file, row, config.context);
-					if (this.matches(task)) {
-						if (cards.length === ARCHIVE_PAGE_SIZE) return { cards, next: { path: file.path, row } };
-						if (config.nested) {
-							const tree = createSourceTree({ fileHandle: file, parseContext: config.context,
-								excludedTaskTags: config.excludedTaskTags });
-							for (let child = row; child < end; child++) {
-								tree.add(rows[child]!, child);
-								if (++processed % 256 === 0) await checkpoint();
-							}
-							task.sourceChildren.push(...(tree.nodesByRowIndex.get(row)?.sourceChildren ?? []));
-						}
-						cards.push({ task, file, row, raw });
-					}
-				}
-				row = end;
+				if (node.kind !== "task" || node.taskVisibility !== "archived"
+					|| (cursor?.path === file.path && node.rowIndex < cursor.row)
+					|| (config.nested && hasOwningTaskAncestor(node, tree.parentByRowIndex))) continue;
+				const task = new Task(node.rawLine as ConstructorParameters<typeof Task>[0], file, node.rowIndex,
+					config.context, node.sourceChildren, node.source, config.nested);
+				if (!this.matches(task)) continue;
+				if (cards.length === ARCHIVE_PAGE_SIZE) return { cards, next: { path: file.path, row: node.rowIndex } };
+				cards.push({ task, file, row: node.rowIndex, raw: node.rawLine });
 			}
 		}
 		return { cards, next: undefined };

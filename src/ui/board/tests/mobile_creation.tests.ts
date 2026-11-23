@@ -27,7 +27,7 @@ describe("mobile creation sessions", () => {
 		source.groupProperty!.value = "2026-10-01";
 		await saveMobileCreation(captured, "  Task text  ", { due: "2026-09-25" });
 		expect(createTask).toHaveBeenCalledWith(
-			{ path: "Project A.md" }, "Task text", "this-week", ["project/a"], { due: "2026-09-25" },
+			{ path: "Project A.md" }, "  Task text  ", "this-week", ["project/a"], { due: "2026-09-25" },
 			{ key: "scheduled", value: "2026-09-30" }, [],
 		);
 	});
@@ -49,7 +49,7 @@ describe("mobile creation sessions", () => {
 		expect(source.file?.path).toBe("Project A.md");
 		await saveMobileCreation(source, "First line\nSecond line", {});
 		expect(createTask).toHaveBeenCalledTimes(2);
-		expect(createTask.mock.calls[1]?.[1]).toBe("First line<br />Second line");
+		expect(createTask.mock.calls[1]?.[1]).toBe("First line\nSecond line");
 	});
 });
 

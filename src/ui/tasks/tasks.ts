@@ -4,7 +4,6 @@ import {
 	DEFAULT_CANCELLED_STATUS_MARKERS,
 	DEFAULT_DONE_STATUS_MARKERS,
 	DEFAULT_IGNORED_STATUS_MARKERS,
-	isTrackedTaskString,
 	isArchivedTaskString,
 	isStatusMatch,
 	Task,
@@ -15,11 +14,11 @@ import { PropertySchemaOption } from "../../parsing/properties/property_schema";
 import {
 	parseSourceTaskLine,
 	type SourceBlockNode,
-	type SourceRawNode,
 	type SourceTaskNode,
 } from "./source_block";
 import type { ColumnDefinition, ColumnPlacementTagTable } from "../columns/columns";
 import { get, type Readable } from "svelte/store";
+import { parseMarkdownSource, sourceLines, type MarkdownSource } from "./markdown_source";
 import type { PropertySchema } from "../../parsing/properties/property_schema";
 
 export type Metadata = {
@@ -110,81 +109,14 @@ export async function updateMapsFromFile({
 			propertySchema,
 		};
 
-		if (treatNestedTasksAsSubtasks) {
-			const { nodesByRowIndex, parentByRowIndex } = buildSourceTree({
-				rows,
-				fileHandle,
-				parseContext,
-				excludedTaskTags,
-			});
-
-			for (const node of nodesByRowIndex.values()) {
-				if (
-					node.kind !== "task" ||
-					node.taskVisibility !== "visible" ||
-					hasOwningTaskAncestor(node, parentByRowIndex)
-				) {
-					continue;
-				}
-
-				const task = new Task(
-					node.rawLine as ConstructorParameters<typeof Task>[0],
-					fileHandle,
-					node.rowIndex,
-					parseContext,
-					node.sourceChildren,
-				);
-
-				cacheParsedTask({
-					task,
-					rowIndex: node.rowIndex,
-					fileHandle,
-					tasksByTaskId,
-					metadataByTaskId,
-					newTaskIds,
-				});
-				previousTaskIds.delete(task.id);
-			}
-
-			for (const prevId of previousTaskIds) {
-				tasksByTaskId.delete(prevId);
-				metadataByTaskId.delete(prevId);
-			}
-
-			taskIdsByFileHandle.set(fileHandle, newTaskIds);
-			return;
-		}
-
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			if (!row) {
-				continue;
-			}
-
-			if (isTrackedTaskString(row, ignoredStatusMarkers, replaceArchiveTagWithStatus, archiveStatusMarkers)) {
-				const task = new Task(
-					row,
-					fileHandle,
-					i,
-					parseContext,
-				);
-
-				const hasExcludedTag = Array.from(task.tags).some((tag) =>
-					excludedTaskTags.has(tag.trim().toLowerCase())
-				);
-
-				if (!hasExcludedTag) {
-					cacheParsedTask({
-						task,
-						rowIndex: i,
-						fileHandle,
-						tasksByTaskId,
-						metadataByTaskId,
-						newTaskIds,
-					});
-					previousTaskIds.delete(task.id);
-				}
-			}
+		const { nodesByRowIndex, parentByRowIndex } = buildSourceTree({ rows, fileHandle, parseContext, excludedTaskTags });
+		for (const node of nodesByRowIndex.values()) {
+			if (node.kind !== "task" || node.taskVisibility !== "visible"
+				|| (treatNestedTasksAsSubtasks && hasOwningTaskAncestor(node, parentByRowIndex))) continue;
+			const task = new Task(node.rawLine as ConstructorParameters<typeof Task>[0], fileHandle,
+				node.rowIndex, parseContext, node.sourceChildren, node.source, treatNestedTasksAsSubtasks ?? false);
+			cacheParsedTask({ task, rowIndex: node.rowIndex, fileHandle, tasksByTaskId, metadataByTaskId, newTaskIds });
+			previousTaskIds.delete(task.id);
 		}
 
 		for (const prevId of previousTaskIds) {
@@ -220,83 +152,35 @@ function cacheParsedTask({
 
 type BuildSourceTreeOptions = {
 	rows: string[];
+	sources?: MarkdownSource[];
 	fileHandle: TFile;
 	parseContext: ConstructorParameters<typeof Task>[3];
 	excludedTaskTags: Set<string>;
 };
 
-export function buildSourceTree(options: BuildSourceTreeOptions) {
-	const tree = createSourceTree(options);
-	options.rows.forEach((rawLine, rowIndex) => tree.add(rawLine, rowIndex));
-	return tree;
-}
-
-// Raw source ownership is shared with the archive scanner; no Task objects
-// are needed to decide which root owns a nested row.
-export function createSourceTree({ parseContext, excludedTaskTags }: Omit<BuildSourceTreeOptions, "rows">) {
+export function buildSourceTree({ rows, sources, parseContext, excludedTaskTags }: BuildSourceTreeOptions) {
 	const nodesByRowIndex = new Map<number, SourceBlockNode>();
 	const parentByRowIndex = new Map<number, SourceBlockNode>();
-	const stack: SourceBlockNode[] = [];
-	return { nodesByRowIndex, parentByRowIndex, add(rawLine: string, rowIndex: number) {
-		if (rawLine === "") { stack.length = 0; return; }
-		const node = createSourceNode({ rawLine, rowIndex, parseContext, excludedTaskTags });
-		nodesByRowIndex.set(rowIndex, node);
-		while (stack.length && !isSourceDescendant(node.indentation, stack[stack.length - 1]!.indentation)) stack.pop();
-		const parent = stack[stack.length - 1];
-		if (parent) {
-			parent.sourceChildren.push(node);
-			parentByRowIndex.set(rowIndex, parent);
-		}
-		stack.push(node);
-	} };
-}
-
-function createSourceNode({
-	rawLine,
-	rowIndex,
-	parseContext,
-	excludedTaskTags,
-}: {
-	rawLine: string;
-	rowIndex: number;
-	parseContext: ConstructorParameters<typeof Task>[3];
-	excludedTaskTags: Set<string>;
-}): SourceBlockNode {
-	const parsedTaskLine = parseSourceTaskLine(rawLine);
-	if (!parsedTaskLine) {
-		return createRawNode(rawLine, rowIndex);
+	function convert(source: MarkdownSource, parent?: SourceBlockNode): SourceBlockNode {
+		const rawLine = sourceLines(source.raw)[0] ?? "";
+		const parsed = source.listPrefix ? parseSourceTaskLine(rawLine) : null;
+		const visible = parsed && !isStatusMatch(parsed.status, parseContext.ignoredStatusMarkers)
+			&& !Array.from(getTagsFromContent(parsed.content)).some(tag => excludedTaskTags.has(tag.toLowerCase()));
+		const node: SourceBlockNode = parsed ? {
+			kind: "task", source, rawLine, rowIndex: source.rowIndex, indentation: source.indentation,
+			content: parsed.content, status: parsed.status || " ", sourceChildren: [],
+			taskVisibility: !visible ? "ignored" : isArchivedTaskString(rawLine, parseContext.replaceArchiveTagWithStatus, parseContext.archiveStatusMarkers) ? "archived" : "visible",
+		} : { kind: "raw", source, rawLine, rowIndex: source.rowIndex, indentation: source.indentation, sourceChildren: [] };
+		nodesByRowIndex.set(node.rowIndex, node);
+		if (parent) parentByRowIndex.set(node.rowIndex, parent);
+		node.sourceChildren.push(...source.children.map(child => convert(child, node)));
+		return node;
 	}
-
-	const visible = !isStatusMatch(parsedTaskLine.status, parseContext.ignoredStatusMarkers)
-		&& !Array.from(getTagsFromContent(parsedTaskLine.content)).some(tag => excludedTaskTags.has(tag.toLowerCase()));
-
-	return {
-		kind: "task",
-		taskVisibility: !visible ? "ignored" : isArchivedTaskString(rawLine, parseContext.replaceArchiveTagWithStatus, parseContext.archiveStatusMarkers) ? "archived" : "visible",
-		rowIndex,
-		rawLine,
-		indentation: parsedTaskLine.indentation,
-		status: parsedTaskLine.status || " ",
-		content: parsedTaskLine.content,
-		sourceChildren: [],
-	};
+	(sources ?? parseMarkdownSource(rows.join("\n"))).forEach(source => convert(source));
+	return { nodesByRowIndex, parentByRowIndex };
 }
 
-function createRawNode(rawLine: string, rowIndex: number): SourceRawNode {
-	return {
-		kind: "raw",
-		rowIndex,
-		rawLine,
-		indentation: rawLine.match(/^\s*/)?.[0] ?? "",
-		sourceChildren: [],
-	};
-}
-
-function isSourceDescendant(indentation: string, ancestorIndentation: string): boolean {
-	return indentation.length > ancestorIndentation.length && indentation.startsWith(ancestorIndentation);
-}
-
-function hasOwningTaskAncestor(
+export function hasOwningTaskAncestor(
 	node: SourceTaskNode,
 	parentByRowIndex: Map<number, SourceBlockNode>,
 ): boolean {

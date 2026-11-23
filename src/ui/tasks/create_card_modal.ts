@@ -259,8 +259,8 @@ class CreateCardModal extends Modal {
 	}
 
 	private async submit() {
-		const content = this.textAreaEl?.value.trim() ?? "";
-		if (!content) {
+		const content = this.textAreaEl?.value ?? "";
+		if (!content.trim()) {
 			return;
 		}
 		const board = this.currentBoard();

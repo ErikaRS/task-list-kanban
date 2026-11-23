@@ -1,4 +1,5 @@
 import type { Brand } from "src/brand";
+import { editableMarkdownSource, legacyBreaksToMarkdown, markdownBlock, markdownBody, paragraphContinuation, sourceLines, type MarkdownSource } from "./markdown_source";
 import type {
 	ColumnPlacementTagTable,
 	ColumnDefinition,
@@ -275,6 +276,7 @@ function getNextStatusMarker(
 export class Task {
 	readonly properties: TaskPropertyMap;
 	readonly sourceChildren: SourceBlockNode[];
+	readonly originalLine: string;
 
 	constructor(
 		rawContent: TaskString,
@@ -282,7 +284,10 @@ export class Task {
 		readonly rowIndex: number,
 		context: TaskParseContext,
 		sourceChildren: SourceBlockNode[] = [],
+		readonly source?: MarkdownSource,
+		readonly includeDescendantsInFilters = true,
 	) {
+		this.originalLine = sourceLines(rawContent)[0] ?? rawContent;
 		const [, blockLink] = rawContent.match(blockLinkRegexp) ?? [];
 		this.blockLink = blockLink;
 
@@ -559,43 +564,45 @@ export class Task {
 	}
 
 	get sourceBlockLineCount(): number {
+		if (this.source) return this.source.endRowIndex - this.source.rowIndex;
 		return 1 + flattenSourceBlockNodes(this.sourceChildren).length;
 	}
 
+	get editableContent(): string {
+		const source = this.editableSource;
+		return legacyBreaksToMarkdown(source ? markdownBody(source) : this.rawTextContent + (this.blockLink ? ` ^${this.blockLink}` : ""),
+			this.legacyHeaderTokens(this.originalLine), header => this.legacyHeaderTokens(header));
+	}
+
+	get editableSource(): MarkdownSource | undefined {
+		return this.source ? editableMarkdownSource(this.source) : undefined;
+	}
+
+	getSourceNodeEditContent(node: SourceBlockNode): string {
+		const content = node.source ? markdownBlock(editableMarkdownSource(node.source)) : node.rawLine.slice(node.indentation.length);
+		return legacyBreaksToMarkdown(content, node.kind === "task" ? this.legacyHeaderTokens(node.rawLine) : [],
+			header => this.legacyHeaderTokens(header));
+	}
+
+	private legacyHeaderTokens(header: string): string[] {
+		return [
+			...Array.from(getTagsFromContent(header), tag => `#${tag}`),
+			...Array.from(getSchemaImpl(this.propertySchemaOption).parseProperties(header).values())
+				.filter(property => property.key !== "status").map(property => property.rawValue),
+			header.match(/\s(\^[a-zA-Z0-9-]+)$/)?.[1] ?? "",
+		];
+	}
+
+	get previewContinuation(): string {
+		return this.source ? paragraphContinuation(this.source) : "";
+	}
+
 	sourceBlockRows(serializedParent = this.serialise()): string[] {
+		if (this.source) return [serializedParent, ...sourceLines(this.source.raw).slice(1)];
 		return [
 			serializedParent,
 			...flattenSourceBlockNodes(this.sourceChildren).map((node) => node.rawLine),
 		];
-	}
-
-	updateSourceBlockRowContent(rowIndex: number, content: string): string | null {
-		const node = this.findSourceBlockNode(rowIndex);
-		if (!node) {
-			return null;
-		}
-
-		if (node.kind === "raw") {
-			if (content === "") {
-				return "";
-			}
-
-			const rawListItemMatch = node.rawLine
-				.slice(node.indentation.length)
-				.match(/^([-*+]\s+)(.+)$/);
-			if (rawListItemMatch && !/^[-*+]\s+/.test(content)) {
-				return `${node.indentation}${rawListItemMatch[1]}${content}`;
-			}
-
-			return `${node.indentation}${content}`;
-		}
-
-		const parsed = parseSourceTaskLine(node.rawLine);
-		if (!parsed) {
-			return null;
-		}
-
-		return `${parsed.indentation}${parsed.bullet} [${parsed.status}] ${content}`;
 	}
 
 	cycleSourceTaskRowStatus(rowIndex: number, statusMarkerOrder: string): string | null {
@@ -696,7 +703,7 @@ export function isTrackedTaskString(
 // then contains an additional whitespace before any trailing content
 // excludes backlinks by ensuring brackets don't contain nested brackets
 const taskStringRegex = /^(\s*)[-*+]\s\[([^[\]]*)\]\s(.+)/;
-const blockLinkRegexp = /\s\^([a-zA-Z0-9-]+)$/;
+const blockLinkRegexp = /[ \t]\^([a-zA-Z0-9-]+)[ \t]*$/;
 
 function escapeRegExp(input: string): string {
 	return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

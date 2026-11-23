@@ -66,11 +66,11 @@
 			return;
 		}
 
-		const content = newTaskTextAreaEl?.value?.trim();
+		const content = newTaskTextAreaEl?.value;
 		const file = pendingNewTask;
 		const targetColumn = column;
 
-		if (!content || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
+		if (!content?.trim() || !file || !isColumnTag(targetColumn, columnTagTableStore)) {
 			pendingNewTask = null;
 			newTaskDateValues = { ...emptyDateValues };
 			return;

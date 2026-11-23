@@ -35,5 +35,5 @@ export async function saveMobileCreation(
 ): Promise<void> {
 	if (!session.file) throw new Error("Choose a destination file before creating the task.");
 	if (!content.trim()) throw new Error("Enter some task text before creating the task.");
-	await session.taskActions.createTask(session.file, content.trim().replaceAll("\n", "<br />"), session.column, session.additionalTags, dates, session.groupProperty, session.additionalText);
+	await session.taskActions.createTask(session.file, content, session.column, session.additionalTags, dates, session.groupProperty, session.additionalText);
 }

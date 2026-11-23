@@ -65,6 +65,8 @@ export interface FilterableTask {
 	// these along with the task's own line — the card matches if any of its
 	// rendered rows satisfies each token.
 	sourceChildren?: SourceBlockNode[];
+	includeDescendantsInFilters?: boolean;
+	previewContinuation?: string;
 }
 
 const OPERATORS_BY_TEXT: ReadonlyArray<[string, DateFilterOperator]> = [
@@ -580,19 +582,20 @@ export function taskMatchesFilterQuery(
 		let descendants: SourceBlockNode[] | undefined;
 		let texts: string[] | undefined;
 		let tags: Set<string> | undefined;
-		const getDescendants = () => descendants ??= task.sourceChildren?.length
+		const getDescendants = () => descendants ??= task.includeDescendantsInFilters !== false && task.sourceChildren?.length
 			? flattenSourceBlockNodes(task.sourceChildren)
 			: [];
 		return query.clauses.every((clause) => clause.atoms.some((atom) => {
 			let matches: boolean;
 			switch (atom.kind) {
 				case "content":
-					texts ??= [task.content, ...getDescendants().map(getSourceNodeText)].map((text) => text.toLowerCase());
+					texts ??= [task.content, task.includeDescendantsInFilters !== false ? task.previewContinuation ?? "" : "", ...getDescendants().map(getSourceNodeText)].map((text) => text.toLowerCase());
 					matches = texts.some((text) => text.includes(atom.value.toLowerCase()));
 					break;
 				case "tag":
 					if (!tags) {
 						tags = new Set(task.tags);
+						if (task.includeDescendantsInFilters !== false) for (const tag of getTagsFromContent(task.previewContinuation ?? "")) tags.add(tag);
 						for (const node of getDescendants()) {
 							for (const tag of getTagsFromContent(getSourceNodeText(node))) tags.add(tag);
 						}
@@ -606,13 +609,14 @@ export function taskMatchesFilterQuery(
 			return atom.negative ? !matches : matches;
 		}));
 	}
-	const descendants = task.sourceChildren?.length
+	const descendants = task.includeDescendantsInFilters !== false && task.sourceChildren?.length
 		? flattenSourceBlockNodes(task.sourceChildren)
 		: [];
 
 	if (query.contentTerms.length > 0) {
 		const texts = [
 			task.content,
+			task.includeDescendantsInFilters !== false ? task.previewContinuation ?? "" : "",
 			...descendants.map(getSourceNodeText),
 		].map((text) => text.toLowerCase());
 		const matchesEveryTerm = query.contentTerms.every((term) => {
@@ -626,6 +630,7 @@ export function taskMatchesFilterQuery(
 
 	if (query.tagGroups.length > 0) {
 		const tags = new Set(task.tags);
+		if (task.includeDescendantsInFilters !== false) for (const tag of getTagsFromContent(task.previewContinuation ?? "")) tags.add(tag);
 		for (const node of descendants) {
 			for (const tag of getTagsFromContent(getSourceNodeText(node))) {
 				tags.add(tag);

@@ -1,6 +1,8 @@
 Status: COMPLETE
 Implemented: 2026-06
 
+The row-per-node and blank-line ownership rules below are superseded by [SPEC 0056](../SPEC_0056__IN_PROGRESS__PLAIN_MARKDOWN_TASK_CONTENT.md). Source ownership now follows complete Markdown items/blocks in either nested-task mode. This document retains the original implementation history.
+
 # SPEC 0025 - Parsed Subtask Display
 
 **Related issues:**
