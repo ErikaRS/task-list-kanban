@@ -1,12 +1,12 @@
 # Specification index
 
-Reviewed: 2026-11-01
+Reviewed: 2026-11-23
 
 Active specs stay here until their required implementation is complete and acceptance checks are verified or explicitly waived by the owner. A shipped feature can remain `IN_PROGRESS` when manual acceptance checks are still open. `Implemented` dates record when code landed, not when every acceptance check passed.
 
 ## Active work and remaining validation
 
-- [0055 — Desktop List Layout](SPEC_0055__IN_PROGRESS__DESKTOP_LIST_LAYOUT.md) — Draft spec; Refs [#186](https://github.com/ErikaRS/task-list-kanban/issues/186). Not yet implemented.
+- None.
 
 ## Completed and historical specs
 
@@ -58,6 +58,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 - [0044 — Filter negation and OR](complete/SPEC_0044__COMPLETE__FILTER_NEGATION_AND_LIMITED_OR.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
 - [0045 — Mobile task lists and shared editor](complete/SPEC_0045__COMPLETE__MOBILE_DENSITY_AND_EDITOR_CONSISTENCY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
 - [0046 — Reschedule overdue tasks](complete/SPEC_0046__COMPLETE__RESCHEDULE_OVERDUE_TO_TODAY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
+- [0055 — Desktop List Layout](complete/SPEC_0055__COMPLETE__DESKTOP_LIST_LAYOUT.md) — Refs [#186](https://github.com/ErikaRS/task-list-kanban/issues/186).
 - [0047 — Property filters](complete/SPEC_0047__COMPLETE__PROPERTY_FILTERS.md)
 - [0048 — SPEC 0048 - Keep Column Tag On Completion](complete/SPEC_0048__COMPLETE__KEEP_COLUMN_TAG_ON_COMPLETION.md)
 - [0049 — Inherit swimlane properties](complete/SPEC_0049__COMPLETE__NEW_TASKS_INHERIT_LANE_PROPERTY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.

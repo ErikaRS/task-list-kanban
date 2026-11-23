@@ -1,4 +1,8 @@
-Status: IN_PROGRESS
+Status: COMPLETE
+
+Implemented: 2026-11
+
+Manual acceptance verification: 2026-11-23
 
 # SPEC 0055 — Desktop List Layout
 
@@ -6,7 +10,7 @@ Status: IN_PROGRESS
 
 Refs [#186](https://github.com/ErikaRS/task-list-kanban/issues/186) — Support the mobile "stacked" order on desktop.
 
-The mobile board ([SPEC 0038](complete/SPEC_0038__COMPLETE__MOBILE_BOARD_LAYOUT.md)) renders the board matrix as a vertical, full-width hierarchy of sections instead of a grid of fixed-width columns. The issue asks for that presentation as an option on desktop. Mobile keeps it as the default and only choice.
+The mobile board ([SPEC 0038](SPEC_0038__COMPLETE__MOBILE_BOARD_LAYOUT.md)) renders the board matrix as a vertical, full-width hierarchy of sections instead of a grid of fixed-width columns. The issue asks for that presentation as an option on desktop. Mobile keeps it as the default and only choice.
 
 This spec adds a **Layout** view property with two values, **Table** (today's desktop matrix) and **List** (the stacked hierarchy). Card width only makes sense for Table, so it is hidden while List is in effect.
 
@@ -73,7 +77,7 @@ Card width  ----o----  300px     <- Table only
 
 `BoardMobileList` was written for a touch device. Four areas need explicit decisions rather than inheriting mobile behavior:
 
-1. **Add task.** Empty cells use `NewTaskControls` with `mobileLayout`, which renders a floating action button and opens the mobile composer sheet. On desktop, compact empty cells must use the desktop inline composer ([SPEC 0014](complete/SPEC_0014__COMPLETE__INLINE_TASK_CREATION.md), [SPEC 0015](complete/SPEC_0015__COMPLETE__ONE_CLICK_ADD_TASK.md)) with an inline compact add control. The platform decides: `mobileLayout` becomes true only for `Platform.isMobile`, and a separate compact-header flag covers desktop List.
+1. **Add task.** Empty cells use `NewTaskControls` with `mobileLayout`, which renders a floating action button and opens the mobile composer sheet. On desktop, compact empty cells must use the desktop inline composer ([SPEC 0014](SPEC_0014__COMPLETE__INLINE_TASK_CREATION.md), [SPEC 0015](SPEC_0015__COMPLETE__ONE_CLICK_ADD_TASK.md)) with an inline compact add control. The platform decides: `mobileLayout` becomes true only for `Platform.isMobile`, and a separate compact-header flag covers desktop List.
 2. **Editing.** Cards keep the desktop inline editor because `task.svelte` already branches on `Platform.isMobile`. No change expected; verified in the plan.
 3. **Sticky headers.** The two-level sticky offset is measured against the nearest scroll container. On desktop that container is the `.columns` pane, so the offset must be verified there, including with the archived pane open.
 4. **Rail, toolbar, popovers.** Unchanged; they stay on the platform flag.
@@ -150,7 +154,7 @@ Rules:
 ## Open Questions
 
 1. ~~**Maximum list width on wide screens.**~~ Resolved: desktop List is capped at 800px and centered rather than filling the pane.
-2. **Card width on mobile.** Today the mobile list ignores width, yet the control is still visible there. This spec hides it on mobile to match the rule "no width option in List". Confirm this is wanted.
+2. ~~**Card width on mobile.**~~ Resolved: hidden on mobile, as specified, and verified by the owner.
 3. ~~**Segmented control versus dropdown** for Layout.~~ Resolved: a Table / List segmented toggle.
 
 ## Implementation Plan
@@ -250,15 +254,17 @@ Rules:
 
 **Implemented by:** [f6c3e6f](https://github.com/ErikaRS/task-list-kanban/commit/f6c3e6f)
 
-### Phase 6: Naming cleanup and acceptance
+### Phase 6: Naming cleanup and acceptance ✅ COMPLETE
 
 **Goal:** Internal names stop implying the list is mobile-only, and the acceptance matrix passes.
 
-1. Rename `BoardMobileList`, `MobileSectionHeader`, and related helpers to list-oriented names in a mechanical, behavior-free commit.
-2. Update SPEC 0038 cross-references and `README.architecture.md`.
-3. Run `npm run build` and `npm test`.
-4. Manual acceptance matrix (unchecked until performed): each flow direction, ungrouped and grouped, filtered and unfiltered, in desktop List; switching Table to List and back preserves width; archived pane open beside the list; drag and drop, manual order, pinning, selection and bulk actions; a board set to List on desktop opens unchanged on mobile and mobile does not overwrite it; saved view and default view behavior; dense cards on desktop (hover and keyboard) and mobile; per-cell folding in both hierarchies, then switching to Table and back.
+1. ✅ Rename `BoardMobileList`, `MobileSectionHeader`, and related helpers to list-oriented names in a mechanical, behavior-free commit.
+2. ✅ Update SPEC 0038 cross-references and `README.architecture.md`.
+3. ✅ Run `npm run build` and `npm test`.
+4. ✅ Manual acceptance matrix (performed by the owner in Obsidian, 2026-11-23): each flow direction, ungrouped and grouped, filtered and unfiltered, in desktop List; switching Table to List and back preserves width; archived pane open beside the list; drag and drop, manual order, pinning, selection and bulk actions; a board set to List on desktop opens unchanged on mobile and mobile does not overwrite it; saved view and default view behavior; dense cards on desktop (hover and keyboard) and mobile; per-cell folding in both hierarchies, then switching to Table and back.
 
 **Deliverable:** Shipped desktop List layout with the acceptance matrix verified.
 
-**Implemented by:** *pending*
+**Implementation notes:** Renamed to `BoardList` (`board_list.svelte`), `ListSectionHeader`, and `list_layout.ts`, with the hierarchy helpers renamed to match (`deriveListHierarchyMode`, `hasVisibleListGroupHeaders`, and so on). `shouldUseMobileBoardLayout` keeps its name because it is the platform flag. CSS class names keep their `mobile-*` prefix so `styles.css` and theme overrides are unaffected.
+
+**Implemented by:** [2f7afdd](https://github.com/ErikaRS/task-list-kanban/commit/2f7afdd)
