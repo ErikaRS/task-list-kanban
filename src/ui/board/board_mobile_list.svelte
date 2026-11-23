@@ -323,10 +323,15 @@
 		}
 	}
 
-	.mobile-inner-header {
+	// Global because the column-dominant group label is rendered by
+	// MobileSectionHeader, which this component's scoped styles cannot reach.
+	.mobile-board-list :global(.mobile-inner-header) {
 		position: sticky;
 		top: var(--mobile-outer-header-height, 0px);
 		z-index: 3;
+	}
+
+	.mobile-inner-header {
 		background: var(--background-primary);
 	}
 
@@ -347,7 +352,9 @@
 	.mobile-cell-column-header {
 		--column-header-x-padding-override: var(--size-4-3);
 		--column-header-y-padding-override: var(--size-4-2);
-		margin: calc(-1 * var(--size-4-3));
+		// Bleed to the cell edges, but not below: a negative bottom margin
+		// pulls the cell's add control up under this sticky header.
+		margin: calc(-1 * var(--size-4-3)) calc(-1 * var(--size-4-3)) var(--size-4-2);
 		padding: var(--size-4-2) var(--size-4-3);
 		border-bottom: var(--border-width) solid var(--background-modifier-border);
 

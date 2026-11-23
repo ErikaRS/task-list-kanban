@@ -128,6 +128,7 @@ The cap is a fixed reading width, not tied to Card width, which stays a Table-on
 - `BoardCell` gained a `mobileCreation` flag separate from `isCompactEmpty`; `BoardMobileList` receives it from `main.svelte` as `Platform.isMobile`. Compact empty cells still compact on desktop but render the inline `+ Task` control.
 - `.columns` gets a `list-layout` class while the list renders: vertical scroll only, and beside the archived pane it flexes to fill instead of sizing to `max-content` (this also applies on mobile).
 - Desktop List caps the list at `--tlk-list-max-width` (800px) and centers it; mobile is unaffected.
+- Sticky headers (step 4) needed two fixes found in manual testing: the column-dominant group label is rendered by `MobileSectionHeader`, so the list's scoped `.mobile-inner-header` sticky rule never reached it (a latent SPEC 0038 bug, now fixed on mobile too); and the group-dominant inner column header's negative bottom margin pulled the cell's `+ Task` control under it on desktop.
 - The archived pane's header spacing is 0 under the list renderer, because only the desktop matrix reports a summary height.
 
 **Implemented by:** *pending*
