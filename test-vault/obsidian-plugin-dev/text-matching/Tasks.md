@@ -9,7 +9,7 @@
 - [ ] Fix sink (@home).
 - [ ] Call Bob @phone about invoices
 - [ ] Draft plan [[Project A]]
-- [ ] Review [[Project B]] and [[Project A]]
+- [x] Review [[Project B]] and [[Project A]] #archived 
 - [/] Draft plan @home [[Project B]]
 - [ ] Fix sink @home @office
 - [ ] Buy milk
