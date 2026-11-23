@@ -155,14 +155,14 @@ Rules:
 
 ## Implementation Plan
 
-### Phase 1: List renderer on desktop (hard-coded switch) 🚧 IN PROGRESS
+### Phase 1: List renderer on desktop (hard-coded switch) ✅ COMPLETE
 
 **Goal:** With a Layout value in board settings, a desktop board renders the stacked list and behaves correctly. Selection is by editing the setting, with no UI yet.
 
 1. ✅ Add `layout` to the board settings schema and `shouldUseListRenderer` to `mobile_layout.ts`, with unit tests for the mobile/desktop and table/list combinations.
 2. ✅ Split `main.svelte` into the platform flag and the renderer flag; move only the renderer selection to the new flag.
 3. ✅ Replace the floating-action and mobile-composer creation path with the desktop inline composer when the list renders on desktop; keep the mobile path for `Platform.isMobile`.
-4. Verify sticky outer/inner headers against the desktop scroll container, with and without the archived pane. *(Confirmed manually in Obsidian after the fixes in [ad46292](https://github.com/ErikaRS/task-list-kanban/commit/ad46292); the archived-pane case is not yet separately confirmed.)*
+4. ✅ Verify sticky outer/inner headers against the desktop scroll container, with and without the archived pane. *(Confirmed manually in Obsidian after the fixes in [ad46292](https://github.com/ErikaRS/task-list-kanban/commit/ad46292), with and without the archived pane.)*
 5. ✅ Test: a unit test for renderer selection (`shouldUseListRenderer`), plus a component test that desktop List does not use the mobile creation path.
 
 **Deliverable:** Setting `layout: list` in the board's frontmatter makes the desktop board stack as a list.
@@ -174,9 +174,9 @@ Rules:
 - Sticky headers (step 4) needed two fixes found in manual testing: the column-dominant group label is rendered by `MobileSectionHeader`, so the list's scoped `.mobile-inner-header` sticky rule never reached it (a latent SPEC 0038 bug, now fixed on mobile too); and the group-dominant inner column header's negative bottom margin pulled the cell's `+ Task` control under it on desktop.
 - The archived pane's header spacing is 0 under the list renderer, because only the desktop matrix reports a summary height.
 
-**Implemented by:** *pending*
+**Implemented by:** [e117c51](https://github.com/ErikaRS/task-list-kanban/commit/e117c51), [ad46292](https://github.com/ErikaRS/task-list-kanban/commit/ad46292)
 
-### Phase 2: Layout control and width visibility 🚧 IN PROGRESS
+### Phase 2: Layout control and width visibility ✅ COMPLETE
 
 **Goal:** The user can switch Table/List from the view editor, and Card width appears only for Table.
 
@@ -192,7 +192,7 @@ Rules:
 - The view editor decides its own row visibility from `layout` and `isMobile` via `shouldUseListRenderer`, so Card width is hidden on mobile as well as desktop List (Open Question 2, as specified).
 - Saved-view capture does not include layout yet; that is Phase 3.
 
-**Implemented by:** *pending*
+**Implemented by:** [e8ac2eb](https://github.com/ErikaRS/task-list-kanban/commit/e8ac2eb)
 
 ### Phase 3: Saved views and plugin-wide default ✅ COMPLETE
 
@@ -209,7 +209,7 @@ Rules:
 
 **Implemented by:** [1b6a526](https://github.com/ErikaRS/task-list-kanban/commit/1b6a526)
 
-### Phase 4: Dense list cards 🚧 IN PROGRESS
+### Phase 4: Dense list cards ✅ COMPLETE
 
 **Goal:** List cards take one line with an inline toolbar (Requirement 9, Dense list cards).
 
@@ -226,11 +226,11 @@ Rules:
 - The empty date row stays mounted but hidden (`dense-empty`) so the editor can open in place.
 - The toolbar fades with `opacity`, not `visibility`, so its controls stay in the tab order; it stays visible while the date editor is open.
 - Flush cards and single dividers come from the existing `.mobile-list-cell .task` rules in `styles.css`, which apply to list cells on both platforms.
-- Not yet verified in Obsidian (checked in a browser harness only).
+- Verified manually in Obsidian.
 
 **Implemented by:** [ea96d6e](https://github.com/ErikaRS/task-list-kanban/commit/ea96d6e)
 
-### Phase 5: Per-cell folding in List 🚧 IN PROGRESS
+### Phase 5: Per-cell folding in List ✅ COMPLETE
 
 **Goal:** Inner headers fold a single cell (Requirement 10, Per-cell folding in List).
 
@@ -246,7 +246,7 @@ Rules:
 - Inner toggles have cell-specific accessible names, e.g. "Collapse Home in Todo".
 - Every inner header in List is foldable, including the default "ungrouped" bucket when it is shown alongside real groups.
 - A folded cell drops its padding so it reads as just a header.
-- Not yet verified in Obsidian (checked in a browser harness only).
+- Verified manually in Obsidian.
 
 **Implemented by:** [f6c3e6f](https://github.com/ErikaRS/task-list-kanban/commit/f6c3e6f)
 
