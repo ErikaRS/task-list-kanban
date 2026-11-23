@@ -238,3 +238,16 @@ it("commits mobile text and date changes together in one write", async () => {
 	expect(h.contents()).toBe("- [ ] Changed 📅 2026-11-24  \n  new note");
 	expect(h.vault.modify).toHaveBeenCalledOnce();
 });
+
+// SPEC 0057: embedded boards render source rows without task actions.
+it("renders a source row read-only when it has no task actions", async () => {
+	const h = await fixture("- [ ] Parent\n  - [x] Child");
+	component = new TaskSourceRow({ target: h.host, props: { app: {} as never, task: h.task, node: h.task.sourceChildren[0]! } });
+	await tick();
+	expect(h.host.querySelector(".source-row-static-status")).not.toBeNull();
+	expect(h.host.querySelector("button")).toBeNull();
+	expect(h.host.querySelector(".source-row")?.getAttribute("draggable")).toBe("false");
+	h.host.querySelector(".source-row-preview")!.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+	await tick();
+	expect(h.host.querySelector("textarea")).toBeNull();
+});

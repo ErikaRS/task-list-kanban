@@ -1,4 +1,4 @@
-Status: IN_PROGRESS (Phase 1 complete; Phase 2 next)
+Status: IN_PROGRESS (Phases 1–2 implemented; Phase 3 in progress)
 
 # SPEC 0057: Embedded Boards (Read-Only)
 
@@ -398,16 +398,20 @@ strategy is decided.
 
 **Implemented by:** [a2d0082](https://github.com/ErikaRS/task-list-kanban/commit/a2d0082)
 
-### Phase 2: Shared card body (no user-visible change)
+### Phase 2: Shared card body (no user-visible change) 🚧 IN PROGRESS
 **Goal:** Board cards render their display through `TaskCardBody`.
 
 **Prerequisite:** SPEC 0056 is complete.
 
-1. Move display markup and Markdown rendering from `task.svelte` and
+1. ✅ Move display markup and Markdown rendering from `task.svelte` and
    `TaskSourceRow.svelte` into `TaskCardBody.svelte`, keeping both Table and
    dense variants. `task.svelte` keeps interaction, editing, drag, menu,
-   selection, and the dense toolbar.
-2. Test: the existing card and component tests pass.
+   selection, and the dense toolbar. The Markdown preview pipeline (render,
+   link handlers, media stripping) is in `card_markdown.ts`, shared by
+   `TaskCardBody` and `TaskSourceRow`. `TaskSourceRow` renders read-only when
+   it has no `taskActions`.
+2. ✅ Test: the existing card and component tests pass, plus one test for the
+   read-only source row.
 3. Manual: a card display pass in Table and List covering status styling,
    properties, dates, nested items and paragraphs, file path, and excluded
    tags.

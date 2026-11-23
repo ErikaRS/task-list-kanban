@@ -1,6 +1,12 @@
+<!--
+	One rendered Markdown item or block under a card. Shared by board cards
+	and embedded-board cards (SPEC 0057): without `taskActions` the row is
+	read-only (static marker; no editor, drag, or delete). How a block
+	renders must stay in this one component for both.
+-->
 <script lang="ts">
 	import { onDestroy } from "svelte";
-	import { Modal, Component, Keymap, MarkdownRenderer, Notice, Platform, type App } from "obsidian";
+	import { Modal, Notice, Platform, type App, type Component } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import {
 		getSourceNodePreview,
@@ -13,12 +19,14 @@
 	import { editableMarkdownSource, type MarkdownSource } from "../tasks/markdown_source";
 	import TaskLineRow from "./TaskLineRow.svelte";
 	import TaskSourceStatusButton from "./TaskSourceStatusButton.svelte";
+	import TaskStatusMarker from "./TaskStatusMarker.svelte";
+	import { PRIMARY_CHECKBOX_SELECTOR, renderCardMarkdown } from "./card_markdown";
 	import Icon from "./icon.svelte";
 	import { subtaskDraggingStore } from "../dnd/store";
 
 	export let app: App;
 	export let task: Task;
-	export let taskActions: TaskActions;
+	export let taskActions: TaskActions | undefined = undefined;
 	export let node: SourceBlockNode;
 	export let isSelectionMode = false;
 	export let depth = 0;
@@ -41,6 +49,7 @@
 
 	$: isListItem = node.kind === "task" || (node.source ? !!node.source.listPrefix : getRawListItemText(node) !== null);
 	$: previewText = getSourceNodePreview(node);
+	$: readonly = taskActions === undefined;
 
 	$: if (!$subtaskDraggingStore) {
 		isDraggedOver = false;
@@ -97,7 +106,7 @@
 	}
 
 	function startEditing() {
-		if (editTarget) return;
+		if (editTarget || readonly) return;
 		draftContent = task.getSourceNodeEditContent(node);
 		editTarget = {
 			id: task.id,
@@ -108,90 +117,32 @@
 	}
 
 	async function save(content: string) {
-		if (!editTarget) return;
+		if (!editTarget || !taskActions) return;
 		await taskActions.updateSourceBlockRow(editTarget.id, editTarget.row, content, editTarget.source);
 	}
 
 	async function renderMarkdown() {
 		if (!previewContainerEl) return;
-
-		if (markdownComponent) {
-			markdownComponent.unload();
-		}
-
-		previewContainerEl.empty();
-		markdownComponent = new Component();
-
-		await MarkdownRenderer.render(
+		await renderCardMarkdown({
 			app,
-			previewText,
-			previewContainerEl,
-			task.path,
-			markdownComponent
-		);
-
-		setupLinkHandlers();
-		postProcessRenderedContent();
-	}
-
-	function setupLinkHandlers() {
-		if (!previewContainerEl) return;
-
-		const internalLinks = previewContainerEl.querySelectorAll("a.internal-link");
-
-		internalLinks.forEach((link) => {
-			const anchorEl = link as HTMLAnchorElement;
-
-			anchorEl.addEventListener("click", (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				const linkTarget = anchorEl.getAttribute("data-href");
-				if (linkTarget && app) {
-					app.workspace.openLinkText(
-						linkTarget,
-						task.path,
-						Keymap.isModEvent(e),
-					);
-				}
-			});
-
-			anchorEl.addEventListener("mouseover", (e) => {
-				const linkTarget = anchorEl.getAttribute("data-href");
-				if (linkTarget && app && previewContainerEl) {
-					app.workspace.trigger("hover-link", {
-						event: e,
-						source: "kanban-view",
-						hoverParent: previewContainerEl,
-						targetEl: anchorEl,
-						linktext: linkTarget,
-						sourcePath: task.path,
-					});
-				}
-			});
+			container: previewContainerEl,
+			markdown: previewText,
+			sourcePath: task.path,
+			previous: markdownComponent,
+			onComponent: (component) => (markdownComponent = component),
+			postProcess: postProcessRenderedContent,
 		});
 	}
 
 	function postProcessRenderedContent() {
 		if (!previewContainerEl) return;
 
-		function stopPropagation(e: Event) {
-			e.stopPropagation();
-		}
-
-		previewContainerEl.querySelectorAll('a:not(.internal-link)').forEach((a) => {
-			const anchor = a as HTMLAnchorElement;
-			anchor.target = '_blank';
-			anchor.rel = 'noopener noreferrer';
-			anchor.addEventListener('click', stopPropagation);
-			anchor.addEventListener('keypress', stopPropagation);
-		});
-
 		previewContainerEl.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(input => {
 			input.disabled = true;
 			input.tabIndex = -1;
 		});
 		if (node.kind === "task") {
-			previewContainerEl.querySelector(":scope > ul > li.task-list-item > input.task-list-item-checkbox, :scope > ul > li.task-list-item > p > input.task-list-item-checkbox")?.remove();
+			previewContainerEl.querySelector(PRIMARY_CHECKBOX_SELECTOR)?.remove();
 		}
 		// The row owns its marker. Unwrap only this item's generated list container
 		// so host list/LI indentation cannot add a second gap before its text.
@@ -203,11 +154,6 @@
 				list.replaceWith(...Array.from(item.childNodes));
 			}
 		}
-
-		// Remove heavy/interactive embeds that don't work well in small cards
-		previewContainerEl.querySelectorAll('iframe, audio, video').forEach((el) => {
-			el.remove();
-		});
 	}
 
 	let lastRenderedMarkdownKey = "";
@@ -275,13 +221,13 @@
 	function handleDeleteClick() {
 		const text = node.kind === "task" ? node.content : node.rawLine.trim();
 		new ConfirmDeleteSubtaskModal(app, text, () => {
-			void taskActions.deleteSourceBlockRow(task.id, node.rowIndex);
+			void taskActions?.deleteSourceBlockRow(task.id, node.rowIndex);
 		}).open();
 	}
 
 	function handleDragStart(e: DragEvent) {
 		e.stopPropagation();
-		if (editTarget) {
+		if (editTarget || readonly) {
 			e.preventDefault();
 			return;
 		}
@@ -331,7 +277,7 @@
 	}
 
 	function handleDrop(e: DragEvent) {
-		if (!$subtaskDraggingStore || $subtaskDraggingStore.taskId !== task.id) return;
+		if (!taskActions || !$subtaskDraggingStore || $subtaskDraggingStore.taskId !== task.id) return;
 		e.preventDefault();
 		e.stopPropagation();
 		isDraggedOver = false;
@@ -364,7 +310,7 @@
 	class:drop-before={isDraggedOver && dropBefore}
 	class:drop-after={isDraggedOver && dropAfter}
 	style:--drag-indicator-depth={dragIndicatorDepth}
-	draggable={!editTarget}
+	draggable={!editTarget && !readonly}
 	on:dragstart={handleDragStart}
 	on:dragend={handleDragEnd}
 	on:dragover={handleDragOver}
@@ -373,12 +319,20 @@
 >
 	<TaskLineRow {depth} hasActions={true}>
 		<svelte:fragment slot="marker">
-			{#if !editTarget && node.kind === "task"}
+			{#if !editTarget && node.kind === "task" && taskActions}
 				<TaskSourceStatusButton
 					{task}
 					{taskActions}
 					{node}
 				/>
+			{:else if node.kind === "task"}
+				<span
+					class="source-row-static-status"
+					class:is-done={task.isSourceTaskStatusDone(node.status)}
+					class:usesStatusMarker={node.status !== " "}
+				>
+					<TaskStatusMarker status={node.status} isDone={task.isSourceTaskStatusDone(node.status)} size={16} />
+				</span>
 			{:else if !editTarget && isListItem}
 				<span class="source-row-list-marker" aria-hidden="true">{node.source?.listPrefix.trim().match(/^\d/) ? node.source.listPrefix.trim() : "•"}</span>
 			{/if}
@@ -389,6 +343,8 @@
 				onSave={save}
 				onClose={() => editTarget = null}
 			/>
+		{:else if readonly}
+			<div class="source-row-preview markdown-rendered is-readonly" bind:this={previewContainerEl}></div>
 		{:else}
 			<div
 				role="button"
@@ -400,7 +356,7 @@
 			></div>
 		{/if}
 		<svelte:fragment slot="actions">
-			{#if !isSelectionMode && !editTarget}
+			{#if !isSelectionMode && !editTarget && !readonly}
 				<button
 					type="button"
 					class="delete-subtask-btn"
@@ -532,6 +488,26 @@
 		&:focus-visible {
 			outline: 2px solid var(--background-modifier-border-focus);
 			outline-offset: 2px;
+		}
+	}
+
+	.source-row-preview.is-readonly {
+		cursor: inherit;
+	}
+
+	.source-row-static-status {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 20px;
+		height: 20px;
+
+		&.usesStatusMarker {
+			color: var(--text-normal);
+		}
+
+		&.is-done :global(svg) {
+			color: var(--interactive-accent);
 		}
 	}
 

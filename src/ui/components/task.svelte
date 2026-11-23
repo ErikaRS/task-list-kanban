@@ -3,23 +3,18 @@
 	import { isDraggingStore } from "../dnd/store";
 	import type { TaskActions } from "../tasks/actions";
 	import type { Task } from "../tasks/task";
-	import { getVisibleSourceTaskDescendants } from "../tasks/source_block";
 	import MarkdownBodyEditor from "./MarkdownBodyEditor.svelte";
 	import type { MarkdownSource } from "../tasks/markdown_source";
-	import TaskLineRow from "./TaskLineRow.svelte";
-	import TaskSourceRows from "./TaskSourceRows.svelte";
+	import TaskCardBody from "./TaskCardBody.svelte";
 	import TaskStatusMarker from "./TaskStatusMarker.svelte";
 	import TaskMenu from "./task_menu.svelte";
 	import TaskDateFields from "./TaskDateFields.svelte";
 	import Icon from "./icon.svelte";
-	import { Component, Keymap, MarkdownRenderer, Platform, type App } from "obsidian";
+	import { Platform, type App } from "obsidian";
 	import type { Readable } from "svelte/store";
-	import { onDestroy } from "svelte";
 	import { PropertyDisplayMode } from "../settings/settings_store";
 	import { PropertySchemaOption } from "../../parsing/properties/property_schema";
-	import { EDITABLE_DATE_PROPERTY_KEYS, getPropertyWriteAdapter } from "../../parsing/properties/write";
-	import { toDisplayProperties, stripDisplayedPropertiesFromContent } from "../../parsing/properties/display";
-	import { renderTaskMarkdownSource } from "./task_markdown";
+	import { getPropertyWriteAdapter } from "../../parsing/properties/write";
 	import MobileTaskEditor from "./MobileTaskEditor.svelte";
 	import { canStartTaskDrag } from "./task_drag";
 	import {
@@ -64,19 +59,9 @@
 
 	let editTarget: { id: string; source?: MarkdownSource; content: string };
 
-	function handleOpenKeypress(e: KeyboardEvent) {
-		if (e.key === "Enter" || e.key === " ") {
-			handleFocus(e);
-		}
-	}
-
 	let isEditing = false;
 	let isMobileEditing = false;
 	let isDragging = false;
-	let isSubtasksCollapsed = false;
-	function toggleSubtasksCollapse() {
-		isSubtasksCollapsed = !isSubtasksCollapsed;
-	}
 	$: displayStatusIsCustom = task.displayStatus !== " ";
 	$: advanceDestination = nextAdvanceDestination(displayColumn, workflowColumns);
 	$: advanceActionLabel = advanceDestination === "archive"
@@ -150,9 +135,7 @@
 	}
 
 	let previewContainerEl: HTMLDivElement | undefined;
-	let markdownComponent: Component | undefined;
 	let isEditingDates = false;
-	const editableDatePropertyKeys = new Set<string>(EDITABLE_DATE_PROPERTY_KEYS);
 
 	const interactiveTagNames = new Set([
 		"a",
@@ -224,376 +207,137 @@
 		isEditing = true;
 	}
 
-	function renderTaskMarkdown() {
-		let body = task.content;
-
-		if (task.properties) {
-			if (propertyDisplay === PropertyDisplayMode.Pretty) {
-				// In Pretty mode, displayed properties are moved to the chip strip, so
-				// hide their raw text from the body (mirrors the consolidated-tag footer).
-				body = stripDisplayedPropertiesFromContent(body, task.properties);
-			} else if (dateEditingEnabled) {
-				body = stripDisplayedPropertiesFromContent(body, dateProperties);
-			}
-		}
-
-		const trailingSpaces = task.originalLine.match(/ {2,}$/)?.[0];
-		if (trailingSpaces) body = body.replace(/[ \t]*$/, trailingSpaces);
-		return renderTaskMarkdownSource({
-			content: body + (task.previewContinuation ? "\n" + task.previewContinuation : ""),
-			displayStatus: task.displayStatus,
-			blockLink: task.blockLink,
-			excludedTags,
-			referenceDefinitions: task.source?.referenceDefinitions,
-		});
-	}
-
-	// Render markdown content using Obsidian's MarkdownRenderer
-	async function renderMarkdown(mode: CardActionMode) {
-		if (!previewContainerEl) return;
-
-		// Unload previous component before re-rendering
-		if (markdownComponent) {
-			markdownComponent.unload();
-		}
-
-		// Clear the container
-		previewContainerEl.empty();
-
-		// Create new component for this task
-		markdownComponent = new Component();
-
-		// Render with full task markdown to preserve Obsidian status DOM/styling.
-		const contentToRender = renderTaskMarkdown();
-		await MarkdownRenderer.render(
-			app,
-			contentToRender,
-			previewContainerEl,
-			task.path,
-			markdownComponent
-		);
-
-		// Set up event handlers after rendering
-		setupLinkHandlers();
-		postProcessRenderedContent(mode);
-	}
-
-	// Set up click and hover handlers for internal links
-	function setupLinkHandlers() {
-		if (!previewContainerEl) return;
-
-		const internalLinks = previewContainerEl.querySelectorAll("a.internal-link");
-
-		internalLinks.forEach((link) => {
-			const anchorEl = link as HTMLAnchorElement;
-
-			// Click handler — delegate to Obsidian's native modifier handling
-			anchorEl.addEventListener("click", (e) => {
-				e.preventDefault();
-				e.stopPropagation();
-				const linkTarget = anchorEl.getAttribute("data-href");
-				if (linkTarget && app) {
-					app.workspace.openLinkText(
-						linkTarget,
-						task.path,
-						Keymap.isModEvent(e),
-					);
-				}
-			});
-
-			// Hover handler for preview
-			anchorEl.addEventListener("mouseover", (e) => {
-				const linkTarget = anchorEl.getAttribute("data-href");
-				if (linkTarget && app && previewContainerEl) {
-					app.workspace.trigger("hover-link", {
-						event: e,
-						source: "kanban-view",
-						hoverParent: previewContainerEl,
-						targetEl: anchorEl,
-						linktext: linkTarget,
-						sourcePath: task.path,
-					});
-				}
-			});
-		});
-	}
-
-	// Post-process rendered content for safety and compatibility
-	function postProcessRenderedContent(mode: CardActionMode) {
-		if (!previewContainerEl) return;
-
-		function stopPropagation(e: Event) {
-			e.stopPropagation();
-		}
-
-		function handlePrimaryCheckboxClick(e: Event) {
-			e.preventDefault();
-			e.stopPropagation();
-			void taskActions.toggleDone(task.id);
-		}
-
-		// External links: open in new tab with security attributes
-		previewContainerEl.querySelectorAll('a:not(.internal-link)').forEach((a) => {
-			const anchor = a as HTMLAnchorElement;
-			anchor.target = '_blank';
-			anchor.rel = 'noopener noreferrer';
-			// Prevent link activation from triggering edit mode
-			anchor.addEventListener('click', stopPropagation);
-			anchor.addEventListener('keypress', stopPropagation);
-		});
-
-		const checkboxes = Array.from(
-			previewContainerEl.querySelectorAll('input[type="checkbox"]')
-		) as HTMLInputElement[];
-		const primaryCheckbox = previewContainerEl.querySelector<HTMLInputElement>(":scope > ul > li.task-list-item > input.task-list-item-checkbox, :scope > ul > li.task-list-item > p > input.task-list-item-checkbox");
-		const nestedCheckboxes = checkboxes.filter(checkbox => checkbox !== primaryCheckbox);
-
-		if (primaryCheckbox) {
-			primaryCheckbox.classList.add("task-primary-checkbox");
-			primaryCheckbox.addEventListener('mousedown', stopPropagation);
-			primaryCheckbox.addEventListener('mouseup', stopPropagation);
-			primaryCheckbox.addEventListener('keypress', stopPropagation);
-
-			if (mode !== "done") {
-				primaryCheckbox.disabled = true;
-				primaryCheckbox.tabIndex = -1;
-				primaryCheckbox.style.visibility = "hidden";
-				primaryCheckbox.setAttribute("aria-hidden", "true");
-				primaryCheckbox.addEventListener('click', stopPropagation);
-			} else {
-				primaryCheckbox.disabled = false;
-				primaryCheckbox.style.removeProperty("visibility");
-				primaryCheckbox.removeAttribute("aria-hidden");
-				primaryCheckbox.setAttribute(
-					"aria-label",
-					"Advance status"
-				);
-				primaryCheckbox.addEventListener('click', handlePrimaryCheckboxClick);
-			}
-		}
-
-		// Nested markdown checkboxes are always non-interactive.
-		nestedCheckboxes.forEach((checkbox) => {
-			checkbox.classList.add("task-nested-checkbox");
-			checkbox.disabled = true;
-			checkbox.tabIndex = -1;
-			checkbox.addEventListener('click', stopPropagation);
-			checkbox.addEventListener('keypress', stopPropagation);
-		});
-
-		// Remove heavy/interactive embeds that don't work well in small cards
-		previewContainerEl.querySelectorAll('iframe, audio, video').forEach((el) => {
-			el.remove();
-		});
-	}
-
-	// Re-render when task content, status, or the property-display mode changes
-	let lastRenderedMarkdownKey = "";
-	$: if (isEditing) {
-		lastRenderedMarkdownKey = "";
-	}
-	$: if (task && task.content && task.displayStatus && propertyDisplay && !isEditing && previewContainerEl) {
-		const markdownKey = JSON.stringify({
-			source: renderTaskMarkdown(),
-			path: task.path,
-			cardActionMode,
-		});
-		if (markdownKey !== lastRenderedMarkdownKey) {
-			lastRenderedMarkdownKey = markdownKey;
-			void renderMarkdown(cardActionMode);
-		}
-	}
-
-	// Cleanup on destroy
-	onDestroy(() => {
-		if (markdownComponent) {
-			markdownComponent.unload();
-		}
-	});
-
-	$: excludedTagNames = excludedTags.map((tag) => tag.trim().replace(/^#/, "").toLowerCase());
-	$: visibleTags = Array.from(task.tags).filter(t => !excludedTagNames.includes(t.toLowerCase()));
-	$: shouldconsolidateTags = consolidateTags && visibleTags.length > 0;
 	$: dateEditingEnabled = getPropertyWriteAdapter(propertySchemaOption) !== null;
-	$: displayProperties = task.properties ? toDisplayProperties(task.properties) : [];
-	$: dateDisplayProperties = dateEditingEnabled
-		? displayProperties
-			.filter((prop) => editableDatePropertyKeys.has(prop.key))
-			.map((prop) => propertySchemaOption === PropertySchemaOption.Dataview
-				? { ...prop, icon: undefined, label: `${prop.key}::` }
-				: prop)
-		: [];
-	$: nonDateDisplayProperties = displayProperties.filter((prop) => !editableDatePropertyKeys.has(prop.key));
-	$: dateProperties = new Map(
-		Array.from(task.properties?.entries() ?? []).filter(([key]) => editableDatePropertyKeys.has(key)),
-	);
-
-	$: visibleSubtasks = getVisibleSourceTaskDescendants(task.sourceChildren);
-	$: totalSubtasksCount = visibleSubtasks.length;
-	$: completedSubtasksCount = visibleSubtasks.filter(node => task.isSourceTaskStatusDone(node.status)).length;
-	$: completionPercentage = totalSubtasksCount > 0 ? Math.round((completedSubtasksCount / totalSubtasksCount) * 100) : 0;
 </script>
 
-	<div
-		class="task"
-		class:is-dragging={isDragging}
-		class:is-selected={isSelectionMode && isSelected}
-		class:is-selection-mode={isSelectionMode}
-		class:dense
-		class:dense-toolbar-visible={dense && (toolbarAlwaysVisible || isEditingDates)}
-		role="group"
-		draggable={canStartTaskDrag({ isEditing, isMobileEditing })}
-		style:--task-accent-color={accentColor}
-		on:dragstart={handleDragStart}
-		on:dragend={handleDragEnd}
+<!-- Interactive wrapper around TaskCardBody: editing, drag, selection, menu,
+     the dense toolbar, and date editing. Card display belongs in
+     TaskCardBody so the embedded board (SPEC 0057) shows it too. -->
+<TaskCardBody
+	{app}
+	{task}
+	{taskActions}
+	{showFilepath}
+	{propertyDisplay}
+	{propertySchemaOption}
+	{consolidateTags}
+	{excludedTags}
+	{treatNestedTasksAsSubtasks}
+	{dense}
+	{isSelectionMode}
+	{isSelected}
+	{isDragging}
+	{accentColor}
+	{isEditing}
+	{isEditingDates}
+	denseToolbarVisible={dense && (toolbarAlwaysVisible || isEditingDates)}
+	draggable={canStartTaskDrag({ isEditing, isMobileEditing })}
+	onDragStart={handleDragStart}
+	onDragEnd={handleDragEnd}
+	onPreviewActivate={handleFocus}
+	onPrimaryCheckboxClick={cardActionMode === "done" ? () => void taskActions.toggleDone(task.id) : undefined}
+	onOpenFile={(e) => taskActions.viewFile(task.id, e)}
+	bind:previewContainerEl
 >
-	<!-- Task row -->
-	<TaskLineRow variant="card" hasActions>
-		<svelte:fragment slot="marker">
-			{#if isSelectionMode}
-				<!-- Selection checkbox (square icons) -->
-				<button
-					class="icon-button select-task"
-					class:is-selected={isSelected}
-					role="checkbox"
-					aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
-					aria-checked={isSelected}
-					on:click={onToggleSelection}
-					tabindex="0"
-				>
-					<Icon
-						name={isSelected ? "lucide-check-circle" : "lucide-circle"}
-						size={18}
-						opacity={isSelected ? 1 : 0.5}
-					/>
-				</button>
-			{:else}
-				<!-- Done checkbox (circle icons) -->
-				<button
-					class="icon-button toggle-done-task"
-					class:is-done={task.done}
-					class:usesStatusMarker={displayStatusIsCustom}
-					role={cardActionMode === "done" ? "checkbox" : undefined}
-					aria-label={cardActionMode === "advance" ? advanceActionLabel : "Advance status"}
-					aria-checked={cardActionMode === "done" ? task.done : undefined}
-					disabled={cardActionMode === "advance" && advanceDestination === null}
-					on:click={activateCardMarker}
-					tabindex="0"
-				>
-					{#if cardActionMode === "advance"}
-						<Icon name="lucide-arrow-right" size={18} />
-					{:else}
-						<TaskStatusMarker status={task.displayStatus} isDone={task.done} size={16} />
-					{/if}
-				</button>
-			{/if}
-		</svelte:fragment>
-		<div class="task-row-content">
-			{#if isEditing}
-				<MarkdownBodyEditor initialContent={editTarget.content}
-					onSave={(content) => taskActions.updateContent(editTarget.id, content, [], editTarget.source)}
-					onClose={() => isEditing = false} />
-			{:else}
-				<div
-					role="button"
-					class="content-preview markdown-rendered"
-					bind:this={previewContainerEl}
-					on:mouseup={handleFocus}
-					on:keypress={handleOpenKeypress}
-					tabindex="0"
-				></div>
-			{/if}
-			{#if treatNestedTasksAsSubtasks && totalSubtasksCount > 0}
-				<div class="task-progress-wrapper" class:is-complete={completionPercentage === 100}>
-					<span
-						class="subtask-collapse-btn"
-						class:collapsed={isSubtasksCollapsed}
-						role="button"
-						tabindex="0"
-						on:click|stopPropagation={toggleSubtasksCollapse}
-						on:keydown|stopPropagation={(e) => {
-							if (e.key === 'Enter' || e.key === ' ') {
-								e.preventDefault();
-								toggleSubtasksCollapse();
-							}
-						}}
-						aria-label={isSubtasksCollapsed ? "Expand subtasks" : "Collapse subtasks"}
-					>{isSubtasksCollapsed ? "▶" : "▼"}</span>
-					<div class="task-progress-bar-container">
-						<div class="task-progress-bar" style="width: {completionPercentage}%"></div>
-					</div>
-					<span class="task-progress-text">{completedSubtasksCount}/{totalSubtasksCount} ({completionPercentage}%)</span>
-				</div>
-			{/if}
-		</div>
-		<svelte:fragment slot="actions">
-			{#if isManualOrder && isPinned}
-				<button
-					class="icon-button pin-marker"
-					aria-label="Unpin task (return to file order)"
-					title="Pinned — click to unpin"
-					on:click|stopPropagation={onUnpin}
-					on:keydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							e.stopPropagation();
-							onUnpin();
-						}
-					}}
-					tabindex="0"
-				>
-					<Icon name="lucide-pin" size={16} opacity={0.9} />
-				</button>
-			{/if}
-			{#if isManualOrder && showDragHandle}
-				<span class="drag-handle" title="Drag to reorder" aria-hidden="true">
-					<Icon name="lucide-grip-vertical" size={16} opacity={0.5} />
-				</span>
-			{/if}
-			{#if dense}
-				<div class="dense-toolbar">
-					{#if dateEditingEnabled}
-						<button
-							type="button"
-							class="dense-action add-date-action"
-							aria-label="Edit task dates"
-							title="Edit task dates"
-							on:click|stopPropagation={() => dateFields?.openEditor()}
-						>
-							<Icon name="lucide-calendar-plus" size={16} />
-						</button>
-					{/if}
-					{#if showFilepath}
-						<button
-							type="button"
-							class="dense-action go-to-file-action"
-							aria-label={`Go to file ${task.path}`}
-							title={task.path}
-							on:click|stopPropagation={(e) => taskActions.viewFile(task.id, e)}
-						>
-							<Icon name="lucide-arrow-up-right" size={16} />
-						</button>
-					{/if}
-					<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
-				</div>
-			{:else}
-				<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
-			{/if}
-		</svelte:fragment>
-	</TaskLineRow>
-
-	{#if !isSubtasksCollapsed}
-		{#if task.sourceChildren.length > 0}
-			<TaskSourceRows
-				{app}
-				{task}
-				{taskActions}
-				nodes={task.sourceChildren}
-				{isSelectionMode}
-				depth={1}
-			/>
+	<svelte:fragment slot="marker">
+		{#if isSelectionMode}
+			<!-- Selection checkbox (square icons) -->
+			<button
+				class="icon-button select-task"
+				class:is-selected={isSelected}
+				role="checkbox"
+				aria-label={isSelected ? "Deselect for bulk actions" : "Select for bulk actions"}
+				aria-checked={isSelected}
+				on:click={onToggleSelection}
+				tabindex="0"
+			>
+				<Icon
+					name={isSelected ? "lucide-check-circle" : "lucide-circle"}
+					size={18}
+					opacity={isSelected ? 1 : 0.5}
+				/>
+			</button>
+		{:else}
+			<!-- Done checkbox (circle icons) -->
+			<button
+				class="icon-button toggle-done-task"
+				class:is-done={task.done}
+				class:usesStatusMarker={displayStatusIsCustom}
+				role={cardActionMode === "done" ? "checkbox" : undefined}
+				aria-label={cardActionMode === "advance" ? advanceActionLabel : "Advance status"}
+				aria-checked={cardActionMode === "done" ? task.done : undefined}
+				disabled={cardActionMode === "advance" && advanceDestination === null}
+				on:click={activateCardMarker}
+				tabindex="0"
+			>
+				{#if cardActionMode === "advance"}
+					<Icon name="lucide-arrow-right" size={18} />
+				{:else}
+					<TaskStatusMarker status={task.displayStatus} isDone={task.done} size={16} />
+				{/if}
+			</button>
 		{/if}
-
+	</svelte:fragment>
+	<svelte:fragment slot="editor">
+		<MarkdownBodyEditor initialContent={editTarget.content}
+			onSave={(content) => taskActions.updateContent(editTarget.id, content, [], editTarget.source)}
+			onClose={() => isEditing = false} />
+	</svelte:fragment>
+	<svelte:fragment slot="actions">
+		{#if isManualOrder && isPinned}
+			<button
+				class="icon-button pin-marker"
+				aria-label="Unpin task (return to file order)"
+				title="Pinned — click to unpin"
+				on:click|stopPropagation={onUnpin}
+				on:keydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						e.stopPropagation();
+						onUnpin();
+					}
+				}}
+				tabindex="0"
+			>
+				<Icon name="lucide-pin" size={16} opacity={0.9} />
+			</button>
+		{/if}
+		{#if isManualOrder && showDragHandle}
+			<span class="drag-handle" title="Drag to reorder" aria-hidden="true">
+				<Icon name="lucide-grip-vertical" size={16} opacity={0.5} />
+			</span>
+		{/if}
+		{#if dense}
+			<div class="dense-toolbar">
+				{#if dateEditingEnabled}
+					<button
+						type="button"
+						class="dense-action add-date-action"
+						aria-label="Edit task dates"
+						title="Edit task dates"
+						on:click|stopPropagation={() => dateFields?.openEditor()}
+					>
+						<Icon name="lucide-calendar-plus" size={16} />
+					</button>
+				{/if}
+				{#if showFilepath}
+					<button
+						type="button"
+						class="dense-action go-to-file-action"
+						aria-label={`Go to file ${task.path}`}
+						title={task.path}
+						on:click|stopPropagation={(e) => taskActions.viewFile(task.id, e)}
+					>
+						<Icon name="lucide-arrow-up-right" size={16} />
+					</button>
+				{/if}
+				<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
+			</div>
+		{:else}
+			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
+		{/if}
+	</svelte:fragment>
+	<svelte:fragment slot="after-source-rows">
 		{#if treatNestedTasksAsSubtasks}
 			<div class="add-subtask-container">
 				<div
@@ -613,45 +357,9 @@
 				</div>
 			</div>
 		{/if}
-	{/if}
-
-	{#if shouldconsolidateTags}
-		<div class="task-tags">
-			{#each visibleTags as tag}
-				<span>
-					<!-- prettier-ignore -->
-					<span class="cm-formatting cm-formatting-hashtag cm-hashtag cm-hashtag-begin cm-list-1">#</span><span
-						class="cm-hashtag cm-hashtag-end cm-list-1">{tag}</span
-					>
-				</span>
-			{/each}
-		</div>
-	{/if}
-	{#if propertyDisplay === PropertyDisplayMode.Debug && task.properties && task.properties.size > 0}
-		<div class="task-properties-debug">
-			<pre><code>{JSON.stringify(Array.from(task.properties.entries()), null, 2)}</code></pre>
-		</div>
-	{:else if propertyDisplay === PropertyDisplayMode.Pretty && task.properties}
-		{#if nonDateDisplayProperties.length > 0}
-			<div class="task-properties">
-				{#each nonDateDisplayProperties as prop (prop.key)}
-					<span class="task-property">
-						{#if prop.icon}
-							<span class="task-property-icon" title={prop.label} aria-label={prop.label}>{prop.icon}</span>
-						{:else}
-							<span class="task-property-label">{prop.label}</span>
-						{/if}
-						<span class="task-property-value">{prop.value}</span>
-					</span>
-				{/each}
-			</div>
-		{/if}
-	{/if}
-	{#if dateEditingEnabled}
-		<div
-			class="task-properties task-date-properties"
-			class:dense-empty={dense && !isEditingDates && dateDisplayProperties.length === 0}
-		>
+	</svelte:fragment>
+	<svelte:fragment slot="date-fields">
+		{#if dateEditingEnabled}
 			<!-- A single persistent instance: swapping instances across if/else
 			     branches destroys the editor's internal state the moment it
 			     opens, snapping the UI back to read mode. -->
@@ -664,41 +372,9 @@
 				isTaskEditing={isEditing}
 				onEditingDatesChange={(editing) => (isEditingDates = editing)}
 			/>
-			{#if !isEditingDates}
-				{#each dateDisplayProperties as prop (prop.key)}
-					<span class="task-property" class:dataview-property={propertySchemaOption === PropertySchemaOption.Dataview}>
-						{#if prop.icon}
-							<span class="task-property-icon" title={prop.label} aria-label={prop.label}>{prop.icon}</span>
-						{:else}
-							<span class="task-property-label">{prop.label}</span>
-						{/if}
-						<span class="task-property-value">{prop.value}</span>
-					</span>
-				{/each}
-			{/if}
-		</div>
-	{/if}
-	{#if showFilepath && !dense}
-		<div class="task-footer">
-			<button
-				class="go-to-file-button"
-				aria-label="Go to file"
-				title="Go to file"
-				on:click={(e) => taskActions.viewFile(task.id, e)}
-				on:keydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') {
-						e.preventDefault();
-						taskActions.viewFile(task.id, e);
-					}
-				}}
-				tabindex="0"
-			>
-				<Icon name="lucide-arrow-up-right" size={18} opacity={0.5} />
-				<span class="file-path">{task.path}</span>
-			</button>
-		</div>
-	{/if}
-</div>
+		{/if}
+	</svelte:fragment>
+</TaskCardBody>
 
 {#if isMobileEditing}
 	<MobileTaskEditor
@@ -710,56 +386,11 @@
 {/if}
 
 <style lang="scss">
-	.task {
-		--task-accent: var(--task-accent-color, var(--background-modifier-border-hover));
-		--task-content-line-height: 1.5rem;
-		--task-footer-line-height: 1.15;
-		--task-footer-block-padding: 2px;
-		position: relative;
-		overflow: hidden;
-		background: var(--background-primary);
-		border-radius: var(--radius-s);
-		border: var(--border-width) solid var(--background-modifier-border);
-		cursor: grab;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-		transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-
-		&::before {
-			content: "";
-			position: absolute;
-			inset: 0 auto 0 0;
-			width: 8px;
-			background: var(--task-accent);
-		}
-
-		&:hover {
-			border-color: color-mix(in srgb, var(--text-muted) 45%, var(--background-modifier-border));
-			box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
-			transform: translateY(-1px);
-		}
-
-		&.is-dragging {
-			opacity: 0.15;
-		}
-
-		&.is-selected {
-			border-color: var(--interactive-accent);
-			background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary));
-		}
-
-		.task-row-content {
-			min-width: 0; // Allow text to wrap properly
-
-			.content-preview {
-				min-height: var(--task-content-line-height);
-
-				&:focus {
-					box-shadow: 0 0 0 3px
-						var(--background-modifier-border-focus);
-				}
-			}
-		}
-
+	// Styles for the interactive controls this wrapper puts into
+	// TaskCardBody's slots. `:global(.task)` keeps the specificity these had
+	// when the card markup lived here. Card display styles are in
+	// TaskCardBody.svelte.
+	:global(.task) {
 		// Icon button styling
 		.icon-button {
 			display: flex;
@@ -820,288 +451,6 @@
 			height: 22px;
 			cursor: grab;
 		}
-
-		.task-footer {
-			border-top: var(--border-width) solid
-				var(--background-modifier-border);
-			padding: var(--task-footer-block-padding) var(--size-4-2) var(--task-footer-block-padding) calc(var(--size-4-2) + 8px);
-			font-size: var(--font-ui-smaller);
-			line-height: var(--task-footer-line-height);
-			display: flex;
-			align-items: center;
-			min-height: 0;
-
-			.go-to-file-button {
-				display: inline-flex;
-				align-items: center;
-				justify-content: flex-start;
-				gap: var(--size-2-1);
-				width: auto;
-				max-width: 100%;
-				padding: 0;
-				min-height: 0;
-				height: auto;
-				border: none;
-				background: transparent;
-				cursor: pointer;
-				text-align: left;
-				box-shadow: none;
-				transition: opacity 0.2s ease;
-				border-radius: var(--radius-s);
-				font: inherit;
-				line-height: inherit;
-
-				&:hover {
-					background: transparent;
-					box-shadow: none;
-
-					:global(svg) {
-						opacity: 1 !important;
-						color: var(--interactive-accent);
-					}
-
-					.file-path {
-						color: var(--interactive-accent);
-					}
-				}
-
-				&:focus-visible {
-					outline: 2px solid var(--background-modifier-border-focus);
-					outline-offset: 2px;
-				}
-
-				.file-path {
-					margin: 0;
-					color: var(--text-muted);
-					transition: color 0.2s ease;
-					overflow-wrap: anywhere;
-					white-space: normal;
-					min-width: 0;
-					line-height: inherit;
-				}
-			}
-
-			.go-to-file-button :global(svg) {
-				width: 1em;
-				height: 1em;
-			}
-		}
-
-		.task-tags {
-			display: flex;
-			flex-wrap: wrap;
-			gap: var(--size-2-1);
-			padding: 0 var(--size-4-2) var(--size-4-2) calc(var(--size-4-2) + 8px);
-			margin-top: calc(-1 * var(--size-2-2));
-
-			span {
-				background-color: var(--background-secondary);
-				color: var(--text-muted);
-				border: 1px solid var(--background-modifier-border);
-				border-radius: var(--radius-s);
-				padding: 1px 5px;
-				font-size: var(--font-ui-smaller);
-				line-height: 1.1;
-				display: inline-flex;
-				align-items: center;
-				transition: color 0.15s ease, border-color 0.15s ease;
-
-				&:hover {
-					color: var(--text-normal);
-					border-color: var(--text-muted);
-				}
-
-				:global(.cm-formatting-hashtag) {
-					color: var(--text-accent) !important;
-					font-weight: var(--font-medium);
-					margin-right: 1px;
-				}
-				:global(.cm-hashtag-end) {
-					color: inherit !important;
-				}
-			}
-		}
-
-		.task-properties-debug {
-			padding: var(--size-2-3) var(--size-4-2) var(--size-2-3) calc(var(--size-4-2) + 8px);
-			border-top: var(--border-width) solid var(--background-modifier-border);
-			background-color: var(--background-secondary-alt);
-			font-size: var(--font-ui-smaller);
-			overflow-x: auto;
-
-			pre {
-				margin: 0;
-			}
-		}
-
-		.task-properties {
-			display: flex;
-			flex-wrap: wrap;
-			gap: var(--size-2-2);
-			padding: var(--task-footer-block-padding) var(--size-4-2) var(--task-footer-block-padding) calc(var(--size-4-2) + 8px);
-			border-top: var(--border-width) solid var(--background-modifier-border);
-			font-size: var(--font-ui-smaller);
-			line-height: var(--task-footer-line-height);
-		}
-
-		.task-date-properties {
-			align-items: center;
-		}
-
-		.task-date-properties :global(.edit-mode) {
-			flex-basis: 100%;
-		}
-
-		.task-property {
-			display: inline-flex;
-			align-items: baseline;
-			gap: var(--size-2-1);
-			padding: 0 var(--size-2-2);
-			border-radius: var(--radius-s);
-			background-color: var(--background-secondary-alt);
-			line-height: inherit;
-		}
-
-		.task-property-label {
-			color: var(--text-muted);
-			text-transform: uppercase;
-			font-size: var(--font-smallest);
-			letter-spacing: 0.02em;
-		}
-
-		.task-property.dataview-property .task-property-label {
-			text-transform: none;
-			letter-spacing: 0;
-		}
-
-		.task-property-icon {
-			font-size: inherit;
-			line-height: 1;
-		}
-
-		.task-property-value {
-			color: var(--text-normal);
-		}
-	}
-
-	:global(.task-row-content img) {
-		max-width: 100%;
-		max-height: 160px;
-		object-fit: contain;
-	}
-
-	:global(.task-row-content code) {
-		white-space: pre-wrap;
-	}
-
-	:global(.task-row-content .content-preview),
-	:global(.task-row-content .content-preview > ul),
-	:global(.task-row-content .content-preview > ul > li),
-	:global(.task-row-content .content-preview > ul > li > p) {
-		margin: 0;
-	}
-
-	:global(.task .task-row-content .content-preview > ul) {
-		padding-left: 0 !important;
-		margin: 0 !important;
-		list-style: none !important;
-	}
-
-	:global(.task-row-content .content-preview .task-list-item) {
-		min-width: 0;
-		word-break: break-word;
-		padding-left: 0 !important;
-		list-style-type: none !important;
-	}
-
-	:global(.task-row-content input.task-nested-checkbox) {
-		pointer-events: none;
-	}
-
-	:global(.task-row-content .content-preview .task-list-item > input[type="checkbox"].task-primary-checkbox),
-	:global(.task-row-content .content-preview .task-list-item > p > input[type="checkbox"].task-primary-checkbox) {
-		display: none !important;
-	}
-
-	:global(.task-row-content .content-preview .task-list-item > *:not(input[type="checkbox"])) {
-		min-width: 0;
-	}
-
-	.task-progress-wrapper {
-		display: flex;
-		align-items: center;
-		gap: var(--size-4-2);
-		margin-top: var(--size-2-2);
-		margin-bottom: var(--size-2-1);
-
-		&.is-complete {
-			.task-progress-bar {
-				background-color: hsl(140, 75%, 45%);
-				background-image: linear-gradient(90deg, hsl(140, 75%, 40%) 0%, hsl(140, 75%, 50%) 100%);
-				box-shadow: 0 0 6px hsl(140, 75%, 45%, 0.3);
-			}
-			.task-progress-text {
-				color: hsl(140, 75%, 45%);
-				font-weight: var(--font-bold);
-			}
-		}
-	}
-
-	.task-progress-bar-container {
-		flex: 1;
-		height: 6px;
-		background-color: var(--background-modifier-border);
-		border-radius: 3px;
-		overflow: hidden;
-		box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
-	}
-
-	.task-progress-bar {
-		height: 100%;
-		background-color: var(--interactive-accent);
-		background-image: linear-gradient(
-			90deg,
-			hsla(var(--accent-h, 210), var(--accent-s, 75%), calc(var(--accent-l, 50%) - 5%), 0.95) 0%,
-			var(--interactive-accent) 100%
-		);
-		border-radius: 3px;
-		transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease, background-image 0.3s ease;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-	}
-
-	.task-progress-text {
-		font-size: var(--font-ui-smaller);
-		color: var(--text-muted);
-		font-weight: var(--font-medium);
-		white-space: nowrap;
-		transition: color 0.3s ease;
-	}
-
-	.subtask-collapse-btn {
-		background: transparent;
-		border: none;
-		box-shadow: none;
-		padding: 0;
-		color: var(--text-muted);
-		font-size: 10px;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--task-line-marker-size, 20px);
-		height: 14px;
-		line-height: 1;
-		flex-shrink: 0;
-		transition: color 0.15s ease;
-
-		/* Shift to the left under the checkbox */
-		margin-left: calc(-1 * (var(--task-line-marker-size, 20px) + var(--task-line-column-gap, var(--size-2-3))));
-		margin-right: var(--task-line-column-gap, var(--size-2-3));
-
-		&:hover {
-			color: var(--text-normal);
-			background: transparent;
-		}
 	}
 
 	.add-subtask-container {
@@ -1148,19 +497,7 @@
 		}
 	}
 
-	// Dense list cards (SPEC 0055): one divider per card, no interior lines,
-	// and the toolbar on the task line.
-	.task.dense {
-		.task-properties,
-		.task-properties-debug {
-			border-top: none;
-		}
-
-		.task-date-properties.dense-empty {
-			display: none;
-		}
-	}
-
+	// Dense list cards (SPEC 0055): the toolbar on the task line.
 	.dense-toolbar {
 		display: inline-flex;
 		align-items: center;
@@ -1197,7 +534,7 @@
 
 	// Desktop reveals the toolbar on hover or keyboard focus. Opacity, not
 	// visibility, so the controls stay in the tab order.
-	.task.dense:not(.dense-toolbar-visible):not(:hover):not(:focus-within) .dense-toolbar {
+	:global(.task.dense:not(.dense-toolbar-visible):not(:hover):not(:focus-within)) .dense-toolbar {
 		opacity: 0;
 	}
 </style>

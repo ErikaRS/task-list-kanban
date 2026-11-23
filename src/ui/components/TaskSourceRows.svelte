@@ -7,7 +7,8 @@
 
 	export let app: App;
 	export let task: Task;
-	export let taskActions: TaskActions;
+	/** Omitted, rows render read-only (embedded boards, SPEC 0057). */
+	export let taskActions: TaskActions | undefined = undefined;
 	export let nodes: SourceBlockNode[] = [];
 	export let isSelectionMode = false;
 	export let depth = 0;
