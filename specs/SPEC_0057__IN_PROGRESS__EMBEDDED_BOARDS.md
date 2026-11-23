@@ -419,7 +419,7 @@ strategy is decided.
 **Deliverable:** No behavior change. The card display has one implementation.
 (Skipped if Phase 1 chose the fallback.)
 
-**Implemented by:**
+**Implemented by:** [5c0d69f](https://github.com/ErikaRS/task-list-kanban/commit/5c0d69f)
 
 ### Phase 3: Embed, desktop Table 🚧 IN PROGRESS (implemented; manual checks pending)
 **Goal:** A user adds a `task-list-kanban` block and sees a live, read-only
@@ -452,7 +452,7 @@ as Table until Phase 4.
 
 **Deliverable:** A working read-only embed on desktop.
 
-**Implemented by:**
+**Implemented by:** [268bf66](https://github.com/ErikaRS/task-list-kanban/commit/268bf66)
 
 ### Phase 4: List layout, view and filter parameters
 **Goal:** Embeds honor the board's Table/List layout, work on mobile and in
