@@ -207,7 +207,7 @@ Rules:
 
 **Implementation notes:** Applying a saved view that carries a layout pins it as a board override, as choosing it in the view editor does.
 
-**Implemented by:** *this commit*
+**Implemented by:** [1b6a526](https://github.com/ErikaRS/task-list-kanban/commit/1b6a526)
 
 ### Phase 4: Dense list cards
 
