@@ -275,6 +275,7 @@
 					isPinned={pinnedIds.has(task.id)}
 					showDragHandle={reorderEnabled}
 					onUnpin={() => taskActions.unpinTask(cell.secondaryId, column, task.id)}
+					dense={isCompactEmpty}
 				/>
 			</div>
 		{/each}

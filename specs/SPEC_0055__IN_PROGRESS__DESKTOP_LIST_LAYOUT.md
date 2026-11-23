@@ -104,7 +104,7 @@ Table card (today)                    Dense list card
 - **Toolbar.** `+ Date`, go to file, and the task menu sit at the right of the task line, in that order. Pin and manual-order drag handle keep their current positions in the same action slot.
 - **Visibility.** Desktop: hidden until the card is hovered or contains focus (`:hover`, `:focus-within`), so keyboard users reach every control in tab order. While the date editor is open the toolbar stays visible. Mobile: always visible, because touch has no hover.
 - **File path.** Not shown as a line; the go-to-file button's tooltip and accessible name carry the path. The board's "Show file path" setting still controls whether the go-to-file button exists.
-- **Dates and properties.** Existing date chips and pretty properties render on one compact line beneath the text only when the task has some. `+ Date` opens the existing date editor beneath the line.
+- **Dates and properties.** Existing date chips and pretty properties render beneath the text, without dividers, only when the task has some (dates and other properties keep their own rows). `+ Date` opens the existing date editor beneath the line.
 - **Lines.** No borders inside a card. Cards butt together, separated by a single bottom border. The column accent strip remains.
 - Subtasks, consolidated tags, and debug properties render as today, without interior dividers.
 
@@ -209,19 +209,26 @@ Rules:
 
 **Implemented by:** [1b6a526](https://github.com/ErikaRS/task-list-kanban/commit/1b6a526)
 
-### Phase 4: Dense list cards
+### Phase 4: Dense list cards 🚧 IN PROGRESS
 
 **Goal:** List cards take one line with an inline toolbar (Requirement 9, Dense list cards).
 
-1. Add a `dense` flag to `task.svelte`, passed by `BoardCell` from the list renderer.
-2. Move `+ Date` and go to file into the action slot when dense; render date chips and properties on one line only when present.
-3. Desktop hover/focus-within visibility; always visible on mobile.
-4. Remove interior card borders in the list; single divider between cards.
-5. Test: dense card exposes `+ Date`, go to file, and menu on the task line with the path as accessible name, and renders no date line without dates; Table card unchanged.
+1. ✅ Add a `dense` flag to `task.svelte`, passed by `BoardCell` from the list renderer.
+2. ✅ Move `+ Date` and go to file into the action slot when dense; render date chips and properties on one line only when present.
+3. ✅ Desktop hover/focus-within visibility; always visible on mobile.
+4. ✅ Remove interior card borders in the list; single divider between cards.
+5. ✅ Test: dense card exposes `+ Date`, go to file, and menu on the task line with the path as accessible name, and renders no date line without dates; Table card unchanged.
 
 **Deliverable:** Dense list cards on desktop and mobile.
 
-**Implemented by:** *pending*
+**Implementation notes:**
+- `+ Date` in the toolbar is a calendar icon labelled "Edit task dates"; it calls `TaskDateFields.openEditor()`, so the card keeps the single persistent date-editor instance. `TaskDateFields` gained `showAddButton` to suppress its own button.
+- The empty date row stays mounted but hidden (`dense-empty`) so the editor can open in place.
+- The toolbar fades with `opacity`, not `visibility`, so its controls stay in the tab order; it stays visible while the date editor is open.
+- Flush cards and single dividers come from the existing `.mobile-list-cell .task` rules in `styles.css`, which apply to list cells on both platforms.
+- Not yet verified in Obsidian (checked in a browser harness only).
+
+**Implemented by:** *this commit*
 
 ### Phase 5: Per-cell folding in List
 
