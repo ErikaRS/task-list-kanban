@@ -1,7 +1,7 @@
 Status: COMPLETE
 Implemented: 2026-02
 
-The stored-break decoding contract below is superseded by [SPEC 0056](../SPEC_0056__IN_PROGRESS__PLAIN_MARKDOWN_TASK_CONTENT.md): previews use literal Markdown, and legacy breaks migrate only on a saved text edit. This document retains the original implementation history.
+The stored-break decoding contract below is superseded by [SPEC 0056](SPEC_0056__COMPLETE__PLAIN_MARKDOWN_TASK_CONTENT.md): previews use literal Markdown, and legacy breaks migrate only on a saved text edit. This document retains the original implementation history.
 
 # Plugin/Theme Status Styling Compatibility
 

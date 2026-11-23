@@ -6,9 +6,7 @@ Active specs stay here until their required implementation is complete and accep
 
 ## Active work and remaining validation
 
-- [0056 — Plain Markdown Task Content](SPEC_0056__IN_PROGRESS__PLAIN_MARKDOWN_TASK_CONTENT.md) — Implementation and automated regressions verified; owner approved editing behavior. Refs [#210](https://github.com/ErikaRS/task-list-kanban/issues/210). Broader native Obsidian/device/theme acceptance remains open.
 - [0057 — Embedded Boards (Read-Only)](SPEC_0057__IN_PROGRESS__EMBEDDED_BOARDS.md) — Design approved for planning; no phases started. Refs [#207](https://github.com/ErikaRS/task-list-kanban/issues/207).
-- [0058 — Subtask Interaction Regressions](SPEC_0058__IN_PROGRESS__SUBTASK_INTERACTION_REGRESSIONS.md) — Owner report 2026-11-23 (no issue yet): subtask status clicks and drag reorder do not write in native Obsidian. Diagnostics added; repro pending.
 
 ## Completed and historical specs
 
@@ -61,6 +59,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 - [0045 — Mobile task lists and shared editor](complete/SPEC_0045__COMPLETE__MOBILE_DENSITY_AND_EDITOR_CONSISTENCY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
 - [0046 — Reschedule overdue tasks](complete/SPEC_0046__COMPLETE__RESCHEDULE_OVERDUE_TO_TODAY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
 - [0055 — Desktop List Layout](complete/SPEC_0055__COMPLETE__DESKTOP_LIST_LAYOUT.md) — Refs [#186](https://github.com/ErikaRS/task-list-kanban/issues/186).
+- [0056 — Plain Markdown Task Content](complete/SPEC_0056__COMPLETE__PLAIN_MARKDOWN_TASK_CONTENT.md) — Owner confirmed all manual acceptance checks on 2026-11-23; Refs [#210](https://github.com/ErikaRS/task-list-kanban/issues/210).
 - [0047 — Property filters](complete/SPEC_0047__COMPLETE__PROPERTY_FILTERS.md)
 - [0048 — SPEC 0048 - Keep Column Tag On Completion](complete/SPEC_0048__COMPLETE__KEEP_COLUMN_TAG_ON_COMPLETION.md)
 - [0049 — Inherit swimlane properties](complete/SPEC_0049__COMPLETE__NEW_TASKS_INHERIT_LANE_PROPERTY.md) — Remaining acceptance checks waived by the owner on 2026-10-17.
@@ -73,7 +72,7 @@ Completed specs are in [`complete/`](complete/); SPEC 0031 is retained there as 
 
 ## Numbering and maintenance
 
-- Numbers are global across active and completed specs. The next unused number is **0058**.
+- Numbers are global across active and completed specs. The next unused number is **0059**. **0058** was deleted (it tracked a stale-build report) and is not reused.
 - Advance Card was originally also numbered 0043. It is now **0051**; **0043** remains Open Filtered Source Files. Historical commits retain the old filename.
 - Keep implementation links current and label waived checks explicitly without claiming they passed. Move a spec into `complete/` and change its status after required checks are verified or explicitly waived by the owner.
 - Follow [the planning guide](../README.planning.md) for new specs.

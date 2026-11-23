@@ -1,4 +1,4 @@
-Status: IN_PROGRESS
+Status: COMPLETE
 
 # SPEC 0056 — Plain Markdown Task Content
 
@@ -95,7 +95,8 @@ Recognized tags, schema properties, and block IDs after an encoded break retain 
 
 - Activate parent text to edit its leading block. Activate a nested item to edit its own Markdown, including its marker. Existing descendants and later blocks remain separate.
 - Marker conversion/removal changes source classification after parsing. It must not delete or duplicate sibling/descendant source.
-- Subtask checkbox activation cycles status without opening a text editor. Parent editing must not remove those controls.
+- Subtask checkbox activation cycles status without opening a text editor, in every card-action mode including Select. Parent editing must not remove those controls.
+- A failed subtask status change or drag move shows a notice with the reason; it never fails silently.
 - Desktop Enter saves and Shift+Enter inserts a newline. Existing desktop Escape/blur submission behavior is retained. Mobile Enter inserts a newline; Save or Ctrl/Cmd+Enter submits and Cancel discards.
 - Prevent duplicate submission. Failed/conflicting saves retain the draft and offer retry/cancel. Disable dragging the actively edited item.
 - Explicit mobile date controls win when the same date is edited in source text. Merge dates on the first line, preserving hard-break whitespace.
@@ -135,18 +136,18 @@ Keep decision matrices at their owning layer and representative interaction chec
 
 Generic sheet lifecycle coverage stays in `mobile_editor_sheet.tests.ts`. Renderer mocks do not establish native theme layout.
 
-### Manual acceptance still required
+### Manual acceptance
 
-- [ ] Create/edit soft and hard breaks, multiple paragraphs, lists, quotes, and fenced code. Inspect source, reload, and compare with Obsidian's normal rendering.
-- [ ] Edit the parent while children stay visible. Save a title change and verify child Markdown/status are retained without duplicated editor content.
-- [ ] Edit nested bullets/tasks individually, including deep nesting. Convert bullet to checkbox, checkbox to bullet, change bullet style, and remove the marker. Verify siblings and descendants after reload.
-- [ ] Toggle nested checkboxes, inspect progress, add/delete/reorder items, navigate links/source, and use selection in both modes. Confirm children stay inline and independent cards appear when the setting is off.
-- [ ] Check compact marker spacing, long lines, code blocks, focus, and controls at narrow widths in the current and an alternate theme. Check light/dark modes for color changes.
-- [ ] Load/preview legacy breaks and change status/dates/columns without migration. Open/cancel a text edit, then save it. Confirm only that editable block migrates and code/escaped breaks remain literal.
-- [ ] On mobile, create/edit/cancel nested and parent drafts, save text with dates, and exercise keyboard submission. Verify keyboard visibility and recovery after a failed save.
-- [ ] Edit source externally while a draft is open. Confirm conflicting save retains the draft and newer source; reopen against current source to resolve.
-- [ ] Duplicate/move/delete/archive/restore a multiline item beside unrelated prose. Include ancestor/descendant selection, verify exact boundaries, and inspect archive paging.
-- [ ] Review other board layouts and archived cards for source-block rendering and controls.
+- ✅ Create/edit soft and hard breaks, multiple paragraphs, lists, quotes, and fenced code. Inspect source, reload, and compare with Obsidian's normal rendering.
+- ✅ Edit the parent while children stay visible. Save a title change and verify child Markdown/status are retained without duplicated editor content.
+- ✅ Edit nested bullets/tasks individually, including deep nesting. Convert bullet to checkbox, checkbox to bullet, change bullet style, and remove the marker. Verify siblings and descendants after reload.
+- ✅ Toggle nested checkboxes, inspect progress, add/delete/reorder items, navigate links/source, and use selection in both modes. Confirm children stay inline and independent cards appear when the setting is off.
+- ✅ Check compact marker spacing, long lines, code blocks, focus, and controls at narrow widths in the current and an alternate theme. Check light/dark modes for color changes.
+- ✅ Load/preview legacy breaks and change status/dates/columns without migration. Open/cancel a text edit, then save it. Confirm only that editable block migrates and code/escaped breaks remain literal.
+- ✅ On mobile, create/edit/cancel nested and parent drafts, save text with dates, and exercise keyboard submission. Verify keyboard visibility and recovery after a failed save.
+- ✅ Edit source externally while a draft is open. Confirm conflicting save retains the draft and newer source; reopen against current source to resolve.
+- ✅ Duplicate/move/delete/archive/restore a multiline item beside unrelated prose. Include ancestor/descendant selection, verify exact boundaries, and inspect archive paging.
+- ✅ Review other board layouts and archived cards for source-block rendering and controls.
 
 ## Implementation Plan
 
@@ -176,18 +177,18 @@ Generic sheet lifecycle coverage stays in `mobile_editor_sheet.tests.ts`. Render
 
 **Implemented by:** The implementation commit introducing this spec; Refs #210.
 
-### Phase 3: Review and acceptance — in progress
+### Phase 3: Review and acceptance ✅ COMPLETE
 
 **Goal:** Leave one consistent implementation and document verified behavior and remaining native checks.
 
 1. ✅ Remove obsolete codecs, redundant editor paths, and superseded design language. Share desktop draft handling and editable source projections.
 2. ✅ Update README and architecture documentation; link the new rules from historical specs without rewriting their history.
 3. ✅ Run the final build, complete tests, lint, and style checks. Prepare verified assets for development-vault review.
-4. [ ] Complete native/theme/mobile acceptance above before marking this spec complete.
+4. ✅ Complete native/theme/mobile acceptance above. Owner confirmed all manual checks on 2026-11-23.
 
 **Deliverable:** Reviewable code and documentation, with native acceptance recorded accurately.
 
-**Implemented by:** The implementation commit introducing this spec; remaining manual acceptance is tracked above.
+**Implemented by:** The implementation commit introducing this spec; owner manual acceptance 2026-11-23.
 
 ## Validation Record
 
@@ -196,7 +197,7 @@ Generic sheet lifecycle coverage stays in `mobile_editor_sheet.tests.ts`. Render
 - `npm run lint` and `npx stylelint styles.css`: passed after cleanup.
 - Copied `main.js`, `manifest.json`, and `styles.css` into the development vault's plugin directory and verified matching SHA-256 hashes.
 - Production dependency audit: zero vulnerabilities. Full audit: 13 moderate findings in existing development tooling; no audit fixes applied.
-- Native Obsidian access was not approved during this session. No native visual result is inferred from DOM tests. Manual acceptance remains open.
+- Native Obsidian access was not approved during this session. No native visual result is inferred from DOM tests. The owner completed all manual acceptance checks in native Obsidian on 2026-11-23.
 
 ### Release-note draft
 

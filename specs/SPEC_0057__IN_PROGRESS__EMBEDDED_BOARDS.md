@@ -45,7 +45,7 @@ display changes landing in both renderers. See
    Card content includes:
    - status marker;
    - rendered Markdown content (including nested items and later blocks, per
-     [SPEC 0056](SPEC_0056__IN_PROGRESS__PLAIN_MARKDOWN_TASK_CONTENT.md)),
+     [SPEC 0056](complete/SPEC_0056__COMPLETE__PLAIN_MARKDOWN_TASK_CONTENT.md)),
      with excluded tags stripped;
    - displayed properties and dates;
    - overdue styling;
