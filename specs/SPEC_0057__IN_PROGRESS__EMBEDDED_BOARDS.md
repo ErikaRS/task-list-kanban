@@ -1,4 +1,4 @@
-Status: IN_PROGRESS (design approved for planning; no phases started)
+Status: IN_PROGRESS (Phase 1 complete; Phase 2 next)
 
 # SPEC 0057: Embedded Boards (Read-Only)
 
@@ -179,14 +179,33 @@ because card display is where most future visual changes land.
 
 SPEC 0056 made the source rows harder to split, because each rendered block
 is now also its own editor. The split has to separate "render this block"
-from "edit this block" in `TaskSourceRow`. SPEC 0056 is still
-`IN_PROGRESS`, so Phase 2 waits until 0056 is complete to avoid refactoring
-a component that is still changing.
+from "edit this block" in `TaskSourceRow`. SPEC 0056 is now complete, so
+Phase 2 can start.
 
 If the extraction turns out too invasive (it is decided at the end of Phase 1),
 the fallback is a separate static card. It would be built from the same pure
 helpers (`task_markdown.ts`, `properties/display.ts`,
 `task_status_display.ts`), with the higher upkeep described below.
+
+**Decision (Phase 1 spike): extract.** The fallback is rejected. Findings:
+
+- Display and interaction already meet at `TaskLineRow`'s slots (`marker`,
+  default content, `actions`) in both `task.svelte` and `TaskSourceRow.svelte`.
+  Those slots are the seams: `TaskCardBody` owns the card layout and static
+  display, and `task.svelte` fills the interactive slots (selection and done
+  buttons, `MarkdownBodyEditor` while editing, pin/drag handle, menu, dense
+  toolbar, `TaskDateFields`, the add-subtask button).
+- The Markdown preview pipeline (`MarkdownRenderer.render`, internal-link
+  click and hover handlers, post-processing) is already duplicated between
+  `task.svelte` and `TaskSourceRow.svelte`. Phase 2 moves it into one shared
+  helper first. A static fallback card would have made that a third copy.
+- `TaskSourceRow` should not split into two components. It gains a read-only
+  mode (static status marker, no drag, delete, or editor) so that how a
+  Markdown block renders stays in one place, which is the part SPEC 0056
+  changed and the part most likely to change again.
+- The subtask progress bar, consolidated tags, property chips, date chips, and
+  the file path are plain display markup with no write paths. They move as-is.
+  The dense toolbar's file button and `TaskDateFields` stay in `task.svelte`.
 
 **Static renderer (`embedded_board.svelte`).**
 - **Header:** board name (opens the board), the count label from
@@ -351,20 +370,28 @@ These are not part of this spec. Each would need its own spec with an
 
 ## Implementation Plan
 
-### Phase 1: Shared snapshot and presentation (no user-visible change)
+### Phase 1: Shared snapshot and presentation (no user-visible change) ✅ COMPLETE
 **Goal:** Dashboard counts and the full board get their data and layout
 decisions from the shared modules the embed will use.
 
-1. Extract `loadBoardSnapshot` from `board_stats.ts`, and rebuild
-   `countTasks` on top of it.
-2. Extract `board_presentation.ts` from `main.svelte` (filtering, column
+1. ✅ Extract `loadBoardSnapshot` from `board_stats.ts`, and rebuild
+   `countTasks` on top of it. `src/ui/boards/board_snapshot.ts` provides
+   `resolveBoardScope` (no reads), `boardParseKey`, `parseBoardTasks`, and
+   `loadBoardSnapshot`. The stats service keeps its cache-before-parse check
+   and derives counts with the pure `countBoardTasks`.
+2. ✅ Extract `board_presentation.ts` from `main.svelte` (filtering, column
    grouping, visibility, ordering, flow, matrix, count label), with unit tests
-   at that layer.
-3. Spike `TaskCardBody.svelte` extraction from `task.svelte` and
+   at that layer. `main.svelte` had a second, unused copy of column grouping,
+   visibility, and ordering (`groupByColumnTag`, `orderedColumns`) alongside
+   `deriveBoardMatrix`. It was removed, so `presentBoard` is the only path.
+3. ✅ Spike `TaskCardBody.svelte` extraction from `task.svelte` and
    `TaskSourceRow.svelte` (render vs edit per block, `dense` flag), and record
-   the decision (extract or fallback) in this spec.
-4. Test: the existing suite passes. New pure tests cover visibility, ordering,
-   and the count label.
+   the decision (extract or fallback) in this spec. Decision: extract; see
+   [Shared card display](#architecture).
+4. ✅ Test: the existing suite passes. New pure tests cover filter
+   application, visibility after filtering, the collapse source, and the count
+   label. Ordering and RTL/BTT reversal are already covered by
+   `board_matrix.tests.ts`, so they aren't repeated.
 
 **Deliverable:** No behavior change. Shared modules are ready, and the card
 strategy is decided.

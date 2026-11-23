@@ -22,7 +22,7 @@
 	import { listCellKey, shouldUseListRenderer, shouldUseMobileBoardLayout } from "./board/list_layout";
 	import { mobileKeyboardBoardLayout } from "./mobile_editor_layout";
 	import { mobileVisibleBottom } from "./mobile_visible_area";
-	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
+	import { presentBoard, resolveBoardFilter } from "./board/board_presentation";
 	import ViewEditor from "./view_editor.svelte";
 	import {
 		createGroupAssigner,
@@ -34,13 +34,12 @@
 	import Icon from "./components/icon.svelte";
 	import { readable, writable, type Writable, type Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type BoardSettingsStore, type SavedView, type SettingValues, type BoardLayout, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { type BoardSettingsStore, type SavedView, type SettingValues, type BoardLayout, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
 	import { onMount, onDestroy, tick } from "svelte";
 	import type { App } from "obsidian";
-	import { getBoardTaskCount } from "./board_counts";
 	import { collectPresentManualOrderKeys } from "./tasks/manual_order";
 	import {
 		readBoardFilterState,
@@ -50,7 +49,6 @@
 	} from "./filters/filter_state";
 	import DeleteFilterModal from "./components/delete_filter_modal.svelte";
 	import {
-		isEmptyFilterQuery,
 		parseFilterQueryResult,
 		serializeFilterQuery,
 		taskMatchesFilterQuery,
@@ -481,27 +479,6 @@
 
 	$: dateFilterKeys = activeSchema.knownKeys().filter((key) => key.type === "date");
 
-	function groupByColumnTag(
-		tasks: Task[],
-	): Record<ColumnTag | DefaultColumns, Task[]> {
-		const output: Record<ColumnTag | DefaultColumns, Task[]> = {
-			uncategorised: [],
-			done: [],
-		};
-		for (const task of tasks) {
-			if (task.done || task.column === "done") {
-				output["done"] = output["done"].concat(task);
-			} else if (task.column === "archived") {
-				// ignored
-			} else if (task.column) {
-				output[task.column] = (output[task.column] ?? []).concat(task);
-			} else {
-				output["uncategorised"] = output["uncategorised"].concat(task);
-			}
-		}
-		return output;
-	}
-
 	let columns: ColumnTag[];
 	$: columns = $settingsStore.columns.map((column) => column.id);
 
@@ -580,9 +557,8 @@
 	// Draft: mirrored by the expanded editor. Applied: filters the board.
 	$: draftResult = parseFilterQueryResult(filterQueryText, dateFilterKeyNames);
 	$: draftQuery = draftResult.query;
-	$: appliedResult = parseFilterQueryResult(appliedQueryText, dateFilterKeyNames);
-	$: appliedQuery = appliedResult.query;
-	$: isFiltered = !!appliedResult.error || !isEmptyFilterQuery(appliedQuery);
+	$: appliedFilter = resolveBoardFilter(appliedQueryText, dateFilterKeyNames);
+	$: appliedQuery = appliedFilter.query;
 	$: savedViews = $settingsStore.savedViews ?? [];
 	$: globalSavedViews = $globalViewsStore ?? [];
 	$: mergedSavedViews = mergeLocalAndGlobalSavedViews(savedViews, globalSavedViews);
@@ -1080,11 +1056,21 @@
 		updateMobilePanelPosition();
 	}
 
-	$: filteredTasks = appliedResult.error ? [] : isFiltered
-		? $tasksStore.filter((task) =>
-				taskMatchesFilterQuery(task, appliedQuery, $todayStore),
-			)
-		: $tasksStore;
+	// Which tasks show and where is decided in board_presentation.ts, shared
+	// with the embedded board (SPEC 0057). Add presentation rules there, not
+	// inline here.
+	$: presentation = presentBoard({
+		tasks: $tasksStore,
+		settings: $settingsStore,
+		filter: appliedFilter,
+		collapsedColumns: $collapsedColumnsStore,
+		today: $todayStore,
+	});
+	$: filteredTasks = presentation.filteredTasks;
+	$: activeMatrix = presentation.matrix;
+	$: renderedMatrix = presentation.renderedMatrix;
+	$: boardTaskCountLabel = presentation.countLabel;
+	$: isVerticalFlow = presentation.isVerticalFlow;
 	$: sourceFilePaths = sourcePathsFromTasks(filteredTasks).filter((path) =>
 		app.vault.getAbstractFileByPath(path) instanceof TFile,
 	);
@@ -1098,19 +1084,9 @@
 		? selectedSourceFilePaths.filter((path) => !currentlyOpenMarkdownPaths.has(path)).length
 		: selectedSourceFilePaths.length;
 
-	$: tasksByColumn = groupByColumnTag(filteredTasks);
-
-	$: totalTaskCount = getBoardTaskCount($tasksStore);
-	$: filteredTaskCount = getBoardTaskCount(filteredTasks);
-	$: boardTaskCountLabel = (isFiltered
-		? `${filteredTaskCount} of ${totalTaskCount} tasks`
-		: `Total: ${totalTaskCount} tasks`) + ($settingsStore.showArchivedColumn ? " (active)" : "");
-
 	$: ({
 		showFilepath = true,
 		consolidateTags = false,
-		uncategorizedVisibility = VisibilityOption.Auto,
-		doneVisibility = VisibilityOption.AlwaysShow,
 		columnWidth = 300,
 		flowDirection = FlowDirection.LeftToRight,
 		uncategorizedColumnName,
@@ -1129,41 +1105,6 @@
 	// Resolution reports whether the target came from the default, so templated
 	// and daily-note defaults are labeled too
 	$: targetFileIsDefault = targetDestination?.isDefault ?? false;
-
-	$: showUncategorizedColumn =
-		uncategorizedVisibility === VisibilityOption.AlwaysShow ||
-		(uncategorizedVisibility === VisibilityOption.Auto && tasksByColumn["uncategorised"]?.length > 0);
-
-	$: showDoneColumn =
-		doneVisibility === VisibilityOption.AlwaysShow ||
-		(doneVisibility === VisibilityOption.Auto && tasksByColumn["done"]?.length > 0);
-
-	// Build ordered list of all visible columns, reversed for RTL and BTT
-	$: orderedColumns = (() => {
-		const allColumns: string[] = [];
-		if (showUncategorizedColumn) allColumns.push("uncategorised");
-		allColumns.push(...columns);
-		if (showDoneColumn) allColumns.push("done");
-		const shouldReverse =
-			flowDirection === FlowDirection.RightToLeft ||
-			flowDirection === FlowDirection.BottomToTop;
-		return shouldReverse ? allColumns.reverse() : allColumns;
-	})();
-
-	$: isVerticalFlow =
-		flowDirection === FlowDirection.TopToBottom ||
-		flowDirection === FlowDirection.BottomToTop;
-
-	$: activeMatrix = deriveBoardMatrix(
-		filteredTasks,
-		$settingsStore.columns,
-		{
-			...$settingsStore,
-			collapsedColumns: Array.from($collapsedColumnsStore)
-		},
-		$todayStore,
-	);
-	$: renderedMatrix = hideSwimlanesWithOnlyCollapsedContent(activeMatrix);
 
 	// --- Sort control (board header) ---
 	// Available sort keys are the active schema's known keys, plus — for Dataview
