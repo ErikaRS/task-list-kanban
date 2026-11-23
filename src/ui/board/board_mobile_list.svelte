@@ -2,7 +2,7 @@
 	import type { App } from "obsidian";
 	import type { NewTaskTarget } from "../tasks/actions";
 	import type { Readable } from "svelte/store";
-	import { getBoardCell, type BoardMatrix, type PrimaryBucketId } from "./board_matrix";
+	import { getBoardCell, type AxisBucket, type BoardMatrix, type PrimaryBucketId } from "./board_matrix";
 	import type {
 		ColumnTagTable,
 		ColumnColourTable,
@@ -25,6 +25,8 @@
 		getPrimaryBucketTasks,
 		getSecondaryBucketTasks,
 		hasVisibleMobileGroupHeaders,
+		listCellKey,
+		resolveListCellFold,
 	} from "./mobile_layout";
 
 	export let app: App;
@@ -57,13 +59,26 @@
 	export let isVerticalFlow = false;
 	/** Platform mobile uses the floating add action; desktop List uses the inline composer (SPEC 0055). */
 	export let mobileCreation = true;
+	/** List-only single-cell folds (SPEC 0055); see listCellKey(). */
+	export let collapsedCells: string[] = [];
+	export let onToggleCellCollapse: (primaryId: PrimaryBucketId, secondaryId: string) => void = () => {};
 
 	$: tasksByPrimary = Object.fromEntries(
 		matrix.primaryAxis.map((bucket) => [bucket.id, getPrimaryBucketTasks(matrix, bucket.id)]),
 	);
 
 	$: showGroupLabels = hasVisibleMobileGroupHeaders(matrix);
-	$: groupDominant = deriveMobileHierarchyMode(matrix, isVerticalFlow) === "group-dominant";
+	$: hierarchyMode = deriveMobileHierarchyMode(matrix, isVerticalFlow);
+	$: groupDominant = hierarchyMode === "group-dominant";
+	$: foldedCells = new Set(collapsedCells);
+	// Inner headers fold one cell; the inner axis's board-wide fold is ignored.
+	$: isCellFolded = (pBucket: AxisBucket<PrimaryBucketId>, sBucket: AxisBucket) => resolveListCellFold(hierarchyMode, {
+		columnCollapsed: pBucket.collapsed,
+		groupCollapsed: sBucket.collapsed,
+		cellCollapsed: foldedCells.has(listCellKey(sBucket.id, pBucket.id)),
+	}).cellCollapsed;
+	const cellToggleLabel = (folded: boolean, inner: string, outer: string) =>
+		`${folded ? "Expand" : "Collapse"} ${inner} in ${outer}`;
 	$: tasksBySecondary = Object.fromEntries(
 		matrix.secondaryAxis.map((bucket) => [bucket.id, getSecondaryBucketTasks(matrix, bucket.id)]),
 	);
@@ -114,23 +129,25 @@
 
 			{#if !pBucket.collapsed}
 				{#each matrix.secondaryAxis as sBucket (sBucket.id)}
-					<div class="mobile-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty}>
+					<div class="mobile-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty}
+						class:cell-folded={isCellFolded(pBucket, sBucket)}>
 						{#if showGroupLabels}
 							<MobileSectionHeader
 								bucket={sBucket}
 								count={getMobileCellTaskCount(matrix, pBucket.id, sBucket.id)}
 								headingLevel={3}
 								className="mobile-inner-header mobile-group-label"
-								collapsible={isCollapsibleGroup(sBucket)}
-								isCollapsed={sBucket.collapsed}
-								onToggleCollapse={() => onToggleGroupCollapse(sBucket.id)}
+								collapsible={true}
+								isCollapsed={isCellFolded(pBucket, sBucket)}
+								onToggleCollapse={() => onToggleCellCollapse(pBucket.id, sBucket.id)}
+								toggleLabel={cellToggleLabel(isCellFolded(pBucket, sBucket), sBucket.label, pBucket.label)}
 								{app}
 								{taskActions}
 								{excludedTags}
 								{propertySchemaOption}
 							/>
 						{/if}
-						{#if !sBucket.collapsed}
+						{#if !isCellFolded(pBucket, sBucket)}
 							<BoardCell
 							{app}
 							cell={getBoardCell(matrix, pBucket.id, sBucket.id)}
@@ -186,7 +203,8 @@
 				</header>
 				{#if !sBucket.collapsed}
 					{#each matrix.primaryAxis as pBucket (pBucket.id)}
-					<div class="mobile-cell mobile-group-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty} style:--column-color={pBucket.meta?.color}>
+					<div class="mobile-cell mobile-group-cell" class:compact-empty={getBoardCell(matrix, pBucket.id, sBucket.id).isEmpty}
+						class:cell-folded={isCellFolded(pBucket, sBucket)} style:--column-color={pBucket.meta?.color}>
 						<header class="mobile-inner-header mobile-cell-column-header">
 							<ColumnHeader
 								column={pBucket.id}
@@ -196,8 +214,9 @@
 								{columnColourTableStore}
 								{columnMatchTagTableStore}
 								{columnSubtitleTableStore}
-								isCollapsed={pBucket.collapsed}
-								onToggleCollapse={() => onToggleCollapse(pBucket.id)}
+								isCollapsed={isCellFolded(pBucket, sBucket)}
+								onToggleCollapse={() => onToggleCellCollapse(pBucket.id, sBucket.id)}
+								collapseLabel={cellToggleLabel(isCellFolded(pBucket, sBucket), pBucket.label, sBucket.label)}
 								{uncategorizedColumnName}
 								{doneColumnName}
 								{cardActionMode}
@@ -207,7 +226,7 @@
 								headingLevel={3}
 							/>
 						</header>
-						{#if !pBucket.collapsed}
+						{#if !isCellFolded(pBucket, sBucket)}
 							<BoardCell
 								{app}
 								cell={getBoardCell(matrix, pBucket.id, sBucket.id)}
@@ -383,6 +402,15 @@
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 		z-index: 3;
+	}
+
+	// A folded cell is just its header: no band of cell padding beneath it.
+	.mobile-cell.cell-folded {
+		padding-bottom: 0;
+
+		> :global(.mobile-inner-header) {
+			margin-bottom: 0;
+		}
 	}
 
 	.mobile-cell.compact-empty {

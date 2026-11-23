@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it, vi } from "vitest";
+import { tick } from "svelte";
 import { writable } from "svelte/store";
 import type { App } from "obsidian";
 import type { TaskActions } from "../../tasks/actions";
@@ -61,4 +62,32 @@ it("uses the inline add control on desktop and the floating action on mobile", (
 	const mobile = mount(true);
 	expect(mobile.querySelector(".mobile-create-task")).not.toBeNull();
 	expect(mobile.querySelector('[aria-label="Add new task to Doing"]')).toBeNull();
+});
+
+// SPEC 0055: an inner header folds one cell; the same group stays open in
+// other columns, and the board-wide group fold (Table's) is ignored in List.
+it("folds a single cell from its inner header", async () => {
+	const todo = "todo" as ColumnTag;
+	const cell = (primaryId: ColumnTag, secondaryId: string) =>
+		({ primaryId, secondaryId, tasks: [], isEmpty: true });
+	const grouped = {
+		primaryAxis: [
+			{ id: doing, label: "Doing", kind: "column", collapsed: false },
+			{ id: todo, label: "Todo", kind: "column", collapsed: false },
+		],
+		secondaryAxis: [{ id: "home", label: "Home", kind: "group", collapsed: true, meta: { source: { kind: "text", literals: [] } } }],
+		cells: { doing: { home: cell(doing, "home") }, todo: { home: cell(todo, "home") } },
+	} as unknown as BoardMatrix;
+	const host = mount(false);
+	const onToggleCellCollapse = vi.fn();
+	component!.$set({ matrix: grouped, collapsedCells: [JSON.stringify(["home", todo])], onToggleCellCollapse, columnTagTableStore: writable({ doing: "Doing", todo: "Todo" }) });
+	await tick();
+
+	expect(host.querySelector('[aria-label="Add new task to Doing"]')).not.toBeNull();
+	expect(host.querySelector('[aria-label="Add new task to Todo"]')).toBeNull();
+
+	host.querySelector<HTMLButtonElement>('[aria-label="Expand Home in Todo"]')!.click();
+	expect(onToggleCellCollapse).toHaveBeenCalledWith(todo, "home");
+	host.querySelector<HTMLButtonElement>('[aria-label="Collapse Home in Doing"]')!.click();
+	expect(onToggleCellCollapse).toHaveBeenLastCalledWith(doing, "home");
 });

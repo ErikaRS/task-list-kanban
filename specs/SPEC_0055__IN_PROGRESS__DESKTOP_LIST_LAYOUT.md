@@ -122,9 +122,9 @@ Rules:
 1. In List, a cell is hidden when its outer bucket is folded or the cell is folded. The *inner* axis's whole-board fold (`collapsedGroups` in column-dominant, `collapsedColumns` in group-dominant) is ignored.
 2. Table ignores `collapsedCells` entirely; it has no per-cell affordance to show or undo one.
 3. Switching Table ↔ List or changing flow preserves all three lists. A cell folded in List is open in Table and folded again on return.
-4. A folded cell whose bucket disappears (date rollover, tag removed) leaves an unused key, as with `collapsedGroups` today. Keys for buckets no longer on the board are pruned when the board is next saved.
+4. A folded cell whose bucket disappears (date rollover, tag removed) leaves an unused key, as with `collapsedGroups` today. Keys are not pruned: a filter can hide a bucket temporarily, and pruning against the visible board would forget folds the user still wants.
 5. A folded cell keeps its header with its count, including when filtering empties it.
-6. `hideSwimlanesWithOnlyCollapsedContent` stays a Table concern; List keeps every cell's header so a folded cell can be reopened.
+6. `hideSwimlanesWithOnlyCollapsedContent` stays a Table concern: List renders the unhidden matrix, so every cell keeps its header and a folded cell can be reopened.
 
 ## Detailed Behavior
 
@@ -230,18 +230,25 @@ Rules:
 
 **Implemented by:** [ea96d6e](https://github.com/ErikaRS/task-list-kanban/commit/ea96d6e)
 
-### Phase 5: Per-cell folding in List
+### Phase 5: Per-cell folding in List 🚧 IN PROGRESS
 
 **Goal:** Inner headers fold a single cell (Requirement 10, Per-cell folding in List).
 
-1. Add `collapsedCells` to the settings schema and a pure helper that resolves a cell's folded state for List from the three lists and the hierarchy mode.
-2. Inner headers in both hierarchies toggle the cell; outer headers keep their shared toggles.
-3. Prune keys for buckets not on the board when saving.
-4. Test: helper rules (outer fold, cell fold, ignored inner-axis fold in both hierarchies); toggling an inner header writes only that cell; Table rendering ignores `collapsedCells`.
+1. ✅ Add `collapsedCells` to the settings schema and a pure helper that resolves a cell's folded state for List from the three lists and the hierarchy mode.
+2. ✅ Inner headers in both hierarchies toggle the cell; outer headers keep their shared toggles.
+3. ~~Prune keys for buckets not on the board when saving.~~ Dropped; see Per-cell folding rule 4.
+4. ✅ Test: helper rules (outer fold, cell fold, ignored inner-axis fold in both hierarchies); toggling an inner header writes only that cell; folds survive parsing. Table needs no test: `deriveBoardMatrix` never reads `collapsedCells`.
 
 **Deliverable:** Independent cell folding in List that leaves Table unaffected.
 
-**Implemented by:** *pending*
+**Implementation notes:**
+- Keys are `JSON.stringify([groupId, columnId])` (`listCellKey`), so ids containing any separator cannot collide.
+- Inner toggles have cell-specific accessible names, e.g. "Collapse Home in Todo".
+- Every inner header in List is foldable, including the default "ungrouped" bucket when it is shown alongside real groups.
+- A folded cell drops its padding so it reads as just a header.
+- Not yet verified in Obsidian (checked in a browser harness only).
+
+**Implemented by:** *this commit*
 
 ### Phase 6: Naming cleanup and acceptance
 

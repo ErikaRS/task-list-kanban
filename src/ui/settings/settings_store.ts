@@ -286,6 +286,7 @@ const settingsObject = z.object({
 	layout: z.enum(BOARD_LAYOUTS).catch("table").optional(),
 	collapsedColumns: z.array(z.string()).optional(),
 	collapsedGroups: z.array(z.string()).optional(),
+	collapsedCells: z.array(z.string()).optional(),
 	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").optional(),
 	newTaskPosition: z.enum(["top", "bottom"]).catch("bottom").optional(),
 	defaultTaskFile: z.string().optional(),
@@ -347,6 +348,8 @@ export interface SettingValues {
 	layout?: BoardLayout;
 	collapsedColumns?: string[];
 	collapsedGroups?: string[];
+	/** List-only folds of single cells (SPEC 0055); keys from listCellKey(). */
+	collapsedCells?: string[];
 	newTaskHeading?: string;
 	newTaskPosition?: "top" | "bottom";
 	defaultTaskFile?: string;
@@ -394,6 +397,7 @@ export const defaultSettings: SettingValues = {
 	layout: "table",
 	collapsedColumns: [],
 	collapsedGroups: [],
+	collapsedCells: [],
 	newTaskHeading: "",
 	newTaskPosition: "bottom",
 	defaultTaskFile: "",

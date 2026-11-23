@@ -33,6 +33,8 @@
 	export let columnSubtitleTableStore: Readable<ColumnSubtitleTable>;
 	export let isCollapsed: boolean = false;
 	export let onToggleCollapse: () => void;
+	/** Overrides the toggle's accessible name, e.g. for a single List cell. */
+	export let collapseLabel: string | undefined = undefined;
 	export let uncategorizedColumnName: string | undefined = undefined;
 	export let doneColumnName: string | undefined = undefined;
 	export let cardActionMode: CardActionMode = "done";
@@ -202,7 +204,7 @@
 				}
 			}}
 			aria-expanded={!isCollapsed}
-			aria-label="{isCollapsed ? 'Expand' : 'Collapse'} {columnTitle} column"
+			aria-label={collapseLabel ?? `${isCollapsed ? "Expand" : "Collapse"} ${columnTitle} column`}
 		>{collapseIcon}</span>
 		<div class="column-title-group">
 			<svelte:element this={`h${headingLevel}`} id={headingId ?? `column-title-${column}`} title={columnTitle}>{columnTitle}</svelte:element>

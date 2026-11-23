@@ -19,7 +19,7 @@
 	import type { ArchivePageReader } from "./tasks/archive_reader";
 	import BoardMatrixDesktop from "./board/board_matrix_desktop.svelte";
 	import BoardMobileList from "./board/board_mobile_list.svelte";
-	import { shouldUseListRenderer, shouldUseMobileBoardLayout } from "./board/mobile_layout";
+	import { listCellKey, shouldUseListRenderer, shouldUseMobileBoardLayout } from "./board/mobile_layout";
 	import { mobileKeyboardBoardLayout } from "./mobile_editor_layout";
 	import { mobileVisibleBottom } from "./mobile_visible_area";
 	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
@@ -408,6 +408,23 @@
 				collapsedGroups: collapsed.includes(groupId)
 					? collapsed.filter(id => id !== groupId)
 					: [...collapsed, groupId],
+			};
+		});
+		requestSave();
+	}
+
+	// List-only fold of one group within one column (SPEC 0055). Table
+	// ignores these; stale keys are kept, like collapsedGroups, because a
+	// filter can hide a bucket temporarily.
+	function toggleCellCollapse(primaryId: ColumnTag | DefaultColumns, secondaryId: string) {
+		const key = listCellKey(secondaryId, primaryId);
+		settingsStore.update(s => {
+			const collapsed = s.collapsedCells ?? [];
+			return {
+				...s,
+				collapsedCells: collapsed.includes(key)
+					? collapsed.filter(k => k !== key)
+					: [...collapsed, key],
 			};
 		});
 		requestSave();
@@ -1656,7 +1673,9 @@
 							{app}
 							{overdueRescheduleCount}
 							onRescheduleOverdue={rescheduleOverdueTasks}
-							matrix={renderedMatrix}
+							matrix={activeMatrix}
+							collapsedCells={$settingsStore.collapsedCells ?? []}
+							onToggleCellCollapse={toggleCellCollapse}
 							{taskActions}
 							{columnTagTableStore}
 							{columnColourTableStore}

@@ -16,6 +16,29 @@ export function shouldUseListRenderer(isMobile: boolean, layout: BoardLayout | u
 	return isMobile || layout === "list";
 }
 
+/**
+ * Key for a single folded cell in List (SPEC 0055). Group first, then
+ * column; JSON so ids containing any separator cannot collide.
+ */
+export function listCellKey(secondaryId: SecondaryBucketId, primaryId: PrimaryBucketId): string {
+	return JSON.stringify([secondaryId, primaryId]);
+}
+
+/**
+ * Which folds apply to a List cell. The outer header folds for the whole
+ * board (shared with Table); the inner header folds only this cell. The
+ * inner axis's whole-board fold is ignored in List.
+ */
+export function resolveListCellFold(
+	mode: MobileHierarchyMode,
+	folds: { columnCollapsed: boolean; groupCollapsed: boolean; cellCollapsed: boolean },
+): { outerCollapsed: boolean; cellCollapsed: boolean } {
+	return {
+		outerCollapsed: mode === "column-dominant" ? folds.columnCollapsed : folds.groupCollapsed,
+		cellCollapsed: folds.cellCollapsed,
+	};
+}
+
 /** A default bucket represents an ungrouped board, not a visible group. */
 export function hasVisibleMobileGroupHeaders(matrix: BoardMatrix): boolean {
 	if (matrix.secondaryAxis.some(bucket => bucket.meta?.source?.kind !== undefined && bucket.meta.source.kind !== "none")) {

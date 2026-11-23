@@ -685,6 +685,11 @@ describe("Board layout configuration (SPEC 0055)", () => {
 		expect(parseSettings({ layout: "list" }).layout).toBe("list");
 	});
 
+	it("keeps list cell folds through a parse", () => {
+		const key = JSON.stringify(["home", "todo"]);
+		expect(parseSettings({ collapsedCells: [key] }).collapsedCells).toEqual([key]);
+	});
+
 	it("falls back to table for an invalid layout without losing other settings", () => {
 		const parsed = parseSettings({ layout: "grid", flowDirection: "btt" });
 		expect(parsed.layout).toBe("table");

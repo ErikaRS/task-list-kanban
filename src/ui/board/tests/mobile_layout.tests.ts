@@ -7,6 +7,8 @@ import {
 	getPrimaryBucketTasks,
 	getSecondaryBucketTasks,
 	hasVisibleMobileGroupHeaders,
+	listCellKey,
+	resolveListCellFold,
 	shouldUseListRenderer,
 } from "../mobile_layout";
 
@@ -44,6 +46,24 @@ describe("list renderer selection (SPEC 0055)", () => {
 		expect(shouldUseListRenderer(false, "list")).toBe(true);
 		expect(shouldUseListRenderer(false, "table")).toBe(false);
 		expect(shouldUseListRenderer(false, undefined)).toBe(false);
+	});
+});
+
+describe("list cell folds (SPEC 0055)", () => {
+	const folds = { columnCollapsed: true, groupCollapsed: true, cellCollapsed: false };
+
+	it("folds the outer axis board-wide and ignores the inner axis's board-wide fold", () => {
+		expect(resolveListCellFold("column-dominant", { ...folds, columnCollapsed: false }))
+			.toEqual({ outerCollapsed: false, cellCollapsed: false });
+		expect(resolveListCellFold("group-dominant", { ...folds, groupCollapsed: false }))
+			.toEqual({ outerCollapsed: false, cellCollapsed: false });
+		expect(resolveListCellFold("group-dominant", { ...folds, cellCollapsed: true }))
+			.toEqual({ outerCollapsed: true, cellCollapsed: true });
+	});
+
+	it("keys cells by group and column without separator collisions", () => {
+		expect(listCellKey("a::b", "c" as any)).not.toBe(listCellKey("a", "b::c" as any));
+		expect(listCellKey("g", "c" as any)).not.toBe(listCellKey("c", "g" as any));
 	});
 });
 
