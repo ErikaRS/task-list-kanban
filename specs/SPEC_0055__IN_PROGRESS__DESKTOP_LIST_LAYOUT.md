@@ -108,7 +108,7 @@ The cap is a fixed reading width, not tied to Card width, which stays a Table-on
 
 1. ~~**Maximum list width on wide screens.**~~ Resolved: desktop List is capped at 800px and centered rather than filling the pane.
 2. **Card width on mobile.** Today the mobile list ignores width, yet the control is still visible there. This spec hides it on mobile to match the rule "no width option in List". Confirm this is wanted.
-3. **Segmented control versus dropdown** for Layout. The view editor currently uses a dropdown for Flow; a two-value toggle seems better but is a styling choice.
+3. ~~**Segmented control versus dropdown** for Layout.~~ Resolved: a Table / List segmented toggle.
 
 ## Implementation Plan
 
@@ -132,16 +132,21 @@ The cap is a fixed reading width, not tied to Card width, which stays a Table-on
 
 **Implemented by:** *pending*
 
-### Phase 2: Layout control and width visibility
+### Phase 2: Layout control and width visibility 🚧 IN PROGRESS
 
 **Goal:** The user can switch Table/List from the view editor, and Card width appears only for Table.
 
-1. Add the Layout row to `view_editor.svelte`, hidden on mobile.
-2. Hide the Card width row when the list renderer is in effect (including on mobile).
-3. Persist through the existing settings write path as a pinned override.
-4. Test: view editor shows Layout and Width correctly for desktop Table, desktop List, and mobile.
+1. ✅ Add the Layout row to `view_editor.svelte`, hidden on mobile.
+2. ✅ Hide the Card width row when the list renderer is in effect (including on mobile).
+3. ✅ Persist through the existing settings write path as a pinned override.
+4. ✅ Test: view editor shows Layout and Width correctly for desktop Table, desktop List, and mobile.
 
 **Deliverable:** Working in-board toggle with the width control appearing and disappearing.
+
+**Implementation notes:**
+- Layout is a Table / List segmented toggle (`role="group"`, `aria-pressed` buttons) sharing the tag-group mode toggle's styling. This resolves Open Question 3.
+- The view editor decides its own row visibility from `layout` and `isMobile` via `shouldUseListRenderer`, so Card width is hidden on mobile as well as desktop List (Open Question 2, as specified).
+- Saved-view capture does not include layout yet; that is Phase 3.
 
 **Implemented by:** *pending*
 

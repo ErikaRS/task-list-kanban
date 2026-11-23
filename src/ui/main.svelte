@@ -34,7 +34,7 @@
 	import Icon from "./components/icon.svelte";
 	import { readable, writable, type Writable, type Readable } from "svelte/store";
 	import type { TaskActions } from "./tasks/actions";
-	import { type BoardSettingsStore, type SavedView, type SettingValues, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
+	import { type BoardSettingsStore, type SavedView, type SettingValues, type BoardLayout, VisibilityOption, FlowDirection, PropertyDisplayMode } from "./settings/settings_store";
 	import { getSchemaImpl } from "../parsing/properties/index";
 	import { PropertySchemaOption } from "../parsing/properties/property_schema";
 	import { ColumnOrderMode } from "../parsing/properties/comparators";
@@ -1315,6 +1315,14 @@
 		requestSave();
 	}
 
+	// Pinned so the board keeps its choice even when it matches the
+	// plugin-wide default and that default later changes.
+	function setLayout(value: BoardLayout) {
+		$settingsStore.layout = value;
+		settingsStore.pinOverrides(["layout"]);
+		requestSave();
+	}
+
 	function setShowArchivedColumn(show: boolean) {
 		$settingsStore.showArchivedColumn = show;
 		settingsStore.pinOverrides(["showArchivedColumn"]);
@@ -1423,6 +1431,9 @@
 								{columnWidth}
 								onSetFlowDirection={setFlowDirection}
 								onSetColumnWidth={setColumnWidth}
+								layout={$settingsStore.layout ?? "table"}
+								isMobile={isMobileBoardLayout}
+								onSetLayout={setLayout}
 								showArchivedColumn={$settingsStore.showArchivedColumn ?? false}
 								onSetShowArchivedColumn={setShowArchivedColumn}
 								savedViews={mergedSavedViews}
