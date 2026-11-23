@@ -198,3 +198,55 @@ export async function loadBoardSnapshot(
 		cacheKey: boardParseKey(scope.settings, scope.inScopeFiles),
 	};
 }
+
+export interface BoardSnapshotCache {
+	/**
+	 * The board's current snapshot. Settings and scope are always resolved
+	 * afresh (no reads); tasks are re-parsed only when the parse key changed
+	 * since the cached parse. Concurrent loads of one board share a parse.
+	 */
+	load(boardPath: string, now: Date): Promise<BoardSnapshot | undefined>;
+	clear(): void;
+}
+
+/**
+ * Plugin-wide snapshot cache for embedded boards, so several embeds of the
+ * same board share one parse. Bounded to the most recently loaded boards.
+ */
+export function createBoardSnapshotCache(
+	host: BoardSnapshotHost,
+	maxBoards = 16,
+): BoardSnapshotCache {
+	const entries = new Map<string, { key: string; tasks: Promise<Task[]> }>();
+
+	return {
+		async load(boardPath, now) {
+			const scope = resolveBoardScope(host, boardPath, now);
+			if (!scope) {
+				entries.delete(boardPath);
+				return undefined;
+			}
+			const key = boardParseKey(scope.settings, scope.inScopeFiles);
+			let entry = entries.get(boardPath);
+			if (!entry || entry.key !== key) {
+				const tasks = parseBoardTasks(host, scope.settings, scope.inScopeFiles);
+				entry = { key, tasks };
+				// A failed parse must not stay cached.
+				tasks.catch(() => {
+					if (entries.get(boardPath) === entry) entries.delete(boardPath);
+				});
+			}
+			// Re-insert to mark as most recently used.
+			entries.delete(boardPath);
+			entries.set(boardPath, entry);
+			while (entries.size > maxBoards) {
+				const oldest = entries.keys().next().value as string;
+				entries.delete(oldest);
+			}
+			return { ...scope, tasks: await entry.tasks, cacheKey: key };
+		},
+		clear() {
+			entries.clear();
+		},
+	};
+}

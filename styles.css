@@ -20,7 +20,8 @@ If your plugin does not need CSS, delete this file.
    list wrapper is unwrapped, so paragraph/theme indentation must not add
    another gap between that marker and the text. Inner Markdown keeps its
    normal list and paragraph styling. */
-.task-list-kanban-view .source-row.is-source-list-item > .task-line-row > .task-line-content > .source-row-preview > p {
+.task-list-kanban-view .source-row.is-source-list-item > .task-line-row > .task-line-content > .source-row-preview > p,
+.task-list-kanban-embed .source-row.is-source-list-item > .task-line-row > .task-line-content > .source-row-preview > p {
 	margin: 0;
 	padding: 0;
 	text-indent: 0;

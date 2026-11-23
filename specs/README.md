@@ -6,7 +6,7 @@ Active specs stay here until their required implementation is complete and accep
 
 ## Active work and remaining validation
 
-- [0057 — Embedded Boards (Read-Only)](SPEC_0057__IN_PROGRESS__EMBEDDED_BOARDS.md) — Phase 1 (shared snapshot and presentation) complete; Phase 2 (shared card body) next. Refs [#207](https://github.com/ErikaRS/task-list-kanban/issues/207).
+- [0057 — Embedded Boards (Read-Only)](SPEC_0057__IN_PROGRESS__EMBEDDED_BOARDS.md) — Phases 1–3 implemented (desktop Table embed); manual checks and Phase 4 (List layout) next. Refs [#207](https://github.com/ErikaRS/task-list-kanban/issues/207).
 
 ## Completed and historical specs
 

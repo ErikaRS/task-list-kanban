@@ -1,4 +1,4 @@
-Status: IN_PROGRESS (Phases 1–2 implemented; Phase 3 in progress)
+Status: IN_PROGRESS (Phases 1–3 implemented, awaiting manual checks; Phase 4 partly done)
 
 # SPEC 0057: Embedded Boards (Read-Only)
 
@@ -421,26 +421,33 @@ strategy is decided.
 
 **Implemented by:**
 
-### Phase 3: Embed, desktop Table
+### Phase 3: Embed, desktop Table 🚧 IN PROGRESS (implemented; manual checks pending)
 **Goal:** A user adds a `task-list-kanban` block and sees a live, read-only
 board on desktop that opens the board on click. Boards set to List render
 as Table until Phase 4.
 
-1. Add the `embed_block.ts` parser (`board`, `view`, `filter`, `height`,
-   `layout`) with error reporting and tests.
-2. Add `EmbeddedBoardChild`, the processor registration, lazy mount, error
-   callouts, and the click-to-open board.
-3. Add `embedded_board.svelte`: header, static Table grid via
-   `desktop_matrix_projection`, and cards via `TaskCardBody`.
-4. Add refresh (vault and metadata events, debounce, midnight) using the
-   snapshot cache.
-5. Test: one representative rendering test of a fixture through the embed,
+1. ✅ Add the `embed_block.ts` parser (`board`, `view`, `filter`, `height`,
+   `layout`) with error reporting and tests. `board:` also accepts
+   `[[link|alias]]` and quoted values.
+2. ✅ Add `EmbeddedBoardChild`, the processor registration, lazy mount, error
+   callouts, and the click-to-open board. The Obsidian-free logic is in
+   `embedded_board_controller.ts`; the child only wires events and mounting.
+   `vault_snapshot_host.ts` is the app-backed snapshot host, now also used by
+   dashboard counts.
+3. ✅ Add `embedded_board.svelte`: header, static Table grid via
+   `desktop_matrix_projection`, and cards via `TaskCardBody`. Column
+   subtitles (match tags, status, priority) are not shown yet.
+4. ✅ Add refresh (vault and metadata events, debounce, midnight) using the
+   snapshot cache (`createBoardSnapshotCache`, plugin-wide, bounded to 16
+   boards). Dashboard counts keep their own count cache rather than holding
+   parsed tasks for every board.
+5. ✅ Test: one representative rendering test of a fixture through the embed,
    checking columns, lanes, and the collapsed stub.
-6. Test: refresh on an in-scope file change. No refresh on an out-of-scope
+6. ✅ Test: refresh on an in-scope file change. No refresh on an out-of-scope
    change.
-7. Test: the embed makes no vault writes (vault double with `modify`/`process`
+7. ✅ Test: the embed makes no vault writes (vault double with `modify`/`process`
    that fails the test if called).
-8. Manual: Reading view and Live Preview. All flow directions, swimlanes,
+8. Manual (use `test-vault/obsidian-plugin-dev/Embedded Boards.md`): Reading view and Live Preview. All flow directions, swimlanes,
    collapsed columns, and the persisted filter.
 
 **Deliverable:** A working read-only embed on desktop.
@@ -453,9 +460,11 @@ narrow panes, and honor `view` and `filter`.
 
 1. Add the List body (via `list_layout.ts`, dense cards, saved
    `collapsedCells`) and the `layout` parameter with container-width `auto`.
-2. Wire `view` and `filter` into `board_presentation` inputs, with inline
-   errors for unknown views and bad filters.
-3. Test: `view`/`filter` resolution in the parser and presentation layer.
+2. ✅ Wire `view` and `filter` into `board_presentation` inputs, with inline
+   errors for unknown views and bad filters. Done early, in Phase 3
+   (`resolveEmbedInputs`). A view applies its sort, group, flow, layout,
+   width, and archive settings, and its query if it has one.
+3. ✅ Test: `view`/`filter` resolution in the parser and presentation layer.
 4. Manual: phone and tablet, sidebar-width pane, and a note with several
    embeds (lazy mount).
 

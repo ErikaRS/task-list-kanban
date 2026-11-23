@@ -20,8 +20,9 @@ import {
 	createBoardStatsService,
 	type BoardStatsService,
 } from "./ui/dashboard/board_stats";
-import { PATH_SCOPE_FRONTMATTER_KEY, parsePathScope } from "./ui/tasks/path_scope";
-import { toSettingsPayload } from "./ui/kanban_frontmatter";
+import { createVaultSnapshotHost } from "./ui/boards/vault_snapshot_host";
+import { createBoardSnapshotCache, type BoardSnapshotCache } from "./ui/boards/board_snapshot";
+import { createEmbedHost, registerEmbeddedBoards } from "./ui/embed/embedded_board_child";
 import { removeInjectedStyles } from "./ui/injected_styles";
 import {
 	BoardFolderPickerModal,
@@ -54,6 +55,7 @@ export default class Base extends Plugin {
 	);
 	private boardIndex: BoardIndex | undefined;
 	private boardStats: BoardStatsService | undefined;
+	private embedSnapshots: BoardSnapshotCache | undefined;
 
 	async onload() {
 		this.globalSettingsStore.set(parseGlobalSettings(await this.loadData()));
@@ -61,24 +63,25 @@ export default class Base extends Plugin {
 		this.boardIndex = boardIndex;
 		// Plugin-level so the count cache survives panel close/reopen; only
 		// panel requests trigger computes (SPEC 0033 Phase 3).
-		const boardStats = createBoardStatsService({
-			getMarkdownFiles: () => this.app.vault.getMarkdownFiles(),
-			cachedRead: (file) => this.app.vault.cachedRead(file),
-			getBoardSettingsPayload: (file) =>
-				toSettingsPayload(
-					this.app.metadataCache.getFileCache(file)?.frontmatter?.[
-						"kanban_plugin"
-					],
-				),
-			getBoardPathScope: (file) =>
-				parsePathScope(
-					this.app.metadataCache.getFileCache(file)?.frontmatter?.[
-						PATH_SCOPE_FRONTMATTER_KEY
-					],
-				),
-			getGlobalSettings: () => this.globalSettingsStore.get(),
-		});
+		const snapshotHost = createVaultSnapshotHost(this.app, () => this.globalSettingsStore.get());
+		const boardStats = createBoardStatsService(snapshotHost);
 		this.boardStats = boardStats;
+
+		// Read-only embedded boards (SPEC 0057). One snapshot cache, so several
+		// embeds of a board share a parse.
+		const embedSnapshots = createBoardSnapshotCache(snapshotHost);
+		this.embedSnapshots = embedSnapshots;
+		registerEmbeddedBoards(this, {
+			host: createEmbedHost(this.app, embedSnapshots, () => this.globalSettingsStore.get()),
+			globalSettingsStore: this.globalSettingsStore,
+			openBoard: (path, newLeaf) => {
+				void this.app.workspace.getLeaf(newLeaf).setViewState({
+					type: KANBAN_VIEW_NAME,
+					state: { file: path },
+					active: true,
+				});
+			},
+		});
 		this.registerView(
 			KANBAN_VIEW_NAME,
 			(leaf) =>
@@ -274,6 +277,7 @@ export default class Base extends Plugin {
 	onunload() {
 		this.boardIndex?.destroy();
 		this.boardStats?.destroy();
+		this.embedSnapshots?.clear();
 		removeInjectedStyles(document);
 	}
 
