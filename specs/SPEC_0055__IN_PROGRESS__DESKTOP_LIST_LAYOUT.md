@@ -228,7 +228,7 @@ Rules:
 - Flush cards and single dividers come from the existing `.mobile-list-cell .task` rules in `styles.css`, which apply to list cells on both platforms.
 - Not yet verified in Obsidian (checked in a browser harness only).
 
-**Implemented by:** *this commit*
+**Implemented by:** [ea96d6e](https://github.com/ErikaRS/task-list-kanban/commit/ea96d6e)
 
 ### Phase 5: Per-cell folding in List
 
