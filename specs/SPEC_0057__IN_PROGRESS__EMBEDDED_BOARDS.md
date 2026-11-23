@@ -396,7 +396,7 @@ decisions from the shared modules the embed will use.
 **Deliverable:** No behavior change. Shared modules are ready, and the card
 strategy is decided.
 
-**Implemented by:**
+**Implemented by:** [a2d0082](https://github.com/ErikaRS/task-list-kanban/commit/a2d0082)
 
 ### Phase 2: Shared card body (no user-visible change)
 **Goal:** Board cards render their display through `TaskCardBody`.
