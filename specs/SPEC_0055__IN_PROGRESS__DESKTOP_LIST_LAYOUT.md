@@ -248,7 +248,7 @@ Rules:
 - A folded cell drops its padding so it reads as just a header.
 - Not yet verified in Obsidian (checked in a browser harness only).
 
-**Implemented by:** *this commit*
+**Implemented by:** [f6c3e6f](https://github.com/ErikaRS/task-list-kanban/commit/f6c3e6f)
 
 ### Phase 6: Naming cleanup and acceptance
 
