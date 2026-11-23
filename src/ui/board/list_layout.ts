@@ -2,7 +2,7 @@ import { getBoardCell, type BoardMatrix, type PrimaryBucketId, type SecondaryBuc
 import type { Task } from "../tasks/task";
 import type { BoardLayout } from "../settings/settings_store";
 
-export type MobileHierarchyMode = "column-dominant" | "group-dominant";
+export type ListHierarchyMode = "column-dominant" | "group-dominant";
 
 export function shouldUseMobileBoardLayout(isMobile: boolean): boolean {
 	return isMobile;
@@ -30,7 +30,7 @@ export function listCellKey(secondaryId: SecondaryBucketId, primaryId: PrimaryBu
  * inner axis's whole-board fold is ignored in List.
  */
 export function resolveListCellFold(
-	mode: MobileHierarchyMode,
+	mode: ListHierarchyMode,
 	folds: { columnCollapsed: boolean; groupCollapsed: boolean; cellCollapsed: boolean },
 ): { outerCollapsed: boolean; cellCollapsed: boolean } {
 	return {
@@ -40,7 +40,7 @@ export function resolveListCellFold(
 }
 
 /** A default bucket represents an ungrouped board, not a visible group. */
-export function hasVisibleMobileGroupHeaders(matrix: BoardMatrix): boolean {
+export function hasVisibleListGroupHeaders(matrix: BoardMatrix): boolean {
 	if (matrix.secondaryAxis.some(bucket => bucket.meta?.source?.kind !== undefined && bucket.meta.source.kind !== "none")) {
 		return true;
 	}
@@ -48,11 +48,11 @@ export function hasVisibleMobileGroupHeaders(matrix: BoardMatrix): boolean {
 		(matrix.secondaryAxis.length > 0 && !matrix.secondaryAxis[0]?.meta?.isDefault);
 }
 
-export function deriveMobileHierarchyMode(
+export function deriveListHierarchyMode(
 	matrix: BoardMatrix,
 	isVerticalFlow: boolean,
-): MobileHierarchyMode {
-	return isVerticalFlow && hasVisibleMobileGroupHeaders(matrix)
+): ListHierarchyMode {
+	return isVerticalFlow && hasVisibleListGroupHeaders(matrix)
 		? "group-dominant"
 		: "column-dominant";
 }
@@ -73,7 +73,7 @@ export function getSecondaryBucketTasks(
 	);
 }
 
-export function getMobileCellTaskCount(
+export function getListCellTaskCount(
 	matrix: BoardMatrix,
 	primaryId: PrimaryBucketId,
 	secondaryId: SecondaryBucketId,
@@ -81,6 +81,6 @@ export function getMobileCellTaskCount(
 	return getBoardCell(matrix, primaryId, secondaryId).tasks.length;
 }
 
-export function formatMobileTaskCount(count: number): string {
+export function formatListTaskCount(count: number): string {
 	return count === 1 ? "1 task" : `${count} tasks`;
 }

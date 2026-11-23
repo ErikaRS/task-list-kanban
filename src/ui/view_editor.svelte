@@ -2,7 +2,7 @@
 	import CompactTagSelect from "./components/select/compact_tag_select.svelte";
 	import Icon from "./components/icon.svelte";
 	import { FlowDirection, isFlowDirection, type BoardLayout } from "./settings/settings_store";
-	import { shouldUseListRenderer } from "./board/mobile_layout";
+	import { shouldUseListRenderer } from "./board/list_layout";
 	import {
 		savedViewPropertyLabels,
 		type SavedViewListEntry,

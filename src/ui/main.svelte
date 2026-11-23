@@ -18,8 +18,8 @@
 	import ArchiveColumn from "./board/archive_column.svelte";
 	import type { ArchivePageReader } from "./tasks/archive_reader";
 	import BoardMatrixDesktop from "./board/board_matrix_desktop.svelte";
-	import BoardMobileList from "./board/board_mobile_list.svelte";
-	import { listCellKey, shouldUseListRenderer, shouldUseMobileBoardLayout } from "./board/mobile_layout";
+	import BoardList from "./board/board_list.svelte";
+	import { listCellKey, shouldUseListRenderer, shouldUseMobileBoardLayout } from "./board/list_layout";
 	import { mobileKeyboardBoardLayout } from "./mobile_editor_layout";
 	import { mobileVisibleBottom } from "./mobile_visible_area";
 	import { deriveBoardMatrix, hideSwimlanesWithOnlyCollapsedContent } from "./board/board_matrix";
@@ -1669,7 +1669,7 @@
 					bind:clientWidth={columnsClientWidth}
 				>
 					{#if listRenderer}
-						<BoardMobileList
+						<BoardList
 							{app}
 							{overdueRescheduleCount}
 							onRescheduleOverdue={rescheduleOverdueTasks}
@@ -1706,7 +1706,7 @@
 								<CardActionModeSelector mode={cardActionMode} disabled={$dashboardOpenStore}
 									onChange={setCardActionMode} onOpen={openCardActionModeMenu} />
 							</svelte:fragment>
-						</BoardMobileList>
+						</BoardList>
 					{:else}
 						<BoardMatrixDesktop
 							{app}

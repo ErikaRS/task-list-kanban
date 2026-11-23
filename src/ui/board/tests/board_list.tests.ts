@@ -7,14 +7,14 @@ import type { TaskActions } from "../../tasks/actions";
 import type { ColumnTag } from "../../columns/columns";
 import type { BoardMatrix } from "../board_matrix";
 import { MOBILE_CREATION } from "../mobile_creation";
-import BoardMobileList from "../board_mobile_list.svelte";
+import BoardList from "../board_list.svelte";
 
 vi.mock("obsidian", () => {
 	class Stub {}
 	return { setIcon: vi.fn(), Platform: { isMobile: false }, Modal: Stub, Menu: Stub, Notice: Stub, MarkdownRenderer: Stub, Component: Stub, TFile: Stub, setTooltip: vi.fn() };
 });
 
-let component: BoardMobileList | undefined;
+let component: BoardList | undefined;
 afterEach(() => { component?.$destroy(); component = undefined; document.body.innerHTML = ""; });
 
 const doing = "doing" as ColumnTag;
@@ -28,7 +28,7 @@ function mount(mobileCreation: boolean) {
 	const host = document.createElement("div");
 	document.body.append(host);
 	const empty = writable({});
-	component = new BoardMobileList({
+	component = new BoardList({
 		target: host,
 		context: new Map([[MOBILE_CREATION, writable(null)]]),
 		props: {

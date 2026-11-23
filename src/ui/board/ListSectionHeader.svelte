@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatMobileTaskCount } from "./mobile_layout";
+	import { formatListTaskCount } from "./list_layout";
 	import type { AxisBucket, PrimaryBucketId } from "./board_matrix";
 	import GroupLabel from "./GroupLabel.svelte";
 	import RescheduleOverdueButton from "./RescheduleOverdueButton.svelte";
@@ -87,7 +87,7 @@
 			{isCollapsed ? "▶" : "▼"}
 		</button>
 	{/if}
-	<GroupLabel {bucket} /> <span class="mobile-section-count">{isCollapsed ? count : formatMobileTaskCount(count)}</span>
+	<GroupLabel {bucket} /> <span class="mobile-section-count">{isCollapsed ? count : formatListTaskCount(count)}</span>
 	<RescheduleOverdueButton {bucket} count={overdueRescheduleCount} onReschedule={onRescheduleOverdue} />
 </svelte:element>
 

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { BoardMatrix } from "../board_matrix";
 import {
-	deriveMobileHierarchyMode,
-	formatMobileTaskCount,
-	getMobileCellTaskCount,
+	deriveListHierarchyMode,
+	formatListTaskCount,
+	getListCellTaskCount,
 	getPrimaryBucketTasks,
 	getSecondaryBucketTasks,
-	hasVisibleMobileGroupHeaders,
+	hasVisibleListGroupHeaders,
 	listCellKey,
 	resolveListCellFold,
 	shouldUseListRenderer,
-} from "../mobile_layout";
+} from "../list_layout";
 
 const task = (id: string) => ({ id }) as any;
 
@@ -70,8 +70,8 @@ describe("list cell folds (SPEC 0055)", () => {
 describe("mobile board hierarchy", () => {
 	it("uses group dominance only for vertical flow with a real grouping", () => {
 		const grouped = matrix();
-		expect(deriveMobileHierarchyMode(grouped, false)).toBe("column-dominant");
-		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
+		expect(deriveListHierarchyMode(grouped, false)).toBe("column-dominant");
+		expect(deriveListHierarchyMode(grouped, true)).toBe("group-dominant");
 	});
 
 	it("hides the default ungrouped bucket even in vertical flow", () => {
@@ -80,8 +80,8 @@ describe("mobile board hierarchy", () => {
 		delete ungrouped.cells.done!["project-b"];
 		delete ungrouped.cells.todo!["project-b"];
 
-		expect(hasVisibleMobileGroupHeaders(ungrouped)).toBe(false);
-		expect(deriveMobileHierarchyMode(ungrouped, true)).toBe("column-dominant");
+		expect(hasVisibleListGroupHeaders(ungrouped)).toBe(false);
+		expect(deriveListHierarchyMode(ungrouped, true)).toBe("column-dominant");
 	});
 
 	it("keeps a single explicit grouping bucket visible", () => {
@@ -90,8 +90,8 @@ describe("mobile board hierarchy", () => {
 		delete grouped.cells.done!["project-b"];
 		delete grouped.cells.todo!["project-b"];
 
-		expect(hasVisibleMobileGroupHeaders(grouped)).toBe(true);
-		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
+		expect(hasVisibleListGroupHeaders(grouped)).toBe(true);
+		expect(deriveListHierarchyMode(grouped, true)).toBe("group-dominant");
 	});
 
 	it("keeps a single default bucket visible when it belongs to an active grouping", () => {
@@ -101,8 +101,8 @@ describe("mobile board hierarchy", () => {
 		delete grouped.cells.todo!["project-b"];
 		grouped.secondaryAxis[0]!.meta!.source = { kind: "property", key: "due" };
 
-		expect(hasVisibleMobileGroupHeaders(grouped)).toBe(true);
-		expect(deriveMobileHierarchyMode(grouped, true)).toBe("group-dominant");
+		expect(hasVisibleListGroupHeaders(grouped)).toBe(true);
+		expect(deriveListHierarchyMode(grouped, true)).toBe("group-dominant");
 	});
 
 	it("derives outer and cell counts from exact visible matrix buckets", () => {
@@ -111,10 +111,10 @@ describe("mobile board hierarchy", () => {
 		expect(getPrimaryBucketTasks(grouped, "todo" as any)).toHaveLength(3);
 		expect(getSecondaryBucketTasks(grouped, "project-a")).toHaveLength(3);
 		expect(getSecondaryBucketTasks(grouped, "project-b")).toHaveLength(1);
-		expect(getMobileCellTaskCount(grouped, "done", "project-a")).toBe(1);
-		expect(getMobileCellTaskCount(grouped, "todo" as any, "project-a")).toBe(2);
-		expect(getMobileCellTaskCount(grouped, "done", "project-b")).toBe(0);
-		expect(formatMobileTaskCount(1)).toBe("1 task");
-		expect(formatMobileTaskCount(3)).toBe("3 tasks");
+		expect(getListCellTaskCount(grouped, "done", "project-a")).toBe(1);
+		expect(getListCellTaskCount(grouped, "todo" as any, "project-a")).toBe(2);
+		expect(getListCellTaskCount(grouped, "done", "project-b")).toBe(0);
+		expect(formatListTaskCount(1)).toBe("1 task");
+		expect(formatListTaskCount(3)).toBe("3 tasks");
 	});
 });
