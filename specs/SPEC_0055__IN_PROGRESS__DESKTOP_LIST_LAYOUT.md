@@ -119,7 +119,7 @@ The cap is a fixed reading width, not tied to Card width, which stays a Table-on
 1. ✅ Add `layout` to the board settings schema and `shouldUseListRenderer` to `mobile_layout.ts`, with unit tests for the mobile/desktop and table/list combinations.
 2. ✅ Split `main.svelte` into the platform flag and the renderer flag; move only the renderer selection to the new flag.
 3. ✅ Replace the floating-action and mobile-composer creation path with the desktop inline composer when the list renders on desktop; keep the mobile path for `Platform.isMobile`.
-4. Verify sticky outer/inner headers against the desktop scroll container, with and without the archived pane.
+4. Verify sticky outer/inner headers against the desktop scroll container, with and without the archived pane. *(Confirmed manually in Obsidian after the fixes in [ad46292](https://github.com/ErikaRS/task-list-kanban/commit/ad46292); the archived-pane case is not yet separately confirmed.)*
 5. ✅ Test: a unit test for renderer selection (`shouldUseListRenderer`), plus a component test that desktop List does not use the mobile creation path.
 
 **Deliverable:** Setting `layout: list` in the board's frontmatter makes the desktop board stack as a list.
