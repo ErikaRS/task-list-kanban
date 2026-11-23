@@ -126,11 +126,23 @@ vault. When adding or changing UI styles:
   component. Use `!important` only where needed to beat host rules, including
   interaction states and mobile positioning. The source-file menu is an
   example; the filter bar also has view scoped overrides.
+- Component styles are injected at runtime as `<style id="tlk-svelte-…">`, and
+  Svelte skips injection when that id already exists. `svelte.config.js` hashes
+  each component's filename *and* CSS so an in-place plugin update (no app
+  reload) cannot keep a previous release's styles; `onunload` removes them.
+  Svelte's default hash uses only the filename, which caused #212: new
+  controls rendered unstyled in long-running vaults while the freshly reloaded
+  test vault looked correct. `src/tests/build_config.tests.ts` guards this.
+  Don't remove the custom `cssHash`.
 - Manually inspect the affected control in the test vault and at least one
   other theme or vault configuration, in both light and dark modes when colors
   are involved. Check open menus, hover, focus, disabled state, narrow widths,
-  and long labels. If a user reports a mismatch, compare computed styles and
-  enabled snippets/themes before adjusting selectors.
+  and long labels.
+- When something works in the test vault but not in another vault, rule out
+  stale styles first: does it persist after **Reload app without saving**? Is
+  the component's new CSS present in its `<style id="tlk-svelte-…">` element?
+  Only then compare computed styles and enabled snippets/themes before
+  adjusting selectors.
 
 ## Dependency audits
 

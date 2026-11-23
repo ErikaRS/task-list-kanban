@@ -22,6 +22,7 @@ import {
 } from "./ui/dashboard/board_stats";
 import { PATH_SCOPE_FRONTMATTER_KEY, parsePathScope } from "./ui/tasks/path_scope";
 import { toSettingsPayload } from "./ui/kanban_frontmatter";
+import { removeInjectedStyles } from "./ui/injected_styles";
 import {
 	BoardFolderPickerModal,
 	createBoardWithNotice,
@@ -273,6 +274,7 @@ export default class Base extends Plugin {
 	onunload() {
 		this.boardIndex?.destroy();
 		this.boardStats?.destroy();
+		removeInjectedStyles(document);
 	}
 
 	private getFirstVisibleKanbanBoardPath(): string | undefined {

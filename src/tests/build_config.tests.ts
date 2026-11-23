@@ -2,11 +2,15 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compile, preprocess, type PreprocessorGroup } from "svelte/compiler";
+import { compile, preprocess, type CompileOptions, type PreprocessorGroup } from "svelte/compiler";
 import { afterEach, describe, expect, it } from "vitest";
+import { INJECTED_STYLE_PREFIX } from "../ui/injected_styles";
 
 const require = createRequire(import.meta.url);
-const config = require("../../svelte.config.js") as { preprocess: PreprocessorGroup };
+const config = require("../../svelte.config.js") as {
+	preprocess: PreprocessorGroup;
+	compilerOptions: CompileOptions;
+};
 
 describe("production Svelte preprocessing", () => {
 	let directory: string | undefined;
@@ -46,5 +50,25 @@ describe("production Svelte preprocessing", () => {
 			config.preprocess,
 			{ filename: join(tmpdir(), "Invalid.svelte") },
 		)).rejects.toThrow("Undefined variable");
+	});
+});
+
+// #212: Svelte skips injecting a <style> whose id already exists. The id must
+// change with the CSS, or an in-place plugin update keeps the old styles.
+describe("injected component styles", () => {
+	const styleId = (css: string) => {
+		const { js } = compile(`<div></div><style>${css}</style>`, {
+			...config.compilerOptions,
+			css: "injected",
+			filename: "/src/ui/Component.svelte",
+		});
+		return js.code.match(new RegExp(`${INJECTED_STYLE_PREFIX}[a-z0-9]+`))?.[0];
+	};
+
+	it("gives changed CSS in the same file a new plugin-prefixed style id", () => {
+		const before = styleId("div { color: red; }");
+		expect(before).toBeDefined();
+		expect(styleId("div { color: red; }")).toBe(before);
+		expect(styleId("div { color: blue; }")).not.toBe(before);
 	});
 });
