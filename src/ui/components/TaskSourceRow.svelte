@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from "svelte";
-	import { Modal, Component, Keymap, MarkdownRenderer, Platform, type App } from "obsidian";
+	import { Modal, Component, Keymap, MarkdownRenderer, Notice, Platform, type App } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import {
 		getSourceNodePreview,
@@ -340,13 +340,15 @@
 		subtaskDraggingStore.set(null);
 
 		const position = dropBefore ? "before" : "after";
-		void taskActions.moveSourceBlockRow(
+		taskActions.moveSourceBlockRow(
 			task.id,
 			draggedRowIndex,
 			node.rowIndex,
 			position,
 			dragIndicatorDepth,
-		);
+		).catch((error: unknown) => {
+			new Notice(`Could not move subtask: ${error instanceof Error ? error.message : String(error)}`);
+		});
 		dropBefore = false;
 		dropAfter = false;
 	}
@@ -376,7 +378,6 @@
 					{task}
 					{taskActions}
 					{node}
-					{isSelectionMode}
 				/>
 			{:else if !editTarget && isListItem}
 				<span class="source-row-list-marker" aria-hidden="true">{node.source?.listPrefix.trim().match(/^\d/) ? node.source.listPrefix.trim() : "•"}</span>

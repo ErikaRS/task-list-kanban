@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Notice } from "obsidian";
 	import type { TaskActions } from "../tasks/actions";
 	import type { SourceTaskNode } from "../tasks/source_block";
 	import type { Task } from "../tasks/task";
@@ -7,15 +8,18 @@
 	export let task: Task;
 	export let taskActions: TaskActions;
 	export let node: SourceTaskNode;
-	export let isSelectionMode = false;
 
 	$: isDone = task.isSourceTaskStatusDone(node.status);
 	$: isIgnored = node.taskVisibility === "ignored";
 	$: isChecked = isDone || isIgnored;
 	$: displayStatusIsCustom = node.status !== " ";
 
+	// Advances status in every card-action mode, including Select (SPEC 0058).
+	// Failures (for example a stale source span) surface instead of vanishing.
 	function toggleStatus() {
-		void taskActions.toggleSourceTaskStatus(task.id, node.rowIndex);
+		taskActions.toggleSourceTaskStatus(task.id, node.rowIndex).catch((error: unknown) => {
+			new Notice(`Could not change subtask status: ${error instanceof Error ? error.message : String(error)}`);
+		});
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -33,8 +37,6 @@
 	role="checkbox"
 	aria-label="Advance subtask status"
 	aria-checked={isChecked}
-	disabled={isSelectionMode}
-	tabindex={isSelectionMode ? -1 : 0}
 	on:click|stopPropagation={toggleStatus}
 	on:keydown|stopPropagation={handleKeydown}
 >
