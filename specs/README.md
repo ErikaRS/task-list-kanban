@@ -8,6 +8,7 @@ Active specs stay here until their required implementation is complete and accep
 
 - [0056 — Plain Markdown Task Content](SPEC_0056__IN_PROGRESS__PLAIN_MARKDOWN_TASK_CONTENT.md) — Implementation and automated regressions verified; owner approved editing behavior. Refs [#210](https://github.com/ErikaRS/task-list-kanban/issues/210). Broader native Obsidian/device/theme acceptance remains open.
 - [0057 — Embedded Boards (Read-Only)](SPEC_0057__IN_PROGRESS__EMBEDDED_BOARDS.md) — Design approved for planning; no phases started. Refs [#207](https://github.com/ErikaRS/task-list-kanban/issues/207).
+- [0058 — Subtask Interaction Regressions](SPEC_0058__IN_PROGRESS__SUBTASK_INTERACTION_REGRESSIONS.md) — Owner report 2026-11-23 (no issue yet): subtask status clicks and drag reorder do not write in native Obsidian. Diagnostics added; repro pending.
 
 ## Completed and historical specs
 
