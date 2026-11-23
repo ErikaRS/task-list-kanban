@@ -8,6 +8,14 @@
 - **Plugin Framework**: Obsidian API
 - **Package Manager**: npm
 
+## Worktrees
+
+Keep the primary checkout clean on `main` and do development in the existing
+worktree on a `codex/` branch. Use `git worktree list` to find the checkouts.
+Reuse the development worktree for subsequent issues once previous work has
+landed, preserving unfinished changes. Use a temporary review worktree to test
+PRs without interrupting development.
+
 ## Build & Development Commands
 
 Use Node.js 22 (22.13 or newer) and `npm ci` to install the locked dependency tree.
