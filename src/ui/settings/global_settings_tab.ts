@@ -192,10 +192,33 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					});
 			});
 
+		// Card width only applies to Table, so it hides while List is the default.
+		let columnWidthSetting: Setting | null = null;
+		new Setting(containerEl)
+			.setName("Default layout")
+			.setDesc("Table shows columns side by side; list stacks them. Mobile always uses the list.")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("table", "Table")
+					.addOption("list", "List")
+					.setValue(defaultView.layout ?? "table")
+					.onChange((value) => {
+						columnWidthSetting?.settingEl.toggle(value !== "list");
+						void this.updateDefaultView((view) => {
+							// Table is the builtin default; store nothing for it.
+							if (value === "list") {
+								view.layout = "list";
+							} else {
+								delete view.layout;
+							}
+						});
+					});
+			});
+
 		const builtinColumnWidth = defaultSettings.columnWidth ?? 300;
 		const columnWidth = defaultView.columnWidth ?? builtinColumnWidth;
 		let columnWidthLabel: HTMLElement | null = null;
-		new Setting(containerEl)
+		columnWidthSetting = new Setting(containerEl)
 			.setName("Default card width")
 			.setDesc("Card width for boards that have not saved their own width.")
 			.addSlider((slider) => {
@@ -221,6 +244,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					cls: "setting-item-description",
 				});
 			});
+		columnWidthSetting.settingEl.toggle(defaultView.layout !== "list");
 	}
 
 	private async updateDefaultView(updater: (view: GlobalDefaultViewProperties) => void) {
@@ -249,6 +273,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 		let draftGroupDirection: SortDirection = "asc";
 		let draftTagPrefix = "";
 		let draftFlowDirection = "";
+		let draftLayout = "";
 		let draftColumnWidthEnabled = false;
 		let draftColumnWidth = defaultSettings.columnWidth ?? 300;
 
@@ -337,6 +362,18 @@ export class GlobalSettingsTab extends PluginSettingTab {
 					});
 			});
 
+		new Setting(containerEl)
+			.setName("Layout")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("", "Leave unchanged")
+					.addOption("table", "Table")
+					.addOption("list", "List")
+					.onChange((value) => {
+						draftLayout = value;
+					});
+			});
+
 		let columnWidthLabel: HTMLElement | null = null;
 		new Setting(containerEl)
 			.setName("Card width")
@@ -376,6 +413,7 @@ export class GlobalSettingsTab extends PluginSettingTab {
 							groupDirection: draftGroupDirection,
 							tagPrefix: draftTagPrefix,
 							flowDirection: draftFlowDirection,
+							layout: draftLayout,
 							columnWidth: draftColumnWidthEnabled ? draftColumnWidth : undefined,
 						});
 						if (!savedViewHasProperties(properties)) {
@@ -471,6 +509,7 @@ function buildSavedViewProperties(input: {
 	groupDirection: SortDirection;
 	tagPrefix: string;
 	flowDirection: string;
+	layout?: string;
 	columnWidth?: number;
 }): SavedViewProperties {
 	const properties: SavedViewProperties = {};
@@ -494,6 +533,9 @@ function buildSavedViewProperties(input: {
 	}
 	if (isFlowDirection(input.flowDirection)) {
 		properties.flowDirection = input.flowDirection;
+	}
+	if (input.layout === "table" || input.layout === "list") {
+		properties.layout = input.layout;
 	}
 	if (input.columnWidth !== undefined) {
 		properties.columnWidth = input.columnWidth;

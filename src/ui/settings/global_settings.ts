@@ -57,7 +57,7 @@ export interface BoardListSettings {
 	unpinnedPaths?: string[];
 }
 
-export type GlobalDefaultViewProperties = Pick<SavedViewProperties, "flowDirection" | "columnWidth">;
+export type GlobalDefaultViewProperties = Pick<SavedViewProperties, "flowDirection" | "layout" | "columnWidth">;
 
 export interface GlobalSettingsStore extends Writable<GlobalSettings> {
 	get(): GlobalSettings;
@@ -147,6 +147,9 @@ export function parseGlobalSettings(data: unknown): GlobalSettings {
 	);
 	if (parsedDefaultView.flowDirection === FlowDirection.LeftToRight) {
 		delete parsedDefaultView.flowDirection;
+	}
+	if (parsedDefaultView.layout === defaultSettings.layout) {
+		delete parsedDefaultView.layout;
 	}
 	if (parsedDefaultView.columnWidth === defaultSettings.columnWidth) {
 		delete parsedDefaultView.columnWidth;
@@ -311,6 +314,9 @@ export function pickGlobalDefaultViewProperties(
 	const picked: GlobalDefaultViewProperties = {};
 	if (view.flowDirection !== undefined) {
 		picked.flowDirection = view.flowDirection;
+	}
+	if (view.layout !== undefined) {
+		picked.layout = view.layout;
 	}
 	if (view.columnWidth !== undefined) {
 		picked.columnWidth = view.columnWidth;

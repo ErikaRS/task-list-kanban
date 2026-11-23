@@ -57,6 +57,8 @@
 	// A vertically serialized board keeps empty cells as compact create/drop
 	// affordances instead of reserving the desktop cell's empty-list space.
 	export let isCompactEmpty: boolean = false;
+	/** Platform mobile: add tasks through the floating action and composer sheet. */
+	export let mobileCreation: boolean = false;
 
 	$: column = cell.primaryId;
 	$: tasks = cell.tasks;
@@ -209,7 +211,7 @@
 <div
 	class="tasks-wrapper"
 	class:mobile-list-cell={isCompactEmpty}
-	class:has-mobile-create-task={isCompactEmpty}
+	class:has-mobile-create-task={isCompactEmpty && mobileCreation}
 	class:vertical-flow={isVerticalFlow}
 	class:collapsed={isCollapsed && !isVerticalFlow}
 	class:vertical-collapsed={isCollapsed && isVerticalFlow}
@@ -233,7 +235,7 @@
 		targetFileIsDefault={effectiveTargetFileIsDefault}
 		{propertySchemaOption}
 		{isVerticalFlow}
-		mobileLayout={isCompactEmpty}
+		mobileLayout={mobileCreation}
 		groupTitle={secondaryAxisBucket.meta?.source?.kind === "none" ? "" : secondaryAxisBucket.label}
 	/>
 	<div class="tasks">
@@ -273,6 +275,7 @@
 					isPinned={pinnedIds.has(task.id)}
 					showDragHandle={reorderEnabled}
 					onUnpin={() => taskActions.unpinTask(cell.secondaryId, column, task.id)}
+					dense={isCompactEmpty}
 				/>
 			</div>
 		{/each}

@@ -30,7 +30,13 @@ This plugin follows a modular architecture with clear separation between parsing
 - `desktop_matrix_projection.ts` selects visual axes and resolves each intersection back to canonical buckets and cells.
 - `DesktopMatrixGrid.svelte` owns tracks, continuous row bands, sticky layers, collapse geometry, and visual-role typography without branching on semantic kind or flow.
 - `DesktopAxisHeader.svelte` supplies category controls or group labels; category accents use the full-width decoration slot for visual columns and the left edge for visual rows.
-- `board_matrix_desktop.svelte` connects the projection, header adapters, and unchanged `BoardCell` task interactions. Mobile retains its separate list renderer.
+- `board_matrix_desktop.svelte` connects the projection, header adapters, and unchanged `BoardCell` task interactions. It renders the Table layout.
+
+**List Board Rendering** (`src/ui/board/`, SPEC 0038 and SPEC 0055)
+- `board_list.svelte` (`BoardList`) renders the matrix as stacked sections: always on mobile, and on desktop when the board's `layout` is `list`. `shouldUseListRenderer` in `list_layout.ts` makes that choice; platform-only behavior (rail dock, sheets, mobile editors, floating add action) keys off `Platform.isMobile` instead.
+- `list_layout.ts` derives the hierarchy (column- or group-dominant from flow direction), task counts, and per-cell folds (`collapsedCells`, List only; Table ignores them).
+- `ListSectionHeader.svelte` renders group headings in the list. List cards pass `dense` to `task.svelte` for the one-line card with its inline toolbar.
+- CSS classes in the list keep their historical `mobile-*` names.
 
 **Task Management** (`src/ui/tasks/`)
 - `task.ts`: Core Task model with parsing and serialization

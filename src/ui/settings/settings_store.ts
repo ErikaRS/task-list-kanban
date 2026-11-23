@@ -37,6 +37,7 @@ export interface SavedView {
 		direction: SortDirection;
 	};
 	flowDirection?: FlowDirection;
+	layout?: BoardLayout;
 	columnWidth?: number;
 	showArchivedColumn?: boolean;
 }
@@ -67,6 +68,10 @@ export enum FlowDirection {
 export function isFlowDirection(value: string): value is FlowDirection {
 	return (Object.values(FlowDirection) as string[]).includes(value);
 }
+
+/** How the board matrix is drawn on desktop (SPEC 0055). Mobile always lists. */
+export const BOARD_LAYOUTS = ["table", "list"] as const;
+export type BoardLayout = typeof BOARD_LAYOUTS[number];
 
 export enum PropertyDisplayMode {
 	None = "none",
@@ -193,6 +198,7 @@ const savedViewSchema = z.object({
 		direction: z.enum(["asc", "desc"]).catch("asc"),
 	}).optional(),
 	flowDirection: z.enum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	layout: z.enum(BOARD_LAYOUTS).catch("table").optional(),
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
 });
@@ -277,8 +283,10 @@ const settingsObject = z.object({
 	columnWidth: z.number().min(200).max(600).catch(300).optional(),
 	showArchivedColumn: z.boolean().optional(),
 	flowDirection: z.enum(FlowDirection).catch(FlowDirection.LeftToRight).optional(),
+	layout: z.enum(BOARD_LAYOUTS).catch("table").optional(),
 	collapsedColumns: z.array(z.string()).optional(),
 	collapsedGroups: z.array(z.string()).optional(),
+	collapsedCells: z.array(z.string()).optional(),
 	newTaskHeading: z.string().refine((value) => !getNewTaskHeadingError(value)).transform((value) => value.trim()).catch("").optional(),
 	newTaskPosition: z.enum(["top", "bottom"]).catch("bottom").optional(),
 	defaultTaskFile: z.string().optional(),
@@ -337,8 +345,11 @@ export interface SettingValues {
 	columnWidth?: number;
 	showArchivedColumn?: boolean;
 	flowDirection?: FlowDirection;
+	layout?: BoardLayout;
 	collapsedColumns?: string[];
 	collapsedGroups?: string[];
+	/** List-only folds of single cells (SPEC 0055); keys from listCellKey(). */
+	collapsedCells?: string[];
 	newTaskHeading?: string;
 	newTaskPosition?: "top" | "bottom";
 	defaultTaskFile?: string;
@@ -383,8 +394,10 @@ export const defaultSettings: SettingValues = {
 	savedViews: [],
 	columnWidth: 300,
 	flowDirection: FlowDirection.LeftToRight,
+	layout: "table",
 	collapsedColumns: [],
 	collapsedGroups: [],
+	collapsedCells: [],
 	newTaskHeading: "",
 	newTaskPosition: "bottom",
 	defaultTaskFile: "",

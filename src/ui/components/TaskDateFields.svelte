@@ -21,6 +21,8 @@
 	// here once let a freshly mounted instance write `false` back into the
 	// parent and close the editor it was meant to show.
 	export let onEditingDatesChange: (editing: boolean) => void = () => {};
+	/** Dense list cards put "+ Date" in the card toolbar and open the editor via openEditor(). */
+	export let showAddButton = true;
 
 	let isDateEditing = false;
 	let draftDateValues: Record<EditableDateKey, string> = { due: "", scheduled: "", start: "" };
@@ -51,6 +53,10 @@
 		isDateEditing = true;
 	}
 
+	export function openEditor() {
+		openDateEditor();
+	}
+
 	// When the inputs are only visible because the task text is being edited,
 	// clicking one blurs the textarea, which ends task editing and would
 	// unmount the inputs mid-click. Pinning isDateEditing on first interaction
@@ -78,7 +84,7 @@
 	}
 </script>
 
-{#if showReadChips}
+{#if showReadChips && showAddButton}
 	<div
 		class="task-date-fields read-mode"
 		role="group"

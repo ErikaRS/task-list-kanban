@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatMobileTaskCount } from "./mobile_layout";
+	import { formatListTaskCount } from "./list_layout";
 	import type { AxisBucket, PrimaryBucketId } from "./board_matrix";
 	import GroupLabel from "./GroupLabel.svelte";
 	import RescheduleOverdueButton from "./RescheduleOverdueButton.svelte";
@@ -17,6 +17,8 @@
 	export let collapsible = false;
 	export let isCollapsed = false;
 	export let onToggleCollapse: (() => void) | undefined = undefined;
+	/** Overrides the toggle's accessible name, e.g. for a single List cell. */
+	export let toggleLabel: string | undefined = undefined;
 	export let app: App | undefined = undefined;
 	export let taskActions: TaskActions | undefined = undefined;
 	export let excludedTags: string[] = [];
@@ -81,11 +83,11 @@
 	{#if collapsible}
 		<button type="button" class="mobile-group-toggle" on:click={onToggleCollapse}
 			aria-expanded={!isCollapsed}
-			aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${bucket.label} swimlane`}>
+			aria-label={toggleLabel ?? `${isCollapsed ? "Expand" : "Collapse"} ${bucket.label} swimlane`}>
 			{isCollapsed ? "▶" : "▼"}
 		</button>
 	{/if}
-	<GroupLabel {bucket} /> <span class="mobile-section-count">{isCollapsed ? count : formatMobileTaskCount(count)}</span>
+	<GroupLabel {bucket} /> <span class="mobile-section-count">{isCollapsed ? count : formatListTaskCount(count)}</span>
 	<RescheduleOverdueButton {bucket} count={overdueRescheduleCount} onReschedule={onRescheduleOverdue} />
 </svelte:element>
 

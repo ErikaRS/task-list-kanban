@@ -1,7 +1,8 @@
 <script lang="ts">
 	import CompactTagSelect from "./components/select/compact_tag_select.svelte";
 	import Icon from "./components/icon.svelte";
-	import { FlowDirection, isFlowDirection } from "./settings/settings_store";
+	import { FlowDirection, isFlowDirection, type BoardLayout } from "./settings/settings_store";
+	import { shouldUseListRenderer } from "./board/list_layout";
 	import {
 		savedViewPropertyLabels,
 		type SavedViewListEntry,
@@ -55,6 +56,16 @@
 	export let onSetShowArchivedColumn: (show: boolean) => void = () => {};
 	export let onSetFlowDirection: (flowDirection: FlowDirection) => void;
 	export let onSetColumnWidth: (columnWidth: number) => void;
+	/** Table or List (SPEC 0055). Mobile always lists, so it gets no choice. */
+	export let layout: BoardLayout = "table";
+	export let isMobile = false;
+	export let onSetLayout: (layout: BoardLayout) => void = () => {};
+	$: showCardWidth = !shouldUseListRenderer(isMobile, layout);
+
+	const layoutOptions: Array<{ value: BoardLayout; label: string }> = [
+		{ value: "table", label: "Table" },
+		{ value: "list", label: "List" },
+	];
 	export let savedViews: SavedViewListEntry[] = [];
 	export let savedViewListExpanded = false;
 
@@ -263,6 +274,28 @@
 		</div>
 	{/if}
 
+	{#if !isMobile}
+		<div class="view-editor-row">
+			<div class="view-editor-label">
+				<span>Layout</span>
+			</div>
+			<div class="view-editor-controls">
+				<div class="segmented-toggle" role="group" aria-label="Board layout">
+					{#each layoutOptions as option (option.value)}
+						<button
+							type="button"
+							class:active={layout === option.value}
+							aria-pressed={layout === option.value}
+							on:click={() => onSetLayout(option.value)}
+						>
+							{option.label}
+						</button>
+					{/each}
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<div class="view-editor-row">
 		<div class="view-editor-label">
 			<span>Flow</span>
@@ -281,6 +314,7 @@
 		</div>
 	</div>
 
+	{#if showCardWidth}
 	<div class="view-editor-row">
 		<div class="view-editor-label">
 			<span>Card width</span>
@@ -300,6 +334,7 @@
 			</div>
 		</div>
 	</div>
+	{/if}
 
 	<label class="view-editor-toggle-row">
 		<input type="checkbox" checked={showArchivedColumn}
@@ -554,7 +589,12 @@
 		min-width: 0;
 	}
 
-	.tag-group-mode-toggle {
+	.segmented-toggle {
+		--tag-group-control-height: 30px;
+	}
+
+	.tag-group-mode-toggle,
+	.segmented-toggle {
 		display: inline-flex;
 		align-items: stretch;
 		border: var(--input-border-width, 1px) solid var(--background-modifier-border);

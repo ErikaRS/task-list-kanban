@@ -6,6 +6,8 @@ Manual acceptance verification: 2026-09-07
 
 # SPEC 0038 — Mobile Board Layout
 
+> **Later changes:** [SPEC 0055](SPEC_0055__COMPLETE__DESKTOP_LIST_LAYOUT.md) reuses this renderer for the desktop List layout and renames it: `BoardMobileList` → `BoardList` (`board_list.svelte`), `MobileSectionHeader` → `ListSectionHeader`, `mobile_layout.ts` → `list_layout.ts`. It also makes inner headers fold single cells and makes list cards dense. Names below are as of this spec.
+
 ## Feature Request Summary
 
 - [#176](https://github.com/ErikaRS/task-list-kanban/issues/176) — Android board becomes extremely small and task input is hidden by the keyboard

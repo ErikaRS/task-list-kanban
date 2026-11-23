@@ -74,6 +74,7 @@ describe("saved view helpers", () => {
 			groupSource: { kind: "property", key: "priority", collapsePastDates: true },
 			groupDirection: "asc",
 			flowDirection: FlowDirection.BottomToTop,
+			layout: "list",
 			columnWidth: 420,
 		};
 
@@ -86,6 +87,7 @@ describe("saved view helpers", () => {
 				groupSource: settings.groupSource,
 				groupDirection: settings.groupDirection,
 				flowDirection: settings.flowDirection,
+				layout: settings.layout,
 				columnWidth: settings.columnWidth,
 			},
 		);
@@ -105,9 +107,10 @@ describe("saved view helpers", () => {
 				direction: "asc",
 			},
 			flowDirection: FlowDirection.BottomToTop,
+			layout: "list",
 			columnWidth: 420,
 		});
-		expect(savedViewPropertyLabels(captured)).toEqual(["Sort", "Group", "Flow", "Width"]);
+		expect(savedViewPropertyLabels(captured)).toEqual(["Sort", "Group", "Flow", "Layout", "Width"]);
 	});
 
 	it("applies only the saved properties and leaves unrelated settings alone", () => {
@@ -129,6 +132,7 @@ describe("saved view helpers", () => {
 				direction: "asc",
 			},
 			flowDirection: FlowDirection.TopToBottom,
+			layout: "list",
 		};
 
 		const applied = applySavedViewProperties(settings, savedView);
@@ -138,6 +142,7 @@ describe("saved view helpers", () => {
 		expect(applied.groupSource).toEqual({ kind: "tag-prefix", prefix: "Project-" });
 		expect(applied.groupDirection).toBe("asc");
 		expect(applied.flowDirection).toBe(FlowDirection.TopToBottom);
+		expect(applied.layout).toBe("list");
 		expect(applied.columnWidth).toBe(300);
 		expect(applied.excludedTags).toEqual(["hidden"]);
 	});

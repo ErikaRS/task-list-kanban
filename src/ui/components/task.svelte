@@ -54,6 +54,13 @@
 	export let showDragHandle: boolean = false;
 	export let onUnpin: () => void = () => {};
 	export let treatNestedTasksAsSubtasks: boolean = false;
+	/**
+	 * Dense list card (SPEC 0055): one line with "+ Date", go to file and the
+	 * menu as a toolbar, revealed on hover/focus on desktop and always on mobile.
+	 */
+	export let dense = false;
+	const toolbarAlwaysVisible = Platform.isMobile;
+	let dateFields: TaskDateFields | undefined;
 
 	let editTarget: { id: string; source?: MarkdownSource; content: string };
 
@@ -432,6 +439,8 @@
 		class:is-dragging={isDragging}
 		class:is-selected={isSelectionMode && isSelected}
 		class:is-selection-mode={isSelectionMode}
+		class:dense
+		class:dense-toolbar-visible={dense && (toolbarAlwaysVisible || isEditingDates)}
 		role="group"
 		draggable={canStartTaskDrag({ isEditing, isMobileEditing })}
 		style:--task-accent-color={accentColor}
@@ -541,7 +550,35 @@
 					<Icon name="lucide-grip-vertical" size={16} opacity={0.5} />
 				</span>
 			{/if}
-			<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
+			{#if dense}
+				<div class="dense-toolbar">
+					{#if dateEditingEnabled}
+						<button
+							type="button"
+							class="dense-action add-date-action"
+							aria-label="Edit task dates"
+							title="Edit task dates"
+							on:click|stopPropagation={() => dateFields?.openEditor()}
+						>
+							<Icon name="lucide-calendar-plus" size={16} />
+						</button>
+					{/if}
+					{#if showFilepath}
+						<button
+							type="button"
+							class="dense-action go-to-file-action"
+							aria-label={`Go to file ${task.path}`}
+							title={task.path}
+							on:click|stopPropagation={(e) => taskActions.viewFile(task.id, e)}
+						>
+							<Icon name="lucide-arrow-up-right" size={16} />
+						</button>
+					{/if}
+					<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
+				</div>
+			{:else}
+				<TaskMenu {task} {taskActions} {columnTagTableStore} {doneColumnName} />
+			{/if}
 		</svelte:fragment>
 	</TaskLineRow>
 
@@ -611,11 +648,16 @@
 		{/if}
 	{/if}
 	{#if dateEditingEnabled}
-		<div class="task-properties task-date-properties">
+		<div
+			class="task-properties task-date-properties"
+			class:dense-empty={dense && !isEditingDates && dateDisplayProperties.length === 0}
+		>
 			<!-- A single persistent instance: swapping instances across if/else
 			     branches destroys the editor's internal state the moment it
 			     opens, snapping the UI back to read mode. -->
 			<TaskDateFields
+				bind:this={dateFields}
+				showAddButton={!dense}
 				{task}
 				{taskActions}
 				{propertySchemaOption}
@@ -636,7 +678,7 @@
 			{/if}
 		</div>
 	{/if}
-	{#if showFilepath}
+	{#if showFilepath && !dense}
 		<div class="task-footer">
 			<button
 				class="go-to-file-button"
@@ -1104,5 +1146,58 @@
 			background: transparent;
 			background-color: transparent;
 		}
+	}
+
+	// Dense list cards (SPEC 0055): one divider per card, no interior lines,
+	// and the toolbar on the task line.
+	.task.dense {
+		.task-properties,
+		.task-properties-debug {
+			border-top: none;
+		}
+
+		.task-date-properties.dense-empty {
+			display: none;
+		}
+	}
+
+	.dense-toolbar {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2-1);
+		transition: opacity 0.12s ease;
+	}
+
+	.dense-action {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		min-height: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-s);
+		box-shadow: none;
+		background: transparent;
+		color: var(--text-muted);
+		cursor: pointer;
+
+		&:hover {
+			background: var(--background-modifier-hover);
+			color: var(--text-normal);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--background-modifier-border-focus);
+			outline-offset: 1px;
+		}
+	}
+
+	// Desktop reveals the toolbar on hover or keyboard focus. Opacity, not
+	// visibility, so the controls stay in the tab order.
+	.task.dense:not(.dense-toolbar-visible):not(:hover):not(:focus-within) .dense-toolbar {
+		opacity: 0;
 	}
 </style>
