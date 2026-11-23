@@ -22,6 +22,8 @@ This spec adds a **Layout** view property with two values, **Table** (today's de
 6. The existing flow direction still decides the list hierarchy: LTR/RTL are column-dominant, TTB/BTT are group-dominant, exactly as in SPEC 0038.
 7. Everything that is not the matrix renderer keeps its desktop behavior in List layout: board rail dock, toolbar and popovers, inline card editing, drag and drop, selection, and the archived column pane.
 8. A board whose layout was set on desktop must not change on mobile, and opening a board on mobile must not overwrite its stored layout.
+9. List cards are dense: one line per task, with `+ Date`, go to file, and the task menu as controls on that line. On desktop the controls appear on hover or keyboard focus; on mobile they are always visible. Table cards are unchanged.
+10. In List, an inner header folds just that one cell (one group within one column), independently of the other cells on the same axis. Outer headers keep folding for the whole board, shared with Table.
 
 ## High-Level Design
 
@@ -84,6 +86,46 @@ On desktop the list is capped at 800px and centered in the board pane, in the ma
 
 The cap is a fixed reading width, not tied to Card width, which stays a Table-only setting. It lives in one CSS variable (`--tlk-list-max-width`) so it can be tuned or themed without code changes.
 
+### Dense list cards
+
+The card component (`task.svelte`) is shared by Table and List. List passes a `dense` flag; Table is untouched.
+
+```text
+Table card (today)                    Dense list card
+┌───────────────────────────┐         ○ Task text            [+Date] [↗] [⋯]
+│ ○ Task text           [⋯] │         ○ Other task  📅 Nov 24  [+Date] [↗] [⋯]
+├───────────────────────────┤           (date chips: second line only if set)
+│ + Date                    │
+├───────────────────────────┤
+│ ↗ path/to/file.md         │
+└───────────────────────────┘
+```
+
+- **Toolbar.** `+ Date`, go to file, and the task menu sit at the right of the task line, in that order. Pin and manual-order drag handle keep their current positions in the same action slot.
+- **Visibility.** Desktop: hidden until the card is hovered or contains focus (`:hover`, `:focus-within`), so keyboard users reach every control in tab order. While the date editor is open the toolbar stays visible. Mobile: always visible, because touch has no hover.
+- **File path.** Not shown as a line; the go-to-file button's tooltip and accessible name carry the path. The board's "Show file path" setting still controls whether the go-to-file button exists.
+- **Dates and properties.** Existing date chips and pretty properties render on one compact line beneath the text only when the task has some. `+ Date` opens the existing date editor beneath the line.
+- **Lines.** No borders inside a card. Cards butt together, separated by a single bottom border. The column accent strip remains.
+- Subtasks, consolidated tags, and debug properties render as today, without interior dividers.
+
+### Per-cell folding in List
+
+A new board setting `collapsedCells?: string[]` stores folded cells keyed by group id and column id (so keys survive flow-direction changes). It is board state like `collapsedColumns` and `collapsedGroups`: not a view property, not in saved views or the default view.
+
+| Header | Column-dominant (LTR/RTL) | Group-dominant (TTB/BTT) |
+| --- | --- | --- |
+| Outer | Column: `collapsedColumns` (shared with Table) | Group: `collapsedGroups` (shared with Table) |
+| Inner | Cell: `collapsedCells` (List only) | Cell: `collapsedCells` (List only) |
+
+Rules:
+
+1. In List, a cell is hidden when its outer bucket is folded or the cell is folded. The *inner* axis's whole-board fold (`collapsedGroups` in column-dominant, `collapsedColumns` in group-dominant) is ignored.
+2. Table ignores `collapsedCells` entirely; it has no per-cell affordance to show or undo one.
+3. Switching Table ↔ List or changing flow preserves all three lists. A cell folded in List is open in Table and folded again on return.
+4. A folded cell whose bucket disappears (date rollover, tag removed) leaves an unused key, as with `collapsedGroups` today. Keys for buckets no longer on the board are pruned when the board is next saved.
+5. A folded cell keeps its header with its count, including when filtering empties it.
+6. `hideSwimlanesWithOnlyCollapsedContent` stays a Table concern; List keeps every cell's header so a folded cell can be reopened.
+
 ## Detailed Behavior
 
 1. **Switching.** Changing Layout re-renders the board immediately. Collapse state, selection, filters, sort, and group are untouched. Layout is a pinned override like other view properties, so saved views and the unsaved-view indicator treat it the same way as flow and width.
@@ -100,8 +142,9 @@ The cap is a fixed reading width, not tied to Card width, which stays a Table-on
 - Changing Table layout, mobile layout, or the flow semantics.
 - A mobile Table layout, or any way to select a layout on mobile.
 - Per-device layout preferences. Layout is a shared view property.
-- Group collapse, which stays out of scope as in SPEC 0038.
-- Renaming internal `mobile_*` identifiers as part of the behavior change (see Phase 4).
+- Per-cell folding in Table.
+- Changing what Table's column and group folds mean.
+- Renaming internal `mobile_*` identifiers as part of the behavior change (see Phase 6).
 - Redesigning the archived pane or giving it its own width.
 
 ## Open Questions
@@ -164,14 +207,41 @@ The cap is a fixed reading width, not tied to Card width, which stays a Table-on
 
 **Implemented by:** *pending*
 
-### Phase 4: Naming cleanup and acceptance
+### Phase 4: Dense list cards
+
+**Goal:** List cards take one line with an inline toolbar (Requirement 9, Dense list cards).
+
+1. Add a `dense` flag to `task.svelte`, passed by `BoardCell` from the list renderer.
+2. Move `+ Date` and go to file into the action slot when dense; render date chips and properties on one line only when present.
+3. Desktop hover/focus-within visibility; always visible on mobile.
+4. Remove interior card borders in the list; single divider between cards.
+5. Test: dense card exposes `+ Date`, go to file, and menu on the task line with the path as accessible name, and renders no date line without dates; Table card unchanged.
+
+**Deliverable:** Dense list cards on desktop and mobile.
+
+**Implemented by:** *pending*
+
+### Phase 5: Per-cell folding in List
+
+**Goal:** Inner headers fold a single cell (Requirement 10, Per-cell folding in List).
+
+1. Add `collapsedCells` to the settings schema and a pure helper that resolves a cell's folded state for List from the three lists and the hierarchy mode.
+2. Inner headers in both hierarchies toggle the cell; outer headers keep their shared toggles.
+3. Prune keys for buckets not on the board when saving.
+4. Test: helper rules (outer fold, cell fold, ignored inner-axis fold in both hierarchies); toggling an inner header writes only that cell; Table rendering ignores `collapsedCells`.
+
+**Deliverable:** Independent cell folding in List that leaves Table unaffected.
+
+**Implemented by:** *pending*
+
+### Phase 6: Naming cleanup and acceptance
 
 **Goal:** Internal names stop implying the list is mobile-only, and the acceptance matrix passes.
 
 1. Rename `BoardMobileList`, `MobileSectionHeader`, and related helpers to list-oriented names in a mechanical, behavior-free commit.
 2. Update SPEC 0038 cross-references and `README.architecture.md`.
 3. Run `npm run build` and `npm test`.
-4. Manual acceptance matrix (unchecked until performed): each flow direction, ungrouped and grouped, filtered and unfiltered, in desktop List; switching Table to List and back preserves width; archived pane open beside the list; drag and drop, manual order, pinning, selection and bulk actions; a board set to List on desktop opens unchanged on mobile and mobile does not overwrite it; saved view and default view behavior.
+4. Manual acceptance matrix (unchecked until performed): each flow direction, ungrouped and grouped, filtered and unfiltered, in desktop List; switching Table to List and back preserves width; archived pane open beside the list; drag and drop, manual order, pinning, selection and bulk actions; a board set to List on desktop opens unchanged on mobile and mobile does not overwrite it; saved view and default view behavior; dense cards on desktop (hover and keyboard) and mobile; per-cell folding in both hierarchies, then switching to Table and back.
 
 **Deliverable:** Shipped desktop List layout with the acceptance matrix verified.
 
